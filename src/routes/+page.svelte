@@ -1,51 +1,16 @@
-<div class="logo">
-  <table class="letter-grid">
-    <tbody>
-      <tr>
-        <td class="letter red">M</td>
-        <td class="letter alt">Z</td>
-      </tr>
-      <tr>
-        <td class="letter alt">T</td>
-        <td class="letter red">R</td>
-      </tr>
-    </tbody>
-  </table>
+<script>
+  import Logo from "$lib/components/Logo.svelte";
+</script>
+
+<div class="container">
+  <Logo size={5} />
 </div>
 
 <style>
-  .logo {
-    font-family: "Zilla Slab", serif;
-    font-weight: 600;
-    font-size: 5rem;
-    color: #2d1810;
-    line-height: 0.9;
-    max-width: 100vw;
-    max-height: 100vh;
-    box-sizing: border-box;
-    overflow: hidden;
-  }
-
-  .letter-grid {
-    border-collapse: collapse;
-    width: 100%;
-    max-width: 100%;
-  }
-
-  .letter {
-    width: 5.5rem;
-    height: 5.5rem;
-    text-align: center;
-    vertical-align: middle;
-    border: 8px solid #2d1810;
-    background-color: #f5f1e8;
-  }
-
-  .letter.alt {
-    background-color: #e8dcc0;
-  }
-
-  .letter.red {
-    background-color: #e8b4b4;
+  .container {
+    min-height: calc(100vh - 8rem);
+    display: flex;
+    align-items: center;
+    justify-content: center;
   }
 </style>
