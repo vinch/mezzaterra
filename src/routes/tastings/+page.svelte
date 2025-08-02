@@ -1,9 +1,7 @@
 <script lang="ts">
   import { onMount } from "svelte";
   import { supabase } from "$lib/supabase";
-  import type { Database } from "$lib/database.types";
-
-  type Tasting = Database["public"]["Tables"]["tastings"]["Row"];
+  import type { Tasting } from "$lib/types";
 
   let tastings: Tasting[] = [];
   let loading = true;
@@ -12,7 +10,7 @@
   onMount(async () => {
     try {
       const { data, error: fetchError } = await supabase
-        .from("tastings")
+        .from("tasting")
         .select("*")
         .order("created_at", { ascending: false });
 

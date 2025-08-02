@@ -2,25 +2,16 @@
   import { page } from "$app/stores";
   import { onMount } from "svelte";
   import { supabase } from "$lib/supabase";
-  import type { Database } from "$lib/database.types";
+  import type { WineVintage, Tasting } from "$lib/types";
   import WineModal from "$lib/components/WineModal.svelte";
-
-  type Tasting = Database["public"]["Tables"]["tastings"]["Row"];
-  type Wine = Database["public"]["Tables"]["wines"]["Row"];
-  type Winery = Database["public"]["Tables"]["wineries"]["Row"];
-  type Grape = Database["public"]["Tables"]["grapes"]["Row"];
 
   const tastingId = $page.params.id;
 
   let tasting: Tasting | null = null;
-  let wines: (Wine & {
-    winery: Winery | null;
-    appelations?: { name: string; labels?: { name: string } | null } | null;
-    wines_grapes?: { percentage: number | null; grapes: { name: string } }[];
-  })[] = [];
+  let wineVintages: WineVintage[] = [];
   let loading = true;
   let error: string | null = null;
-  let selectedWine: any = null;
+  let selectedWineVintage: WineVintage | null = null;
   let showModal = false;
 
   if (!tastingId) {
@@ -34,7 +25,7 @@
     try {
       // Fetch tasting details
       const { data: tastingData, error: tastingError } = await supabase
-        .from("tastings")
+        .from("tasting")
         .select("*")
         .eq("id", tastingId)
         .single();
@@ -46,51 +37,45 @@
 
       tasting = tastingData;
 
-      // Fetch wines for this tasting
-      const { data: winesData, error: winesError } = await supabase
-        .from("tastings_wines")
-        .select(
-          `
+      // Fetch wine vintages for this tasting
+      const { data: wineVintagesData, error: wineVintagesError } =
+        await supabase
+          .from("tasting_wine_vintage")
+          .select(
+            `
           order,
-          wines (
+          wine_vintage (
             *,
-            wineries (*),
-            appelations (
-              name,
-              labels (name)
+            wine (
+              *,
+              winery (*),
+              appelation (
+                name,
+                label (name)
+              ),
+              wine_pairing (
+                pairing_id,
+                pairing (description)
+              )
             ),
-            wines_grapes (
+            wine_vintage_grape (
               percentage,
-              grapes (name)
+              grape (name)
             ),
-            regions (
-              name,
-              countries (iso_code, name)
-            ),
-            wine_tasting_notes (*),
-            wines_pairings (
-              pairing_id,
-              pairings (description)
-            )
+            note (*)
           )
         `
-        )
-        .eq("tasting_id", tastingId)
-        .order("order");
+          )
+          .eq("tasting_id", tastingId)
+          .order("order");
 
-      if (winesError) {
-        console.error("Error fetching wines:", winesError);
+      if (wineVintagesError) {
+        console.error("Error fetching wine vintages:", wineVintagesError);
       } else {
-        wines =
-          winesData?.map((item) => ({
-            ...item.wines,
-            winery: item.wines.wineries,
-            wine_tasting_notes: item.wines.wine_tasting_notes,
-            wines_pairings: item.wines.wines_pairings,
-            regions: item.wines.regions,
-          })) || [];
+        wineVintages = (wineVintagesData?.map((item) => item.wine_vintage) ||
+          []) as unknown as WineVintage[];
 
-        console.log("Wines data:", wines);
+        console.log("Wine vintages data:", wineVintages);
       }
     } catch (err) {
       error = "Failed to load tasting";
@@ -99,14 +84,14 @@
     }
   });
 
-  function openWineModal(wine: any) {
-    selectedWine = wine;
+  function openWineModal(wineVintage: WineVintage) {
+    selectedWineVintage = wineVintage;
     showModal = true;
   }
 
   function closeModal() {
     showModal = false;
-    selectedWine = null;
+    selectedWineVintage = null;
   }
 </script>
 
@@ -138,65 +123,71 @@
       </div>
     </div>
 
-    {#if wines.length > 0}
+    {#if wineVintages.length > 0}
       <div class="wines-section">
         <div class="wines-grid">
-          {#each wines as wine, index}
+          {#each wineVintages as wineVintage, index}
             <div
               class="wine-card"
-              onclick={() => openWineModal(wine)}
+              onclick={() => openWineModal(wineVintage)}
               onkeypress={(e) => {
                 if (e.key === "Enter" || e.key === " ") {
-                  openWineModal(wine);
+                  openWineModal(wineVintage);
                 }
               }}
               role="button"
               tabindex="0"
             >
               <div class="wine-order">#{index + 1}</div>
-              {#if wine.organic}
+              {#if wineVintage.organic}
                 <img src="/organic.png" alt="Organic" class="organic-logo" />
               {/if}
               <div class="wine-info">
                 <h2>
-                  {#if wine.name}
-                    {wine.name}
+                  {#if wineVintage.wine.name}
+                    {wineVintage.wine.name}
                   {:else}
-                    {wine.appelations?.name || "Unknown Appellation"}
-                    {#if wine.appelations?.labels?.name}
-                      <span class="label"> {wine.appelations.labels.name}</span>
+                    {wineVintage.wine.appelation?.name || "Unknown Appellation"}
+                    {#if wineVintage.wine.appelation?.label?.name}
+                      <span class="label">
+                        {wineVintage.wine.appelation.label.name}</span
+                      >
                     {/if}
                   {/if}
                 </h2>
-                {#if wine.name && wine.appelations?.name}
+                {#if wineVintage.wine.name && wineVintage.wine.appelation?.name}
                   <p class="appellation">
-                    {wine.appelations.name}
-                    {#if wine.appelations.labels?.name}
-                      <span class="label"> {wine.appelations.labels.name}</span>
+                    {wineVintage.wine.appelation.name}
+                    {#if wineVintage.wine.appelation?.label?.name}
+                      <span class="label">
+                        {wineVintage.wine.appelation.label.name}</span
+                      >
                     {/if}
                   </p>
                 {/if}
-                {#if wine.winery}
-                  <p class="winery">{wine.winery.name}</p>
+                {#if wineVintage.wine.winery}
+                  <p class="winery">{wineVintage.wine.winery.name}</p>
                 {/if}
-                {#if wine.wines_grapes && wine.wines_grapes.length > 0}
+                {#if wineVintage.wine_vintage_grape && wineVintage.wine_vintage_grape.length > 0}
                   <p class="grapes">
-                    🍇 {wine.wines_grapes.map((g) => g.grapes.name).join(", ")}
+                    🍇 {wineVintage.wine_vintage_grape
+                      .map((g) => g.grape.name)
+                      .join(", ")}
                   </p>
                 {/if}
-                {#if wine.description}
-                  <p class="description">{wine.description}</p>
+                {#if wineVintage.wine.description}
+                  <p class="description">{wineVintage.wine.description}</p>
                 {/if}
               </div>
               <div class="wine-details">
-                {#if wine.vintage}
-                  <span class="vintage-tag">{wine.vintage}</span>
+                {#if wineVintage.year}
+                  <span class="vintage-tag">{wineVintage.year}</span>
                 {/if}
-                {#if wine.abv}
-                  <span class="abv">{wine.abv}% ABV</span>
+                {#if wineVintage.abv}
+                  <span class="abv">{wineVintage.abv}% ABV</span>
                 {/if}
-                {#if wine.price}
-                  <span class="price">€{wine.price}</span>
+                {#if wineVintage.price}
+                  <span class="price">€{wineVintage.price}</span>
                 {/if}
               </div>
             </div>
@@ -209,8 +200,8 @@
   {/if}
 </div>
 
-{#if showModal && selectedWine}
-  <WineModal wine={selectedWine} on:close={closeModal} />
+{#if showModal && selectedWineVintage}
+  <WineModal wineVintage={selectedWineVintage} on:close={closeModal} />
 {/if}
 
 <style>

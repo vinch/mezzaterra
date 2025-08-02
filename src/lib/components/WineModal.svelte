@@ -1,32 +1,8 @@
 <script lang="ts">
   import { createEventDispatcher } from "svelte";
-  import type { Database } from "$lib/database.types";
+  import type { WineVintage } from "$lib/types";
 
-  type Wine = Database["public"]["Tables"]["wines"]["Row"];
-  type Winery = Database["public"]["Tables"]["wineries"]["Row"];
-  type Region = Database["public"]["Tables"]["regions"]["Row"];
-  type Country = Database["public"]["Tables"]["countries"]["Row"];
-  type WineTastingNote =
-    Database["public"]["Tables"]["wine_tasting_notes"]["Row"];
-  type WinePairing = Database["public"]["Tables"]["wines_pairings"]["Row"];
-
-  export let wine:
-    | (Wine & {
-        winery: Winery | null;
-        appelations?: { name: string; labels?: { name: string } | null } | null;
-        wines_grapes?: {
-          percentage: number | null;
-          grapes: { name: string };
-        }[];
-        regions?: (Region & { countries?: Country | null }) | null;
-        wine_tasting_notes?: WineTastingNote[];
-        wines_pairings?: {
-          pairing_id: string;
-          wine_id: string;
-          pairings?: { description: string };
-        }[];
-      })
-    | null = null;
+  export let wineVintage: WineVintage | null = null;
 
   const dispatch = createEventDispatcher();
 
@@ -59,7 +35,7 @@
 
 <svelte:window on:keydown={handleKeydown} />
 
-{#if wine}
+{#if wineVintage}
   <div
     class="modal-backdrop"
     onclick={handleBackdropClick}
@@ -84,79 +60,77 @@
 
       <div class="wine-header">
         <div class="wine-layout">
-          {#if wine.image_url}
+          {#if wineVintage.image_url}
             <div class="wine-image">
-              <img src={wine.image_url} alt={wine.name || "Wine"} />
+              <img
+                src={wineVintage.image_url}
+                alt={wineVintage.wine.name || "Wine"}
+              />
             </div>
           {/if}
 
           <div class="wine-info">
             <h1>
-              {#if wine.name}
-                {wine.name}
+              {#if wineVintage.wine.name}
+                {wineVintage.wine.name}
               {:else}
-                {wine.appelations?.name || "Unknown Appellation"}
-                {#if wine.appelations?.labels?.name}
-                  {wine.appelations.labels.name}
+                {wineVintage.wine.appelation?.name || "Unknown Appellation"}
+                {#if wineVintage.wine.appelation?.label?.name}
+                  {wineVintage.wine.appelation.label.name}
                 {/if}
               {/if}
-              {#if wine.organic}
+              {#if wineVintage.organic}
                 <img src="/organic.png" alt="Organic" class="organic-logo" />
               {/if}
             </h1>
 
-            {#if wine.name && wine.appelations?.name}
+            {#if wineVintage.wine.name && wineVintage.wine.appelation?.name}
               <p class="appellation">
-                {wine.appelations.name}
-                {#if wine.appelations.labels?.name}
-                  {wine.appelations.labels.name}
+                {wineVintage.wine.appelation.name}
+                {#if wineVintage.wine.appelation.label?.name}
+                  {wineVintage.wine.appelation.label.name}
                 {/if}
               </p>
             {/if}
 
-            {#if wine.winery}
-              <p class="winery">{wine.winery.name}</p>
+            {#if wineVintage.wine.winery}
+              <p class="winery">{wineVintage.wine.winery.name}</p>
             {/if}
 
-            {#if wine.regions?.countries}
-              <p class="region">
-                {getCountryFlag(wine.regions.countries.iso_code)}
-                {wine.regions.name}
-              </p>
-            {/if}
-
-            {#if wine.wines_grapes && wine.wines_grapes.length > 0}
+            {#if wineVintage.wine_vintage_grape && wineVintage.wine_vintage_grape.length > 0}
               <p class="grapes">
-                🍇 {wine.wines_grapes.map((g) => g.grapes.name).join(", ")}
+                🍇 {wineVintage.wine_vintage_grape
+                  .map((g) => g.grape.name)
+                  .join(", ")}
               </p>
             {/if}
 
-            {#if wine.description}
-              <p class="description">{wine.description}</p>
+            {#if wineVintage.wine.description}
+              <p class="description">{wineVintage.wine.description}</p>
             {/if}
 
             <div class="wine-details">
-              {#if wine.vintage}
-                <span class="vintage-tag">{wine.vintage}</span>
+              {#if wineVintage.year}
+                <span class="vintage-tag">{wineVintage.year}</span>
               {/if}
-              {#if wine.abv}
-                <span class="abv">{wine.abv}% ABV</span>
+              {#if wineVintage.abv}
+                <span class="abv">{wineVintage.abv}% ABV</span>
               {/if}
-              {#if wine.price}
-                <span class="price">€{wine.price}</span>
+              {#if wineVintage.price}
+                <span class="price">€{wineVintage.price}</span>
               {/if}
             </div>
           </div>
         </div>
       </div>
 
-      {#if wine.wine_tasting_notes && wine.wine_tasting_notes.length > 0}
+      {#if wineVintage.note && wineVintage.note.length > 0}
         <div class="section">
           <h2>Notes de dégustation</h2>
           <div class="tasting-notes">
             {#each ["color", "nose", "mouth", "vinification"] as noteType}
-              {@const note = wine.wine_tasting_notes.find(
-                (note) => note.type === noteType
+              {@const note = wineVintage.note.find(
+                (note: any) => note.type === noteType
               )}
               {#if note}
                 <div class="note">
@@ -179,14 +153,14 @@
         </div>
       {/if}
 
-      {#if wine.wines_pairings && wine.wines_pairings.length > 0}
+      {#if wineVintage.wine.wine_pairing && wineVintage.wine.wine_pairing.length > 0}
         <div class="section">
           <h2>Accompagnements</h2>
           <div class="pairings">
-            {#each wine.wines_pairings as pairing}
+            {#each wineVintage.wine.wine_pairing as pairing}
               <div class="pairing">
                 <p>
-                  {pairing.pairings?.description || "No description available"}
+                  {pairing.pairing?.description || "No description available"}
                 </p>
               </div>
             {/each}
