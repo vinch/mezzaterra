@@ -1,88 +1,15 @@
 <script lang="ts">
   import { page } from "$app/stores";
-  import { onMount } from "svelte";
-  import { supabase } from "$lib/supabase";
   import type { WineVintage, Tasting } from "$lib/types";
   import WineModal from "$lib/components/WineModal.svelte";
 
-  const tastingId = $page.params.id;
+  // Get data from the load function
+  export let data;
 
-  let tasting: Tasting | null = null;
-  let wineVintages: WineVintage[] = [];
-  let loading = true;
-  let error: string | null = null;
+  const { tasting, wineVintages, error } = data;
+
   let selectedWineVintage: WineVintage | null = null;
   let showModal = false;
-
-  if (!tastingId) {
-    error = "No tasting ID provided";
-    loading = false;
-  }
-
-  onMount(async () => {
-    if (!tastingId) return;
-
-    try {
-      // Fetch tasting details
-      const { data: tastingData, error: tastingError } = await supabase
-        .from("tasting")
-        .select("*")
-        .eq("id", tastingId)
-        .single();
-
-      if (tastingError) {
-        error = tastingError.message;
-        return;
-      }
-
-      tasting = tastingData;
-
-      // Fetch wine vintages for this tasting
-      const { data: wineVintagesData, error: wineVintagesError } =
-        await supabase
-          .from("tasting_wine_vintage")
-          .select(
-            `
-          order,
-          wine_vintage (
-            *,
-            wine (
-              *,
-              winery (*),
-              appelation (
-                name,
-                label (name)
-              ),
-              wine_pairing (
-                pairing_id,
-                pairing (description)
-              )
-            ),
-            wine_vintage_grape (
-              percentage,
-              grape (name)
-            ),
-            note (*)
-          )
-        `
-          )
-          .eq("tasting_id", tastingId)
-          .order("order");
-
-      if (wineVintagesError) {
-        console.error("Error fetching wine vintages:", wineVintagesError);
-      } else {
-        wineVintages = (wineVintagesData?.map((item) => item.wine_vintage) ||
-          []) as unknown as WineVintage[];
-
-        console.log("Wine vintages data:", wineVintages);
-      }
-    } catch (err) {
-      error = "Failed to load tasting";
-    } finally {
-      loading = false;
-    }
-  });
 
   function openWineModal(wineVintage: WineVintage) {
     selectedWineVintage = wineVintage;
@@ -100,9 +27,7 @@
 </svelte:head>
 
 <div class="container">
-  {#if loading}
-    <p>Chargement...</p>
-  {:else if error}
+  {#if error}
     <p class="error">Error: {error}</p>
   {:else if !tasting}
     <p>Tasting not found.</p>
@@ -171,7 +96,7 @@
                 {#if wineVintage.wine_vintage_grape && wineVintage.wine_vintage_grape.length > 0}
                   <p class="grapes">
                     🍇 {wineVintage.wine_vintage_grape
-                      .map((g) => g.grape.name)
+                      .map((g: any) => g.grape.name)
                       .join(", ")}
                   </p>
                 {/if}

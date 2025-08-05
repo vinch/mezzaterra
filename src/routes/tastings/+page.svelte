@@ -1,30 +1,10 @@
 <script lang="ts">
-  import { onMount } from "svelte";
-  import { supabase } from "$lib/supabase";
   import type { Tasting } from "$lib/types";
 
-  let tastings: Tasting[] = [];
-  let loading = true;
-  let error: string | null = null;
+  // Get data from the load function
+  export let data;
 
-  onMount(async () => {
-    try {
-      const { data, error: fetchError } = await supabase
-        .from("tasting")
-        .select("*")
-        .order("created_at", { ascending: false });
-
-      if (fetchError) {
-        error = fetchError.message;
-      } else {
-        tastings = data || [];
-      }
-    } catch (err) {
-      error = "Failed to load tastings";
-    } finally {
-      loading = false;
-    }
-  });
+  const { tastings, error } = data;
 </script>
 
 <svelte:head>
@@ -34,12 +14,10 @@
 <div class="container">
   <h1>Dégustations</h1>
 
-  {#if loading}
-    <p>Chargement...</p>
-  {:else if error}
+  {#if error}
     <p class="error">Error: {error}</p>
   {:else if tastings.length === 0}
-    <p>No tastings found.</p>
+    <p>Pas de dégustations trouvées.</p>
   {:else}
     <div class="tastings-grid">
       {#each tastings as tasting}

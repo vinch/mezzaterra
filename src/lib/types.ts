@@ -2,7 +2,14 @@ import type { Database } from "./database.types";
 
 export type Pairing = Database["public"]["Tables"]["pairing"]["Row"];
 export type Label = Database["public"]["Tables"]["label"]["Row"];
-export type Winery = Database["public"]["Tables"]["winery"]["Row"];
+export type Country = Database["public"]["Tables"]["country"]["Row"];
+export type Region = Database["public"]["Tables"]["region"]["Row"] & {
+  country: Country;
+};
+export type Winery = Database["public"]["Tables"]["winery"]["Row"] & {
+  region?: Region;
+  country?: Country;
+};
 export type Appelation = Database["public"]["Tables"]["appelation"]["Row"] & {
   label: Label;
 };

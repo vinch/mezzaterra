@@ -59,18 +59,21 @@ export type Database = {
       country: {
         Row: {
           created_at: string | null
+          flag: string | null
           id: string
           iso_code: string
           name: string
         }
         Insert: {
           created_at?: string | null
+          flag?: string | null
           id?: string
           iso_code: string
           name: string
         }
         Update: {
           created_at?: string | null
+          flag?: string | null
           id?: string
           iso_code?: string
           name?: string

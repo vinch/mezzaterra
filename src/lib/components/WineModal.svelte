@@ -21,16 +21,6 @@
       closeModal();
     }
   }
-
-  // Country flag emoji mapping
-  const countryFlags: Record<string, string> = {
-    it: "🇮🇹",
-  };
-
-  function getCountryFlag(countryCode: string | null): string {
-    if (!countryCode) return "";
-    return countryFlags[countryCode] || "";
-  }
 </script>
 
 <svelte:window on:keydown={handleKeydown} />
@@ -97,10 +87,23 @@
               <p class="winery">{wineVintage.wine.winery.name}</p>
             {/if}
 
+            {#if wineVintage.wine.winery?.region || wineVintage.wine.winery?.country}
+              <p class="region">
+                {wineVintage.wine.winery.region?.country?.flag ||
+                  wineVintage.wine.winery.country?.flag ||
+                  ""}
+                {wineVintage.wine.winery.region?.name ||
+                  wineVintage.wine.winery.country?.name}
+              </p>
+            {/if}
+
             {#if wineVintage.wine_vintage_grape && wineVintage.wine_vintage_grape.length > 0}
               <p class="grapes">
                 🍇 {wineVintage.wine_vintage_grape
-                  .map((g) => g.grape.name)
+                  .map(
+                    (g) =>
+                      g.grape.name + (g.percentage ? ` (${g.percentage}%)` : "")
+                  )
                   .join(", ")}
               </p>
             {/if}
