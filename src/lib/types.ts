@@ -7,8 +7,8 @@ export type Region = Database["public"]["Tables"]["region"]["Row"] & {
   country: Country;
 };
 export type Winery = Database["public"]["Tables"]["winery"]["Row"] & {
-  region?: Region;
-  country?: Country;
+  region: Region;
+  country: Country;
 };
 export type Appelation = Database["public"]["Tables"]["appelation"]["Row"] & {
   label: Label;
@@ -34,3 +34,6 @@ export type WineVintage =
     note: Note[];
   };
 export type Tasting = Database["public"]["Tables"]["tasting"]["Row"];
+export type Customer = Database["public"]["Tables"]["customer"]["Row"] & {
+  country: Country | null;
+};
