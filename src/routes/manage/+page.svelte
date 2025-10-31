@@ -85,14 +85,7 @@
       <h1>Tableau de bord</h1>
     </header>
 
-    <div class="page-content">
-      <div class="welcome-section">
-        <h2>Bienvenue dans l'interface de gestion</h2>
-        <p>
-          Les fonctionnalités d'administration seront ajoutées prochainement.
-        </p>
-      </div>
-    </div>
+    <div class="page-content"></div>
   </div>
 {/if}
 
@@ -206,22 +199,5 @@
 
   .page-content {
     padding: 2rem;
-  }
-
-  .welcome-section {
-    background: white;
-    padding: 2rem;
-    border-radius: 8px;
-    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-  }
-
-  .welcome-section h2 {
-    margin: 0 0 1rem 0;
-    color: #333;
-  }
-
-  .welcome-section p {
-    margin: 0;
-    color: #666;
   }
 </style>

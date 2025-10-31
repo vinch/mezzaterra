@@ -57,7 +57,7 @@
         <li>
           <a href="/manage" class:active={$page.url.pathname === "/manage"}>
             <span class="icon">🏠</span>
-            Accueil
+            Tableau de bord
           </a>
         </li>
         <li>
@@ -69,12 +69,85 @@
             Clients
           </a>
         </li>
+        <li>
+          <a
+            href="/manage/wines"
+            class:active={$page.url.pathname === "/manage/wines"}
+          >
+            <span class="icon">🍷</span>
+            Vins
+          </a>
+        </li>
+        <li>
+          <a
+            href="/manage/wineries"
+            class:active={$page.url.pathname === "/manage/wineries"}
+          >
+            <span class="icon">🏰</span>
+            Vignobles
+          </a>
+        </li>
+        <li>
+          <a
+            href="/manage/appellations"
+            class:active={$page.url.pathname === "/manage/appellations"}
+          >
+            <span class="icon">📍</span>
+            Appellations
+          </a>
+        </li>
+        <li>
+          <a
+            href="/manage/regions"
+            class:active={$page.url.pathname === "/manage/regions"}
+          >
+            <span class="icon">🗺️</span>
+            Régions
+          </a>
+        </li>
+        <li>
+          <a
+            href="/manage/labels"
+            class:active={$page.url.pathname === "/manage/labels"}
+          >
+            <span class="icon">🏷️</span>
+            Labels
+          </a>
+        </li>
+        <li>
+          <a
+            href="/manage/grapes"
+            class:active={$page.url.pathname === "/manage/grapes"}
+          >
+            <span class="icon">🍇</span>
+            Cépages
+          </a>
+        </li>
+        <li>
+          <a
+            href="/manage/countries"
+            class:active={$page.url.pathname === "/manage/countries"}
+          >
+            <span class="icon">🌍</span>
+            Pays
+          </a>
+        </li>
+        <li>
+          <a
+            href="/manage/pairings"
+            class:active={$page.url.pathname === "/manage/pairings"}
+          >
+            <span class="icon">🧀</span>
+            Pairings
+          </a>
+        </li>
       </ul>
       <div class="sidebar-footer">
         <div class="user-info">
           <span class="user-email">{$userStore?.email}</span>
         </div>
         <button class="logout-btn" on:click={handleLogout}>
+          <span class="icon">🚪</span>
           Déconnexion
         </button>
       </div>
@@ -201,20 +274,26 @@
 
   .logout-btn {
     width: 100%;
-    padding: 0.5rem;
-    background: transparent;
-    color: rgba(255, 255, 255, 0.7);
-    border: 1px solid rgba(255, 255, 255, 0.2);
+    padding: 0.75rem;
+    background: rgba(231, 76, 60, 0.9);
+    color: white;
+    border: none;
     border-radius: 4px;
     cursor: pointer;
-    font-size: 0.85rem;
-    transition: all 0.2s;
+    font-size: 0.9rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    transition: background 0.2s;
   }
 
   .logout-btn:hover {
-    background: rgba(255, 255, 255, 0.1);
-    color: rgba(255, 255, 255, 0.9);
-    border-color: rgba(255, 255, 255, 0.3);
+    background: rgba(192, 57, 43, 1);
+  }
+
+  .logout-btn .icon {
+    font-size: 1rem;
   }
 
   .main-content {

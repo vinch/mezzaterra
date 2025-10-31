@@ -1,145 +1,141 @@
 <script lang="ts">
   import { supabase } from "$lib/supabase";
   import { onMount } from "svelte";
-  import type { Customer, Country } from "$lib/types";
+  import type { Winery, Country, Region } from "$lib/types";
   import Modal from "$lib/components/Modal.svelte";
 
-  let customers: Customer[] = [];
+  let wineries: Winery[] = [];
   let countries: Country[] = [];
+  let regions: Region[] = [];
   let loading = true;
   let error = "";
   let showModal = false;
-  let editingCustomer: Customer | null = null;
+  let editingWinery: Winery | null = null;
 
   // Form fields
   let formData = {
-    first_name: "",
-    last_name: "",
-    email: "",
-    company_name: "",
-    phone_number: "",
-    address_line_1: "",
-    address_line_2: "",
+    name: "",
     city: "",
-    zip_code: "",
+    url: "",
     country_id: "",
-    vat: "",
+    region_id: "",
+    latitude: "",
+    longitude: "",
   };
 
-  let isCompany = false;
-
   onMount(async () => {
-    await loadCustomers();
+    await loadWineries();
     await loadCountries();
+    await loadRegions();
   });
 
-  async function loadCustomers() {
+  async function loadWineries() {
     loading = true;
     const { data, error: fetchError } = await supabase
-      .from("customer")
-      .select("*, country (*)")
-      .order("created_at", { ascending: false });
+      .from("winery")
+      .select(
+        `
+        *,
+        country (*),
+        region (*)
+      `
+      )
+      .order("name");
 
     if (fetchError) {
       error = fetchError.message;
     } else {
-      customers = data || [];
+      wineries = data || [];
     }
     loading = false;
   }
 
   async function loadCountries() {
     const { data } = await supabase.from("country").select("*").order("name");
+    if (data) countries = data;
+  }
 
-    if (data) {
-      countries = data;
-    }
+  async function loadRegions() {
+    const { data } = await supabase
+      .from("region")
+      .select(
+        `
+        *,
+        country (*)
+      `
+      )
+      .order("name");
+    if (data) regions = data;
   }
 
   function openCreateModal() {
-    editingCustomer = null;
+    editingWinery = null;
     resetForm();
-    isCompany = false;
     showModal = true;
   }
 
-  function openEditModal(customer: Customer) {
-    editingCustomer = customer;
-    isCompany = !!(customer.company_name || customer.vat);
+  function openEditModal(winery: Winery) {
+    editingWinery = winery;
     formData = {
-      first_name: customer.first_name,
-      last_name: customer.last_name,
-      email: customer.email,
-      company_name: customer.company_name || "",
-      phone_number: customer.phone_number || "",
-      address_line_1: customer.address_line_1 || "",
-      address_line_2: customer.address_line_2 || "",
-      city: customer.city || "",
-      zip_code: customer.zip_code || "",
-      country_id: customer.country_id || "",
-      vat: customer.vat || "",
+      name: winery.name,
+      city: winery.city || "",
+      url: winery.url || "",
+      country_id: winery.country_id || "",
+      region_id: winery.region_id || "",
+      latitude: winery.latitude?.toString() || "",
+      longitude: winery.longitude?.toString() || "",
     };
     showModal = true;
   }
 
   function closeModal() {
     showModal = false;
-    editingCustomer = null;
+    editingWinery = null;
     resetForm();
   }
 
   function resetForm() {
     formData = {
-      first_name: "",
-      last_name: "",
-      email: "",
-      company_name: "",
-      phone_number: "",
-      address_line_1: "",
-      address_line_2: "",
+      name: "",
       city: "",
-      zip_code: "",
+      url: "",
       country_id: "",
-      vat: "",
+      region_id: "",
+      latitude: "",
+      longitude: "",
     };
   }
 
   async function handleSubmit() {
-    if (!formData.first_name || !formData.last_name || !formData.email) {
-      error = "Prénom, nom et email sont obligatoires";
+    if (!formData.name) {
+      error = "Le nom du vignoble est obligatoire";
       return;
     }
 
-    const customerData = {
-      first_name: formData.first_name,
-      last_name: formData.last_name,
-      email: formData.email,
-      company_name: isCompany ? formData.company_name || null : null,
-      phone_number: formData.phone_number || null,
-      address_line_1: formData.address_line_1 || null,
-      address_line_2: formData.address_line_2 || null,
+    const wineryData = {
+      name: formData.name,
       city: formData.city || null,
-      zip_code: formData.zip_code || null,
+      url: formData.url || null,
       country_id: formData.country_id || null,
-      vat: isCompany ? formData.vat || null : null,
+      region_id: formData.region_id || null,
+      latitude: formData.latitude ? parseFloat(formData.latitude) : null,
+      longitude: formData.longitude ? parseFloat(formData.longitude) : null,
     };
 
-    if (editingCustomer) {
-      // Update
+    if (editingWinery) {
       const { error: updateError } = await supabase
-        .from("customer")
-        .update(customerData)
-        .eq("id", editingCustomer.id);
+        .from("winery")
+        .update(wineryData)
+        .eq("id", editingWinery.id);
 
       if (updateError) {
         error = updateError.message;
         return;
       }
     } else {
-      // Create
       const { error: insertError } = await supabase
-        .from("customer")
-        .insert(customerData);
+        .from("winery")
+        .insert(wineryData);
 
       if (insertError) {
         error = insertError.message;
@@ -148,16 +144,16 @@
     }
 
     closeModal();
-    await loadCustomers();
+    await loadWineries();
   }
 
-  async function deleteCustomer(id: string) {
-    if (!confirm("Êtes-vous sûr de vouloir supprimer ce client ?")) {
+  async function deleteWinery(id: string) {
+    if (!confirm("Êtes-vous sûr de vouloir supprimer ce vignoble ?")) {
       return;
     }
 
     const { error: deleteError } = await supabase
-      .from("customer")
+      .from("winery")
       .delete()
       .eq("id", id);
 
@@ -166,19 +162,19 @@
       return;
     }
 
-    await loadCustomers();
+    await loadWineries();
   }
 </script>
 
 <svelte:head>
-  <title>Clients - Gestion</title>
+  <title>Vignobles - Gestion</title>
 </svelte:head>
 
 <div class="page-container">
   <header class="page-header">
-    <h1>Clients</h1>
+    <h1>Vignobles</h1>
     <button class="btn-primary" on:click={openCreateModal}>
-      + Nouveau client
+      + Nouveau vignoble
     </button>
   </header>
 
@@ -189,11 +185,11 @@
 
     {#if loading}
       <div class="loading">Chargement...</div>
-    {:else if customers.length === 0}
+    {:else if wineries.length === 0}
       <div class="empty-state">
-        <p>Aucun client trouvé</p>
+        <p>Aucun vignoble trouvé</p>
         <button class="btn-primary" on:click={openCreateModal}>
-          Créer le premier client
+          Créer le premier vignoble
         </button>
       </div>
     {:else}
@@ -202,25 +198,36 @@
           <thead>
             <tr>
               <th>Nom</th>
-              <th>Email</th>
-              <th>Entreprise</th>
-              <th>Téléphone</th>
               <th>Ville</th>
+              <th>Région</th>
               <th>Pays</th>
+              <th>Site web</th>
               <th>Actions</th>
             </tr>
           </thead>
           <tbody>
-            {#each customers as customer}
+            {#each wineries as winery}
               <tr>
-                <td>{customer.first_name} {customer.last_name}</td>
-                <td>{customer.email}</td>
-                <td>{customer.company_name || "-"}</td>
-                <td>{customer.phone_number || "-"}</td>
-                <td>{customer.city || "-"}</td>
+                <td><strong>{winery.name}</strong></td>
+                <td>{winery.city || "-"}</td>
+                <td>{winery.region?.name || "-"}</td>
                 <td>
-                  {#if customer.country}
-                    <span>{customer.country.flag} {customer.country.name}</span>
+                  {#if winery.country}
+                    <span>{winery.country.flag} {winery.country.name}</span>
+                  {:else}
+                    -
+                  {/if}
+                </td>
+                <td>
+                  {#if winery.url}
+                    <a
+                      href={winery.url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      class="external-link"
+                    >
+                      Visiter
+                    </a>
                   {:else}
                     -
                   {/if}
@@ -228,13 +235,13 @@
                 <td class="actions">
                   <button
                     class="btn-edit"
-                    on:click={() => openEditModal(customer)}
+                    on:click={() => openEditModal(winery)}
                   >
                     Modifier
                   </button>
                   <button
                     class="btn-delete"
-                    on:click={() => deleteCustomer(customer.id)}
+                    on:click={() => deleteWinery(winery.id)}
                   >
                     Supprimer
                   </button>
@@ -250,71 +257,24 @@
 
 <Modal
   show={showModal}
-  title={editingCustomer ? "Modifier le client" : "Nouveau client"}
+  title={editingWinery ? "Modifier le vignoble" : "Nouveau vignoble"}
   on:close={closeModal}
 >
   <form on:submit|preventDefault={handleSubmit}>
     <div class="form-grid">
-      <div class="form-group">
-        <label for="first_name">Prénom *</label>
-        <input
-          type="text"
-          id="first_name"
-          bind:value={formData.first_name}
-          required
-        />
-      </div>
-
-      <div class="form-group">
-        <label for="last_name">Nom *</label>
-        <input
-          type="text"
-          id="last_name"
-          bind:value={formData.last_name}
-          required
-        />
-      </div>
-
-      <div class="form-group">
-        <label for="email">Email *</label>
-        <input type="email" id="email" bind:value={formData.email} required />
-      </div>
-
-      <div class="form-group">
-        <label for="phone_number">Téléphone</label>
-        <input
-          type="tel"
-          id="phone_number"
-          bind:value={formData.phone_number}
-        />
-      </div>
-
       <div class="form-group full-width">
-        <label for="address_line_1">Adresse ligne 1</label>
-        <input
-          type="text"
-          id="address_line_1"
-          bind:value={formData.address_line_1}
-        />
-      </div>
-
-      <div class="form-group full-width">
-        <label for="address_line_2">Adresse ligne 2</label>
-        <input
-          type="text"
-          id="address_line_2"
-          bind:value={formData.address_line_2}
-        />
-      </div>
-
-      <div class="form-group">
-        <label for="zip_code">Code postal</label>
-        <input type="text" id="zip_code" bind:value={formData.zip_code} />
+        <label for="name">Nom du vignoble *</label>
+        <input type="text" id="name" bind:value={formData.name} required />
       </div>
 
       <div class="form-group">
         <label for="city">Ville</label>
         <input type="text" id="city" bind:value={formData.city} />
+      </div>
+
+      <div class="form-group">
+        <label for="url">Site web</label>
+        <input type="url" id="url" bind:value={formData.url} />
       </div>
 
       <div class="form-group">
@@ -330,28 +290,35 @@
         </select>
       </div>
 
-      <div class="form-group full-width">
-        <label class="checkbox-label">
-          <input type="checkbox" bind:checked={isCompany} />
-          Client professionnel (entreprise)
-        </label>
+      <div class="form-group">
+        <label for="region_id">Région</label>
+        <select id="region_id" bind:value={formData.region_id}>
+          <option value="">Sélectionner une région</option>
+          {#each regions as region}
+            <option value={region.id}>{region.name}</option>
+          {/each}
+        </select>
       </div>
 
-      {#if isCompany}
-        <div class="form-group">
-          <label for="company_name">Nom de l'entreprise</label>
-          <input
-            type="text"
-            id="company_name"
-            bind:value={formData.company_name}
-          />
-        </div>
+      <div class="form-group">
+        <label for="latitude">Latitude</label>
+        <input
+          type="number"
+          step="any"
+          id="latitude"
+          bind:value={formData.latitude}
+        />
+      </div>
 
-        <div class="form-group">
-          <label for="vat">Numéro de TVA</label>
-          <input type="text" id="vat" bind:value={formData.vat} />
-        </div>
-      {/if}
+      <div class="form-group">
+        <label for="longitude">Longitude</label>
+        <input
+          type="number"
+          step="any"
+          id="longitude"
+          bind:value={formData.longitude}
+        />
+      </div>
     </div>
 
     <div class="modal-footer">
@@ -359,7 +326,7 @@
         Annuler
       </button>
       <button type="submit" class="btn-primary">
-        {editingCustomer ? "Mettre à jour" : "Créer"}
+        {editingWinery ? "Mettre à jour" : "Créer"}
       </button>
     </div>
   </form>
@@ -536,21 +503,6 @@
     font-size: 0.9rem;
   }
 
-  .checkbox-label {
-    display: flex;
-    align-items: center;
-    gap: 0.5rem;
-    cursor: pointer;
-    font-weight: normal;
-    margin-bottom: 0;
-  }
-
-  .checkbox-label input[type="checkbox"] {
-    width: auto;
-    margin: 0;
-    cursor: pointer;
-  }
-
   input,
   select {
     padding: 0.5rem;
@@ -571,5 +523,41 @@
     gap: 1rem;
     padding-top: 1rem;
     border-top: 1px solid #e9ecef;
+  }
+
+  /* Style pour les liens externes */
+  .external-link {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.25rem;
+    padding: 0.25rem 0.5rem;
+    background: #f8f9fa;
+    color: #495057;
+    text-decoration: none;
+    border: 1px solid #dee2e6;
+    border-radius: 4px;
+    font-size: 0.85rem;
+    font-weight: 500;
+    transition: all 0.2s ease;
+  }
+
+  .external-link:hover {
+    background: #e9ecef;
+    border-color: #adb5bd;
+    color: #212529;
+    text-decoration: none;
+    transform: translateY(-1px);
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  }
+
+  .external-link:active {
+    transform: translateY(0);
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
+  }
+
+  .external-link::after {
+    content: "↗";
+    font-size: 0.75rem;
+    opacity: 0.7;
   }
 </style>
