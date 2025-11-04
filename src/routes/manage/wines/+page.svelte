@@ -77,7 +77,21 @@
     if (fetchError) {
       error = fetchError.message;
     } else {
-      wines = data || [];
+      wines = (data || []).sort((a, b) => {
+        // First: sort by winery name
+        const wineryA = a.winery?.name?.toLowerCase() || "";
+        const wineryB = b.winery?.name?.toLowerCase() || "";
+        if (wineryA !== wineryB) {
+          return wineryA.localeCompare(wineryB);
+        }
+
+        // Second: sort by wine name or appellation
+        const wineNameA =
+          a.name?.toLowerCase() || a.appelation?.name?.toLowerCase() || "";
+        const wineNameB =
+          b.name?.toLowerCase() || b.appelation?.name?.toLowerCase() || "";
+        return wineNameA.localeCompare(wineNameB);
+      });
     }
     loading = false;
   }
@@ -316,8 +330,8 @@
         <table>
           <thead>
             <tr>
-              <th>Nom</th>
               <th>Vignoble</th>
+              <th>Nom</th>
               <th>Appellation</th>
               <th>Type</th>
               <th>Description</th>
@@ -327,8 +341,8 @@
           <tbody>
             {#each wines as wine}
               <tr>
-                <td><strong>{wine.name || "-"}</strong></td>
                 <td>{wine.winery?.name || "-"}</td>
+                <td><strong>{wine.name || "-"}</strong></td>
                 <td>{wine.appelation?.name || "-"}</td>
                 <td>{wine.wine_type?.name || "-"}</td>
                 <td>

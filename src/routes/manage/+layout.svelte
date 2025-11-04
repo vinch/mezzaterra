@@ -60,6 +60,23 @@
             Tableau de bord
           </a>
         </li>
+
+        <li class="nav-divider">
+          <span class="nav-divider-text">Produits</span>
+        </li>
+        <li>
+          <a
+            href="/manage/wines"
+            class:active={$page.url.pathname === "/manage/wines"}
+          >
+            <span class="icon">🍷</span>
+            Vins
+          </a>
+        </li>
+
+        <li class="nav-divider">
+          <span class="nav-divider-text">Ventes</span>
+        </li>
         <li>
           <a
             href="/manage/customers"
@@ -71,21 +88,56 @@
         </li>
         <li>
           <a
-            href="/manage/wines"
-            class:active={$page.url.pathname === "/manage/wines"}
+            href="/manage/sales"
+            class:active={$page.url.pathname === "/manage/sales"}
           >
-            <span class="icon">🍷</span>
-            Vins
+            <span class="icon">💵</span>
+            Ventes
+          </a>
+        </li>
+
+        <li class="nav-divider">
+          <span class="nav-divider-text">Achats</span>
+        </li>
+        <li>
+          <a
+            href="/manage/orders"
+            class:active={$page.url.pathname === "/manage/orders"}
+          >
+            <span class="icon">📋</span>
+            Commandes
           </a>
         </li>
         <li>
           <a
-            href="/manage/wineries"
-            class:active={$page.url.pathname === "/manage/wineries"}
+            href="/manage/suppliers"
+            class:active={$page.url.pathname === "/manage/suppliers"}
           >
-            <span class="icon">🏰</span>
-            Vignobles
+            <span class="icon">📦</span>
+            Fournisseurs
           </a>
+        </li>
+        <li>
+          <a
+            href="/manage/transports"
+            class:active={$page.url.pathname === "/manage/transports"}
+          >
+            <span class="icon">🚛</span>
+            Transports
+          </a>
+        </li>
+        <li>
+          <a
+            href="/manage/transporters"
+            class:active={$page.url.pathname === "/manage/transporters"}
+          >
+            <span class="icon">🚚</span>
+            Transporteurs
+          </a>
+        </li>
+
+        <li class="nav-divider">
+          <span class="nav-divider-text">Références</span>
         </li>
         <li>
           <a
@@ -94,24 +146,6 @@
           >
             <span class="icon">📍</span>
             Appellations
-          </a>
-        </li>
-        <li>
-          <a
-            href="/manage/regions"
-            class:active={$page.url.pathname === "/manage/regions"}
-          >
-            <span class="icon">🗺️</span>
-            Régions
-          </a>
-        </li>
-        <li>
-          <a
-            href="/manage/labels"
-            class:active={$page.url.pathname === "/manage/labels"}
-          >
-            <span class="icon">🏷️</span>
-            Labels
           </a>
         </li>
         <li>
@@ -125,11 +159,11 @@
         </li>
         <li>
           <a
-            href="/manage/countries"
-            class:active={$page.url.pathname === "/manage/countries"}
+            href="/manage/labels"
+            class:active={$page.url.pathname === "/manage/labels"}
           >
-            <span class="icon">🌍</span>
-            Pays
+            <span class="icon">🏷️</span>
+            Labels
           </a>
         </li>
         <li>
@@ -139,6 +173,37 @@
           >
             <span class="icon">🧀</span>
             Pairings
+          </a>
+        </li>
+        <li>
+          <a
+            href="/manage/wineries"
+            class:active={$page.url.pathname === "/manage/wineries"}
+          >
+            <span class="icon">🏰</span>
+            Vignobles
+          </a>
+        </li>
+
+        <li class="nav-divider">
+          <span class="nav-divider-text">Géographie</span>
+        </li>
+        <li>
+          <a
+            href="/manage/countries"
+            class:active={$page.url.pathname === "/manage/countries"}
+          >
+            <span class="icon">🌍</span>
+            Pays
+          </a>
+        </li>
+        <li>
+          <a
+            href="/manage/regions"
+            class:active={$page.url.pathname === "/manage/regions"}
+          >
+            <span class="icon">🗺️</span>
+            Régions
           </a>
         </li>
       </ul>
@@ -229,6 +294,23 @@
 
   .nav-list li {
     margin: 0;
+  }
+
+  .nav-divider {
+    padding: 0.75rem 1.5rem 0.5rem 1.5rem;
+    margin-top: 0.5rem;
+  }
+
+  .nav-divider:first-child {
+    margin-top: 0;
+  }
+
+  .nav-divider-text {
+    font-size: 0.75rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: rgba(255, 255, 255, 0.5);
   }
 
   .nav-list a {

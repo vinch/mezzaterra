@@ -20,6 +20,7 @@
     production_year: "",
     year: "",
     abv: "",
+    purchase_price: "",
     price: "",
     image_url: "",
     organic: false,
@@ -73,6 +74,9 @@
         : "",
       year: vintage.year ? vintage.year.toString() : "",
       abv: vintage.abv ? vintage.abv.toString() : "",
+      purchase_price: vintage.purchase_price
+        ? vintage.purchase_price.toString()
+        : "",
       price: vintage.price ? vintage.price.toString() : "",
       image_url: vintage.image_url || "",
       organic: vintage.organic || false,
@@ -97,6 +101,7 @@
       production_year: "",
       year: "",
       abv: "",
+      purchase_price: "",
       price: "",
       image_url: "",
       organic: false,
@@ -114,6 +119,9 @@
       production_year: parseInt(vintageFormData.production_year),
       year: vintageFormData.year ? parseInt(vintageFormData.year) : null,
       abv: vintageFormData.abv ? parseFloat(vintageFormData.abv) : null,
+      purchase_price: vintageFormData.purchase_price
+        ? parseFloat(vintageFormData.purchase_price)
+        : undefined,
       price: vintageFormData.price ? parseFloat(vintageFormData.price) : null,
       image_url: vintageFormData.image_url || null,
       organic: vintageFormData.organic,
@@ -142,6 +150,9 @@
       production_year: parseInt(vintageFormData.production_year),
       year: vintageFormData.year ? parseInt(vintageFormData.year) : null,
       abv: vintageFormData.abv ? parseFloat(vintageFormData.abv) : null,
+      purchase_price: vintageFormData.purchase_price
+        ? parseFloat(vintageFormData.purchase_price)
+        : undefined,
       price: vintageFormData.price ? parseFloat(vintageFormData.price) : null,
       image_url: vintageFormData.image_url || null,
       organic: vintageFormData.organic,
@@ -468,6 +479,30 @@
       </div>
 
       <div class="form-group">
+        <label for="purchase_price">Prix d'achat (€)</label>
+        <input
+          type="number"
+          step="0.01"
+          id="purchase_price"
+          bind:value={vintageFormData.purchase_price}
+          min="0"
+          placeholder="Prix auquel vous achetez le vin"
+        />
+      </div>
+
+      <div class="form-group">
+        <label for="price">Prix de vente (€)</label>
+        <input
+          type="number"
+          step="0.01"
+          id="price"
+          bind:value={vintageFormData.price}
+          min="0"
+          placeholder="Prix auquel vous vendez le vin"
+        />
+      </div>
+
+      <div class="form-group">
         <label for="abv">Degré d'alcool (%)</label>
         <input
           type="number"
@@ -476,17 +511,6 @@
           bind:value={vintageFormData.abv}
           min="0"
           max="20"
-        />
-      </div>
-
-      <div class="form-group">
-        <label for="price">Prix (€)</label>
-        <input
-          type="number"
-          step="0.01"
-          id="price"
-          bind:value={vintageFormData.price}
-          min="0"
         />
       </div>
 
@@ -550,6 +574,30 @@
       </div>
 
       <div class="form-group">
+        <label for="edit-purchase_price">Prix d'achat (€)</label>
+        <input
+          type="number"
+          step="0.01"
+          id="edit-purchase_price"
+          bind:value={vintageFormData.purchase_price}
+          min="0"
+          placeholder="Prix auquel vous achetez le vin"
+        />
+      </div>
+
+      <div class="form-group">
+        <label for="edit-price">Prix de vente (€)</label>
+        <input
+          type="number"
+          step="0.01"
+          id="edit-price"
+          bind:value={vintageFormData.price}
+          min="0"
+          placeholder="Prix auquel vous vendez le vin"
+        />
+      </div>
+
+      <div class="form-group">
         <label for="edit-abv">Degré d'alcool (%)</label>
         <input
           type="number"
@@ -558,17 +606,6 @@
           bind:value={vintageFormData.abv}
           min="0"
           max="20"
-        />
-      </div>
-
-      <div class="form-group">
-        <label for="edit-price">Prix (€)</label>
-        <input
-          type="number"
-          step="0.01"
-          id="edit-price"
-          bind:value={vintageFormData.price}
-          min="0"
         />
       </div>
 

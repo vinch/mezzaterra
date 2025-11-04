@@ -14,6 +14,21 @@ export type Database = {
   }
   public: {
     Tables: {
+      administrator: {
+        Row: {
+          created_at: string
+          id: string
+        }
+        Insert: {
+          created_at?: string
+          id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+        }
+        Relationships: []
+      }
       appelation: {
         Row: {
           created_at: string
@@ -185,6 +200,32 @@ export type Database = {
             columns: ["country_id"]
             isOneToOne: false
             referencedRelation: "country"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      member: {
+        Row: {
+          created_at: string
+          customer_id: string | null
+          id: string
+        }
+        Insert: {
+          created_at?: string
+          customer_id?: string | null
+          id: string
+        }
+        Update: {
+          created_at?: string
+          customer_id?: string | null
+          id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "member_customer_id_fkey"
+            columns: ["customer_id"]
+            isOneToOne: false
+            referencedRelation: "customer"
             referencedColumns: ["id"]
           },
         ]
@@ -390,6 +431,7 @@ export type Database = {
           customer_id: string
           date: string
           id: string
+          invoice_number: string | null
           note: string | null
           status: string
           total_price: number
@@ -399,6 +441,7 @@ export type Database = {
           customer_id: string
           date: string
           id?: string
+          invoice_number?: string | null
           note?: string | null
           status?: string
           total_price: number
@@ -408,6 +451,7 @@ export type Database = {
           customer_id?: string
           date?: string
           id?: string
+          invoice_number?: string | null
           note?: string | null
           status?: string
           total_price?: number
@@ -819,6 +863,7 @@ export type Database = {
           organic: boolean | null
           price: number | null
           production_year: number
+          purchase_price: number
           wine_id: string
           year: number | null
         }
@@ -830,6 +875,7 @@ export type Database = {
           organic?: boolean | null
           price?: number | null
           production_year: number
+          purchase_price?: number
           wine_id: string
           year?: number | null
         }
@@ -841,6 +887,7 @@ export type Database = {
           organic?: boolean | null
           price?: number | null
           production_year?: number
+          purchase_price?: number
           wine_id?: string
           year?: number | null
         }
@@ -964,7 +1011,7 @@ export type Database = {
       }
     }
     Functions: {
-      [_ in never]: never
+      is_admin: { Args: never; Returns: boolean }
     }
     Enums: {
       [_ in never]: never
