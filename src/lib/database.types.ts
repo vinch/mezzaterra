@@ -269,6 +269,7 @@ export type Database = {
           id: string
           note: string | null
           supplier_id: string
+          total_price: number
           transport_id: string | null
         }
         Insert: {
@@ -277,6 +278,7 @@ export type Database = {
           id?: string
           note?: string | null
           supplier_id: string
+          total_price: number
           transport_id?: string | null
         }
         Update: {
@@ -285,6 +287,7 @@ export type Database = {
           id?: string
           note?: string | null
           supplier_id?: string
+          total_price?: number
           transport_id?: string | null
         }
         Relationships: [
@@ -310,6 +313,7 @@ export type Database = {
           id: string
           note: string | null
           order_id: string
+          price: number
           quantity: number
           wine_vintage_id: string
         }
@@ -318,6 +322,7 @@ export type Database = {
           id?: string
           note?: string | null
           order_id: string
+          price: number
           quantity: number
           wine_vintage_id: string
         }
@@ -326,6 +331,7 @@ export type Database = {
           id?: string
           note?: string | null
           order_id?: string
+          price?: number
           quantity?: number
           wine_vintage_id?: string
         }

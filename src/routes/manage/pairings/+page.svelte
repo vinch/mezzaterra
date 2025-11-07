@@ -152,19 +152,21 @@
             {#each pairings as pairing}
               <tr>
                 <td><strong>{pairing.description}</strong></td>
-                <td class="actions">
-                  <button
-                    class="btn-edit"
-                    on:click={() => openEditModal(pairing)}
-                  >
-                    Modifier
-                  </button>
-                  <button
-                    class="btn-delete"
-                    on:click={() => deletePairing(pairing.id)}
-                  >
-                    Supprimer
-                  </button>
+                <td>
+                  <div class="actions">
+                    <button
+                      class="btn-edit"
+                      on:click={() => openEditModal(pairing)}
+                    >
+                      Modifier
+                    </button>
+                    <button
+                      class="btn-delete"
+                      on:click={() => deletePairing(pairing.id)}
+                    >
+                      Supprimer
+                    </button>
+                  </div>
                 </td>
               </tr>
             {/each}

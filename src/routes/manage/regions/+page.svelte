@@ -177,19 +177,21 @@
                     -
                   {/if}
                 </td>
-                <td class="actions">
-                  <button
-                    class="btn-edit"
-                    on:click={() => openEditModal(region)}
-                  >
-                    Modifier
-                  </button>
-                  <button
-                    class="btn-delete"
-                    on:click={() => deleteRegion(region.id)}
-                  >
-                    Supprimer
-                  </button>
+                <td>
+                  <div class="actions">
+                    <button
+                      class="btn-edit"
+                      on:click={() => openEditModal(region)}
+                    >
+                      Modifier
+                    </button>
+                    <button
+                      class="btn-delete"
+                      on:click={() => deleteRegion(region.id)}
+                    >
+                      Supprimer
+                    </button>
+                  </div>
                 </td>
               </tr>
             {/each}

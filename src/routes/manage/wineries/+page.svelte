@@ -232,19 +232,21 @@
                     -
                   {/if}
                 </td>
-                <td class="actions">
-                  <button
-                    class="btn-edit"
-                    on:click={() => openEditModal(winery)}
-                  >
-                    Modifier
-                  </button>
-                  <button
-                    class="btn-delete"
-                    on:click={() => deleteWinery(winery.id)}
-                  >
-                    Supprimer
-                  </button>
+                <td>
+                  <div class="actions">
+                    <button
+                      class="btn-edit"
+                      on:click={() => openEditModal(winery)}
+                    >
+                      Modifier
+                    </button>
+                    <button
+                      class="btn-delete"
+                      on:click={() => deleteWinery(winery.id)}
+                    >
+                      Supprimer
+                    </button>
+                  </div>
                 </td>
               </tr>
             {/each}

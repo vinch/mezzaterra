@@ -170,7 +170,7 @@
   }
 
   async function handleSubmit() {
-    if (!formData.name || !formData.winery_id || !formData.wine_type_id) {
+    if (!formData.winery_id || !formData.wine_type_id) {
       error = "Nom, vignoble et type de vin sont obligatoires";
       return;
     }
@@ -356,25 +356,30 @@
                     -
                   {/if}
                 </td>
-                <td class="actions">
-                  <a href="/manage/wines/{wine.id}" class="btn-vintages">
-                    Millésimes
-                  </a>
-                  <button
-                    class="btn-pairings"
-                    on:click={() => openPairingsModal(wine)}
-                  >
-                    Pairings
-                  </button>
-                  <button class="btn-edit" on:click={() => openEditModal(wine)}>
-                    Modifier
-                  </button>
-                  <button
-                    class="btn-delete"
-                    on:click={() => deleteWine(wine.id)}
-                  >
-                    Supprimer
-                  </button>
+                <td>
+                  <div class="actions">
+                    <a href="/manage/wines/{wine.id}" class="btn-vintages">
+                      Millésimes
+                    </a>
+                    <button
+                      class="btn-pairings"
+                      on:click={() => openPairingsModal(wine)}
+                    >
+                      Pairings
+                    </button>
+                    <button
+                      class="btn-edit"
+                      on:click={() => openEditModal(wine)}
+                    >
+                      Modifier
+                    </button>
+                    <button
+                      class="btn-delete"
+                      on:click={() => deleteWine(wine.id)}
+                    >
+                      Supprimer
+                    </button>
+                  </div>
                 </td>
               </tr>
             {/each}
@@ -393,8 +398,8 @@
   <form on:submit|preventDefault={handleSubmit}>
     <div class="form-grid">
       <div class="form-group full-width">
-        <label for="name">Nom du vin *</label>
-        <input type="text" id="name" bind:value={formData.name} required />
+        <label for="name">Nom du vin</label>
+        <input type="text" id="name" bind:value={formData.name} />
       </div>
 
       <div class="form-group full-width">

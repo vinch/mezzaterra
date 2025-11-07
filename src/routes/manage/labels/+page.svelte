@@ -177,19 +177,21 @@
                     -
                   {/if}
                 </td>
-                <td class="actions">
-                  <button
-                    class="btn-edit"
-                    on:click={() => openEditModal(label)}
-                  >
-                    Modifier
-                  </button>
-                  <button
-                    class="btn-delete"
-                    on:click={() => deleteLabel(label.id)}
-                  >
-                    Supprimer
-                  </button>
+                <td>
+                  <div class="actions">
+                    <button
+                      class="btn-edit"
+                      on:click={() => openEditModal(label)}
+                    >
+                      Modifier
+                    </button>
+                    <button
+                      class="btn-delete"
+                      on:click={() => deleteLabel(label.id)}
+                    >
+                      Supprimer
+                    </button>
+                  </div>
                 </td>
               </tr>
             {/each}

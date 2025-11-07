@@ -211,19 +211,21 @@
                   {/if}
                 </td>
                 <td>{transporter.vat || "-"}</td>
-                <td class="actions">
-                  <button
-                    class="btn-edit"
-                    on:click={() => openEditModal(transporter)}
-                  >
-                    Modifier
-                  </button>
-                  <button
-                    class="btn-delete"
-                    on:click={() => deleteTransporter(transporter.id)}
-                  >
-                    Supprimer
-                  </button>
+                <td>
+                  <div class="actions">
+                    <button
+                      class="btn-edit"
+                      on:click={() => openEditModal(transporter)}
+                    >
+                      Modifier
+                    </button>
+                    <button
+                      class="btn-delete"
+                      on:click={() => deleteTransporter(transporter.id)}
+                    >
+                      Supprimer
+                    </button>
+                  </div>
                 </td>
               </tr>
             {/each}

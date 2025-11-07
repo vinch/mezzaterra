@@ -1123,36 +1123,38 @@
                   </select>
                 </td>
                 <td><strong>€{sale.total_price.toFixed(2)}</strong></td>
-                <td class="actions">
-                  {#if sale.status === "pending"}
-                    <button
-                      class="btn-edit"
-                      on:click={() => openEditModal(sale)}
-                    >
-                      Modifier
-                    </button>
-                    <button
-                      class="btn-delete"
-                      on:click={() => deleteSale(sale.id)}
-                    >
-                      Supprimer
-                    </button>
-                  {:else}
-                    <button
-                      class="btn-details"
-                      on:click={() => openDetailsModal(sale)}
-                    >
-                      Détails
-                    </button>
-                    {#if sale.status === "paid"}
+                <td>
+                  <div class="actions">
+                    {#if sale.status === "pending"}
                       <button
-                        class="btn-download"
-                        on:click={() => downloadInvoice(sale.id)}
+                        class="btn-edit"
+                        on:click={() => openEditModal(sale)}
                       >
-                        Télécharger facture
+                        Modifier
                       </button>
+                      <button
+                        class="btn-delete"
+                        on:click={() => deleteSale(sale.id)}
+                      >
+                        Supprimer
+                      </button>
+                    {:else}
+                      <button
+                        class="btn-details"
+                        on:click={() => openDetailsModal(sale)}
+                      >
+                        Détails
+                      </button>
+                      {#if sale.status === "paid"}
+                        <button
+                          class="btn-download"
+                          on:click={() => downloadInvoice(sale.id)}
+                        >
+                          Télécharger facture
+                        </button>
+                      {/if}
                     {/if}
-                  {/if}
+                  </div>
                 </td>
               </tr>
             {/each}

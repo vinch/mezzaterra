@@ -271,6 +271,7 @@
       date: formData.date,
       supplier_id: formData.supplier_id,
       transport_id: null,
+      total_price: calculatedTotal,
       note: formData.note || null,
     };
 
@@ -318,6 +319,7 @@
       date: formData.date,
       supplier_id: formData.supplier_id,
       transport_id: null,
+      total_price: calculatedTotal,
       note: formData.note || null,
     };
 
@@ -426,7 +428,28 @@
                 <td><strong>{order.supplier.name}</strong></td>
                 <td>
                   {#if order.transport}
-                    {order.transport.transporter.name}
+                    <div style="line-height: 1.4;">
+                      <div>
+                        <strong>{order.transport.transporter.name}</strong>
+                      </div>
+                      {#if order.transport.departure_date}
+                        <div
+                          style="font-size: 0.85rem; color: #666; margin-top: 0.15rem; line-height: 1.2;"
+                        >
+                          {new Date(
+                            order.transport.departure_date
+                          ).toLocaleDateString("fr-FR")}
+                        </div>
+                      {:else if order.transport.arrival_date}
+                        <div
+                          style="font-size: 0.85rem; color: #666; margin-top: 0.15rem; line-height: 1.2;"
+                        >
+                          {new Date(
+                            order.transport.arrival_date
+                          ).toLocaleDateString("fr-FR")}
+                        </div>
+                      {/if}
+                    </div>
                   {:else}
                     -
                   {/if}
@@ -434,25 +457,30 @@
                 <td>
                   <strong>€{order.total_price?.toFixed(2) || "0.00"}</strong>
                 </td>
-                <td class="actions">
-                  <button
-                    class="btn-edit"
-                    on:click={() => openEditModal(order)}
-                  >
-                    Modifier
-                  </button>
-                  <button
-                    class="btn-details"
-                    on:click={() => openDetailsModal(order)}
-                  >
-                    Détails
-                  </button>
-                  <button
-                    class="btn-delete"
-                    on:click={() => deleteOrder(order.id)}
-                  >
-                    Supprimer
-                  </button>
+                <td>
+                  <div class="actions">
+                    {#if order.transport && (order.transport.status === "delivered" || order.transport.status === "cancelled")}
+                      <button
+                        class="btn-details"
+                        on:click={() => openDetailsModal(order)}
+                      >
+                        Détails
+                      </button>
+                    {:else}
+                      <button
+                        class="btn-edit"
+                        on:click={() => openEditModal(order)}
+                      >
+                        Modifier
+                      </button>
+                      <button
+                        class="btn-delete"
+                        on:click={() => deleteOrder(order.id)}
+                      >
+                        Supprimer
+                      </button>
+                    {/if}
+                  </div>
                 </td>
               </tr>
             {/each}
@@ -528,9 +556,6 @@
                 {@const alreadyAdded = isVintageAlreadyAdded(vintage.id)}
                 <option value={vintage.id} disabled={alreadyAdded}>
                   {getProductDisplayNameWithYear(vintage)}
-                  {#if vintage.purchase_price}
-                    - €{vintage.purchase_price.toFixed(2)}
-                  {/if}
                 </option>
               {/each}
             </select>
@@ -636,9 +661,6 @@
                 {@const alreadyAdded = isVintageAlreadyAdded(vintage.id)}
                 <option value={vintage.id} disabled={alreadyAdded}>
                   {getProductDisplayNameWithYear(vintage)}
-                  {#if vintage.purchase_price}
-                    - €{vintage.purchase_price.toFixed(2)}
-                  {/if}
                 </option>
               {/each}
             </select>

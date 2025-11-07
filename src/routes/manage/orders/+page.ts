@@ -22,10 +22,16 @@ export const load: PageLoad = async () => {
     );
   }
 
-  // Load order items for each order and calculate total_price
+  // Use total_price from database if it exists, otherwise calculate it from order items
   if (orders) {
     const ordersWithTotal = await Promise.all(
       orders.map(async (order) => {
+        // If total_price already exists in the database and is not 0, use it
+        if (order.total_price != null && order.total_price !== 0) {
+          return order;
+        }
+
+        // Otherwise, calculate it from order items
         const { data: orderItems } = await supabase
           .from("order_item")
           .select(
@@ -42,8 +48,7 @@ export const load: PageLoad = async () => {
         if (orderItems) {
           totalPrice = orderItems.reduce((sum, item) => {
             // Use price from order_item if it exists, otherwise use purchase_price from wine_vintage
-            const price =
-              (item as any).price || item.wine_vintage?.purchase_price || 0;
+            const price = item.price || item.wine_vintage?.purchase_price || 0;
             return sum + price * item.quantity;
           }, 0);
         }
