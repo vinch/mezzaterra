@@ -110,7 +110,7 @@
 
   async function handleSubmit() {
     if (!vintageFormData.production_year) {
-      error = "L'année de production est obligatoire";
+      error = "L'année de mise en bouteille est obligatoire";
       return;
     }
 
@@ -142,7 +142,7 @@
 
   async function handleUpdate() {
     if (!vintageFormData.production_year || !editingVintage) {
-      error = "L'année de production est obligatoire";
+      error = "L'année de mise en bouteille est obligatoire";
       return;
     }
 
@@ -455,7 +455,7 @@
   <form on:submit|preventDefault={handleSubmit}>
     <div class="form-grid">
       <div class="form-group">
-        <label for="production_year">Année de production *</label>
+        <label for="production_year">Année de mise en bouteille *</label>
         <input
           type="number"
           id="production_year"
@@ -550,7 +550,7 @@
   <form on:submit|preventDefault={handleUpdate}>
     <div class="form-grid">
       <div class="form-group">
-        <label for="edit-production_year">Année de production *</label>
+        <label for="edit-production_year">Année de mise en bouteille *</label>
         <input
           type="number"
           id="edit-production_year"
