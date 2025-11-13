@@ -175,13 +175,23 @@
       return;
     }
 
-    const wineData = {
+    const wineData: any = {
       name: formData.name || null,
       description: formData.description || null,
       winery_id: formData.winery_id,
-      appelation_id: formData.appelation_id,
       wine_type_id: formData.wine_type_id,
     };
+
+    // Include appelation_id only if it has a value, or set to null to clear it
+    if (editingWine) {
+      // For updates, set to null if empty to allow clearing the appellation
+      wineData.appelation_id = formData.appelation_id || null;
+    } else {
+      // For inserts, only include if it has a value
+      if (formData.appelation_id) {
+        wineData.appelation_id = formData.appelation_id;
+      }
+    }
 
     if (editingWine) {
       const { error: updateError } = await supabase
