@@ -268,6 +268,7 @@ export type Database = {
           date: string
           id: string
           note: string | null
+          status: string
           supplier_id: string
           total_price: number
           transport_id: string | null
@@ -277,6 +278,7 @@ export type Database = {
           date: string
           id?: string
           note?: string | null
+          status: string
           supplier_id: string
           total_price: number
           transport_id?: string | null
@@ -286,6 +288,7 @@ export type Database = {
           date?: string
           id?: string
           note?: string | null
+          status?: string
           supplier_id?: string
           total_price?: number
           transport_id?: string | null
@@ -759,7 +762,7 @@ export type Database = {
       }
       wine: {
         Row: {
-          appelation_id: string
+          appelation_id: string | null
           created_at: string
           description: string | null
           id: string
@@ -768,7 +771,7 @@ export type Database = {
           winery_id: string
         }
         Insert: {
-          appelation_id: string
+          appelation_id?: string | null
           created_at?: string
           description?: string | null
           id?: string
@@ -777,7 +780,7 @@ export type Database = {
           winery_id: string
         }
         Update: {
-          appelation_id?: string
+          appelation_id?: string | null
           created_at?: string
           description?: string | null
           id?: string

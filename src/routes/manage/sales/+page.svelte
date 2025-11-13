@@ -716,7 +716,7 @@
     if (discount > 0) {
       if (item.discount_type === "percent") {
         itemTotal = itemTotal * (1 - discount / 100);
-      } else if (item.discount_type === "fixed") {
+      } else if (item.discount_type === "amount") {
         itemTotal = itemTotal - discount;
       }
     }
@@ -1208,9 +1208,15 @@
                 <div class="sale-item">
                   <span>
                     {getProductDisplayNameWithYear(item.wine_vintage)} - x{item.quantity}
-                    @ €{item.price.toFixed(2)} = €{calculateItemTotal(
-                      item
-                    ).toFixed(2)}
+                    @ €{item.price.toFixed(2)}
+                    {#if item.discount && item.discount > 0}
+                      {#if item.discount_type === "percent"}
+                        (-{item.discount}%)
+                      {:else if item.discount_type === "amount"}
+                        (-€{item.discount.toFixed(2)})
+                      {/if}
+                    {/if}
+                    = €{calculateItemTotal(item).toFixed(2)}
                   </span>
                   <button
                     type="button"
@@ -1224,38 +1230,60 @@
             </div>
           {/if}
           <div class="add-item-form">
-            <select
-              bind:value={selectedVintageId}
-              on:change={handleVintageChange}
-            >
-              <option value="">Sélectionner un produit</option>
-              {#each wineVintages as vintage}
-                {@const availableStock = getAvailableStock(vintage.id)}
-                {@const alreadyAdded = isVintageAlreadyAdded(vintage.id)}
-                <option
-                  value={vintage.id}
-                  disabled={availableStock === 0 || alreadyAdded}
-                >
-                  {getProductDisplayNameWithStock(vintage, availableStock)}
-                </option>
-              {/each}
-            </select>
-            <input
-              type="number"
-              min="1"
-              placeholder="Qté"
-              bind:value={selectedQuantity}
-            />
-            <input
-              type="number"
-              step="0.01"
-              min="0"
-              placeholder="Prix"
-              bind:value={selectedPrice}
-            />
-            <button type="button" class="btn-add" on:click={addSaleItem}>
-              Ajouter
-            </button>
+            <div class="add-item-row">
+              <select
+                bind:value={selectedVintageId}
+                on:change={handleVintageChange}
+              >
+                <option value="">Sélectionner un produit</option>
+                {#each wineVintages as vintage}
+                  {@const availableStock = getAvailableStock(vintage.id)}
+                  {@const alreadyAdded = isVintageAlreadyAdded(vintage.id)}
+                  <option
+                    value={vintage.id}
+                    disabled={availableStock === 0 || alreadyAdded}
+                  >
+                    {getProductDisplayNameWithStock(vintage, availableStock)}
+                  </option>
+                {/each}
+              </select>
+              <input
+                type="number"
+                min="1"
+                placeholder="Qté"
+                bind:value={selectedQuantity}
+              />
+              <input
+                type="number"
+                step="0.01"
+                min="0"
+                placeholder="Prix"
+                bind:value={selectedPrice}
+              />
+            </div>
+            <div class="add-item-row">
+              <label for="discount-{editingSale ? 'edit' : 'create'}"
+                >Remise</label
+              >
+              <input
+                type="number"
+                id="discount-{editingSale ? 'edit' : 'create'}"
+                step="0.01"
+                min="0"
+                placeholder="Montant"
+                bind:value={selectedDiscount}
+              />
+              <select bind:value={selectedDiscountType}>
+                <option value="">Type</option>
+                <option value="percent">%</option>
+                <option value="amount">Montant</option>
+              </select>
+            </div>
+            <div class="add-item-row">
+              <button type="button" class="btn-add" on:click={addSaleItem}>
+                Ajouter
+              </button>
+            </div>
           </div>
           <div class="total-display">
             <strong>Total: €{formData.total_price.toFixed(2)}</strong>
@@ -1320,9 +1348,15 @@
                 <div class="sale-item">
                   <span>
                     {getProductDisplayNameWithYear(item.wine_vintage)} - x{item.quantity}
-                    @ €{item.price.toFixed(2)} = €{calculateItemTotal(
-                      item
-                    ).toFixed(2)}
+                    @ €{item.price.toFixed(2)}
+                    {#if item.discount && item.discount > 0}
+                      {#if item.discount_type === "percent"}
+                        (-{item.discount}%)
+                      {:else if item.discount_type === "amount"}
+                        (-€{item.discount.toFixed(2)})
+                      {/if}
+                    {/if}
+                    = €{calculateItemTotal(item).toFixed(2)}
                   </span>
                   <button
                     type="button"
@@ -1336,38 +1370,60 @@
             </div>
           {/if}
           <div class="add-item-form">
-            <select
-              bind:value={selectedVintageId}
-              on:change={handleVintageChange}
-            >
-              <option value="">Sélectionner un produit</option>
-              {#each wineVintages as vintage}
-                {@const availableStock = getAvailableStock(vintage.id)}
-                {@const alreadyAdded = isVintageAlreadyAdded(vintage.id)}
-                <option
-                  value={vintage.id}
-                  disabled={availableStock === 0 || alreadyAdded}
-                >
-                  {getProductDisplayNameWithStock(vintage, availableStock)}
-                </option>
-              {/each}
-            </select>
-            <input
-              type="number"
-              min="1"
-              placeholder="Qté"
-              bind:value={selectedQuantity}
-            />
-            <input
-              type="number"
-              step="0.01"
-              min="0"
-              placeholder="Prix"
-              bind:value={selectedPrice}
-            />
-            <button type="button" class="btn-add" on:click={addSaleItem}>
-              Ajouter
-            </button>
+            <div class="add-item-row">
+              <select
+                bind:value={selectedVintageId}
+                on:change={handleVintageChange}
+              >
+                <option value="">Sélectionner un produit</option>
+                {#each wineVintages as vintage}
+                  {@const availableStock = getAvailableStock(vintage.id)}
+                  {@const alreadyAdded = isVintageAlreadyAdded(vintage.id)}
+                  <option
+                    value={vintage.id}
+                    disabled={availableStock === 0 || alreadyAdded}
+                  >
+                    {getProductDisplayNameWithStock(vintage, availableStock)}
+                  </option>
+                {/each}
+              </select>
+              <input
+                type="number"
+                min="1"
+                placeholder="Qté"
+                bind:value={selectedQuantity}
+              />
+              <input
+                type="number"
+                step="0.01"
+                min="0"
+                placeholder="Prix"
+                bind:value={selectedPrice}
+              />
+            </div>
+            <div class="add-item-row">
+              <label for="discount-{editingSale ? 'edit' : 'create'}"
+                >Remise</label
+              >
+              <input
+                type="number"
+                id="discount-{editingSale ? 'edit' : 'create'}"
+                step="0.01"
+                min="0"
+                placeholder="Montant"
+                bind:value={selectedDiscount}
+              />
+              <select bind:value={selectedDiscountType}>
+                <option value="">Type</option>
+                <option value="percent">%</option>
+                <option value="amount">Montant</option>
+              </select>
+            </div>
+            <div class="add-item-row">
+              <button type="button" class="btn-add" on:click={addSaleItem}>
+                Ajouter
+              </button>
+            </div>
           </div>
           <div class="total-display">
             <strong>Total: €{formData.total_price.toFixed(2)}</strong>
@@ -1448,6 +1504,15 @@
                 <div class="details-item-details">
                   <span>x{item.quantity}</span>
                   <span>@ €{item.price.toFixed(2)}</span>
+                  {#if item.discount && item.discount > 0}
+                    <span>
+                      {#if item.discount_type === "percent"}
+                        (-{item.discount}%)
+                      {:else if item.discount_type === "amount"}
+                        (-€{item.discount.toFixed(2)})
+                      {/if}
+                    </span>
+                  {/if}
                   <strong>= €{calculateItemTotal(item).toFixed(2)}</strong>
                 </div>
               </div>
@@ -1741,17 +1806,37 @@
 
   .add-item-form {
     display: flex;
-    gap: 0.5rem;
-    flex-wrap: wrap;
+    flex-direction: column;
+    gap: 0.75rem;
   }
 
-  .add-item-form select {
+  .add-item-row {
+    display: flex;
+    gap: 0.5rem;
+    align-items: center;
+  }
+
+  .add-item-row label {
+    margin-bottom: 0;
+    margin-right: 0.5rem;
+    white-space: nowrap;
+  }
+
+  .add-item-row select {
     flex: 1;
     min-width: 200px;
   }
 
-  .add-item-form input {
-    width: 80px;
+  .add-item-row input {
+    width: 100px;
+  }
+
+  .add-item-row select:last-child {
+    min-width: 120px;
+  }
+
+  .add-item-row:last-child {
+    justify-content: flex-end;
   }
 
   .btn-add {

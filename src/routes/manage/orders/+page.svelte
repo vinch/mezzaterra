@@ -22,6 +22,7 @@
   let formData = {
     date: new Date().toISOString().split("T")[0],
     supplier_id: "",
+    status: "pending",
     total_price: 0,
     note: "",
   };
@@ -119,10 +120,16 @@
   }
 
   async function openEditModal(order: any) {
+    if (order.status === "confirmed") {
+      error = "Impossible de modifier une commande confirmée";
+      return;
+    }
+
     editingOrder = order;
     formData = {
       date: order.date.split("T")[0],
       supplier_id: order.supplier_id || "",
+      status: order.status || "pending",
       total_price: order.total_price || 0,
       note: order.note || "",
     };
@@ -194,6 +201,7 @@
     formData = {
       date: new Date().toISOString().split("T")[0],
       supplier_id: "",
+      status: "pending",
       total_price: 0,
       note: "",
     };
@@ -270,6 +278,7 @@
     const orderData = {
       date: formData.date,
       supplier_id: formData.supplier_id,
+      status: formData.status || "pending",
       transport_id: null,
       total_price: calculatedTotal,
       note: formData.note || null,
@@ -318,6 +327,7 @@
     const orderData = {
       date: formData.date,
       supplier_id: formData.supplier_id,
+      status: formData.status || "pending",
       transport_id: null,
       total_price: calculatedTotal,
       note: formData.note || null,
@@ -364,7 +374,45 @@
     window.location.reload();
   }
 
+  async function updateOrderStatus(
+    orderId: string,
+    newStatus: string,
+    currentStatus: string
+  ): Promise<boolean> {
+    // Prevent changing status if already confirmed
+    if (currentStatus === "confirmed") {
+      error = "Impossible de modifier le statut d'une commande confirmée";
+      return false;
+    }
+
+    const { error: updateError } = await supabase
+      .from("order")
+      .update({ status: newStatus })
+      .eq("id", orderId);
+
+    if (updateError) {
+      error = updateError.message;
+      return false;
+    }
+
+    // Update the local state
+    const orderIndex = orders.findIndex((o) => o.id === orderId);
+    if (orderIndex !== -1) {
+      orders[orderIndex].status = newStatus;
+      orders = [...orders];
+    }
+
+    return true;
+  }
+
   async function deleteOrder(id: string) {
+    // Find the order to check its status
+    const order = orders.find((o) => o.id === id);
+    if (order && order.status === "confirmed") {
+      error = "Impossible de supprimer une commande confirmée";
+      return;
+    }
+
     if (!confirm("Êtes-vous sûr de vouloir supprimer cette commande ?")) {
       return;
     }
@@ -417,6 +465,7 @@
               <th>Date</th>
               <th>Fournisseur</th>
               <th>Transport</th>
+              <th>Statut</th>
               <th>Montant total</th>
               <th>Actions</th>
             </tr>
@@ -455,11 +504,41 @@
                   {/if}
                 </td>
                 <td>
+                  <select
+                    class="status-select status-{order.status}"
+                    value={order.status || "pending"}
+                    disabled={order.status === "confirmed"}
+                    on:change={async (e) => {
+                      const target = e.target as HTMLSelectElement;
+                      const previousStatus = order.status || "pending";
+                      const newStatus = target.value;
+
+                      // Try to update, if failed, restore previous value
+                      const success = await updateOrderStatus(
+                        order.id,
+                        newStatus,
+                        previousStatus
+                      );
+
+                      // If update failed, restore select value
+                      if (!success) {
+                        target.value = previousStatus;
+                        // Force reactivity by triggering a small delay
+                        await new Promise((resolve) => setTimeout(resolve, 0));
+                        orders = [...orders];
+                      }
+                    }}
+                  >
+                    <option value="pending">En attente</option>
+                    <option value="confirmed">Confirmée</option>
+                  </select>
+                </td>
+                <td>
                   <strong>€{order.total_price?.toFixed(2) || "0.00"}</strong>
                 </td>
                 <td>
                   <div class="actions">
-                    {#if order.transport && (order.transport.status === "delivered" || order.transport.status === "cancelled")}
+                    {#if order.status === "confirmed" || (order.transport && (order.transport.status === "delivered" || order.transport.status === "cancelled"))}
                       <button
                         class="btn-details"
                         on:click={() => openDetailsModal(order)}
@@ -715,6 +794,16 @@
           <div class="details-section">
             <strong>Date:</strong>
             <p>{new Date(detailsOrder.date).toLocaleDateString("fr-FR")}</p>
+          </div>
+          <div class="details-section">
+            <strong>Statut:</strong>
+            <p>
+              <span
+                class="status-badge status-{detailsOrder.status || 'pending'}"
+              >
+                {detailsOrder.status === "pending" ? "En attente" : "Confirmée"}
+              </span>
+            </p>
           </div>
           {#if detailsOrder.transport}
             <div class="details-section">
@@ -1120,5 +1209,52 @@
     border-top: 2px solid #dee2e6;
     font-size: 1.2rem;
     margin-top: 1rem;
+  }
+
+  .status-select {
+    padding: 0.25rem 0.5rem;
+    border-radius: 4px;
+    font-size: 0.85rem;
+    font-weight: 500;
+    border: 1px solid rgba(0, 0, 0, 0.1);
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+
+  .status-select:hover:not(:disabled) {
+    opacity: 0.9;
+  }
+
+  .status-select:disabled {
+    cursor: not-allowed;
+    opacity: 0.7;
+  }
+
+  .status-select.status-pending {
+    background: #fff3cd;
+    color: #856404;
+  }
+
+  .status-select.status-confirmed {
+    background: #d4edda;
+    color: #155724;
+  }
+
+  .status-badge {
+    display: inline-block;
+    padding: 0.25rem 0.5rem;
+    border-radius: 4px;
+    font-size: 0.85rem;
+    font-weight: 500;
+  }
+
+  .status-badge.status-pending {
+    background: #fff3cd;
+    color: #856404;
+  }
+
+  .status-badge.status-confirmed {
+    background: #d4edda;
+    color: #155724;
   }
 </style>

@@ -390,6 +390,7 @@
       `
       )
       .is("transport_id", null)
+      .eq("status", "confirmed")
       .order("date", { ascending: false });
 
     if (fetchError) {
@@ -514,6 +515,27 @@
       return;
     }
 
+    // Verify that all selected orders are confirmed
+    for (const orderId of selectedOrderIds) {
+      const { data: order, error: fetchError } = await supabase
+        .from("order")
+        .select("status")
+        .eq("id", orderId)
+        .single();
+
+      if (fetchError || !order) {
+        error = `Erreur lors de la vérification de la commande: ${fetchError?.message || "Commande introuvable"}`;
+        return;
+      }
+
+      if (order.status !== "confirmed") {
+        error =
+          "Seules les commandes confirmées peuvent être associées à un transport";
+        return;
+      }
+    }
+
+    // Associate orders to transport
     for (const orderId of selectedOrderIds) {
       const { error: updateError } = await supabase
         .from("order")
@@ -847,10 +869,20 @@
             <div class="order-item-readonly">
               <div class="order-info">
                 <div class="order-header">
-                  <strong>
-                    {new Date(order.date).toLocaleDateString("fr-FR")} - {order
-                      .supplier.name}
-                  </strong>
+                  <div>
+                    <strong>
+                      {new Date(order.date).toLocaleDateString("fr-FR")} - {order
+                        .supplier.name}
+                    </strong>
+                    <span
+                      class="order-status-badge status-{order.status ||
+                        'pending'}"
+                    >
+                      {order.status === "confirmed"
+                        ? "Confirmée"
+                        : "En attente"}
+                    </span>
+                  </div>
                   <span class="order-total">
                     €{order.total_price?.toFixed(2) || "0.00"}
                   </span>
@@ -873,10 +905,11 @@
       {#if availableOrders.length === 0}
         {#if associatedOrders.length === 0}
           <p class="empty-text">
-            Aucune commande disponible (toutes ont déjà un transport)
+            Aucune commande confirmée disponible (seules les commandes
+            confirmées peuvent être associées à un transport)
           </p>
         {:else}
-          <p class="empty-text">Aucune autre commande disponible</p>
+          <p class="empty-text">Aucune autre commande confirmée disponible</p>
         {/if}
       {:else}
         <div class="orders-list">
@@ -889,10 +922,20 @@
               />
               <div class="order-info">
                 <div class="order-header">
-                  <strong>
-                    {new Date(order.date).toLocaleDateString("fr-FR")} - {order
-                      .supplier.name}
-                  </strong>
+                  <div>
+                    <strong>
+                      {new Date(order.date).toLocaleDateString("fr-FR")} - {order
+                        .supplier.name}
+                    </strong>
+                    <span
+                      class="order-status-badge status-{order.status ||
+                        'pending'}"
+                    >
+                      {order.status === "confirmed"
+                        ? "Confirmée"
+                        : "En attente"}
+                    </span>
+                  </div>
                   <span class="order-total">
                     €{order.total_price?.toFixed(2) || "0.00"}
                   </span>
@@ -1399,9 +1442,34 @@
     margin-bottom: 0.25rem;
   }
 
+  .order-header > div {
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+  }
+
   .order-header strong {
     color: #333;
     font-size: 0.95rem;
+  }
+
+  .order-status-badge {
+    display: inline-block;
+    padding: 0.15rem 0.4rem;
+    border-radius: 3px;
+    font-size: 0.75rem;
+    font-weight: 500;
+    margin-top: 0.25rem;
+  }
+
+  .order-status-badge.status-pending {
+    background: #fff3cd;
+    color: #856404;
+  }
+
+  .order-status-badge.status-confirmed {
+    background: #d4edda;
+    color: #155724;
   }
 
   .order-total {
