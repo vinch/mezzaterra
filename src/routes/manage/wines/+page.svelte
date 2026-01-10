@@ -353,7 +353,16 @@
               <tr>
                 <td>{wine.winery?.name || "-"}</td>
                 <td><strong>{wine.name || "-"}</strong></td>
-                <td>{wine.appelation?.name || "-"}</td>
+                <td>
+                  {#if wine.appelation}
+                    {wine.appelation.name || "-"}
+                    {#if wine.appelation.label?.name}
+                      {" " + wine.appelation.label.name}
+                    {/if}
+                  {:else}
+                    -
+                  {/if}
+                </td>
                 <td>{wine.wine_type?.name || "-"}</td>
                 <td>
                   {#if wine.description}
@@ -433,7 +442,12 @@
         <select id="appelation_id" bind:value={formData.appelation_id}>
           <option value="">Sélectionner une appellation</option>
           {#each appellations as appelation}
-            <option value={appelation.id}>{appelation.name}</option>
+            <option value={appelation.id}>
+              {appelation.name}
+              {#if appelation.label?.name}
+                {" " + appelation.label.name}
+              {/if}
+            </option>
           {/each}
         </select>
       </div>

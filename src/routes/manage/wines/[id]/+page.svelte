@@ -291,6 +291,9 @@
           <span class="detail-item">
             <strong>Appellation:</strong>
             {wine.appelation.name}
+            {#if wine.appelation.label?.name}
+              {" " + wine.appelation.label.name}
+            {/if}
           </span>
         {/if}
         {#if wine.wine_type}
