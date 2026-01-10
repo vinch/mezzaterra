@@ -303,6 +303,11 @@
           </span>
         {/if}
       </div>
+      {#if wine.description}
+        <div class="wine-description">
+          <p>{wine.description}</p>
+        </div>
+      {/if}
     </div>
     <button class="btn-primary" on:click={openCreateModal}>
       + Nouveau millésime
@@ -752,6 +757,19 @@
   .detail-item {
     font-size: 0.9rem;
     color: #666;
+  }
+
+  .wine-description {
+    margin-top: 1rem;
+    padding-top: 1rem;
+    border-top: 1px solid #e9ecef;
+  }
+
+  .wine-description p {
+    margin: 0;
+    color: #666;
+    font-size: 0.95rem;
+    line-height: 1.6;
   }
 
   .page-content {

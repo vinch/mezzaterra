@@ -23,6 +23,7 @@
   // Filter state
   let filterWineryId = "";
   let filterAppelationId = "";
+  let filterWineTypeId = "";
   let searchText = "";
 
   // Form fields
@@ -325,21 +326,24 @@
       return false;
     }
 
-    // Filter by search text (vignoble, nom, appellation, description)
+    // Filter by wine type
+    if (filterWineTypeId && wine.wine_type_id !== filterWineTypeId) {
+      return false;
+    }
+
+    // Filter by search text (vignoble, nom, appellation)
     if (searchText) {
       const searchLower = searchText.toLowerCase();
       const wineryName = wine.winery?.name?.toLowerCase() || "";
       const wineName = wine.name?.toLowerCase() || "";
       const appelationName = wine.appelation?.name?.toLowerCase() || "";
       const appelationLabel = wine.appelation?.label?.name?.toLowerCase() || "";
-      const description = wine.description?.toLowerCase() || "";
 
       const matchesSearch =
         wineryName.includes(searchLower) ||
         wineName.includes(searchLower) ||
         appelationName.includes(searchLower) ||
-        appelationLabel.includes(searchLower) ||
-        description.includes(searchLower);
+        appelationLabel.includes(searchLower);
 
       if (!matchesSearch) {
         return false;
@@ -352,6 +356,7 @@
   function clearFilters() {
     filterWineryId = "";
     filterAppelationId = "";
+    filterWineTypeId = "";
     searchText = "";
   }
 </script>
@@ -390,7 +395,7 @@
             <input
               type="text"
               id="search-text"
-              placeholder="Rechercher dans vignoble, nom, appellation, description..."
+              placeholder="Rechercher dans vignoble, nom, appellation..."
               bind:value={searchText}
             />
           </div>
@@ -414,6 +419,15 @@
                     {" " + appelation.label.name}
                   {/if}
                 </option>
+              {/each}
+            </select>
+          </div>
+          <div class="filter-group">
+            <label for="filter-wine-type">Type de vin</label>
+            <select id="filter-wine-type" bind:value={filterWineTypeId}>
+              <option value="">Tous les types</option>
+              {#each wineTypes as wineType}
+                <option value={wineType.id}>{wineType.name}</option>
               {/each}
             </select>
           </div>
@@ -680,7 +694,7 @@
 
   .filters {
     display: grid;
-    grid-template-columns: 2fr 1fr 1fr auto;
+    grid-template-columns: 2fr 1fr 1fr 1fr auto;
     gap: 1rem;
     align-items: end;
   }
