@@ -442,7 +442,6 @@
                 <th>Appellation</th>
                 <th>Type</th>
                 <th>Millésimes</th>
-                <th>Description</th>
                 <th>Actions</th>
               </tr>
             </thead>
@@ -464,17 +463,6 @@
                   <td>{wine.wine_type?.name || "-"}</td>
                   <td>
                     {(wine as any).wine_vintage?.length || 0}
-                  </td>
-                  <td>
-                    {#if wine.description}
-                      <span class="description-text" title={wine.description}>
-                        {wine.description.length > 50
-                          ? wine.description.substring(0, 50) + "..."
-                          : wine.description}
-                      </span>
-                    {:else}
-                      -
-                    {/if}
                   </td>
                   <td>
                     <div class="actions">
@@ -771,12 +759,6 @@
 
   tbody tr:hover {
     background: #f8f9fa;
-  }
-
-  .description-text {
-    font-size: 0.9rem;
-    color: #666;
-    cursor: help;
   }
 
   .actions {
