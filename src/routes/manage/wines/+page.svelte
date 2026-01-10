@@ -20,6 +20,11 @@
   let allPairings: any[] = [];
   let selectedPairingId = "";
 
+  // Filter state
+  let filterWineryId = "";
+  let filterAppelationId = "";
+  let searchText = "";
+
   // Form fields
   let formData = {
     name: "",
@@ -307,6 +312,48 @@
   function isPairingLinked(pairingId: string): boolean {
     return winePairings.some((wp) => wp.pairing_id === pairingId);
   }
+
+  // Filter wines based on selected filters
+  $: filteredWines = wines.filter((wine) => {
+    // Filter by winery
+    if (filterWineryId && wine.winery_id !== filterWineryId) {
+      return false;
+    }
+
+    // Filter by appellation
+    if (filterAppelationId && wine.appelation_id !== filterAppelationId) {
+      return false;
+    }
+
+    // Filter by search text (vignoble, nom, appellation, description)
+    if (searchText) {
+      const searchLower = searchText.toLowerCase();
+      const wineryName = wine.winery?.name?.toLowerCase() || "";
+      const wineName = wine.name?.toLowerCase() || "";
+      const appelationName = wine.appelation?.name?.toLowerCase() || "";
+      const appelationLabel = wine.appelation?.label?.name?.toLowerCase() || "";
+      const description = wine.description?.toLowerCase() || "";
+
+      const matchesSearch =
+        wineryName.includes(searchLower) ||
+        wineName.includes(searchLower) ||
+        appelationName.includes(searchLower) ||
+        appelationLabel.includes(searchLower) ||
+        description.includes(searchLower);
+
+      if (!matchesSearch) {
+        return false;
+      }
+    }
+
+    return true;
+  });
+
+  function clearFilters() {
+    filterWineryId = "";
+    filterAppelationId = "";
+    searchText = "";
+  }
 </script>
 
 <svelte:head>
@@ -336,75 +383,130 @@
         </button>
       </div>
     {:else}
-      <div class="table-container">
-        <table>
-          <thead>
-            <tr>
-              <th>Vignoble</th>
-              <th>Nom</th>
-              <th>Appellation</th>
-              <th>Type</th>
-              <th>Description</th>
-              <th>Actions</th>
-            </tr>
-          </thead>
-          <tbody>
-            {#each wines as wine}
-              <tr>
-                <td>{wine.winery?.name || "-"}</td>
-                <td><strong>{wine.name || "-"}</strong></td>
-                <td>
-                  {#if wine.appelation}
-                    {wine.appelation.name || "-"}
-                    {#if wine.appelation.label?.name}
-                      {" " + wine.appelation.label.name}
-                    {/if}
-                  {:else}
-                    -
+      <div class="filters-container">
+        <div class="filters">
+          <div class="filter-group">
+            <label for="search-text">Recherche</label>
+            <input
+              type="text"
+              id="search-text"
+              placeholder="Rechercher dans vignoble, nom, appellation, description..."
+              bind:value={searchText}
+            />
+          </div>
+          <div class="filter-group">
+            <label for="filter-winery">Vignoble</label>
+            <select id="filter-winery" bind:value={filterWineryId}>
+              <option value="">Tous les vignobles</option>
+              {#each wineries as winery}
+                <option value={winery.id}>{winery.name}</option>
+              {/each}
+            </select>
+          </div>
+          <div class="filter-group">
+            <label for="filter-appelation">Appellation</label>
+            <select id="filter-appelation" bind:value={filterAppelationId}>
+              <option value="">Toutes les appellations</option>
+              {#each appellations as appelation}
+                <option value={appelation.id}>
+                  {appelation.name}
+                  {#if appelation.label?.name}
+                    {" " + appelation.label.name}
                   {/if}
-                </td>
-                <td>{wine.wine_type?.name || "-"}</td>
-                <td>
-                  {#if wine.description}
-                    <span class="description-text" title={wine.description}>
-                      {wine.description.length > 50
-                        ? wine.description.substring(0, 50) + "..."
-                        : wine.description}
-                    </span>
-                  {:else}
-                    -
-                  {/if}
-                </td>
-                <td>
-                  <div class="actions">
-                    <a href="/manage/wines/{wine.id}" class="btn-vintages">
-                      Millésimes
-                    </a>
-                    <button
-                      class="btn-pairings"
-                      on:click={() => openPairingsModal(wine)}
-                    >
-                      Pairings
-                    </button>
-                    <button
-                      class="btn-edit"
-                      on:click={() => openEditModal(wine)}
-                    >
-                      Modifier
-                    </button>
-                    <button
-                      class="btn-delete"
-                      on:click={() => deleteWine(wine.id)}
-                    >
-                      Supprimer
-                    </button>
-                  </div>
-                </td>
-              </tr>
-            {/each}
-          </tbody>
-        </table>
+                </option>
+              {/each}
+            </select>
+          </div>
+          <div class="filter-group">
+            <button class="btn-secondary" on:click={clearFilters}>
+              Réinitialiser
+            </button>
+          </div>
+        </div>
       </div>
+
+      {#if filteredWines.length === 0}
+        <div class="empty-state">
+          <p>Aucun vin ne correspond aux filtres sélectionnés</p>
+          <button class="btn-secondary" on:click={clearFilters}>
+            Réinitialiser les filtres
+          </button>
+        </div>
+      {:else}
+        <div class="table-container">
+          <table>
+            <thead>
+              <tr>
+                <th>Vignoble</th>
+                <th>Nom</th>
+                <th>Appellation</th>
+                <th>Type</th>
+                <th>Millésimes</th>
+                <th>Description</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              {#each filteredWines as wine}
+                <tr>
+                  <td>{wine.winery?.name || "-"}</td>
+                  <td><strong>{wine.name || "-"}</strong></td>
+                  <td>
+                    {#if wine.appelation}
+                      {wine.appelation.name || "-"}
+                      {#if wine.appelation.label?.name}
+                        {" " + wine.appelation.label.name}
+                      {/if}
+                    {:else}
+                      -
+                    {/if}
+                  </td>
+                  <td>{wine.wine_type?.name || "-"}</td>
+                  <td>
+                    {(wine as any).wine_vintage?.length || 0}
+                  </td>
+                  <td>
+                    {#if wine.description}
+                      <span class="description-text" title={wine.description}>
+                        {wine.description.length > 50
+                          ? wine.description.substring(0, 50) + "..."
+                          : wine.description}
+                      </span>
+                    {:else}
+                      -
+                    {/if}
+                  </td>
+                  <td>
+                    <div class="actions">
+                      <a href="/manage/wines/{wine.id}" class="btn-vintages">
+                        Millésimes
+                      </a>
+                      <button
+                        class="btn-pairings"
+                        on:click={() => openPairingsModal(wine)}
+                      >
+                        Pairings
+                      </button>
+                      <button
+                        class="btn-edit"
+                        on:click={() => openEditModal(wine)}
+                      >
+                        Modifier
+                      </button>
+                      <button
+                        class="btn-delete"
+                        on:click={() => deleteWine(wine.id)}
+                      >
+                        Supprimer
+                      </button>
+                    </div>
+                  </td>
+                </tr>
+              {/each}
+            </tbody>
+          </table>
+        </div>
+      {/if}
     {/if}
   </div>
 </div>
@@ -578,6 +680,64 @@
   .empty-state p {
     color: #666;
     margin: 0 0 1rem 0;
+  }
+
+  .filters-container {
+    background: white;
+    padding: 1.5rem;
+    border-radius: 8px;
+    margin-bottom: 1.5rem;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  }
+
+  .filters {
+    display: grid;
+    grid-template-columns: 2fr 1fr 1fr auto;
+    gap: 1rem;
+    align-items: end;
+  }
+
+  .filter-group {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+  }
+
+  .filter-group label {
+    font-size: 0.9rem;
+    font-weight: 500;
+    color: #333;
+  }
+
+  .filter-group input,
+  .filter-group select {
+    padding: 0.5rem;
+    border: 1px solid #ced4da;
+    border-radius: 4px;
+    font-size: 0.9rem;
+  }
+
+  .filter-group input:focus,
+  .filter-group select:focus {
+    outline: none;
+    border-color: #007bff;
+  }
+
+  .filter-group button {
+    white-space: nowrap;
+    align-self: flex-end;
+  }
+
+  @media (max-width: 1024px) {
+    .filters {
+      grid-template-columns: 1fr 1fr;
+    }
+  }
+
+  @media (max-width: 640px) {
+    .filters {
+      grid-template-columns: 1fr;
+    }
   }
 
   .table-container {
