@@ -3,6 +3,7 @@
   import { onMount } from "svelte";
   import type { PageData } from "./$types";
   import Modal from "$lib/components/Modal.svelte";
+  import jsPDF from "jspdf";
 
   export let data: PageData;
 
@@ -14,9 +15,11 @@
   let showModal = false;
   let showEditModal = false;
   let showDetailsModal = false;
+  let showLanguageModal = false;
   let editingOrder: any = null;
   let detailsOrder: any = null;
   let detailsOrderItems: any[] = [];
+  let orderIdForPDF: string | null = null;
 
   // Form fields
   let formData = {
@@ -429,6 +432,314 @@
 
     window.location.reload();
   }
+
+  // Translations for PDF
+  const translations = {
+    fr: {
+      documentTitleConfirmed: "COMMANDE",
+      documentTitlePending: "DEVIS",
+      date: "Date",
+      status: "Statut",
+      statusConfirmed: "Confirmée",
+      statusPending: "En attente",
+      description: "Description",
+      quantity: "Qté",
+      unitPrice: "Prix unitaire",
+      total: "Total",
+      totalLabel: "TOTAL",
+      transport: "Transport",
+      transporter: "Transporteur",
+      departureDate: "Date de départ",
+      arrivalDate: "Date d'arrivée",
+      note: "Note",
+    },
+    en: {
+      documentTitleConfirmed: "ORDER",
+      documentTitlePending: "QUOTE",
+      date: "Date",
+      status: "Status",
+      statusConfirmed: "Confirmed",
+      statusPending: "Pending",
+      description: "Description",
+      quantity: "Qty",
+      unitPrice: "Unit Price",
+      total: "Total",
+      totalLabel: "TOTAL",
+      transport: "Transport",
+      transporter: "Transporter",
+      departureDate: "Departure Date",
+      arrivalDate: "Arrival Date",
+      note: "Note",
+    },
+    it: {
+      documentTitleConfirmed: "ORDINE",
+      documentTitlePending: "PREVENTIVO",
+      date: "Data",
+      status: "Stato",
+      statusConfirmed: "Confermato",
+      statusPending: "In attesa",
+      description: "Descrizione",
+      quantity: "Qtà",
+      unitPrice: "Prezzo unitario",
+      total: "Totale",
+      totalLabel: "TOTALE",
+      transport: "Trasporto",
+      transporter: "Trasportatore",
+      departureDate: "Data di partenza",
+      arrivalDate: "Data di arrivo",
+      note: "Nota",
+    },
+  };
+
+  type Language = "fr" | "en" | "it";
+
+  function openLanguageModal(orderId: string) {
+    orderIdForPDF = orderId;
+    showLanguageModal = true;
+  }
+
+  function closeLanguageModal() {
+    showLanguageModal = false;
+    orderIdForPDF = null;
+  }
+
+  async function downloadOrderPDF(orderId: string, lang: Language = "fr") {
+    try {
+      // Load order with supplier info
+      const { data: order, error: orderError } = await supabase
+        .from("order")
+        .select(
+          `
+          *,
+          supplier (*),
+          transport (
+            *,
+            transporter (*)
+          )
+        `
+        )
+        .eq("id", orderId)
+        .single();
+
+      if (orderError || !order) {
+        error = `Erreur lors du chargement de la commande: ${orderError?.message}`;
+        return;
+      }
+
+      // Load order items with wine info
+      const { data: items, error: itemsError } = await supabase
+        .from("order_item")
+        .select(
+          `
+          *,
+          wine_vintage (
+            *,
+            wine (
+              *,
+              winery (*),
+              appelation (*)
+            )
+          )
+        `
+        )
+        .eq("order_id", orderId);
+
+      if (itemsError || !items) {
+        error = `Erreur lors du chargement des articles: ${itemsError?.message}`;
+        return;
+      }
+
+      // Create PDF
+      const doc = new jsPDF();
+      const pageWidth = doc.internal.pageSize.getWidth();
+      const margin = 20;
+      let yPos = margin;
+
+      const t = translations[lang];
+      const localeMap = { fr: "fr-FR", en: "en-US", it: "it-IT" };
+      const locale = localeMap[lang];
+
+      // Header - use translated title based on status
+      const documentTitle =
+        order.status === "confirmed"
+          ? t.documentTitleConfirmed
+          : t.documentTitlePending;
+      doc.setFontSize(20);
+      doc.setFont("helvetica", "bold");
+      doc.text(documentTitle, pageWidth - margin, yPos, { align: "right" });
+      yPos += 12;
+
+      doc.setFontSize(10);
+      doc.setFont("helvetica", "normal");
+      doc.text(
+        `${t.date}: ${new Date(order.date).toLocaleDateString(locale)}`,
+        pageWidth - margin,
+        yPos,
+        { align: "right" }
+      );
+      yPos += 6;
+      doc.text(
+        `${t.status}: ${order.status === "confirmed" ? t.statusConfirmed : t.statusPending}`,
+        pageWidth - margin,
+        yPos,
+        {
+          align: "right",
+        }
+      );
+      yPos += 15;
+
+      // Company info (left side) and Supplier info (right side)
+      const supplierX = pageWidth - margin;
+      let supplierY = yPos;
+
+      // Company info (left side)
+      doc.setFontSize(12);
+      doc.setFont("helvetica", "bold");
+      doc.text("Mezzaterra", margin, yPos);
+      yPos += 6;
+
+      doc.setFontSize(10);
+      doc.setFont("helvetica", "normal");
+
+      // Supplier info (right side)
+      doc.setFontSize(12);
+      doc.setFont("helvetica", "bold");
+      doc.text(order.supplier.name, supplierX, supplierY, { align: "right" });
+      supplierY += 6;
+
+      doc.setFontSize(10);
+      doc.setFont("helvetica", "normal");
+
+      // Use the maximum Y position
+      yPos = Math.max(yPos, supplierY);
+      yPos += 15;
+
+      // Items table header
+      const descColStart = margin + 2;
+      const numericColWidth = 22;
+      const colSpacing = 2;
+
+      const totalColX = pageWidth - margin - numericColWidth / 2;
+      const priceColX = totalColX - numericColWidth - colSpacing;
+      const qtyColX = priceColX - numericColWidth - colSpacing;
+      const descColWidth = qtyColX - descColStart - numericColWidth / 2 - 15;
+
+      doc.setFontSize(9);
+      doc.setFont("helvetica", "bold");
+      doc.line(margin, yPos, pageWidth - margin, yPos);
+      yPos += 6;
+      doc.text(t.description, descColStart, yPos);
+      doc.text(t.quantity, qtyColX, yPos, { align: "center" });
+      doc.text(t.unitPrice, priceColX, yPos, { align: "center" });
+      doc.text(t.total, totalColX, yPos, { align: "center" });
+      yPos += 3;
+      doc.line(margin, yPos, pageWidth - margin, yPos);
+      yPos += 6;
+
+      // Items
+      doc.setFont("helvetica", "normal");
+
+      for (const item of items) {
+        if (yPos > doc.internal.pageSize.getHeight() - 40) {
+          doc.addPage();
+          yPos = margin + 20;
+        }
+
+        const productName = getProductDisplayNameWithYear(item.wine_vintage);
+        const quantity = item.quantity;
+        const unitPrice = item.price || 0;
+        const itemTotal = unitPrice * quantity;
+
+        // Description (with wrapping)
+        const descriptionLines = doc.splitTextToSize(productName, descColWidth);
+        const startY = yPos;
+        doc.text(descriptionLines, descColStart, startY);
+        const itemHeight = Math.max(descriptionLines.length * 4.2, 6);
+
+        // Quantity - centered in column
+        doc.text(quantity.toString(), qtyColX, startY, { align: "center" });
+
+        // Unit price - centered in column
+        doc.text(`€${unitPrice.toFixed(2)}`, priceColX, startY, {
+          align: "center",
+        });
+
+        // Total - centered in column
+        doc.text(`€${itemTotal.toFixed(2)}`, totalColX, startY, {
+          align: "center",
+        });
+
+        yPos += itemHeight + 2;
+      }
+
+      yPos += 5;
+      doc.line(margin, yPos, pageWidth - margin, yPos);
+      yPos += 10;
+
+      // Total
+      doc.setFontSize(12);
+      doc.setFont("helvetica", "bold");
+      doc.text(
+        `${t.totalLabel}: €${order.total_price?.toFixed(2) || "0.00"}`,
+        pageWidth - margin,
+        yPos,
+        { align: "right" }
+      );
+
+      // Transport info if present
+      if (order.transport) {
+        yPos += 15;
+        doc.setFontSize(10);
+        doc.setFont("helvetica", "normal");
+        doc.setFont("helvetica", "bold");
+        doc.text(`${t.transport}:`, margin, yPos);
+        yPos += 5;
+        doc.setFont("helvetica", "normal");
+        doc.text(
+          `${t.transporter}: ${order.transport.transporter.name}`,
+          margin,
+          yPos
+        );
+        yPos += 5;
+        if (order.transport.departure_date) {
+          doc.text(
+            `${t.departureDate}: ${new Date(order.transport.departure_date).toLocaleDateString(locale)}`,
+            margin,
+            yPos
+          );
+          yPos += 5;
+        }
+        if (order.transport.arrival_date) {
+          doc.text(
+            `${t.arrivalDate}: ${new Date(order.transport.arrival_date).toLocaleDateString(locale)}`,
+            margin,
+            yPos
+          );
+        }
+      }
+
+      // Note if present
+      if (order.note) {
+        yPos += 15;
+        doc.setFontSize(10);
+        doc.setFont("helvetica", "normal");
+        doc.setFont("helvetica", "italic");
+        const noteLines = doc.splitTextToSize(
+          `${t.note}: ${order.note}`,
+          pageWidth - 2 * margin
+        );
+        doc.text(noteLines, margin, yPos);
+      }
+
+      // Save PDF
+      const dateStr = new Date(order.date).toISOString().split("T")[0];
+      const fileName = `${documentTitle}_${order.supplier.name.replace(/[^a-zA-Z0-9]/g, "_")}_${dateStr}.pdf`;
+      doc.save(fileName);
+    } catch (err) {
+      error = `Erreur lors de la génération du PDF: ${err}`;
+      console.error(err);
+    }
+  }
 </script>
 
 <svelte:head>
@@ -538,6 +849,13 @@
                 </td>
                 <td>
                   <div class="actions">
+                    <button
+                      class="btn-pdf"
+                      on:click={() => openLanguageModal(order.id)}
+                      title="Exporter en PDF"
+                    >
+                      PDF
+                    </button>
                     {#if order.status === "confirmed" || (order.transport && (order.transport.status === "delivered" || order.transport.status === "cancelled"))}
                       <button
                         class="btn-details"
@@ -847,6 +1165,53 @@
   {/if}
 </Modal>
 
+<!-- Modal de sélection de langue pour PDF -->
+<Modal
+  show={showLanguageModal}
+  title="Choisir la langue pour l'export PDF"
+  modalId="modal-title-language"
+  on:close={closeLanguageModal}
+>
+  <div class="language-selection">
+    <p>Sélectionnez la langue dans laquelle vous souhaitez générer le PDF :</p>
+    <div class="language-buttons">
+      <button
+        class="btn-language"
+        on:click={async () => {
+          if (orderIdForPDF) {
+            await downloadOrderPDF(orderIdForPDF, "fr");
+            closeLanguageModal();
+          }
+        }}
+      >
+        🇫🇷 Français
+      </button>
+      <button
+        class="btn-language"
+        on:click={async () => {
+          if (orderIdForPDF) {
+            await downloadOrderPDF(orderIdForPDF, "en");
+            closeLanguageModal();
+          }
+        }}
+      >
+        🇬🇧 English
+      </button>
+      <button
+        class="btn-language"
+        on:click={async () => {
+          if (orderIdForPDF) {
+            await downloadOrderPDF(orderIdForPDF, "it");
+            closeLanguageModal();
+          }
+        }}
+      >
+        🇮🇹 Italiano
+      </button>
+    </div>
+  </div>
+</Modal>
+
 <style>
   .page-container {
     min-height: 100vh;
@@ -1003,6 +1368,20 @@
 
   .btn-delete:hover {
     background: #c82333;
+  }
+
+  .btn-pdf {
+    padding: 0.4rem 0.8rem;
+    background: #6f42c1;
+    color: white;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 0.85rem;
+  }
+
+  .btn-pdf:hover {
+    background: #5a32a3;
   }
 
   form {
@@ -1256,5 +1635,45 @@
   .status-badge.status-confirmed {
     background: #d4edda;
     color: #155724;
+  }
+
+  .language-selection {
+    padding: 1.5rem;
+  }
+
+  .language-selection p {
+    margin: 0 0 1.5rem 0;
+    color: #333;
+    font-size: 0.95rem;
+  }
+
+  .language-buttons {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+  }
+
+  .btn-language {
+    padding: 1rem;
+    background: #f8f9fa;
+    border: 2px solid #dee2e6;
+    border-radius: 8px;
+    cursor: pointer;
+    font-size: 1rem;
+    text-align: left;
+    transition: all 0.2s;
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+  }
+
+  .btn-language:hover {
+    background: #e9ecef;
+    border-color: #007bff;
+    transform: translateX(4px);
+  }
+
+  .btn-language:active {
+    transform: translateX(0);
   }
 </style>
