@@ -1,12 +1,11 @@
 <script>
-  import Logo from "$lib/components/Logo.svelte";
 </script>
 
 <div class="layout">
   <header class="site-header">
     <div class="header-content">
       <a href="/" class="logo-link">
-        <Logo size={2} />
+        <img src="/logo-simplified.png" alt="Mezzaterra" class="logo-inner" />
       </a>
       <nav class="site-nav">
         <a href="/tastings" class="nav-link">Dégustations</a>
@@ -68,6 +67,13 @@
     text-decoration: none;
     display: flex;
     align-items: center;
+  }
+
+  .logo-inner {
+    height: 6rem;
+    width: auto;
+    display: block;
+    border-radius: 10px;
   }
 
   .main-content {

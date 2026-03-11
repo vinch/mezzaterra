@@ -1,9 +1,5 @@
-<script>
-  import Logo from "$lib/components/Logo.svelte";
-</script>
-
 <div class="container">
-  <Logo size={5} />
+  <img src="/logo.png" alt="Mezzaterra" class="logo-home" />
 </div>
 
 <style>
@@ -12,5 +8,12 @@
     display: flex;
     align-items: center;
     justify-content: center;
+  }
+
+  .logo-home {
+    width: min(90vw, 55rem);
+    max-width: 100%;
+    height: auto;
+    display: block;
   }
 </style>
