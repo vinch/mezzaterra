@@ -1,4 +1,5 @@
 <script>
+  import SiteFooter from "$lib/components/SiteFooter.svelte";
 </script>
 
 <div class="layout">
@@ -16,6 +17,8 @@
   <main class="main-content">
     <slot />
   </main>
+
+  <SiteFooter />
 </div>
 
 <style>
