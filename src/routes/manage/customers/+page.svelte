@@ -69,15 +69,15 @@
     formData = {
       first_name: customer.first_name,
       last_name: customer.last_name,
-      email: customer.email,
-      company_name: customer.company_name || "",
-      phone_number: customer.phone_number || "",
-      address_line_1: customer.address_line_1 || "",
-      address_line_2: customer.address_line_2 || "",
-      city: customer.city || "",
-      zip_code: customer.zip_code || "",
-      country_id: customer.country_id || "",
-      vat: customer.vat || "",
+      email: customer.email ?? "",
+      company_name: customer.company_name ?? "",
+      phone_number: customer.phone_number ?? "",
+      address_line_1: customer.address_line_1 ?? "",
+      address_line_2: customer.address_line_2 ?? "",
+      city: customer.city ?? "",
+      zip_code: customer.zip_code ?? "",
+      country_id: customer.country_id ?? "",
+      vat: customer.vat ?? "",
     };
     showModal = true;
   }
@@ -105,15 +105,16 @@
   }
 
   async function handleSubmit() {
-    if (!formData.first_name || !formData.last_name || !formData.email) {
-      error = "Prénom, nom et email sont obligatoires";
+    if (!formData.first_name || !formData.last_name) {
+      error = "Prénom et nom sont obligatoires";
       return;
     }
 
+    const emailTrimmed = formData.email.trim();
     const customerData = {
       first_name: formData.first_name,
       last_name: formData.last_name,
-      email: formData.email,
+      email: emailTrimmed ? emailTrimmed : null,
       company_name: isCompany ? formData.company_name || null : null,
       phone_number: formData.phone_number || null,
       address_line_1: formData.address_line_1 || null,
@@ -214,7 +215,7 @@
             {#each customers as customer}
               <tr>
                 <td>{customer.first_name} {customer.last_name}</td>
-                <td>{customer.email}</td>
+                <td>{customer.email || "—"}</td>
                 <td>{customer.company_name || "-"}</td>
                 <td>{customer.phone_number || "-"}</td>
                 <td>{customer.city || "-"}</td>
@@ -278,8 +279,8 @@
       </div>
 
       <div class="form-group">
-        <label for="email">Email *</label>
-        <input type="email" id="email" bind:value={formData.email} required />
+        <label for="email">Email</label>
+        <input type="email" id="email" bind:value={formData.email} />
       </div>
 
       <div class="form-group">
