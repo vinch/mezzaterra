@@ -35,7 +35,19 @@
   let selectedQuantity = "";
   let selectedPrice = "";
   let selectedDiscount = "";
-  let selectedDiscountType = "";
+  /** Par défaut « montant » : sinon une remise saisie sans type était ignorée (discount_type null). */
+  let selectedDiscountType: "amount" | "percent" = "amount";
+
+  /** Prix / remises : number ou string (numeric PostgREST), virgule décimale FR. */
+  function toNumber(value: unknown): number {
+    if (value == null || value === "") return 0;
+    if (typeof value === "number") {
+      return Number.isFinite(value) ? value : 0;
+    }
+    const s = String(value).trim().replace(",", ".");
+    const n = parseFloat(s);
+    return Number.isFinite(n) ? n : 0;
+  }
 
   onMount(async () => {
     await loadCustomers();
@@ -201,14 +213,19 @@
           },
           wine_vintage_id: item.wine_vintage_id,
           quantity: item.quantity,
-          price: item.price,
-          discount: item.discount || 0,
+          price: toNumber(item.price),
+          discount: toNumber(item.discount),
           discount_type: item.discount_type || null,
           note: item.note || "",
         };
       })
     );
     formData.total_price = calculateTotal();
+    selectedVintageId = "";
+    selectedQuantity = "";
+    selectedPrice = "";
+    selectedDiscount = "";
+    selectedDiscountType = "amount";
     showEditModal = true;
   }
 
@@ -574,7 +591,7 @@
 
         const productName = getProductDisplayNameWithYear(item.wine_vintage);
         const quantity = item.quantity;
-        const priceTTC = item.price; // Price in DB is TTC
+        const priceTTC = toNumber(item.price); // Price in DB is TTC
         const priceHTVA = isCompany ? priceTTC / (1 + VAT_RATE) : priceTTC;
         const itemTotalTTC = calculateItemTotal(item);
         subtotalTTC += itemTotalTTC;
@@ -703,25 +720,28 @@
     selectedQuantity = "";
     selectedPrice = "";
     selectedDiscount = "";
-    selectedDiscountType = "";
+    selectedDiscountType = "amount";
   }
 
   function calculateItemTotal(item: any) {
-    const price = parseFloat(item.price) || 0;
-    const quantity = parseInt(item.quantity) || 0;
-    const discount = parseFloat(item.discount) || 0;
+    const price = toNumber(item.price);
+    const quantity = parseInt(String(item.quantity ?? 0), 10) || 0;
+    const discount = toNumber(item.discount);
+    const discountKind = String(item.discount_type ?? "")
+      .trim()
+      .toLowerCase();
 
     let itemTotal = price * quantity;
 
     if (discount > 0) {
-      if (item.discount_type === "percent") {
+      if (discountKind === "percent") {
         itemTotal = itemTotal * (1 - discount / 100);
-      } else if (item.discount_type === "amount") {
+      } else if (discountKind === "amount") {
         itemTotal = itemTotal - discount;
       }
     }
 
-    return itemTotal;
+    return Math.round(itemTotal * 100) / 100;
   }
 
   function calculateTotal() {
@@ -754,15 +774,21 @@
 
     const vintage = wineVintages.find((v) => v.id === selectedVintageId);
     if (vintage) {
+      const discountVal = toNumber(selectedDiscount);
+      if (discountVal > 0 && !selectedDiscountType) {
+        error = "Choisissez un type de remise (montant ou %).";
+        return;
+      }
       saleItems = [
         ...saleItems,
         {
           wine_vintage: vintage,
           wine_vintage_id: selectedVintageId,
           quantity: quantity,
-          price: parseFloat(selectedPrice),
-          discount: selectedDiscount ? parseFloat(selectedDiscount) : 0,
-          discount_type: selectedDiscountType || null,
+          price: toNumber(selectedPrice),
+          discount: discountVal,
+          discount_type:
+            discountVal > 0 ? selectedDiscountType || null : null,
           note: "",
         },
       ];
@@ -770,7 +796,7 @@
       selectedQuantity = "";
       selectedPrice = "";
       selectedDiscount = "";
-      selectedDiscountType = "";
+      selectedDiscountType = "amount";
       formData.total_price = calculateTotal();
       error = ""; // Clear any previous errors
     }
@@ -813,8 +839,9 @@
         sale_id: newSale.id,
         wine_vintage_id: item.wine_vintage_id,
         quantity: item.quantity,
-        price: item.price,
-        discount: item.discount || null,
+        price: toNumber(item.price),
+        discount:
+          toNumber(item.discount) > 0 ? toNumber(item.discount) : null,
         discount_type: item.discount_type || null,
         note: item.note || null,
       });
@@ -879,8 +906,9 @@
         sale_id: editingSale.id,
         wine_vintage_id: item.wine_vintage_id,
         quantity: item.quantity,
-        price: item.price,
-        discount: item.discount || null,
+        price: toNumber(item.price),
+        discount:
+          toNumber(item.discount) > 0 ? toNumber(item.discount) : null,
         discount_type: item.discount_type || null,
         note: item.note || null,
       });
@@ -1208,12 +1236,12 @@
                 <div class="sale-item">
                   <span>
                     {getProductDisplayNameWithYear(item.wine_vintage)} - x{item.quantity}
-                    @ €{item.price.toFixed(2)}
-                    {#if item.discount && item.discount > 0}
+                    @ €{toNumber(item.price).toFixed(2)}
+                    {#if toNumber(item.discount) > 0}
                       {#if item.discount_type === "percent"}
-                        (-{item.discount}%)
+                        (-{toNumber(item.discount)}%)
                       {:else if item.discount_type === "amount"}
-                        (-€{item.discount.toFixed(2)})
+                        (-€{toNumber(item.discount).toFixed(2)})
                       {/if}
                     {/if}
                     = €{calculateItemTotal(item).toFixed(2)}
@@ -1274,9 +1302,8 @@
                 bind:value={selectedDiscount}
               />
               <select bind:value={selectedDiscountType}>
-                <option value="">Type</option>
-                <option value="percent">%</option>
-                <option value="amount">Montant</option>
+                <option value="amount">Montant (€)</option>
+                <option value="percent">Pourcentage (%)</option>
               </select>
             </div>
             <div class="add-item-row">
@@ -1348,12 +1375,12 @@
                 <div class="sale-item">
                   <span>
                     {getProductDisplayNameWithYear(item.wine_vintage)} - x{item.quantity}
-                    @ €{item.price.toFixed(2)}
-                    {#if item.discount && item.discount > 0}
+                    @ €{toNumber(item.price).toFixed(2)}
+                    {#if toNumber(item.discount) > 0}
                       {#if item.discount_type === "percent"}
-                        (-{item.discount}%)
+                        (-{toNumber(item.discount)}%)
                       {:else if item.discount_type === "amount"}
-                        (-€{item.discount.toFixed(2)})
+                        (-€{toNumber(item.discount).toFixed(2)})
                       {/if}
                     {/if}
                     = €{calculateItemTotal(item).toFixed(2)}
@@ -1414,9 +1441,8 @@
                 bind:value={selectedDiscount}
               />
               <select bind:value={selectedDiscountType}>
-                <option value="">Type</option>
-                <option value="percent">%</option>
-                <option value="amount">Montant</option>
+                <option value="amount">Montant (€)</option>
+                <option value="percent">Pourcentage (%)</option>
               </select>
             </div>
             <div class="add-item-row">
@@ -1503,13 +1529,13 @@
                 </div>
                 <div class="details-item-details">
                   <span>x{item.quantity}</span>
-                  <span>@ €{item.price.toFixed(2)}</span>
-                  {#if item.discount && item.discount > 0}
+                  <span>@ €{toNumber(item.price).toFixed(2)}</span>
+                  {#if toNumber(item.discount) > 0}
                     <span>
                       {#if item.discount_type === "percent"}
-                        (-{item.discount}%)
+                        (-{toNumber(item.discount)}%)
                       {:else if item.discount_type === "amount"}
-                        (-€{item.discount.toFixed(2)})
+                        (-€{toNumber(item.discount).toFixed(2)})
                       {/if}
                     </span>
                   {/if}
