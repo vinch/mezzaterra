@@ -805,6 +805,8 @@
   function removeSaleItem(index: number) {
     saleItems = saleItems.filter((_, i) => i !== index);
     formData.total_price = calculateTotal();
+    // Réinitialise le select (évite bug navigateur quand une option repasse de disabled → enabled)
+    selectedVintageId = "";
   }
 
   async function handleSubmit() {
@@ -1259,22 +1261,24 @@
           {/if}
           <div class="add-item-form">
             <div class="add-item-row">
-              <select
-                bind:value={selectedVintageId}
-                on:change={handleVintageChange}
-              >
-                <option value="">Sélectionner un produit</option>
-                {#each wineVintages as vintage}
-                  {@const availableStock = getAvailableStock(vintage.id)}
-                  {@const alreadyAdded = isVintageAlreadyAdded(vintage.id)}
-                  <option
-                    value={vintage.id}
-                    disabled={availableStock === 0 || alreadyAdded}
-                  >
-                    {getProductDisplayNameWithStock(vintage, availableStock)}
-                  </option>
-                {/each}
-              </select>
+              {#key saleItems.map((i) => i.wine_vintage_id).join("|")}
+                <select
+                  bind:value={selectedVintageId}
+                  on:change={handleVintageChange}
+                >
+                  <option value="">Sélectionner un produit</option>
+                  {#each wineVintages as vintage}
+                    {@const availableStock = getAvailableStock(vintage.id)}
+                    {@const alreadyAdded = isVintageAlreadyAdded(vintage.id)}
+                    <option
+                      value={vintage.id}
+                      disabled={availableStock === 0 || alreadyAdded}
+                    >
+                      {getProductDisplayNameWithStock(vintage, availableStock)}
+                    </option>
+                  {/each}
+                </select>
+              {/key}
               <input
                 type="number"
                 min="1"
@@ -1398,22 +1402,24 @@
           {/if}
           <div class="add-item-form">
             <div class="add-item-row">
-              <select
-                bind:value={selectedVintageId}
-                on:change={handleVintageChange}
-              >
-                <option value="">Sélectionner un produit</option>
-                {#each wineVintages as vintage}
-                  {@const availableStock = getAvailableStock(vintage.id)}
-                  {@const alreadyAdded = isVintageAlreadyAdded(vintage.id)}
-                  <option
-                    value={vintage.id}
-                    disabled={availableStock === 0 || alreadyAdded}
-                  >
-                    {getProductDisplayNameWithStock(vintage, availableStock)}
-                  </option>
-                {/each}
-              </select>
+              {#key saleItems.map((i) => i.wine_vintage_id).join("|")}
+                <select
+                  bind:value={selectedVintageId}
+                  on:change={handleVintageChange}
+                >
+                  <option value="">Sélectionner un produit</option>
+                  {#each wineVintages as vintage}
+                    {@const availableStock = getAvailableStock(vintage.id)}
+                    {@const alreadyAdded = isVintageAlreadyAdded(vintage.id)}
+                    <option
+                      value={vintage.id}
+                      disabled={availableStock === 0 || alreadyAdded}
+                    >
+                      {getProductDisplayNameWithStock(vintage, availableStock)}
+                    </option>
+                  {/each}
+                </select>
+              {/key}
               <input
                 type="number"
                 min="1"

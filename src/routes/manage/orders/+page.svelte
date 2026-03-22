@@ -269,6 +269,7 @@
   function removeOrderItem(index: number) {
     orderItems = orderItems.filter((_, i) => i !== index);
     formData.total_price = calculateTotal();
+    selectedVintageId = "";
   }
 
   async function handleSubmit() {
@@ -944,18 +945,20 @@
             </div>
           {/if}
           <div class="add-item-form">
-            <select
-              bind:value={selectedVintageId}
-              on:change={handleVintageChange}
-            >
-              <option value="">Sélectionner un produit</option>
-              {#each wineVintages as vintage}
-                {@const alreadyAdded = isVintageAlreadyAdded(vintage.id)}
-                <option value={vintage.id} disabled={alreadyAdded}>
-                  {getProductDisplayNameWithYear(vintage)}
-                </option>
-              {/each}
-            </select>
+            {#key orderItems.map((i) => i.wine_vintage_id).join("|")}
+              <select
+                bind:value={selectedVintageId}
+                on:change={handleVintageChange}
+              >
+                <option value="">Sélectionner un produit</option>
+                {#each wineVintages as vintage}
+                  {@const alreadyAdded = isVintageAlreadyAdded(vintage.id)}
+                  <option value={vintage.id} disabled={alreadyAdded}>
+                    {getProductDisplayNameWithYear(vintage)}
+                  </option>
+                {/each}
+              </select>
+            {/key}
             <input
               type="number"
               min="1"
@@ -1049,18 +1052,20 @@
             </div>
           {/if}
           <div class="add-item-form">
-            <select
-              bind:value={selectedVintageId}
-              on:change={handleVintageChange}
-            >
-              <option value="">Sélectionner un produit</option>
-              {#each wineVintages as vintage}
-                {@const alreadyAdded = isVintageAlreadyAdded(vintage.id)}
-                <option value={vintage.id} disabled={alreadyAdded}>
-                  {getProductDisplayNameWithYear(vintage)}
-                </option>
-              {/each}
-            </select>
+            {#key orderItems.map((i) => i.wine_vintage_id).join("|")}
+              <select
+                bind:value={selectedVintageId}
+                on:change={handleVintageChange}
+              >
+                <option value="">Sélectionner un produit</option>
+                {#each wineVintages as vintage}
+                  {@const alreadyAdded = isVintageAlreadyAdded(vintage.id)}
+                  <option value={vintage.id} disabled={alreadyAdded}>
+                    {getProductDisplayNameWithYear(vintage)}
+                  </option>
+                {/each}
+              </select>
+            {/key}
             <input
               type="number"
               min="1"
