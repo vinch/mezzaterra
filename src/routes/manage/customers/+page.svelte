@@ -215,7 +215,7 @@
             {#each customers as customer}
               <tr>
                 <td>{customer.first_name} {customer.last_name}</td>
-                <td>{customer.email || "—"}</td>
+                <td>{customer.email || "-"}</td>
                 <td>{customer.company_name || "-"}</td>
                 <td>{customer.phone_number || "-"}</td>
                 <td>{customer.city || "-"}</td>
