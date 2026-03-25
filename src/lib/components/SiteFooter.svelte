@@ -48,4 +48,10 @@
     fill: currentColor;
     flex-shrink: 0;
   }
+
+  @media (max-width: 640px) {
+    .site-footer {
+      padding: 0.75rem 1rem calc(0.75rem + env(safe-area-inset-bottom));
+    }
+  }
 </style>

@@ -79,6 +79,7 @@
 
   .container {
     flex: 1;
+    min-height: 0;
     padding: 1.5rem 1rem 1rem;
     display: flex;
     flex-direction: column;
