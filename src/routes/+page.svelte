@@ -72,7 +72,7 @@
 
 <style>
   .page {
-    min-height: 100vh;
+    height: 100dvh;
     display: flex;
     flex-direction: column;
   }
@@ -169,11 +169,13 @@
   @media (max-width: 640px) {
     .container {
       justify-content: flex-start;
-      padding-top: 1.25rem;
+      padding-top: 1rem;
+      padding-bottom: 0.5rem;
+      gap: 1rem;
     }
 
     .logo-home {
-      max-height: 42vh;
+      max-height: 34vh;
     }
 
     .subscribe-form {
