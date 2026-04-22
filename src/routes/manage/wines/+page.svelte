@@ -722,7 +722,12 @@
 </Modal>
 
 <!-- Stock list modal -->
-<Modal show={showStockModal} title="Vins en stock" on:close={closeStockModal}>
+<Modal
+  show={showStockModal}
+  title="Vins en stock"
+  wide={true}
+  on:close={closeStockModal}
+>
   <div class="stock-modal-body">
     {#if stockModalError}
       <div class="error-message">{stockModalError}</div>
@@ -1148,6 +1153,7 @@
   }
 
   .stock-modal-table-wrap {
+    margin-top: 1.5rem;
     max-height: min(70vh, 32rem);
     overflow: auto;
     border: 1px solid #e9ecef;

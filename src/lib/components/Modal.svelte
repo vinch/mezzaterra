@@ -4,6 +4,8 @@
   export let show = false;
   export let title = "";
   export let modalId = "modal-title";
+  /** Wider dialog for dense tables (e.g. stock list) */
+  export let wide = false;
 
   const dispatch = createEventDispatcher();
 
@@ -28,6 +30,7 @@
   >
     <div
       class="modal-content"
+      class:modal-content--wide={wide}
       on:click|stopPropagation
       on:keydown|stopPropagation
       role="dialog"
@@ -68,6 +71,11 @@
     max-width: 600px;
     max-height: 90vh;
     overflow-y: auto;
+  }
+
+  .modal-content--wide {
+    width: min(1200px, 96vw);
+    max-width: min(1200px, 96vw);
   }
 
   .modal-header {
