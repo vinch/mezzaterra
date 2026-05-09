@@ -12,6 +12,19 @@
   const TASTING_SELECT_VALUE = "__tasting__";
   const TASTING_LINE_NOTE = "Dégustation";
 
+  const PAYMENT_METHOD_OPTIONS: { value: string; label: string }[] = [
+    { value: "liquide", label: "Liquide" },
+    { value: "virement", label: "Virement" },
+    { value: "payconiq_pro", label: "Payconiq pro" },
+    { value: "payconiq_perso", label: "Payconiq perso" },
+  ];
+
+  function paymentMethodLabel(value: string | null | undefined): string {
+    if (value == null || String(value).trim() === "") return "—";
+    const o = PAYMENT_METHOD_OPTIONS.find((p) => p.value === value);
+    return o ? o.label : String(value);
+  }
+
   let sales: any[] = data.sales;
   let customers: any[] = [];
   let wineVintages: any[] = [];
@@ -33,6 +46,7 @@
     note: "",
     global_discount: "",
     global_discount_type: "amount" as "amount" | "percent",
+    payment_method: "",
   };
 
   // Sale items
@@ -102,7 +116,7 @@
 
   function getProductDisplayNameWithStock(
     vintage: any,
-    availableStock: number
+    availableStock: number,
   ) {
     const baseNameWithYear = getProductDisplayNameWithYear(vintage);
     return `${baseNameWithYear} - Stock : ${availableStock}`;
@@ -150,7 +164,7 @@
           winery (*),
           appelation (*)
         )
-      `
+      `,
       )
       .order("production_year", { ascending: false });
     if (data) {
@@ -167,7 +181,7 @@
             ...vintage,
             stock: inventory?.quantity_on_hand || 0,
           };
-        })
+        }),
       );
 
       wineVintages = vintagesWithStock;
@@ -227,6 +241,7 @@
           : "",
       global_discount_type:
         sale.global_discount_type === "percent" ? "percent" : "amount",
+      payment_method: sale.payment_method ?? "",
     };
     await loadWineVintages(); // Reload vintages with stock
     await loadSaleItems(sale.id);
@@ -263,7 +278,7 @@
           discount_type: item.discount_type || null,
           note: item.note || "",
         };
-      })
+      }),
     );
     selectedVintageId = "";
     selectedQuantity = "";
@@ -287,7 +302,7 @@
             appelation (*)
           )
         )
-      `
+      `,
       )
       .eq("sale_id", saleId);
 
@@ -323,7 +338,7 @@
 
   async function generateAndSaveInvoiceNumber(
     saleId: string,
-    saleDate: string
+    saleDate: string,
   ): Promise<string | null> {
     // Extract year from sale date
     const year = new Date(saleDate).getFullYear();
@@ -342,7 +357,7 @@
     if (error) {
       console.error(
         "Erreur lors de la génération du numéro de facture:",
-        error
+        error,
       );
       return null;
     }
@@ -403,7 +418,7 @@
     if (updateError) {
       console.error(
         "Erreur lors de l'enregistrement du numéro de facture:",
-        updateError
+        updateError,
       );
       return null;
     }
@@ -432,7 +447,7 @@
             country_id,
             vat
           )
-        `
+        `,
         )
         .eq("id", saleId)
         .single();
@@ -456,7 +471,7 @@
               appelation (*)
             )
           )
-        `
+        `,
         )
         .eq("sale_id", saleId);
 
@@ -497,7 +512,7 @@
         `Date: ${new Date(sale.date).toLocaleDateString("fr-FR")}`,
         pageWidth - margin,
         yPos,
-        { align: "right" }
+        { align: "right" },
       );
       yPos += 15;
 
@@ -694,12 +709,12 @@
           `Sous-total TTC: €${subtotalTTC.toFixed(2)}`,
           pageWidth - margin,
           yPos,
-          { align: "right" }
+          { align: "right" },
         );
         yPos += 5;
         const ristEuro = Math.max(
           0,
-          Math.round((subtotalTTC - toNumber(sale.total_price)) * 100) / 100
+          Math.round((subtotalTTC - toNumber(sale.total_price)) * 100) / 100,
         );
         const ristLabel =
           gType === "percent"
@@ -726,7 +741,7 @@
           `Total HTVA: €${totalHTVA.toFixed(2)}`,
           pageWidth - margin,
           yPos,
-          { align: "right" }
+          { align: "right" },
         );
         yPos += 7;
         doc.setFontSize(10);
@@ -735,7 +750,7 @@
           `TVA (21%): €${totalVAT.toFixed(2)}`,
           pageWidth - margin,
           yPos,
-          { align: "right" }
+          { align: "right" },
         );
         yPos += 7;
         doc.setFontSize(12);
@@ -744,14 +759,25 @@
           `Total TTC: €${sale.total_price.toFixed(2)}`,
           pageWidth - margin,
           yPos,
-          { align: "right" }
+          { align: "right" },
         );
       } else {
         doc.text(
           `TOTAL: €${sale.total_price.toFixed(2)}`,
           pageWidth - margin,
           yPos,
-          { align: "right" }
+          { align: "right" },
+        );
+      }
+
+      if (sale.payment_method) {
+        yPos += 10;
+        doc.setFontSize(10);
+        doc.setFont("helvetica", "normal");
+        doc.text(
+          `Mode de paiement : ${paymentMethodLabel(sale.payment_method)}`,
+          margin,
+          yPos,
         );
       }
 
@@ -763,7 +789,7 @@
         doc.setFont("helvetica", "italic");
         const noteLines = doc.splitTextToSize(
           `Note: ${sale.note}`,
-          pageWidth - 2 * margin
+          pageWidth - 2 * margin,
         );
         doc.text(noteLines, margin, yPos);
       }
@@ -786,6 +812,7 @@
       note: "",
       global_discount: "",
       global_discount_type: "amount",
+      payment_method: "",
     };
     saleItems = [];
     selectedVintageId = "";
@@ -833,10 +860,7 @@
     const typ = formData.global_discount_type;
     if (typ === "percent") {
       const pct = Math.min(100, g);
-      return Math.max(
-        0,
-        Math.round(subtotal * (1 - pct / 100) * 100) / 100
-      );
+      return Math.max(0, Math.round(subtotal * (1 - pct / 100) * 100) / 100);
     }
     return Math.max(0, Math.round((subtotal - g) * 100) / 100);
   }
@@ -889,8 +913,7 @@
           quantity,
           price: toNumber(selectedPrice),
           discount: discountVal,
-          discount_type:
-            discountVal > 0 ? selectedDiscountType || null : null,
+          discount_type: discountVal > 0 ? selectedDiscountType || null : null,
           note: TASTING_LINE_NOTE,
         },
       ];
@@ -922,8 +945,7 @@
           quantity: quantity,
           price: toNumber(selectedPrice),
           discount: discountVal,
-          discount_type:
-            discountVal > 0 ? selectedDiscountType || null : null,
+          discount_type: discountVal > 0 ? selectedDiscountType || null : null,
           note: "",
         },
       ];
@@ -966,8 +988,10 @@
       total_price: calculatedTotal,
       note: formData.note || null,
       global_discount: gGlobal > 0 ? gGlobal : null,
-      global_discount_type:
-        gGlobal > 0 ? formData.global_discount_type : null,
+      global_discount_type: gGlobal > 0 ? formData.global_discount_type : null,
+      payment_method: formData.payment_method?.trim()
+        ? formData.payment_method.trim()
+        : null,
     };
 
     const { data: newSale, error: insertError } = await supabase
@@ -988,8 +1012,7 @@
         wine_vintage_id: item.wine_vintage_id ?? null,
         quantity: item.quantity,
         price: toNumber(item.price),
-        discount:
-          toNumber(item.discount) > 0 ? toNumber(item.discount) : null,
+        discount: toNumber(item.discount) > 0 ? toNumber(item.discount) : null,
         discount_type: item.discount_type || null,
         note: item.note || null,
       });
@@ -1035,8 +1058,10 @@
       total_price: calculatedTotal,
       note: formData.note || null,
       global_discount: gGlobal > 0 ? gGlobal : null,
-      global_discount_type:
-        gGlobal > 0 ? formData.global_discount_type : null,
+      global_discount_type: gGlobal > 0 ? formData.global_discount_type : null,
+      payment_method: formData.payment_method?.trim()
+        ? formData.payment_method.trim()
+        : null,
     };
 
     const { error: updateError } = await supabase
@@ -1067,8 +1092,7 @@
         wine_vintage_id: item.wine_vintage_id ?? null,
         quantity: item.quantity,
         price: toNumber(item.price),
-        discount:
-          toNumber(item.discount) > 0 ? toNumber(item.discount) : null,
+        discount: toNumber(item.discount) > 0 ? toNumber(item.discount) : null,
         discount_type: item.discount_type || null,
         note: item.note || null,
       });
@@ -1086,7 +1110,7 @@
   async function updateSaleStatus(
     saleId: string,
     newStatus: string,
-    currentStatus: string
+    currentStatus: string,
   ): Promise<boolean> {
     if (currentStatus === newStatus) {
       return true;
@@ -1121,7 +1145,7 @@
       }
       if (
         !confirm(
-          "Clôturer cette vente ?\n\nElle ne pourra plus être modifiée ni changer de statut."
+          "Clôturer cette vente ?\n\nElle ne pourra plus être modifiée ni changer de statut.",
         )
       ) {
         return false;
@@ -1139,13 +1163,25 @@
     }
 
     if (newStatus === "paid") {
+      if (currentStatus !== "paid") {
+        const { data: salePm, error: pmErr } = await supabase
+          .from("sale")
+          .select("payment_method")
+          .eq("id", saleId)
+          .single();
+        if (pmErr || !String(salePm?.payment_method ?? "").trim()) {
+          error =
+            "Indiquez le mode de paiement (Modifier la vente) avant de marquer comme payée.";
+          return false;
+        }
+      }
       const stockHint =
         currentStatus === "pending"
           ? "\n\nLe stock sera débité (hors lignes dégustation)."
           : "";
       if (
         !confirm(
-          `Marquer cette vente comme payée ?${stockHint}\n\nUn numéro de facture sera attribué si besoin.`
+          `Marquer cette vente comme payée ?${stockHint}\n\nUn numéro de facture sera attribué si besoin.`,
         )
       ) {
         return false;
@@ -1177,7 +1213,7 @@
             first_name,
             last_name
           )
-        `
+        `,
         )
         .eq("id", saleId)
         .single();
@@ -1231,7 +1267,7 @@
       if (saleForInv) {
         const invoiceNumber = await generateAndSaveInvoiceNumber(
           saleForInv.id,
-          saleForInv.date
+          saleForInv.date,
         );
         if (!invoiceNumber) {
           console.error("Impossible de générer le numéro de facture");
@@ -1249,7 +1285,7 @@
       if (saleForInv && !saleForInv.invoice_number) {
         const invoiceNumber = await generateAndSaveInvoiceNumber(
           saleForInv.id,
-          saleForInv.date
+          saleForInv.date,
         );
         if (!invoiceNumber) {
           console.error("Impossible de générer le numéro de facture");
@@ -1360,27 +1396,27 @@
                         const success = await updateSaleStatus(
                           sale.id,
                           newStatus,
-                          previousStatus
+                          previousStatus,
                         );
 
                         if (!success) {
                           target.value = previousStatus;
-                          await new Promise((resolve) => setTimeout(resolve, 0));
+                          await new Promise((resolve) =>
+                            setTimeout(resolve, 0),
+                          );
                           sales = [...sales];
                         }
                       }}
                     >
                       <option
                         value="pending"
-                        disabled={sale.status !== "pending"}
-                        >En attente</option
+                        disabled={sale.status !== "pending"}>En attente</option
                       >
                       <option value="delivered">Livrée</option>
                       <option value="paid">Payée</option>
                       <option
                         value="closed"
-                        disabled={sale.status === "pending"}
-                        >Clôturée</option
+                        disabled={sale.status === "pending"}>Clôturée</option
                       >
                     </select>
                   {/if}
@@ -1468,12 +1504,26 @@
       </div>
 
       <div class="form-group full-width">
+        <label for="payment-method-create">Mode de paiement</label>
+        <select id="payment-method-create" bind:value={formData.payment_method}>
+          <option value="">— Non renseigné —</option>
+          {#each PAYMENT_METHOD_OPTIONS as opt}
+            <option value={opt.value}>{opt.label}</option>
+          {/each}
+        </select>
+        <p class="field-hint">
+          Obligatoire avant de passer la vente en « Payée ».
+        </p>
+      </div>
+
+      <div class="form-group full-width">
         <label for="note">Note</label>
         <textarea id="note" bind:value={formData.note} rows="2"></textarea>
       </div>
 
       <div class="form-group full-width">
-        <label for="global-discount-create">Ristourne globale (optionnel)</label>
+        <label for="global-discount-create">Ristourne globale (optionnel)</label
+        >
         <div class="global-discount-row">
           <input
             id="global-discount-create"
@@ -1531,7 +1581,9 @@
           {/if}
           <div class="add-item-form">
             <div class="add-item-row">
-              {#key saleItems.map((i) => i.wine_vintage_id ?? "_tasting").join("|")}
+              {#key saleItems
+                .map((i) => i.wine_vintage_id ?? "_tasting")
+                .join("|")}
                 <select
                   bind:value={selectedVintageId}
                   on:change={handleVintageChange}
@@ -1638,6 +1690,19 @@
       </div>
 
       <div class="form-group full-width">
+        <label for="payment-method-edit">Mode de paiement</label>
+        <select id="payment-method-edit" bind:value={formData.payment_method}>
+          <option value="">— Non renseigné —</option>
+          {#each PAYMENT_METHOD_OPTIONS as opt}
+            <option value={opt.value}>{opt.label}</option>
+          {/each}
+        </select>
+        <p class="field-hint">
+          Obligatoire avant de passer la vente en « Payée ».
+        </p>
+      </div>
+
+      <div class="form-group full-width">
         <label for="edit-note">Note</label>
         <textarea id="edit-note" bind:value={formData.note} rows="2"></textarea>
       </div>
@@ -1701,7 +1766,9 @@
           {/if}
           <div class="add-item-form">
             <div class="add-item-row">
-              {#key saleItems.map((i) => i.wine_vintage_id ?? "_tasting").join("|")}
+              {#key saleItems
+                .map((i) => i.wine_vintage_id ?? "_tasting")
+                .join("|")}
                 <select
                   bind:value={selectedVintageId}
                   on:change={handleVintageChange}
@@ -1823,6 +1890,11 @@
           </div>
         </div>
 
+        <div class="details-group">
+          <label>Mode de paiement</label>
+          <div>{paymentMethodLabel(detailsSale.payment_method)}</div>
+        </div>
+
         {#if detailsSale.note}
           <div class="details-group full-width">
             <label>Note</label>
@@ -1876,7 +1948,7 @@
               <span
                 >–€{Math.max(
                   0,
-                  sumDetailsItemsTTC() - toNumber(detailsSale.total_price)
+                  sumDetailsItemsTTC() - toNumber(detailsSale.total_price),
                 ).toFixed(2)}</span
               >
             </div>
