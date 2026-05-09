@@ -209,9 +209,8 @@
   }
 
   async function openEditModal(sale: any) {
-    // Pas de modification si payée ou annulée (livrée sans paiement = encore modifiable)
-    if (sale.status === "paid" || sale.status === "cancelled") {
-      error = "Impossible de modifier une vente payée ou annulée";
+    if (sale.status === "closed" || sale.status === "cancelled") {
+      error = "Impossible de modifier une vente clôturée ou annulée";
       return;
     }
 
@@ -1013,8 +1012,8 @@
 
     if (!editingSale) return;
 
-    if (editingSale.status === "paid" || editingSale.status === "cancelled") {
-      error = "Impossible de modifier une vente payée ou annulée";
+    if (editingSale.status === "closed" || editingSale.status === "cancelled") {
+      error = "Impossible de modifier une vente clôturée ou annulée";
       return;
     }
 
@@ -1098,6 +1097,37 @@
       return false;
     }
 
+    if (currentStatus === "closed") {
+      error = "Impossible de modifier le statut d'une vente clôturée.";
+      return false;
+    }
+
+    if (
+      newStatus === "pending" &&
+      (currentStatus === "paid" ||
+        currentStatus === "delivered" ||
+        currentStatus === "closed")
+    ) {
+      error =
+        "Impossible de repasser en « En attente » une fois la vente engagée (payée, livrée ou clôturée).";
+      return false;
+    }
+
+    if (newStatus === "closed") {
+      if (currentStatus !== "paid" && currentStatus !== "delivered") {
+        error =
+          "Une vente ne peut être clôturée qu’à partir des statuts « Payée » ou « Livrée ».";
+        return false;
+      }
+      if (
+        !confirm(
+          "Clôturer cette vente ?\n\nElle ne pourra plus être modifiée ni changer de statut."
+        )
+      ) {
+        return false;
+      }
+    }
+
     if (newStatus === "delivered") {
       const stockHint =
         currentStatus === "pending"
@@ -1116,14 +1146,6 @@
       if (
         !confirm(
           `Marquer cette vente comme payée ?${stockHint}\n\nUn numéro de facture sera attribué si besoin.`
-        )
-      ) {
-        return false;
-      }
-    } else if (newStatus === "cancelled") {
-      if (
-        !confirm(
-          "Êtes-vous sûr de vouloir annuler cette vente ?\n\nCette action est irréversible."
         )
       ) {
         return false;
@@ -1217,6 +1239,24 @@
       }
     }
 
+    if (newStatus === "closed") {
+      const { data: saleForInv } = await supabase
+        .from("sale")
+        .select("id, date, invoice_number")
+        .eq("id", saleId)
+        .single();
+
+      if (saleForInv && !saleForInv.invoice_number) {
+        const invoiceNumber = await generateAndSaveInvoiceNumber(
+          saleForInv.id,
+          saleForInv.date
+        );
+        if (!invoiceNumber) {
+          console.error("Impossible de générer le numéro de facture");
+        }
+      }
+    }
+
     // Update the local state
     const saleIndex = sales.findIndex((s) => s.id === saleId);
     if (saleIndex !== -1) {
@@ -1228,10 +1268,9 @@
   }
 
   async function deleteSale(id: string) {
-    // Find the sale to check its status
     const sale = sales.find((s) => s.id === id);
-    if (sale && (sale.status === "paid" || sale.status === "cancelled")) {
-      error = "Impossible de supprimer une vente payée ou annulée";
+    if (sale && sale.status !== "pending") {
+      error = "Seules les ventes en attente peuvent être supprimées.";
       return;
     }
 
@@ -1305,41 +1344,51 @@
                   </strong>
                 </td>
                 <td>
-                  <select
-                    class="status-select status-{sale.status}"
-                    value={sale.status}
-                    disabled={sale.status === "cancelled"}
-                    on:change={async (e) => {
-                      const target = e.target as HTMLSelectElement;
-                      const previousStatus = sale.status;
-                      const newStatus = target.value;
+                  {#if sale.status === "cancelled"}
+                    <span class="status-badge status-cancelled">Annulée</span>
+                  {:else if sale.status === "closed"}
+                    <span class="status-badge status-closed">Clôturée</span>
+                  {:else}
+                    <select
+                      class="status-select status-{sale.status}"
+                      value={sale.status}
+                      on:change={async (e) => {
+                        const target = e.target as HTMLSelectElement;
+                        const previousStatus = sale.status;
+                        const newStatus = target.value;
 
-                      // Try to update, if cancelled, restore previous value
-                      const success = await updateSaleStatus(
-                        sale.id,
-                        newStatus,
-                        previousStatus
-                      );
+                        const success = await updateSaleStatus(
+                          sale.id,
+                          newStatus,
+                          previousStatus
+                        );
 
-                      // If update failed (user cancelled or error), restore select value
-                      if (!success) {
-                        target.value = previousStatus;
-                        // Force reactivity by triggering a small delay
-                        await new Promise((resolve) => setTimeout(resolve, 0));
-                        sales = [...sales];
-                      }
-                    }}
-                  >
-                    <option value="pending">En attente</option>
-                    <option value="delivered">Livrée</option>
-                    <option value="paid">Payée</option>
-                    <option value="cancelled">Annulée</option>
-                  </select>
+                        if (!success) {
+                          target.value = previousStatus;
+                          await new Promise((resolve) => setTimeout(resolve, 0));
+                          sales = [...sales];
+                        }
+                      }}
+                    >
+                      <option
+                        value="pending"
+                        disabled={sale.status !== "pending"}
+                        >En attente</option
+                      >
+                      <option value="delivered">Livrée</option>
+                      <option value="paid">Payée</option>
+                      <option
+                        value="closed"
+                        disabled={sale.status === "pending"}
+                        >Clôturée</option
+                      >
+                    </select>
+                  {/if}
                 </td>
                 <td><strong>€{sale.total_price.toFixed(2)}</strong></td>
                 <td>
                   <div class="actions">
-                    {#if sale.status === "pending" || sale.status === "delivered"}
+                    {#if sale.status === "pending"}
                       <button
                         class="btn-edit"
                         on:click={() => openEditModal(sale)}
@@ -1352,21 +1401,33 @@
                       >
                         Supprimer
                       </button>
-                    {:else}
+                    {:else if sale.status === "paid" || sale.status === "delivered"}
+                      <button
+                        class="btn-edit"
+                        on:click={() => openEditModal(sale)}
+                      >
+                        Modifier
+                      </button>
+                    {:else if sale.status === "closed"}
                       <button
                         class="btn-details"
                         on:click={() => openDetailsModal(sale)}
                       >
                         Détails
                       </button>
-                      {#if sale.status === "paid" || sale.status === "delivered"}
-                        <button
-                          class="btn-download"
-                          on:click={() => downloadInvoice(sale.id)}
-                        >
-                          Télécharger facture
-                        </button>
-                      {/if}
+                      <button
+                        class="btn-download"
+                        on:click={() => downloadInvoice(sale.id)}
+                      >
+                        Télécharger facture
+                      </button>
+                    {:else if sale.status === "cancelled"}
+                      <button
+                        class="btn-details"
+                        on:click={() => openDetailsModal(sale)}
+                      >
+                        Détails
+                      </button>
                     {/if}
                   </div>
                 </td>
@@ -1753,7 +1814,11 @@
                   ? "Payée"
                   : detailsSale.status === "delivered"
                     ? "Livrée"
-                    : "Annulée"}
+                    : detailsSale.status === "closed"
+                      ? "Clôturée"
+                      : detailsSale.status === "cancelled"
+                        ? "Annulée"
+                        : detailsSale.status}
             </span>
           </div>
         </div>
@@ -2261,14 +2326,14 @@
     color: #155724;
   }
 
-  .status-select.status-cancelled {
-    background: #f8d7da;
-    color: #721c24;
-  }
-
   .status-select.status-delivered {
     background: #cce5ff;
     color: #004085;
+  }
+
+  .status-select.status-closed {
+    background: #e2e3e5;
+    color: #383d41;
   }
 
   .status-pending {
@@ -2289,6 +2354,11 @@
   .status-delivered {
     background: #cce5ff;
     color: #004085;
+  }
+
+  .status-closed {
+    background: #e2e3e5;
+    color: #383d41;
   }
 
   select option:disabled {
