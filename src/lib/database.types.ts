@@ -460,6 +460,8 @@ export type Database = {
           created_at: string
           customer_id: string
           date: string
+          global_discount: number | null
+          global_discount_type: string | null
           id: string
           invoice_number: string | null
           note: string | null
@@ -470,6 +472,8 @@ export type Database = {
           created_at?: string
           customer_id: string
           date: string
+          global_discount?: number | null
+          global_discount_type?: string | null
           id?: string
           invoice_number?: string | null
           note?: string | null
@@ -480,6 +484,8 @@ export type Database = {
           created_at?: string
           customer_id?: string
           date?: string
+          global_discount?: number | null
+          global_discount_type?: string | null
           id?: string
           invoice_number?: string | null
           note?: string | null
@@ -506,7 +512,7 @@ export type Database = {
           price: number
           quantity: number
           sale_id: string
-          wine_vintage_id: string
+          wine_vintage_id: string | null
         }
         Insert: {
           created_at?: string
@@ -517,7 +523,7 @@ export type Database = {
           price: number
           quantity: number
           sale_id: string
-          wine_vintage_id: string
+          wine_vintage_id?: string | null
         }
         Update: {
           created_at?: string
@@ -528,7 +534,7 @@ export type Database = {
           price?: number
           quantity?: number
           sale_id?: string
-          wine_vintage_id?: string
+          wine_vintage_id?: string | null
         }
         Relationships: [
           {

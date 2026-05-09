@@ -8,6 +8,10 @@
 
   export let data: PageData;
 
+  /** Valeur interne du select « produit » pour une ligne dégustation (sans millésime). */
+  const TASTING_SELECT_VALUE = "__tasting__";
+  const TASTING_LINE_NOTE = "Dégustation";
+
   let sales: any[] = data.sales;
   let customers: any[] = [];
   let wineVintages: any[] = [];
@@ -27,6 +31,8 @@
     status: "pending",
     total_price: 0,
     note: "",
+    global_discount: "",
+    global_discount_type: "amount" as "amount" | "percent",
   };
 
   // Sale items
@@ -78,6 +84,22 @@
     }
   }
 
+  function saleItemDescription(item: any): string {
+    if (item.wine_vintage_id && item.wine_vintage) {
+      return getProductDisplayNameWithYear(item.wine_vintage);
+    }
+    const n = item.note != null ? String(item.note).trim() : "";
+    return n || TASTING_LINE_NOTE;
+  }
+
+  function sumDetailsItemsTTC(): number {
+    let s = 0;
+    for (const item of detailsSaleItems) {
+      s += calculateItemTotal(item);
+    }
+    return Math.round(s * 100) / 100;
+  }
+
   function getProductDisplayNameWithStock(
     vintage: any,
     availableStock: number
@@ -87,6 +109,9 @@
   }
 
   function getAvailableStock(vintageId: string): number {
+    if (vintageId === TASTING_SELECT_VALUE) {
+      return 999999;
+    }
     const vintage = wineVintages.find((v) => v.id === vintageId);
     if (!vintage) return 0;
 
@@ -100,6 +125,9 @@
   }
 
   function isVintageAlreadyAdded(vintageId: string): boolean {
+    if (vintageId === TASTING_SELECT_VALUE) {
+      return false;
+    }
     return saleItems.some((item) => item.wine_vintage_id === vintageId);
   }
 
@@ -194,12 +222,30 @@
       status: sale.status || "pending",
       total_price: sale.total_price || 0,
       note: sale.note || "",
+      global_discount:
+        sale.global_discount != null && toNumber(sale.global_discount) > 0
+          ? String(sale.global_discount)
+          : "",
+      global_discount_type:
+        sale.global_discount_type === "percent" ? "percent" : "amount",
     };
     await loadWineVintages(); // Reload vintages with stock
     await loadSaleItems(sale.id);
     // Update saleItems format to match what the form expects and load stock
     saleItems = await Promise.all(
       saleItems.map(async (item: any) => {
+        if (!item.wine_vintage_id) {
+          return {
+            wine_vintage: null,
+            wine_vintage_id: null,
+            quantity: item.quantity,
+            price: toNumber(item.price),
+            discount: toNumber(item.discount),
+            discount_type: item.discount_type || null,
+            note: item.note || TASTING_LINE_NOTE,
+          };
+        }
+
         const { data: inventory } = await supabase
           .from("inventory")
           .select("quantity_on_hand")
@@ -220,7 +266,6 @@
         };
       })
     );
-    formData.total_price = calculateTotal();
     selectedVintageId = "";
     selectedQuantity = "";
     selectedPrice = "";
@@ -589,7 +634,7 @@
           yPos = margin + 20;
         }
 
-        const productName = getProductDisplayNameWithYear(item.wine_vintage);
+        const productName = saleItemDescription(item);
         const quantity = item.quantity;
         const priceTTC = toNumber(item.price); // Price in DB is TTC
         const priceHTVA = isCompany ? priceTTC / (1 + VAT_RATE) : priceTTC;
@@ -637,6 +682,32 @@
         });
 
         yPos += itemHeight + 2;
+      }
+
+      const gDisc = toNumber(sale.global_discount);
+      const gType = String(sale.global_discount_type ?? "")
+        .trim()
+        .toLowerCase();
+      if (gDisc > 0 && (gType === "amount" || gType === "percent")) {
+        doc.setFontSize(10);
+        doc.setFont("helvetica", "normal");
+        doc.text(
+          `Sous-total TTC: €${subtotalTTC.toFixed(2)}`,
+          pageWidth - margin,
+          yPos,
+          { align: "right" }
+        );
+        yPos += 5;
+        const ristEuro = Math.max(
+          0,
+          Math.round((subtotalTTC - toNumber(sale.total_price)) * 100) / 100
+        );
+        const ristLabel =
+          gType === "percent"
+            ? `Ristourne globale (${gDisc} %) : –€${ristEuro.toFixed(2)}`
+            : `Ristourne globale : –€${gDisc.toFixed(2)}`;
+        doc.text(ristLabel, pageWidth - margin, yPos, { align: "right" });
+        yPos += 8;
       }
 
       yPos += 5;
@@ -714,6 +785,8 @@
       status: "pending",
       total_price: 0,
       note: "",
+      global_discount: "",
+      global_discount_type: "amount",
     };
     saleItems = [];
     selectedVintageId = "";
@@ -744,15 +817,47 @@
     return Math.round(itemTotal * 100) / 100;
   }
 
-  function calculateTotal() {
+  /** Sous-total TTC après remises par ligne (avant ristourne globale). */
+  function calculateSubtotal() {
     let total = 0;
     for (const item of saleItems) {
       total += calculateItemTotal(item);
     }
-    return total;
+    return Math.round(total * 100) / 100;
+  }
+
+  function calculateTotal() {
+    const subtotal = calculateSubtotal();
+    const g = toNumber(formData.global_discount);
+    if (g <= 0) return subtotal;
+
+    const typ = formData.global_discount_type;
+    if (typ === "percent") {
+      const pct = Math.min(100, g);
+      return Math.max(
+        0,
+        Math.round(subtotal * (1 - pct / 100) * 100) / 100
+      );
+    }
+    return Math.max(0, Math.round((subtotal - g) * 100) / 100);
+  }
+
+  /* Dépendances explicites : Svelte 5 ne suit pas saleItems via calculateTotal() → calculateSubtotal(). */
+  $: {
+    const _items = saleItems;
+    const _g = formData.global_discount;
+    const _gt = formData.global_discount_type;
+    void _items;
+    void _g;
+    void _gt;
+    formData.total_price = calculateTotal();
   }
 
   function handleVintageChange() {
+    if (selectedVintageId === TASTING_SELECT_VALUE) {
+      selectedPrice = "";
+      return;
+    }
     if (selectedVintageId) {
       const vintage = wineVintages.find((v) => v.id === selectedVintageId);
       if (vintage && vintage.price) {
@@ -762,9 +867,45 @@
   }
 
   function addSaleItem() {
-    if (!selectedVintageId || !selectedQuantity || !selectedPrice) return;
+    if (!selectedQuantity || !selectedPrice) return;
 
-    const quantity = parseInt(selectedQuantity);
+    const discountVal = toNumber(selectedDiscount);
+    if (discountVal > 0 && !selectedDiscountType) {
+      error = "Choisissez un type de remise (montant ou %).";
+      return;
+    }
+
+    const quantity = parseInt(String(selectedQuantity), 10);
+    if (!Number.isFinite(quantity) || quantity < 1) {
+      error = "Quantité invalide";
+      return;
+    }
+
+    if (selectedVintageId === TASTING_SELECT_VALUE) {
+      saleItems = [
+        ...saleItems,
+        {
+          wine_vintage: null,
+          wine_vintage_id: null,
+          quantity,
+          price: toNumber(selectedPrice),
+          discount: discountVal,
+          discount_type:
+            discountVal > 0 ? selectedDiscountType || null : null,
+          note: TASTING_LINE_NOTE,
+        },
+      ];
+      selectedVintageId = "";
+      selectedQuantity = "";
+      selectedPrice = "";
+      selectedDiscount = "";
+      selectedDiscountType = "amount";
+      error = "";
+      return;
+    }
+
+    if (!selectedVintageId) return;
+
     const availableStock = getAvailableStock(selectedVintageId);
 
     if (quantity > availableStock) {
@@ -774,11 +915,6 @@
 
     const vintage = wineVintages.find((v) => v.id === selectedVintageId);
     if (vintage) {
-      const discountVal = toNumber(selectedDiscount);
-      if (discountVal > 0 && !selectedDiscountType) {
-        error = "Choisissez un type de remise (montant ou %).";
-        return;
-      }
       saleItems = [
         ...saleItems,
         {
@@ -797,14 +933,12 @@
       selectedPrice = "";
       selectedDiscount = "";
       selectedDiscountType = "amount";
-      formData.total_price = calculateTotal();
       error = ""; // Clear any previous errors
     }
   }
 
   function removeSaleItem(index: number) {
     saleItems = saleItems.filter((_, i) => i !== index);
-    formData.total_price = calculateTotal();
     // Réinitialise le select (évite bug navigateur quand une option repasse de disabled → enabled)
     selectedVintageId = "";
   }
@@ -815,6 +949,16 @@
       return;
     }
 
+    const gGlobal = toNumber(formData.global_discount);
+    if (
+      gGlobal > 0 &&
+      formData.global_discount_type === "percent" &&
+      gGlobal > 100
+    ) {
+      error = "La ristourne globale en pourcentage ne peut pas dépasser 100 %.";
+      return;
+    }
+
     const calculatedTotal = calculateTotal();
     const saleData = {
       date: formData.date,
@@ -822,6 +966,9 @@
       status: "pending",
       total_price: calculatedTotal,
       note: formData.note || null,
+      global_discount: gGlobal > 0 ? gGlobal : null,
+      global_discount_type:
+        gGlobal > 0 ? formData.global_discount_type : null,
     };
 
     const { data: newSale, error: insertError } = await supabase
@@ -839,7 +986,7 @@
     for (const item of saleItems) {
       const { error: itemError } = await supabase.from("sale_item").insert({
         sale_id: newSale.id,
-        wine_vintage_id: item.wine_vintage_id,
+        wine_vintage_id: item.wine_vintage_id ?? null,
         quantity: item.quantity,
         price: toNumber(item.price),
         discount:
@@ -872,6 +1019,16 @@
       return;
     }
 
+    const gGlobal = toNumber(formData.global_discount);
+    if (
+      gGlobal > 0 &&
+      formData.global_discount_type === "percent" &&
+      gGlobal > 100
+    ) {
+      error = "La ristourne globale en pourcentage ne peut pas dépasser 100 %.";
+      return;
+    }
+
     const calculatedTotal = calculateTotal();
     const saleData = {
       date: formData.date,
@@ -879,6 +1036,9 @@
       status: editingSale.status, // Keep the original status
       total_price: calculatedTotal,
       note: formData.note || null,
+      global_discount: gGlobal > 0 ? gGlobal : null,
+      global_discount_type:
+        gGlobal > 0 ? formData.global_discount_type : null,
     };
 
     const { error: updateError } = await supabase
@@ -906,7 +1066,7 @@
     for (const item of saleItems) {
       const { error: itemError } = await supabase.from("sale_item").insert({
         sale_id: editingSale.id,
-        wine_vintage_id: item.wine_vintage_id,
+        wine_vintage_id: item.wine_vintage_id ?? null,
         quantity: item.quantity,
         price: toNumber(item.price),
         discount:
@@ -1004,8 +1164,9 @@
         : "Client inconnu";
       const note = `Vente à ${customerName}`;
 
-      // Create stock_move for each item
+      // Create stock_move for each item (pas de stock pour les lignes dégustation)
       for (const item of items || []) {
+        if (!item.wine_vintage_id) continue;
         const { error: stockMoveError } = await supabase
           .from("stock_move")
           .insert({
@@ -1228,6 +1389,31 @@
       </div>
 
       <div class="form-group full-width">
+        <label for="global-discount-create">Ristourne globale (optionnel)</label>
+        <div class="global-discount-row">
+          <input
+            id="global-discount-create"
+            type="number"
+            min="0"
+            step="0.01"
+            placeholder="0"
+            bind:value={formData.global_discount}
+          />
+          <select
+            id="global-discount-type-create"
+            bind:value={formData.global_discount_type}
+            aria-label="Type de ristourne globale"
+          >
+            <option value="amount">Montant TTC (€)</option>
+            <option value="percent">Pourcentage (%)</option>
+          </select>
+        </div>
+        <p class="field-hint">
+          Sur le sous-total des lignes, après remises par article.
+        </p>
+      </div>
+
+      <div class="form-group full-width">
         <div class="section-title">Articles *</div>
         <div class="sale-items-container">
           {#if saleItems.length === 0}
@@ -1237,7 +1423,7 @@
               {#each saleItems as item, index}
                 <div class="sale-item">
                   <span>
-                    {getProductDisplayNameWithYear(item.wine_vintage)} - x{item.quantity}
+                    {saleItemDescription(item)} — x{item.quantity}
                     @ €{toNumber(item.price).toFixed(2)}
                     {#if toNumber(item.discount) > 0}
                       {#if item.discount_type === "percent"}
@@ -1261,12 +1447,13 @@
           {/if}
           <div class="add-item-form">
             <div class="add-item-row">
-              {#key saleItems.map((i) => i.wine_vintage_id).join("|")}
+              {#key saleItems.map((i) => i.wine_vintage_id ?? "_tasting").join("|")}
                 <select
                   bind:value={selectedVintageId}
                   on:change={handleVintageChange}
                 >
                   <option value="">Sélectionner un produit</option>
+                  <option value={TASTING_SELECT_VALUE}>Dégustation</option>
                   {#each wineVintages as vintage}
                     {@const availableStock = getAvailableStock(vintage.id)}
                     {@const alreadyAdded = isVintageAlreadyAdded(vintage.id)}
@@ -1294,12 +1481,10 @@
               />
             </div>
             <div class="add-item-row">
-              <label for="discount-{editingSale ? 'edit' : 'create'}"
-                >Remise</label
-              >
+              <label for="discount-create-row">Remise</label>
               <input
                 type="number"
-                id="discount-{editingSale ? 'edit' : 'create'}"
+                id="discount-create-row"
                 step="0.01"
                 min="0"
                 placeholder="Montant"
@@ -1317,6 +1502,11 @@
             </div>
           </div>
           <div class="total-display">
+            {#if toNumber(formData.global_discount) > 0}
+              <div class="total-display-sub">
+                Sous-total : €{calculateSubtotal().toFixed(2)}
+              </div>
+            {/if}
             <strong>Total: €{formData.total_price.toFixed(2)}</strong>
           </div>
         </div>
@@ -1369,6 +1559,31 @@
       </div>
 
       <div class="form-group full-width">
+        <label for="global-discount-edit">Ristourne globale (optionnel)</label>
+        <div class="global-discount-row">
+          <input
+            id="global-discount-edit"
+            type="number"
+            min="0"
+            step="0.01"
+            placeholder="0"
+            bind:value={formData.global_discount}
+          />
+          <select
+            id="global-discount-type-edit"
+            bind:value={formData.global_discount_type}
+            aria-label="Type de ristourne globale"
+          >
+            <option value="amount">Montant TTC (€)</option>
+            <option value="percent">Pourcentage (%)</option>
+          </select>
+        </div>
+        <p class="field-hint">
+          Sur le sous-total des lignes, après remises par article.
+        </p>
+      </div>
+
+      <div class="form-group full-width">
         <div class="section-title">Articles *</div>
         <div class="sale-items-container">
           {#if saleItems.length === 0}
@@ -1378,7 +1593,7 @@
               {#each saleItems as item, index}
                 <div class="sale-item">
                   <span>
-                    {getProductDisplayNameWithYear(item.wine_vintage)} - x{item.quantity}
+                    {saleItemDescription(item)} — x{item.quantity}
                     @ €{toNumber(item.price).toFixed(2)}
                     {#if toNumber(item.discount) > 0}
                       {#if item.discount_type === "percent"}
@@ -1402,12 +1617,13 @@
           {/if}
           <div class="add-item-form">
             <div class="add-item-row">
-              {#key saleItems.map((i) => i.wine_vintage_id).join("|")}
+              {#key saleItems.map((i) => i.wine_vintage_id ?? "_tasting").join("|")}
                 <select
                   bind:value={selectedVintageId}
                   on:change={handleVintageChange}
                 >
                   <option value="">Sélectionner un produit</option>
+                  <option value={TASTING_SELECT_VALUE}>Dégustation</option>
                   {#each wineVintages as vintage}
                     {@const availableStock = getAvailableStock(vintage.id)}
                     {@const alreadyAdded = isVintageAlreadyAdded(vintage.id)}
@@ -1435,12 +1651,10 @@
               />
             </div>
             <div class="add-item-row">
-              <label for="discount-{editingSale ? 'edit' : 'create'}"
-                >Remise</label
-              >
+              <label for="discount-edit-row">Remise</label>
               <input
                 type="number"
-                id="discount-{editingSale ? 'edit' : 'create'}"
+                id="discount-edit-row"
                 step="0.01"
                 min="0"
                 placeholder="Montant"
@@ -1458,6 +1672,11 @@
             </div>
           </div>
           <div class="total-display">
+            {#if toNumber(formData.global_discount) > 0}
+              <div class="total-display-sub">
+                Sous-total : €{calculateSubtotal().toFixed(2)}
+              </div>
+            {/if}
             <strong>Total: €{formData.total_price.toFixed(2)}</strong>
           </div>
         </div>
@@ -1531,7 +1750,7 @@
             {#each detailsSaleItems as item}
               <div class="details-item">
                 <div class="details-item-name">
-                  {getProductDisplayNameWithYear(item.wine_vintage)}
+                  {saleItemDescription(item)}
                 </div>
                 <div class="details-item-details">
                   <span>x{item.quantity}</span>
@@ -1550,6 +1769,28 @@
               </div>
             {/each}
           </div>
+          {#if toNumber(detailsSale.global_discount) > 0}
+            <div class="details-summary-line">
+              <span>Sous-total articles (TTC)</span>
+              <span>€{sumDetailsItemsTTC().toFixed(2)}</span>
+            </div>
+            <div class="details-summary-line details-summary-discount">
+              <span>
+                Ristourne globale
+                {#if detailsSale.global_discount_type === "percent"}
+                  ({toNumber(detailsSale.global_discount)} %)
+                {:else}
+                  (montant)
+                {/if}
+              </span>
+              <span
+                >–€{Math.max(
+                  0,
+                  sumDetailsItemsTTC() - toNumber(detailsSale.total_price)
+                ).toFixed(2)}</span
+              >
+            </div>
+          {/if}
           <div class="details-total">
             <strong>Total: €{detailsSale.total_price.toFixed(2)}</strong>
           </div>
@@ -1912,6 +2153,55 @@
     padding: 0.5rem;
     font-size: 1.2rem;
     color: #333;
+  }
+
+  .total-display-sub {
+    font-size: 0.95rem;
+    font-weight: normal;
+    color: #666;
+    margin-bottom: 0.25rem;
+  }
+
+  .global-discount-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.75rem;
+    align-items: center;
+  }
+
+  .global-discount-row input {
+    flex: 1;
+    min-width: 6rem;
+    max-width: 12rem;
+    padding: 0.5rem;
+    border: 1px solid #ced4da;
+    border-radius: 4px;
+  }
+
+  .global-discount-row select {
+    padding: 0.5rem;
+    border: 1px solid #ced4da;
+    border-radius: 4px;
+    min-width: 11rem;
+  }
+
+  .field-hint {
+    margin: 0.35rem 0 0 0;
+    font-size: 0.85rem;
+    color: #666;
+  }
+
+  .details-summary-line {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    gap: 1rem;
+    padding: 0.35rem 0;
+    font-size: 0.95rem;
+  }
+
+  .details-summary-discount {
+    color: #856404;
   }
 
   .status-badge {
