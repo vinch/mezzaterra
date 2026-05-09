@@ -209,7 +209,7 @@
   }
 
   async function openEditModal(sale: any) {
-    // Prevent editing if sale is paid or cancelled
+    // Pas de modification si payée ou annulée (livrée sans paiement = encore modifiable)
     if (sale.status === "paid" || sale.status === "cancelled") {
       error = "Impossible de modifier une vente payée ou annulée";
       return;
@@ -1013,7 +1013,6 @@
 
     if (!editingSale) return;
 
-    // Prevent updating if sale is paid or cancelled
     if (editingSale.status === "paid" || editingSale.status === "cancelled") {
       error = "Impossible de modifier une vente payée ou annulée";
       return;
@@ -1090,17 +1089,33 @@
     newStatus: string,
     currentStatus: string
   ): Promise<boolean> {
-    // Prevent changing status if already paid or cancelled
-    if (currentStatus === "paid" || currentStatus === "cancelled") {
-      error = "Impossible de modifier le statut d'une vente payée ou annulée";
+    if (currentStatus === newStatus) {
+      return true;
+    }
+
+    if (currentStatus === "cancelled") {
+      error = "Impossible de modifier le statut d'une vente annulée.";
       return false;
     }
 
-    // Confirmation for status change
+    if (newStatus === "delivered") {
+      const stockHint =
+        currentStatus === "pending"
+          ? "\n\nLe stock sera débité (hors lignes dégustation)."
+          : "";
+      if (!confirm(`Marquer cette vente comme livrée ?${stockHint}`)) {
+        return false;
+      }
+    }
+
     if (newStatus === "paid") {
+      const stockHint =
+        currentStatus === "pending"
+          ? "\n\nLe stock sera débité (hors lignes dégustation)."
+          : "";
       if (
         !confirm(
-          "Êtes-vous sûr de vouloir marquer cette vente comme payée ?\n\nCette action va modifier les stocks en débitant les quantités vendues."
+          `Marquer cette vente comme payée ?${stockHint}\n\nUn numéro de facture sera attribué si besoin.`
         )
       ) {
         return false;
@@ -1125,9 +1140,12 @@
       return false;
     }
 
-    // If status is changed to "paid", create stock_move records
-    if (newStatus === "paid" && currentStatus !== "paid") {
-      // Load sale with customer info
+    /* Déstockage uniquement quand on quitte « En attente » vers Payée ou Livrée. */
+    const shouldApplyStockOut =
+      currentStatus === "pending" &&
+      (newStatus === "paid" || newStatus === "delivered");
+
+    if (shouldApplyStockOut) {
       const { data: sale, error: saleError } = await supabase
         .from("sale")
         .select(
@@ -1147,7 +1165,6 @@
         return false;
       }
 
-      // Load sale items
       const { data: items, error: itemsError } = await supabase
         .from("sale_item")
         .select("*")
@@ -1158,13 +1175,11 @@
         return false;
       }
 
-      // Create note with customer name
       const customerName = sale.customer
         ? `${sale.customer.first_name} ${sale.customer.last_name}`
         : "Client inconnu";
       const note = `Vente à ${customerName}`;
 
-      // Create stock_move for each item (pas de stock pour les lignes dégustation)
       for (const item of items || []) {
         if (!item.wine_vintage_id) continue;
         const { error: stockMoveError } = await supabase
@@ -1172,7 +1187,7 @@
           .insert({
             wine_vintage_id: item.wine_vintage_id,
             reason: "sale_out",
-            quantity: -Math.abs(item.quantity), // Negative for out
+            quantity: -Math.abs(item.quantity),
             date: new Date().toISOString().split("T")[0],
             note: note,
           });
@@ -1182,15 +1197,23 @@
           return false;
         }
       }
+    }
 
-      // Generate and save invoice number
-      const invoiceNumber = await generateAndSaveInvoiceNumber(
-        sale.id,
-        sale.date
-      );
-      if (!invoiceNumber) {
-        // Log error but don't fail the status update
-        console.error("Impossible de générer le numéro de facture");
+    if (newStatus === "paid" && currentStatus !== "paid") {
+      const { data: saleForInv } = await supabase
+        .from("sale")
+        .select("id, date")
+        .eq("id", saleId)
+        .single();
+
+      if (saleForInv) {
+        const invoiceNumber = await generateAndSaveInvoiceNumber(
+          saleForInv.id,
+          saleForInv.date
+        );
+        if (!invoiceNumber) {
+          console.error("Impossible de générer le numéro de facture");
+        }
       }
     }
 
@@ -1285,8 +1308,7 @@
                   <select
                     class="status-select status-{sale.status}"
                     value={sale.status}
-                    disabled={sale.status === "paid" ||
-                      sale.status === "cancelled"}
+                    disabled={sale.status === "cancelled"}
                     on:change={async (e) => {
                       const target = e.target as HTMLSelectElement;
                       const previousStatus = sale.status;
@@ -1309,6 +1331,7 @@
                     }}
                   >
                     <option value="pending">En attente</option>
+                    <option value="delivered">Livrée</option>
                     <option value="paid">Payée</option>
                     <option value="cancelled">Annulée</option>
                   </select>
@@ -1316,7 +1339,7 @@
                 <td><strong>€{sale.total_price.toFixed(2)}</strong></td>
                 <td>
                   <div class="actions">
-                    {#if sale.status === "pending"}
+                    {#if sale.status === "pending" || sale.status === "delivered"}
                       <button
                         class="btn-edit"
                         on:click={() => openEditModal(sale)}
@@ -1336,7 +1359,7 @@
                       >
                         Détails
                       </button>
-                      {#if sale.status === "paid"}
+                      {#if sale.status === "paid" || sale.status === "delivered"}
                         <button
                           class="btn-download"
                           on:click={() => downloadInvoice(sale.id)}
@@ -1728,7 +1751,9 @@
                 ? "En attente"
                 : detailsSale.status === "paid"
                   ? "Payée"
-                  : "Annulée"}
+                  : detailsSale.status === "delivered"
+                    ? "Livrée"
+                    : "Annulée"}
             </span>
           </div>
         </div>
@@ -2241,6 +2266,11 @@
     color: #721c24;
   }
 
+  .status-select.status-delivered {
+    background: #cce5ff;
+    color: #004085;
+  }
+
   .status-pending {
     background: #fff3cd;
     color: #856404;
@@ -2254,6 +2284,11 @@
   .status-cancelled {
     background: #f8d7da;
     color: #721c24;
+  }
+
+  .status-delivered {
+    background: #cce5ff;
+    color: #004085;
   }
 
   select option:disabled {
