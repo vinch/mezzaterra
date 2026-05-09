@@ -1,6 +1,6 @@
 <script lang="ts">
   import { supabase } from "$lib/supabase";
-  import { goto } from "$app/navigation";
+  import { afterNavigate, goto } from "$app/navigation";
   import { onMount, setContext } from "svelte";
   import { writable } from "svelte/store";
   import { page } from "$app/stores";
@@ -8,32 +8,53 @@
   const userStore = writable<any>(null);
   const checkingAuthStore = writable(true);
 
+  let mobileNavOpen = false;
+
   setContext("auth", {
     user: userStore,
     checkingAuth: checkingAuthStore,
   });
 
-  onMount(async () => {
-    const {
-      data: { user: currentUser },
-    } = await supabase.auth.getUser();
-    userStore.set(currentUser);
+  afterNavigate(() => {
+    mobileNavOpen = false;
+  });
 
-    // Si pas d'utilisateur et pas sur la page de login, rediriger
-    if (!currentUser && $page.url.pathname !== "/manage") {
-      goto("/manage");
-    }
+  function toggleMobileNav() {
+    mobileNavOpen = !mobileNavOpen;
+  }
 
-    checkingAuthStore.set(false);
+  function closeMobileNav() {
+    mobileNavOpen = false;
+  }
 
-    // Écouter les changements d'authentification
-    supabase.auth.onAuthStateChange((event, session) => {
-      const user = session?.user ?? null;
-      userStore.set(user);
-      if (!user && $page.url.pathname !== "/manage") {
+  onMount(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") closeMobileNav();
+    };
+    window.addEventListener("keydown", onKey);
+
+    void (async () => {
+      const {
+        data: { user: currentUser },
+      } = await supabase.auth.getUser();
+      userStore.set(currentUser);
+
+      if (!currentUser && $page.url.pathname !== "/manage") {
         goto("/manage");
       }
-    });
+
+      checkingAuthStore.set(false);
+
+      supabase.auth.onAuthStateChange((event, session) => {
+        const user = session?.user ?? null;
+        userStore.set(user);
+        if (!user && $page.url.pathname !== "/manage") {
+          goto("/manage");
+        }
+      });
+    })();
+
+    return () => window.removeEventListener("keydown", onKey);
   });
 
   async function handleLogout() {
@@ -48,8 +69,18 @@
     <p>Chargement...</p>
   </div>
 {:else if $userStore}
-  <div class="admin-layout">
-    <nav class="sidebar">
+  <div class="admin-layout" class:nav-open={mobileNavOpen}>
+    <button
+      type="button"
+      class="nav-backdrop"
+      aria-label="Fermer le menu"
+      on:click={closeMobileNav}
+    ></button>
+    <nav
+      id="manage-sidebar"
+      class="sidebar"
+      class:open={mobileNavOpen}
+    >
       <div class="sidebar-header">
         <h2>Gestion</h2>
       </div>
@@ -217,9 +248,26 @@
         </button>
       </div>
     </nav>
-    <main class="main-content">
-      <slot />
-    </main>
+    <div class="main-column">
+      <header class="mobile-topbar">
+        <button
+          type="button"
+          class="menu-toggle"
+          aria-label={mobileNavOpen ? "Fermer le menu" : "Ouvrir le menu"}
+          aria-expanded={mobileNavOpen}
+          aria-controls="manage-sidebar"
+          on:click={toggleMobileNav}
+        >
+          <span class="menu-toggle-bar" aria-hidden="true"></span>
+          <span class="menu-toggle-bar" aria-hidden="true"></span>
+          <span class="menu-toggle-bar" aria-hidden="true"></span>
+        </button>
+        <span class="mobile-topbar-title">Gestion</span>
+      </header>
+      <main class="main-content">
+        <slot />
+      </main>
+    </div>
   </div>
 {:else}
   <slot />
@@ -263,6 +311,56 @@
     min-height: 100vh;
   }
 
+  .nav-backdrop {
+    display: none;
+  }
+
+  .main-column {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    min-height: 100vh;
+  }
+
+  .mobile-topbar {
+    display: none;
+  }
+
+  .menu-toggle {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    gap: 5px;
+    width: 2.5rem;
+    height: 2.5rem;
+    padding: 0;
+    border: none;
+    border-radius: 6px;
+    background: #f1f3f5;
+    cursor: pointer;
+    flex-shrink: 0;
+  }
+
+  .menu-toggle:hover {
+    background: #e9ecef;
+  }
+
+  .menu-toggle-bar {
+    display: block;
+    height: 2px;
+    width: 1.25rem;
+    margin: 0 auto;
+    background: #2c3e50;
+    border-radius: 1px;
+  }
+
+  .mobile-topbar-title {
+    font-weight: 600;
+    font-size: 1.1rem;
+    color: #333;
+  }
+
   .sidebar {
     width: 250px;
     background: #2c3e50;
@@ -271,6 +369,8 @@
     height: 100vh;
     display: flex;
     flex-direction: column;
+    left: 0;
+    top: 0;
   }
 
   .sidebar-header {
@@ -383,5 +483,117 @@
     flex: 1;
     background: #f8f9fa;
     min-height: 100vh;
+    min-width: 0;
+  }
+
+  /* ——— Mobile / tablet ——— */
+  @media (max-width: 900px) {
+    .nav-backdrop {
+      display: block;
+      position: fixed;
+      inset: 0;
+      z-index: 200;
+      margin: 0;
+      padding: 0;
+      border: none;
+      background: rgba(0, 0, 0, 0.45);
+      cursor: pointer;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.2s ease;
+    }
+
+    .admin-layout.nav-open .nav-backdrop {
+      opacity: 1;
+      pointer-events: auto;
+    }
+
+    .sidebar {
+      width: min(280px, 88vw);
+      z-index: 210;
+      transform: translateX(-100%);
+      transition: transform 0.22s ease;
+      box-shadow: 4px 0 24px rgba(0, 0, 0, 0.15);
+    }
+
+    .sidebar.open {
+      transform: translateX(0);
+    }
+
+    .mobile-topbar {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+      padding: 0.65rem 1rem;
+      background: white;
+      border-bottom: 1px solid #e9ecef;
+      position: sticky;
+      top: 0;
+      z-index: 50;
+    }
+
+    .main-content {
+      margin-left: 0;
+    }
+
+    .main-content :global(.page-header) {
+      flex-direction: column;
+      align-items: stretch;
+      gap: 1rem;
+      padding: 1rem 1.25rem;
+    }
+
+    .main-content :global(.page-header h1) {
+      font-size: 1.35rem;
+    }
+
+    .main-content :global(.page-header-actions) {
+      width: 100%;
+      justify-content: flex-start;
+    }
+
+    .main-content :global(.page-content) {
+      padding: 1rem 1.25rem;
+    }
+
+    .main-content :global(.form-grid) {
+      grid-template-columns: 1fr;
+    }
+
+    .main-content :global(.details-grid) {
+      grid-template-columns: 1fr;
+    }
+
+    .main-content :global(.table-container) {
+      overflow-x: auto;
+      -webkit-overflow-scrolling: touch;
+    }
+
+    .main-content :global(table) {
+      min-width: 520px;
+    }
+
+    .main-content :global(.filters) {
+      grid-template-columns: 1fr;
+    }
+
+    .main-content :global(.login-form) {
+      margin: 1rem;
+      max-width: none;
+    }
+  }
+
+  @media (max-width: 480px) {
+    .main-content :global(.page-header-actions) {
+      flex-direction: column;
+      align-items: stretch;
+    }
+
+    .main-content :global(.page-header-actions .btn-primary),
+    .main-content :global(.page-header-actions .btn-secondary),
+    .main-content :global(.page-header-actions button) {
+      width: 100%;
+      justify-content: center;
+    }
   }
 </style>
