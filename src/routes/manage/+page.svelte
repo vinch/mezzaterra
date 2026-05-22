@@ -1,6 +1,7 @@
 <script lang="ts">
   import { supabase } from "$lib/supabase";
   import { getContext } from "svelte";
+  import ManagePageShell from "$lib/components/manage/ManagePageShell.svelte";
 
   const { user } = getContext<any>("auth");
 
@@ -80,13 +81,7 @@
     </div>
   </div>
 {:else}
-  <div class="page-container">
-    <header class="page-header">
-      <h1>Tableau de bord</h1>
-    </header>
-
-    <div class="page-content"></div>
-  </div>
+  <ManagePageShell title="Tableau de bord" />
 {/if}
 
 <style>
@@ -179,25 +174,5 @@
     color: #dc3545;
     text-align: center;
     margin: 0;
-  }
-
-  .page-container {
-    min-height: 100vh;
-  }
-
-  .page-header {
-    background: white;
-    padding: 1.5rem 2rem;
-    border-bottom: 1px solid #e9ecef;
-  }
-
-  .page-header h1 {
-    margin: 0;
-    color: #333;
-    font-size: 1.75rem;
-  }
-
-  .page-content {
-    padding: 2rem;
   }
 </style>

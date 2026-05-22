@@ -1,4 +1,5 @@
 <script lang="ts">
+  import "$lib/styles/manage-shared.css";
   import { supabase } from "$lib/supabase";
   import { afterNavigate, goto } from "$app/navigation";
   import { onMount, setContext } from "svelte";
@@ -102,6 +103,19 @@
           >
             <span class="icon">🍷</span>
             Vins
+          </a>
+        </li>
+
+        <li class="nav-divider">
+          <span class="nav-divider-text">Dégustations</span>
+        </li>
+        <li>
+          <a
+            href="/manage/documents"
+            class:active={$page.url.pathname === "/manage/documents"}
+          >
+            <span class="icon">📄</span>
+            Documents
           </a>
         </li>
 
