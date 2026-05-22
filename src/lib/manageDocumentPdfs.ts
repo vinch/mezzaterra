@@ -246,15 +246,14 @@ const GROUP_LABEL: Record<"blancs" | "roses" | "rouges", string> = {
   rouges: "Rouges",
 };
 
+/** Même ordre que les listes Vins / Stock : vignoble, nom (ou appellation), millésime ↓. */
 function sortDocVintages(a: StockDocVintage, b: StockDocVintage): number {
-  const g = GROUP_ORDER.indexOf(priceGroupKey(a)) - GROUP_ORDER.indexOf(priceGroupKey(b));
-  if (g !== 0) return g;
-  const wA = a.wineryName.toLowerCase();
-  const wB = b.wineryName.toLowerCase();
-  if (wA !== wB) return wA.localeCompare(wB);
-  const nA = a.wineName.toLowerCase();
-  const nB = b.wineName.toLowerCase();
-  if (nA !== nB) return nA.localeCompare(nB);
+  const wineryA = a.wineryName.toLowerCase();
+  const wineryB = b.wineryName.toLowerCase();
+  if (wineryA !== wineryB) return wineryA.localeCompare(wineryB);
+  const nameA = a.wineName.toLowerCase();
+  const nameB = b.wineName.toLowerCase();
+  if (nameA !== nameB) return nameA.localeCompare(nameB);
   return b.production_year - a.production_year;
 }
 
@@ -278,11 +277,15 @@ export function wineTypeLabelFr(name: string): string {
   return name;
 }
 
-function displayYear(v: StockDocVintage): string {
+export function stockVintageLabel(v: StockDocVintage): string {
   if (v.year != null && v.year !== v.production_year) {
     return `${v.year} (${v.production_year})`;
   }
   return String(v.production_year);
+}
+
+function displayYear(v: StockDocVintage): string {
+  return stockVintageLabel(v);
 }
 
 /** Numérotation lisible en PDF (① etc. → $ / lettres avec Helvetica). */

@@ -663,6 +663,39 @@ export type Database = {
         }
         Relationships: []
       }
+      tasting_customer: {
+        Row: {
+          created_at: string
+          customer_id: string
+          tasting_id: string
+        }
+        Insert: {
+          created_at?: string
+          customer_id: string
+          tasting_id: string
+        }
+        Update: {
+          created_at?: string
+          customer_id?: string
+          tasting_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "tasting_customer_customer_id_fkey"
+            columns: ["customer_id"]
+            isOneToOne: false
+            referencedRelation: "customer"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tasting_customer_tasting_id_fkey"
+            columns: ["tasting_id"]
+            isOneToOne: false
+            referencedRelation: "tasting"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       tasting_wine_vintage: {
         Row: {
           order: number

@@ -198,13 +198,6 @@
     </button>
   </svelte:fragment>
 
-  <p class="intro">
-      Sélectionnez les millésimes concernés par une dégustation. La
-      <strong>liste de prix</strong> inclut tout le stock : les lignes cochées apparaissent surlignées en
-      jaune. La <strong>feuille de notes</strong> ne contient que les vins cochés : vous choisissez la date
-      et l’ordre de passage avant de générer le PDF.
-    </p>
-
     {#if error}
       <div class="error-message">{error}</div>
     {/if}
@@ -235,9 +228,8 @@
       </div>
 
       <div class="filters-container">
-        <h2 class="panel-title">Filtrer la liste</h2>
-        <div class="filters">
-          <div class="filter-group">
+        <div class="filters doc-filters">
+          <div class="filter-group filter-group--search">
             <label for="doc-search">Recherche</label>
             <input
               type="text"
@@ -410,17 +402,6 @@
     margin-bottom: 0.75rem;
   }
 
-  .intro {
-    max-width: 52rem;
-    line-height: 1.55;
-    color: #444;
-    margin: 0 0 1.5rem;
-    background: white;
-    padding: 1.25rem 1.5rem;
-    border-radius: 8px;
-    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.08);
-  }
-
   .actions-bar {
     display: flex;
     flex-wrap: wrap;
@@ -481,8 +462,25 @@
     padding: 0 0.25rem;
   }
 
-  .filter-actions {
-    align-self: end;
+  .filters.doc-filters {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: flex-end;
+    gap: 1.25rem;
+    grid-template-columns: unset;
+  }
+
+  .doc-filters .filter-group {
+    flex: 1 1 10rem;
+    min-width: 0;
+  }
+
+  .doc-filters .filter-group--search {
+    flex: 1.75 1 12rem;
+  }
+
+  .doc-filters .filter-actions {
+    flex: 0 0 auto;
   }
 
   .notes-modal-body {

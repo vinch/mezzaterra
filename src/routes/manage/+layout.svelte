@@ -105,9 +105,27 @@
             Vins
           </a>
         </li>
+        <li>
+          <a
+            href="/manage/stock"
+            class:active={$page.url.pathname === "/manage/stock"}
+          >
+            <span class="icon">📦</span>
+            Stock
+          </a>
+        </li>
 
         <li class="nav-divider">
           <span class="nav-divider-text">Dégustations</span>
+        </li>
+        <li>
+          <a
+            href="/manage/tastings"
+            class:active={$page.url.pathname === "/manage/tastings"}
+          >
+            <span class="icon">🥂</span>
+            Dégustations
+          </a>
         </li>
         <li>
           <a

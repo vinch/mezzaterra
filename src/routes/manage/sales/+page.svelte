@@ -4,6 +4,7 @@
   import type { PageData } from "./$types";
   import Modal from "$lib/components/Modal.svelte";
   import ManagePageShell from "$lib/components/manage/ManagePageShell.svelte";
+  import ProductVintageAutocomplete from "$lib/components/manage/ProductVintageAutocomplete.svelte";
   // @ts-ignore - jsPDF will be available after npm install
   import jsPDF from "jspdf";
 
@@ -1580,23 +1581,15 @@
               {#key saleItems
                 .map((i) => i.wine_vintage_id ?? "_tasting")
                 .join("|")}
-                <select
+                <ProductVintageAutocomplete
                   bind:value={selectedVintageId}
+                  {wineVintages}
+                  tastingValue={TASTING_SELECT_VALUE}
+                  {getAvailableStock}
+                  {isVintageAlreadyAdded}
+                  formatLabel={getProductDisplayNameWithStock}
                   on:change={handleVintageChange}
-                >
-                  <option value="">Sélectionner un produit</option>
-                  <option value={TASTING_SELECT_VALUE}>Dégustation</option>
-                  {#each wineVintages as vintage}
-                    {@const availableStock = getAvailableStock(vintage.id)}
-                    {@const alreadyAdded = isVintageAlreadyAdded(vintage.id)}
-                    <option
-                      value={vintage.id}
-                      disabled={availableStock === 0 || alreadyAdded}
-                    >
-                      {getProductDisplayNameWithStock(vintage, availableStock)}
-                    </option>
-                  {/each}
-                </select>
+                />
               {/key}
               <input
                 type="number"
@@ -1765,23 +1758,15 @@
               {#key saleItems
                 .map((i) => i.wine_vintage_id ?? "_tasting")
                 .join("|")}
-                <select
+                <ProductVintageAutocomplete
                   bind:value={selectedVintageId}
+                  {wineVintages}
+                  tastingValue={TASTING_SELECT_VALUE}
+                  {getAvailableStock}
+                  {isVintageAlreadyAdded}
+                  formatLabel={getProductDisplayNameWithStock}
                   on:change={handleVintageChange}
-                >
-                  <option value="">Sélectionner un produit</option>
-                  <option value={TASTING_SELECT_VALUE}>Dégustation</option>
-                  {#each wineVintages as vintage}
-                    {@const availableStock = getAvailableStock(vintage.id)}
-                    {@const alreadyAdded = isVintageAlreadyAdded(vintage.id)}
-                    <option
-                      value={vintage.id}
-                      disabled={availableStock === 0 || alreadyAdded}
-                    >
-                      {getProductDisplayNameWithStock(vintage, availableStock)}
-                    </option>
-                  {/each}
-                </select>
+                />
               {/key}
               <input
                 type="number"
@@ -2004,7 +1989,7 @@
     white-space: nowrap;
   }
 
-  .add-item-row select {
+  .add-item-row :global(.product-autocomplete) {
     flex: 1;
     min-width: 200px;
   }
