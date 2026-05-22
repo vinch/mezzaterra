@@ -1,5 +1,6 @@
 <script lang="ts">
   import { supabase } from "$lib/supabase";
+  import { sortCustomersByLabel } from "$lib/customerDisplay";
   import { onMount } from "svelte";
   import type { Customer, Country } from "$lib/types";
   import Modal from "$lib/components/Modal.svelte";
@@ -38,13 +39,12 @@
     loading = true;
     const { data, error: fetchError } = await supabase
       .from("customer")
-      .select("*, country (*)")
-      .order("created_at", { ascending: false });
+      .select("*, country (*)");
 
     if (fetchError) {
       error = fetchError.message;
     } else {
-      customers = data || [];
+      customers = sortCustomersByLabel(data || []);
     }
     loading = false;
   }

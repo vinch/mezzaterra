@@ -4,7 +4,9 @@
   import type { PageData } from "./$types";
   import Modal from "$lib/components/Modal.svelte";
   import ManagePageShell from "$lib/components/manage/ManagePageShell.svelte";
+  import { sortCustomersByLabel } from "$lib/customerDisplay";
   import ProductVintageAutocomplete from "$lib/components/manage/ProductVintageAutocomplete.svelte";
+  import CustomerAutocomplete from "$lib/components/manage/CustomerAutocomplete.svelte";
   // @ts-ignore - jsPDF will be available after npm install
   import jsPDF from "jspdf";
 
@@ -29,6 +31,7 @@
 
   let sales: any[] = data.sales;
   let customers: any[] = [];
+  $: sortedCustomers = sortCustomersByLabel(customers);
   let wineVintages: any[] = [];
   let loading = true;
   let error = "";
@@ -148,11 +151,8 @@
   }
 
   async function loadCustomers() {
-    const { data } = await supabase
-      .from("customer")
-      .select("*")
-      .order("last_name");
-    if (data) customers = data;
+    const { data } = await supabase.from("customer").select("*");
+    if (data) customers = sortCustomersByLabel(data);
   }
 
   async function loadWineVintages() {
@@ -1487,17 +1487,14 @@
         <input type="date" id="date" bind:value={formData.date} required />
       </div>
 
-      <div class="form-group">
+      <div class="form-group form-group--customer">
         <label for="customer_id">Client *</label>
-        <select id="customer_id" bind:value={formData.customer_id} required>
-          <option value="">Sélectionner un client</option>
-          {#each customers as customer}
-            <option value={customer.id}>
-              {customer.first_name}
-              {customer.last_name}
-            </option>
-          {/each}
-        </select>
+        <CustomerAutocomplete
+          bind:value={formData.customer_id}
+          customers={sortedCustomers}
+          isCustomerAlreadyAdded={() => false}
+          placeholder="Rechercher un client…"
+        />
       </div>
 
       <div class="form-group full-width">
@@ -1661,21 +1658,14 @@
         <input type="date" id="edit-date" bind:value={formData.date} required />
       </div>
 
-      <div class="form-group">
+      <div class="form-group form-group--customer">
         <label for="edit-customer_id">Client *</label>
-        <select
-          id="edit-customer_id"
+        <CustomerAutocomplete
           bind:value={formData.customer_id}
-          required
-        >
-          <option value="">Sélectionner un client</option>
-          {#each customers as customer}
-            <option value={customer.id}>
-              {customer.first_name}
-              {customer.last_name}
-            </option>
-          {/each}
-        </select>
+          customers={sortedCustomers}
+          isCustomerAlreadyAdded={() => false}
+          placeholder="Rechercher un client…"
+        />
       </div>
 
       <div class="form-group full-width">
@@ -1944,6 +1934,11 @@
 </Modal>
 
 <style>
+  .form-group--customer :global(.customer-autocomplete) {
+    width: 100%;
+    min-width: 0;
+  }
+
   .sale-items-container {
     display: flex;
     flex-direction: column;

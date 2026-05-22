@@ -1,6 +1,10 @@
 <script lang="ts">
   import { createEventDispatcher, onMount, tick } from "svelte";
   import type { Customer } from "$lib/types";
+  import {
+    customerDisplayLabel,
+    sortCustomersByLabel,
+  } from "$lib/customerDisplay";
 
   const DROPDOWN_Z = 1100;
   const DROPDOWN_MAX_H = 224;
@@ -44,23 +48,15 @@
       .toLowerCase();
   }
 
-  function customerLabel(c: Customer): string {
-    const name = `${c.first_name} ${c.last_name}`.trim();
-    if (c.company_name?.trim()) {
-      return `${name} (${c.company_name.trim()})`;
-    }
-    return name;
-  }
-
   function customerSearchText(c: Customer): string {
     return foldAccents(
       `${c.first_name} ${c.last_name} ${c.company_name || ""} ${c.email || ""}`,
     );
   }
 
-  $: allOptions = customers.map((c) => ({
+  $: allOptions = sortCustomersByLabel(customers).map((c) => ({
     id: c.id,
-    label: customerLabel(c),
+    label: customerDisplayLabel(c),
     searchText: customerSearchText(c),
     disabled: isCustomerAlreadyAdded(c.id),
   }));
@@ -75,6 +71,10 @@
       query = "";
     }
     prevValue = value;
+  }
+
+  $: if (value && selectedOption && !open) {
+    query = selectedOption.label;
   }
 
   $: if (open) {

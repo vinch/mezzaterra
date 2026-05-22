@@ -6,6 +6,7 @@
   import ManagePageShell from "$lib/components/manage/ManagePageShell.svelte";
   import ProductVintageAutocomplete from "$lib/components/manage/ProductVintageAutocomplete.svelte";
   import CustomerAutocomplete from "$lib/components/manage/CustomerAutocomplete.svelte";
+  import { customerDisplayLabel, sortCustomersByLabel } from "$lib/customerDisplay";
 
   type TastingRow = Tasting & {
     tasting_wine_vintage: { order: number; wine_vintage_id: string }[];
@@ -46,14 +47,6 @@
     await Promise.all([loadTastings(), loadWineVintages(), loadCustomers()]);
     loading = false;
   });
-
-  function customerDisplayLabel(c: Customer): string {
-    const name = `${c.first_name} ${c.last_name}`.trim();
-    if (c.company_name?.trim()) {
-      return `${name} (${c.company_name.trim()})`;
-    }
-    return name;
-  }
 
   function isCustomerInModal(customerId: string): boolean {
     return modalCustomers.some((e) => e.customer_id === customerId);
@@ -127,11 +120,7 @@
 
   async function loadCustomers() {
     const { data } = await supabase.from("customer").select("*");
-    customers = ((data || []) as Customer[]).sort((a, b) => {
-      const cmp = a.last_name.localeCompare(b.last_name, "fr");
-      if (cmp !== 0) return cmp;
-      return a.first_name.localeCompare(b.first_name, "fr");
-    });
+    customers = sortCustomersByLabel((data || []) as Customer[]);
   }
 
   async function loadWineVintages() {
@@ -200,6 +189,7 @@
         customerDisplayLabel(a.customer).localeCompare(
           customerDisplayLabel(b.customer),
           "fr",
+          { sensitivity: "base" },
         ),
       );
   }
@@ -292,15 +282,13 @@
     }
     const customer = customers.find((c) => c.id === selectedCustomerId);
     if (!customer) return;
-    modalCustomers = [
-      ...modalCustomers,
-      { customer_id: selectedCustomerId, customer },
-    ].sort((a, b) =>
-      customerDisplayLabel(a.customer).localeCompare(
-        customerDisplayLabel(b.customer),
-        "fr",
-      ),
-    );
+    modalCustomers = sortCustomersByLabel([
+      ...modalCustomers.map((e) => e.customer),
+      customer,
+    ]).map((c) => ({
+      customer_id: c.id,
+      customer: c,
+    }));
     selectedCustomerId = "";
     error = "";
   }
