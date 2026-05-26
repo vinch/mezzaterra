@@ -392,13 +392,22 @@
                       width="16"
                       height="16"
                       viewBox="0 0 24 24"
-                      fill="none"
+                      fill="currentColor"
                       xmlns="http://www.w3.org/2000/svg"
                       aria-hidden="true"
                     >
-                      <circle cx="8" cy="9" r="3" fill="currentColor" />
-                      <circle cx="16" cy="9" r="3" fill="currentColor" />
-                      <path d="M5 17l3-6h8l3 6v4H5v-4z" fill="currentColor" />
+                      <line
+                        x1="10.5"
+                        y1="7"
+                        x2="13.5"
+                        y2="4"
+                        stroke="currentColor"
+                        stroke-width="2"
+                        stroke-linecap="round"
+                      />
+                      <circle cx="9" cy="10" r="3" />
+                      <circle cx="15" cy="10" r="3" />
+                      <circle cx="12" cy="16" r="3" />
                     </svg>
                   </button>
                   <button
@@ -804,7 +813,7 @@
 
   .vintages-grid {
     display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+    grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
     gap: 1.5rem;
   }
 
@@ -812,7 +821,6 @@
     background: white;
     border-radius: 8px;
     box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-    overflow: hidden;
   }
 
   .vintage-header {
@@ -826,12 +834,13 @@
   .vintage-body {
     display: flex;
     gap: 1rem;
-    align-items: stretch;
+    align-items: flex-start;
     padding: 1rem 1.5rem 1.25rem;
   }
 
   .vintage-content {
     flex: 1;
+    min-width: 0;
     display: flex;
     flex-direction: column;
     gap: 0.5rem;
@@ -846,8 +855,10 @@
 
   .vintage-actions {
     display: flex;
+    flex-wrap: wrap;
     gap: 0.5rem;
     align-items: center;
+    margin-top: 0.25rem;
   }
 
   .vintage-details {
@@ -919,15 +930,16 @@
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    width: 44px;
-    height: 44px;
+    width: 40px;
+    height: 40px;
     padding: 0;
     border-radius: 10px;
+    flex-shrink: 0;
   }
 
   .icon-btn svg {
-    width: 22px;
-    height: 22px;
+    width: 20px;
+    height: 20px;
     color: #fff; /* ensure icons are white */
     display: block;
   }
