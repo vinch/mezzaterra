@@ -136,6 +136,15 @@
             Documents
           </a>
         </li>
+        <li>
+          <a
+            href="/manage/tasting-flyer"
+            class:active={$page.url.pathname === "/manage/tasting-flyer"}
+          >
+            <span class="icon">🖼️</span>
+            Visuel dégustation
+          </a>
+        </li>
 
         <li class="nav-divider">
           <span class="nav-divider-text">Ventes</span>
