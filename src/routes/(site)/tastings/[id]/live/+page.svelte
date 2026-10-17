@@ -7,6 +7,7 @@
   import GlassProgress from "$lib/components/site/GlassProgress.svelte";
   import StarRating from "$lib/components/site/StarRating.svelte";
   import { tastingTitle } from "$lib/publicData";
+  import { daysUntil, formatDateLong, isLiveNow } from "$lib/dates";
   import {
     NOTE_TYPES,
     findNote,
@@ -41,6 +42,8 @@
   /* ——— Position ——— */
   let index = 0;
   let hostPosition: number | null = null;
+  /** Dernier vin servi par l'animateur : les invités ne voient rien au-delà. */
+  let maxServed = 0;
   let follow = true;
   let direction = 1;
   let connected = false;
@@ -71,14 +74,18 @@
     getGuestId();
     showWelcome = !profile.firstName;
 
+    maxServed = readServed();
     if (typeof tasting.live_position === "number") {
       hostPosition = clamp(tasting.live_position);
+      markServed(hostPosition);
       index = hostPosition;
     }
+    if (finished) index = 0;
 
     channel = joinLiveChannel(tasting.id, {
       onPosition: (p) => {
         hostPosition = clamp(p);
+        markServed(hostPosition);
         if (follow) goTo(hostPosition, false);
       },
       onStatus: (ok) => {
@@ -97,8 +104,31 @@
     return Math.max(0, Math.min(Math.max(0, total - 1), Math.round(p)));
   }
 
+  /* Progression mémorisée sur le téléphone : un rechargement ne perd pas les vins déjà servis. */
+  function readServed(): number {
+    try {
+      return Number(localStorage.getItem(`mz-served:${tasting.id}`)) || 0;
+    } catch {
+      return 0;
+    }
+  }
+  function markServed(p: number) {
+    if (p <= maxServed) return;
+    maxServed = p;
+    try {
+      localStorage.setItem(`mz-served:${tasting.id}`, String(p));
+    } catch {
+      /* navigation privée */
+    }
+  }
+
+  /* Avant la soirée : rien. Pendant : jusqu'au vin servi. Après : tout. */
+  $: upcoming = tasting ? daysUntil(tasting.date) > 0 : false;
+  $: finished = tasting ? daysUntil(tasting.date) < 0 && !isLiveNow(tasting.date) : false;
+  $: unlocked = finished ? Math.max(0, total - 1) : Math.min(maxServed, Math.max(0, total - 1));
+
   function goTo(i: number, manual = true) {
-    const next = clamp(i);
+    const next = Math.min(clamp(i), manual ? unlocked : clamp(i));
     if (next === index) return;
     direction = next > index ? 1 : -1;
     index = next;
@@ -249,7 +279,13 @@
 </svelte:head>
 
 <div class="cave" class:has-cart={cartCount > 0} style="--robe: {style.color}; --robe-light: {style.light};">
-  {#if !tasting || total === 0}
+  {#if tasting && upcoming}
+    <div class="empty">
+      <img src="/flyer/logo-text.svg" alt="Mezzaterra" class="logo" />
+      <p>La dégustation commence le {formatDateLong(tasting.date).toLowerCase()}.<br />Les vins seront dévoilés un à un pendant la soirée.</p>
+      <a class="ghost-btn" href="/tastings/{tasting.id}">Retour à la dégustation</a>
+    </div>
+  {:else if !tasting || total === 0}
     <div class="empty">
       <img src="/flyer/logo-text.svg" alt="Mezzaterra" class="logo" />
       <p>{!tasting ? "Cette dégustation est introuvable." : "Les vins de la soirée seront bientôt dévoilés…"}</p>
@@ -358,23 +394,27 @@
       <div class="dot-row">
         {#each wines as w, i}
           {@const s = wineStyle(w.wine?.wine_type)}
-          <button
-            type="button"
-            class="wine-dot"
-            class:active={i === index}
-            class:served={hostPosition != null && i === hostPosition}
-            class:rated={!!ratings[w.id]?.rating}
-            style="--c: {s.color}"
-            on:click={() => goTo(i)}
-            aria-label="Vin {i + 1} : {wineTitle(w.wine)}"
-            aria-current={i === index}
-          ></button>
+          {#if i <= unlocked}
+            <button
+              type="button"
+              class="wine-dot"
+              class:active={i === index}
+              class:served={hostPosition != null && i === hostPosition}
+              class:rated={!!ratings[w.id]?.rating}
+              style="--c: {s.color}"
+              on:click={() => goTo(i)}
+              aria-label="Vin {i + 1} : {wineTitle(w.wine)}"
+              aria-current={i === index}
+            ></button>
+          {:else}
+            <span class="wine-dot locked" aria-label="Vin {i + 1} : à venir" role="img"></span>
+          {/if}
         {/each}
       </div>
       {#if index === total - 1}
         <button type="button" class="nav-arrow recap-btn" on:click={() => (showRecap = true)}>Récap</button>
       {:else}
-        <button type="button" class="nav-arrow" on:click={() => goTo(index + 1)} aria-label="Vin suivant">›</button>
+        <button type="button" class="nav-arrow" on:click={() => goTo(index + 1)} disabled={index >= unlocked} aria-label={index >= unlocked ? "Le vin suivant n’est pas encore servi" : "Vin suivant"}>›</button>
       {/if}
     </nav>
 
@@ -469,11 +509,15 @@
         {#each wines as w, i}
           {@const r = ratings[w.id]}
           <li>
-            <button type="button" on:click={() => { showRecap = false; goTo(i); }}>
-              <span class="recap-num" style="--c: {wineStyle(w.wine?.wine_type).color}">{i + 1}</span>
-              <span class="recap-name">{wineTitle(w.wine)}</span>
-              <StarRating value={r?.rating ?? null} readonly size="0.95rem" />
-            </button>
+            {#if i <= unlocked}
+              <button type="button" on:click={() => { showRecap = false; goTo(i); }}>
+                <span class="recap-num" style="--c: {wineStyle(w.wine?.wine_type).color}">{i + 1}</span>
+                <span class="recap-name">{wineTitle(w.wine)}</span>
+                <StarRating value={r?.rating ?? null} readonly size="0.95rem" />
+              </button>
+            {:else}
+              <span class="recap-locked"><span class="recap-num" style="--c: rgba(236, 230, 218, 0.2)">{i + 1}</span> À venir…</span>
+            {/if}
             {#if r?.comment}<p class="recap-comment">« {r.comment} »</p>{/if}
           </li>
         {/each}
@@ -942,6 +986,20 @@
     background: transparent;
     cursor: pointer;
     transition: transform 0.25s var(--mz-ease);
+  }
+
+  .wine-dot.locked {
+    border-color: rgba(236, 230, 218, 0.25);
+    cursor: default;
+  }
+
+  .recap-locked {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 0.25rem 0;
+    color: var(--mz-cave-muted);
+    font-style: italic;
   }
 
   .wine-dot.rated {
