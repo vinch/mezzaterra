@@ -37,6 +37,8 @@
   onMount(async () => {
     await loadVintages();
     await loadAllGrapes();
+    /* Lien « Ajouter un millésime » depuis la liste des vins. */
+    if (new URLSearchParams(window.location.search).has("nouveau")) openCreateModal();
   });
 
   async function loadAllGrapes() {

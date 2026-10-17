@@ -271,7 +271,7 @@ select.ui-control {
   position: relative;
 }
 
-.ui-table .col-actions > * {
+.ui-table td.col-actions > * {
   position: relative;
   z-index: 1;
 }
