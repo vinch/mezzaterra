@@ -15,3 +15,8 @@ ils n'ont **pas** été inventés pendant la refonte visuelle.
 - **« Ajouter au déroulé »** (encart Idée du stock dormant) : il n'existe pas d'action pour ajouter
   un millésime au déroulé de la prochaine dégustation depuis le tableau de bord. L'encart propose
   « Ouvrir les dégustations » à la place.
+
+## Fiche client
+- « Modifier » ouvre la modale d'édition existante de la liste des clients (`/manage/customers?modifier=…`).
+- Le lien de facture et le téléchargement passent par l'écran Ventes (`?facture=…`, `?telecharger=…`),
+  où vit la génération du PDF (pas de duplication de la logique de facturation).

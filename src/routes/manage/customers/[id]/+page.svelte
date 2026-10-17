@@ -2,13 +2,25 @@
   import { onMount } from "svelte";
   import { page } from "$app/stores";
   import { supabase } from "$lib/supabase";
+  import { goto } from "$app/navigation";
   import ManagePageShell from "$lib/components/manage/ManagePageShell.svelte";
   import StarRating from "$lib/components/site/StarRating.svelte";
   import { customerDisplayLabel } from "$lib/customerDisplay";
   import { REVENUE_STATUSES, lineTotal, type SaleItemRow } from "$lib/analytics";
   import { hasTable } from "$lib/features";
-  import { formatDateShort } from "$lib/dates";
-  import { formatEur, vintageLabel, wineStyle } from "$lib/wine";
+  import { daysUntil } from "$lib/dates";
+  import { vintageLabel } from "$lib/wine";
+  import { formatDate, formatEUR } from "$lib/format";
+  import Button from "$lib/ui/Button.svelte";
+  import IconButton from "$lib/ui/IconButton.svelte";
+  import Card from "$lib/ui/Card.svelte";
+  import RowMenu from "$lib/ui/RowMenu.svelte";
+  import ConfirmDialog from "$lib/ui/ConfirmDialog.svelte";
+  import DataTable from "$lib/ui/DataTable.svelte";
+  import EmptyState from "$lib/ui/EmptyState.svelte";
+  import StatusBadge from "$lib/ui/StatusBadge.svelte";
+  import WineDot, { robeOf, ROBE_LABEL, type Robe } from "$lib/ui/WineDot.svelte";
+  import { IconDownload, IconGlasses, IconPencil, IconPlus, IconReceipt, IconSend, IconSparkle, IconTrash, IconWine } from "$lib/ui/icons";
 
   const customerId = $page.params.id ?? "";
 
@@ -20,14 +32,6 @@
   let feedback: any[] = [];
   let vintages: any[] = [];
   let stock = new Map<string, number>();
-
-  const STATUS_LABELS: Record<string, string> = {
-    pending: "En attente",
-    paid: "Payée",
-    delivered: "Livrée",
-    closed: "Clôturée",
-    cancelled: "Annulée",
-  };
 
   onMount(async () => {
     try {
@@ -103,25 +107,23 @@
 
   $: totalBottles = bought.reduce((s, b) => s + b.qty, 0);
 
-  /* Préférences : répartition par couleur et par domaine. */
-  $: styleShare = (() => {
-    const map = new Map<string, { style: ReturnType<typeof wineStyle>; qty: number }>();
-    for (const b of bought) {
-      const st = wineStyle(b.vintage.wine?.wine_type);
-      const cur = map.get(st.key) ?? { style: st, qty: 0 };
-      cur.qty += b.qty;
-      map.set(st.key, cur);
-    }
-    return [...map.values()].sort((a, b) => b.qty - a.qty);
+  /* Préférences : répartition par robe (toujours rouge / blanc / rosé) et domaine préféré. */
+  const ROBES: Robe[] = ["blanc", "rouge", "rose"];
+  $: robeQty = (() => {
+    const map: Record<Robe, number> = { rouge: 0, blanc: 0, rose: 0, autre: 0 };
+    for (const b of bought) map[robeOf(b.vintage.wine?.wine_type)] += b.qty;
+    return map;
   })();
+  $: robeOrder = [...ROBES].sort((a, b) => robeQty[b] - robeQty[a]);
+  $: favRobe = robeOrder[0] && robeQty[robeOrder[0]] > 0 ? robeOrder[0] : null;
 
-  $: favoriteWineries = (() => {
+  $: favoriteWinery = (() => {
     const map = new Map<string, number>();
     for (const b of bought) {
       const n = b.vintage.wine?.winery?.name || "—";
       map.set(n, (map.get(n) ?? 0) + b.qty);
     }
-    return [...map.entries()].sort((a, b) => b[1] - a[1]).slice(0, 3);
+    return [...map.entries()].sort((a, b) => b[1] - a[1])[0] ?? null;
   })();
 
   /* Suggestions de relance. */
@@ -146,301 +148,408 @@
     for (const f of feedback) {
       if ((f.rating ?? 0) >= 4) push(vintageById.get(f.wine_vintage_id), `Noté ${f.rating}★ en dégustation`);
     }
-    const fav = styleShare[0]?.style.key;
-    if (fav) {
+    if (favRobe) {
       for (const v of vintages) {
         if (out.length >= 6) break;
-        if (wineStyle(v.wine?.wine_type).key === fav) push(v, `Dans ses goûts (${styleShare[0].style.label.toLowerCase()})`);
+        if (robeOf(v.wine?.wine_type) === favRobe) push(v, `Dans ses goûts (${ROBE_LABEL[favRobe].toLowerCase()})`);
       }
     }
     return out.slice(0, 6);
   })();
 
+  /* Cases « À lui proposer » : toutes cochées par défaut. */
+  let unchecked = new Set<string>();
+  $: selectedSuggestions = suggestions.filter((sg) => !unchecked.has(sg.vintage.id));
+  function toggleSuggestion(id: string) {
+    const next = new Set(unchecked);
+    if (next.has(id)) next.delete(id);
+    else next.add(id);
+    unchecked = next;
+  }
+
+  function wineName(v: any): string {
+    const w = v?.wine;
+    const name = w?.name?.trim() || w?.appelation?.name || "Vin";
+    const year = v?.year ?? v?.production_year;
+    return year ? `${name} ${year}` : name;
+  }
+
   function mailto(): string {
     if (!customer?.email) return "";
-    const lines = suggestions.map((s) => `- ${vintageLabel(s.vintage)}${s.vintage.price ? ` (${formatEur(s.vintage.price)})` : ""}`);
+    const lines = selectedSuggestions.map((s) => `- ${vintageLabel(s.vintage)}${s.vintage.price ? ` (${formatEUR(s.vintage.price)})` : ""}`);
     const body = `Bonjour ${customer.first_name},\n\nJ’ai pensé à vous :\n${lines.join("\n")}\n\nÀ bientôt,\nMezzaterra`;
     return `mailto:${customer.email}?subject=${encodeURIComponent("Quelques vins pour vous")}&body=${encodeURIComponent(body)}`;
   }
+
+  $: lastSaleDays = lastSale ? -daysUntil(lastSale.date) : null;
+
+  /* Suppression (même opération que dans la liste des clients). */
+  let confirmOpen = false;
+  let deleting = false;
+  async function deleteCustomer() {
+    deleting = true;
+    const { error: delErr } = await supabase.from("customer").delete().eq("id", customerId);
+    deleting = false;
+    if (delErr) {
+      error = delErr.message;
+      confirmOpen = false;
+      return;
+    }
+    await goto("/manage/customers");
+  }
+
+  $: menuItems = [
+    { label: "Modifier", icon: IconPencil, href: `/manage/customers?modifier=${customerId}` },
+    { label: "Supprimer…", icon: IconTrash, danger: true, separator: true, onSelect: () => (confirmOpen = true) },
+  ];
 </script>
 
 <svelte:head>
   <title>{customer ? customerDisplayLabel(customer) : "Client"} - Gestion</title>
 </svelte:head>
 
-<ManagePageShell title={customer ? customerDisplayLabel(customer) : "Client"}>
+<ManagePageShell
+  title={customer ? `${customer.first_name} ${customer.last_name}`.trim() : "Client"}
+  subtitle={customer ? [`Client depuis le ${formatDate(customer.created_at)}`, customer.company_name, customer.city].filter(Boolean).join(" · ") : ""}
+  back={{ href: "/manage/customers", label: "Clients" }}
+>
   <svelte:fragment slot="actions">
-    <a href="/manage/customers" class="btn-secondary">← Clients</a>
-    {#if customer?.email && suggestions.length}
-      <a href={mailto()} class="btn-primary">Envoyer des suggestions</a>
+    {#if customer}
+      <Button href="/manage/sales?nouvelle=1&client={customerId}">Nouvelle vente</Button>
+      {#if customer.email && selectedSuggestions.length}
+        <Button variant="primary" href={mailto()}><IconSend size={16} strokeWidth={1.75} /> Envoyer des suggestions</Button>
+      {/if}
+      <RowMenu items={menuItems} label="Plus d’actions pour ce client" />
     {/if}
   </svelte:fragment>
 
   {#if loading}
     <div class="loading">Chargement…</div>
   {:else if error}
-    <div class="error-message">{error}</div>
+    <div class="error-message" role="alert">{error}</div>
   {:else if !customer}
-    <div class="empty-state"><p>Client introuvable.</p></div>
+    <EmptyState title="Client introuvable" text="Il a peut-être été supprimé." />
   {:else}
     <div class="top">
-      <section class="card identity">
-        <h2>Coordonnées</h2>
-        <dl>
+      <Card title="Coordonnées" id="coords">
+        <dl class="coords">
           {#if customer.email}<dt>Email</dt><dd><a href="mailto:{customer.email}">{customer.email}</a></dd>{/if}
-          {#if customer.phone_number}<dt>Téléphone</dt><dd><a href="tel:{customer.phone_number}">{customer.phone_number}</a></dd>{/if}
+          {#if customer.phone_number}<dt>Téléphone</dt><dd><a href="tel:{customer.phone_number.replace(/\s/g, '')}">{customer.phone_number}</a></dd>{/if}
           {#if customer.company_name}<dt>Société</dt><dd>{customer.company_name}{customer.vat ? ` · TVA ${customer.vat}` : ""}</dd>{/if}
           {#if customer.city || customer.address_line_1}
             <dt>Adresse</dt>
             <dd>
               {[customer.address_line_1, customer.address_line_2].filter(Boolean).join(", ")}<br />
-              {[customer.zip_code, customer.city].filter(Boolean).join(" ")} {customer.country?.flag || ""}
+              {[customer.zip_code, customer.city].filter(Boolean).join(" ")}{customer.country?.name ? ` · ${customer.country.name}` : ""}
             </dd>
           {/if}
-          <dt>Client depuis</dt><dd>{formatDateShort(customer.created_at)}</dd>
+          <dt>Client depuis</dt><dd>{formatDate(customer.created_at)}</dd>
         </dl>
-      </section>
+      </Card>
 
-      <div class="kpis">
-        <div class="kpi"><span class="v">{formatEur(revenue, true)}</span><span class="l">CA encaissé</span></div>
-        <div class="kpi"><span class="v">{paidSales.length}</span><span class="l">Achat{paidSales.length > 1 ? "s" : ""}</span></div>
-        <div class="kpi"><span class="v">{formatEur(avgBasket, true)}</span><span class="l">Panier moyen</span></div>
-        <div class="kpi"><span class="v">{totalBottles}</span><span class="l">Bouteilles</span></div>
-        <div class="kpi"><span class="v">{tastings.length}</span><span class="l">Dégustation{tastings.length > 1 ? "s" : ""}</span></div>
-        <div class="kpi"><span class="v">{lastSale ? formatDateShort(lastSale.date) : "—"}</span><span class="l">Dernier achat</span></div>
-      </div>
+      <section class="stats" aria-label="Chiffres clés">
+        <div class="stat"><span class="t-caption">CA encaissé</span><span class="stat-v">{formatEUR(revenue)}</span></div>
+        <div class="stat"><span class="t-caption">Achats</span><span class="stat-v">{paidSales.length}</span></div>
+        <div class="stat"><span class="t-caption">Panier moyen</span><span class="stat-v">{paidSales.length ? formatEUR(avgBasket) : "—"}</span></div>
+        <div class="stat"><span class="t-caption">Bouteilles</span><span class="stat-v">{totalBottles}</span></div>
+        <div class="stat"><span class="t-caption">Dégustations</span><span class="stat-v">{tastings.length}</span></div>
+        <div class="stat">
+          <span class="t-caption">Dernier achat</span>
+          <span class="stat-v">{lastSale ? formatDate(lastSale.date) : "—"}</span>
+          {#if lastSaleDays != null}<span class="t-caption t-warn">il y a {lastSaleDays} jour{lastSaleDays > 1 ? "s" : ""}</span>{/if}
+        </div>
+      </section>
     </div>
 
     <div class="grid">
-      <section class="card">
-        <h2>Ses goûts</h2>
-        {#if styleShare.length === 0}
-          <p class="empty-text">Pas encore d’achat de vin.</p>
+      <Card title="Ses goûts" id="tastes">
+        {#if totalBottles === 0}
+          <EmptyState icon={IconWine} title="Pas encore d’achat de vin" compact />
         {:else}
-          <div class="share-bar" role="img" aria-label="Répartition des achats par couleur">
-            {#each styleShare as s}
-              <span style="flex: {s.qty}; background: {s.style.color}" title="{s.style.label} : {s.qty} bt."></span>
+          <div class="share-bar" role="img" aria-label="Répartition des achats par robe">
+            {#each robeOrder as r}
+              {#if robeQty[r]}<span class="seg seg--{r}" style="flex: {robeQty[r]}"></span>{/if}
             {/each}
           </div>
           <ul class="legend">
-            {#each styleShare as s}
-              <li><span class="mz-dot" style="background: {s.style.color}"></span>{s.style.label} — {Math.round((s.qty / totalBottles) * 100)} %</li>
-            {/each}
-          </ul>
-          {#if favoriteWineries.length}
-            <p class="muted small">Domaines préférés : {favoriteWineries.map(([n, q]) => `${n} (${q})`).join(", ")}</p>
-          {/if}
-        {/if}
-      </section>
-
-      <section class="card">
-        <h2>À lui proposer</h2>
-        {#if suggestions.length === 0}
-          <p class="empty-text">Pas de suggestion pour l’instant.</p>
-        {:else}
-          <ul class="list">
-            {#each suggestions as s}
-              <li>
-                <span class="mz-dot" style="background: {wineStyle(s.vintage.wine?.wine_type).color}"></span>
-                <span class="grow">{vintageLabel(s.vintage)}<small>{s.reason}</small></span>
-                <span class="muted">{formatEur(s.vintage.price)}</span>
+            {#each robeOrder as r}
+              <li class:muted={!robeQty[r]}>
+                <WineDot robe={r} />
+                <strong>{ROBE_LABEL[r]}</strong>
+                {Math.round((robeQty[r] / totalBottles) * 100)} %
               </li>
             {/each}
           </ul>
+          {#if favoriteWinery}
+            <div class="fav">
+              <span class="t-caption">Domaine préféré</span>
+              <p><strong>{favoriteWinery[0]}</strong> · {favoriteWinery[1]} bt.</p>
+            </div>
+          {/if}
         {/if}
-      </section>
+      </Card>
 
-      <section class="card">
-        <h2>Vins achetés</h2>
+      <Card title="À lui proposer" id="suggest">
+        <span slot="actions" class="t-caption">{selectedSuggestions.length} vin{selectedSuggestions.length > 1 ? "s" : ""} sélectionné{selectedSuggestions.length > 1 ? "s" : ""} pour l’envoi</span>
+        {#if suggestions.length === 0}
+          <EmptyState icon={IconSparkle} title="Pas de suggestion pour l’instant" compact />
+        {:else}
+          <ul class="list">
+            {#each suggestions as sg (sg.vintage.id)}
+              <li>
+                <label class="suggest">
+                  <input type="checkbox" checked={!unchecked.has(sg.vintage.id)} on:change={() => toggleSuggestion(sg.vintage.id)} />
+                  <WineDot robe={robeOf(sg.vintage.wine?.wine_type)} />
+                  <span class="list-main">
+                    <span><strong>{wineName(sg.vintage)}</strong><span class="t-muted">&nbsp;· {sg.vintage.wine?.winery?.name ?? ""}</span></span>
+                    <span class="t-caption" class:t-warn={(stock.get(sg.vintage.id) ?? 0) <= 3}>
+                      {sg.reason}{(stock.get(sg.vintage.id) ?? 0) <= 3 ? ` · plus que ${stock.get(sg.vintage.id)} bt.` : ""}
+                    </span>
+                  </span>
+                  <span class="price">{formatEUR(sg.vintage.price)}</span>
+                </label>
+              </li>
+            {/each}
+          </ul>
+          {#if !customer.email}<p class="t-caption">Pas d’email enregistré : ajoutez-en un pour envoyer ces suggestions.</p>{/if}
+        {/if}
+      </Card>
+
+      <Card title="Vins achetés" id="bought">
         {#if bought.length === 0}
-          <p class="empty-text">Aucun.</p>
+          <EmptyState icon={IconWine} title="Aucun vin acheté" compact />
         {:else}
           <ul class="list">
             {#each bought as b}
               <li>
-                <span class="mz-dot" style="background: {wineStyle(b.vintage.wine?.wine_type).color}"></span>
-                <span class="grow">{vintageLabel(b.vintage)}<small>dernier achat le {formatDateShort(b.last)}</small></span>
+                <WineDot robe={robeOf(b.vintage.wine?.wine_type)} />
+                <span class="list-main">
+                  <span><strong>{wineName(b.vintage)}</strong><span class="t-muted">&nbsp;· {b.vintage.wine?.winery?.name ?? ""}</span></span>
+                  <span class="t-caption">Dernier achat le {formatDate(b.last)}</span>
+                </span>
                 <strong>{b.qty} bt.</strong>
               </li>
             {/each}
           </ul>
         {/if}
-      </section>
+      </Card>
 
-      <section class="card">
-        <h2>Dégustations</h2>
+      <Card title="Dégustations" id="tastings">
         {#if tastings.length === 0}
-          <p class="empty-text">Aucune dégustation associée.</p>
+          <EmptyState icon={IconGlasses} title="Aucune dégustation associée" compact />
         {:else}
           <ul class="list">
             {#each tastings as t}
               <li>
-                <span class="grow">{t.name || "Dégustation"}<small>{formatDateShort(t.date)}{t.location ? ` · ${t.location}` : ""}</small></span>
-                <a href="/manage/tastings/{t.id}/live" class="small">Ouvrir</a>
+                <span class="tile" aria-hidden="true"><IconGlasses size={16} strokeWidth={1.75} /></span>
+                <span class="list-main">
+                  <strong>{t.name || "Dégustation"}</strong>
+                  <span class="t-caption">{formatDate(t.date)}{t.location ? ` · ${t.location}` : ""}</span>
+                </span>
+                <a href="/manage/tastings/{t.id}/live">Ouvrir</a>
               </li>
             {/each}
           </ul>
         {/if}
         {#if feedback.length}
-          <h3>Ses notes en direct</h3>
+          <h3 class="t-label sub-title">Ses notes en direct</h3>
           <ul class="list">
             {#each feedback as f}
               <li>
-                <span class="grow">
-                  {vintageLabel(vintageById.get(f.wine_vintage_id))}
-                  {#if f.comment}<small>« {f.comment} »</small>{/if}
+                <span class="list-main">
+                  <strong>{wineName(vintageById.get(f.wine_vintage_id))}</strong>
+                  {#if f.comment}<span class="t-caption">« {f.comment} »</span>{/if}
                 </span>
                 {#if f.rating}<StarRating value={f.rating} readonly size="0.9rem" />{/if}
               </li>
             {/each}
           </ul>
         {/if}
-      </section>
+      </Card>
+    </div>
 
-      <section class="card wide">
-        <h2>Historique des ventes</h2>
-        {#if sales.length === 0}
-          <p class="empty-text">Aucune vente.</p>
-        {:else}
-          <table>
-            <thead><tr><th>Date</th><th>Facture</th><th>Statut</th><th>Articles</th><th class="num">Total</th></tr></thead>
+    <Card title="Historique des ventes" id="history" padded={false}>
+      {#if sales.length === 0}
+        <EmptyState icon={IconReceipt} title="Aucune vente" compact>
+          <Button size="sm" href="/manage/sales?nouvelle=1&client={customerId}"><IconPlus size={14} strokeWidth={1.75} /> Nouvelle vente</Button>
+        </EmptyState>
+      {:else}
+        <div class="history">
+          <DataTable caption="Historique des ventes">
+            <thead>
+              <tr>
+                <th scope="col">Date</th>
+                <th scope="col">Facture</th>
+                <th scope="col">Statut</th>
+                <th scope="col">Articles</th>
+                <th scope="col" class="num">Total</th>
+                <th scope="col" class="col-actions"><span class="sr-only">Facture</span></th>
+              </tr>
+            </thead>
             <tbody>
               {#each sales as s (s.id)}
-                <tr class:cancelled={s.status === "cancelled"}>
-                  <td>{formatDateShort(s.date)}</td>
-                  <td>{s.invoice_number || "—"}</td>
-                  <td><span class="status status-{s.status}">{STATUS_LABELS[s.status] ?? s.status}</span></td>
-                  <td class="items">
-                    {(s.sale_item || [])
-                      .map((it: any) => `${it.quantity} × ${it.wine_vintage_id ? vintageLabel(vintageById.get(it.wine_vintage_id)) : it.note || "Dégustation"}`)
-                      .join(" · ")}
+                <tr>
+                  <td>{formatDate(s.date)}</td>
+                  <td>
+                    {#if s.invoice_number}<a href="/manage/sales?facture={s.id}">{s.invoice_number}</a>{:else}<span class="t-muted">—</span>{/if}
                   </td>
-                  <td class="num">{formatEur(s.total_price)}</td>
+                  <td><StatusBadge status={s.status} /></td>
+                  <td class="items">
+                    {#each s.sale_item || [] as it, i}
+                      {#if i > 0}<span class="t-muted">&nbsp;· </span>{/if}
+                      {#if it.wine_vintage_id}
+                        {@const v = vintageById.get(it.wine_vintage_id)}
+                        <span class="item"><WineDot robe={robeOf(v?.wine?.wine_type)} /> {it.quantity} × {wineName(v)}<span class="t-muted">&nbsp;· {v?.wine?.winery?.name ?? ""}</span></span>
+                      {:else}
+                        <span class="item">{it.quantity} × {it.note || "Dégustation"}</span>
+                      {/if}
+                    {/each}
+                  </td>
+                  <td class="num">
+                    {#if s.status === "cancelled"}<s class="t-muted">{formatEUR(s.total_price)}</s>{:else}<strong>{formatEUR(s.total_price)}</strong>{/if}
+                  </td>
+                  <td class="col-actions">
+                    {#if s.status === "closed"}
+                      <IconButton label="Télécharger la facture {s.invoice_number ?? ''}" href="/manage/sales?telecharger={s.id}">
+                        <IconDownload size={18} strokeWidth={1.75} />
+                      </IconButton>
+                    {/if}
+                  </td>
                 </tr>
               {/each}
             </tbody>
-          </table>
-        {/if}
-      </section>
-    </div>
+          </DataTable>
+        </div>
+      {/if}
+    </Card>
   {/if}
 </ManagePageShell>
+
+<ConfirmDialog
+  bind:open={confirmOpen}
+  title="Supprimer ce client ?"
+  busy={deleting}
+  message={customer
+    ? `${customer.first_name} ${customer.last_name} sera supprimé de vos clients. ${sales.length ? `Il a ${sales.length} vente(s) : la suppression sera refusée par la base si elles y sont liées.` : "Aucune vente n’est liée à ce client."}`
+    : ""}
+  on:confirm={deleteCustomer}
+/>
 
 <style>
   .top {
     display: grid;
-    grid-template-columns: minmax(260px, 1fr) 2fr;
-    gap: 1.5rem;
-    margin-bottom: 1.5rem;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    gap: 16px;
+    margin-bottom: 16px;
   }
 
-  .card {
-    background: white;
-    border-radius: 12px;
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
-    padding: 1.25rem 1.4rem;
-    min-width: 0;
-  }
-
-  .card h2 {
-    margin: 0 0 0.9rem;
-    font-size: 1rem;
-    color: #2c3e50;
-  }
-
-  .card h3 {
-    margin: 1.2rem 0 0.5rem;
-    font-size: 0.9rem;
-    color: #2c3e50;
-  }
-
-  dl {
-    margin: 0;
+  .coords {
     display: grid;
-    grid-template-columns: auto 1fr;
-    gap: 0.4rem 1rem;
-    font-size: 0.92rem;
-  }
-
-  dt {
-    color: #868e96;
-  }
-
-  dd {
+    grid-template-columns: max-content 1fr;
+    gap: 10px 24px;
     margin: 0;
   }
 
-  dd a {
-    color: var(--mz-teal, #256169);
+  .coords dt {
+    color: var(--ink-2);
   }
 
-  .kpis {
+  .coords dd {
+    margin: 0;
+  }
+
+  .stats {
     display: grid;
     grid-template-columns: repeat(3, minmax(0, 1fr));
-    gap: 1rem;
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: var(--r-md);
+    overflow: hidden;
   }
 
-  .kpi {
-    background: white;
-    border-radius: 12px;
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
-    padding: 1rem 1.2rem;
+  .stat {
     display: flex;
     flex-direction: column;
-    justify-content: center;
+    gap: 2px;
+    padding: 16px 18px;
+    border-right: 1px solid var(--border-soft);
+    border-bottom: 1px solid var(--border-soft);
   }
 
-  .kpi .v {
-    font-size: 1.5rem;
-    font-weight: 700;
-    color: #1d2a2c;
+  .stat:nth-child(3n) {
+    border-right: none;
   }
 
-  .kpi .l {
-    font-size: 0.85rem;
-    color: #6c757d;
+  .stat:nth-child(n + 4) {
+    border-bottom: none;
+  }
+
+  .stat-v {
+    font-family: var(--font-serif);
+    font-weight: 600;
+    font-size: 24px;
+    line-height: 30px;
   }
 
   .grid {
     display: grid;
     grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: 1.5rem;
-  }
-
-  .wide {
-    grid-column: 1 / -1;
+    gap: 16px;
+    margin-bottom: 16px;
   }
 
   .share-bar {
     display: flex;
     gap: 2px;
-    height: 12px;
+    height: 10px;
     border-radius: 999px;
     overflow: hidden;
+    background: var(--border-soft);
+  }
+
+  .seg--rouge {
+    background: var(--rouge);
+  }
+
+  .seg--blanc {
+    background: var(--blanc);
+  }
+
+  .seg--rose {
+    background: var(--rose);
   }
 
   .legend {
     list-style: none;
+    margin: 12px 0 0;
     padding: 0;
-    margin: 0.75rem 0;
     display: flex;
     flex-wrap: wrap;
-    gap: 0.4rem 1.25rem;
-    font-size: 0.9rem;
+    gap: 6px 20px;
   }
 
   .legend li {
     display: flex;
     align-items: center;
-    gap: 0.4rem;
+    gap: 6px;
   }
 
-  .mz-dot {
-    display: inline-block;
-    width: 0.6rem;
-    height: 0.6rem;
-    border-radius: 50%;
-    flex-shrink: 0;
+  .legend li.muted {
+    color: var(--ink-2);
+  }
+
+  .legend li.muted strong {
+    font-weight: 500;
+  }
+
+  .fav {
+    margin-top: 16px;
+    padding-top: 12px;
+    border-top: 1px solid var(--border-soft);
+  }
+
+  .fav p {
+    margin: 2px 0 0;
   }
 
   .list {
@@ -452,65 +561,75 @@
   .list li {
     display: flex;
     align-items: center;
-    gap: 0.6rem;
-    padding: 0.5rem 0;
-    border-bottom: 1px solid #f3f3f3;
-    font-size: 0.92rem;
+    gap: 10px;
+    min-height: 52px;
+    padding: 8px 0;
+    border-bottom: 1px solid var(--border-soft);
   }
 
-  .grow {
+  .list li:last-child {
+    border-bottom: none;
+  }
+
+  .list-main {
     flex: 1;
     min-width: 0;
     display: flex;
     flex-direction: column;
+    line-height: 18px;
   }
 
-  .grow small {
-    color: #868e96;
+  .suggest {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    width: 100%;
+    cursor: pointer;
   }
 
-  .muted {
-    color: #868e96;
+  .suggest input {
+    width: 18px;
+    height: 18px;
+    accent-color: var(--teal-600);
+    flex-shrink: 0;
   }
 
-  .small {
-    font-size: 0.85rem;
-  }
-
-  .num {
-    text-align: right;
-    font-variant-numeric: tabular-nums;
+  .price {
     white-space: nowrap;
   }
 
+  .tile {
+    display: grid;
+    place-items: center;
+    width: 32px;
+    height: 32px;
+    border-radius: var(--r-sm);
+    background: var(--mist);
+    color: var(--teal-600);
+  }
+
+  .sub-title {
+    margin: 16px 0 4px;
+  }
+
+  .history {
+    margin-top: -4px;
+  }
+
+  .history :global(.ui-table-wrap) {
+    border: none;
+    border-top: 1px solid var(--border-soft);
+    border-radius: 0 0 var(--r-md) var(--r-md);
+  }
+
   .items {
-    font-size: 0.85rem;
-    color: #3d4f51;
+    font-size: 13px;
   }
 
-  tr.cancelled {
-    opacity: 0.5;
-  }
-
-  .status {
-    display: inline-block;
-    padding: 0.15rem 0.55rem;
-    border-radius: 999px;
-    font-size: 0.78rem;
-    font-weight: 600;
-    background: #f1f3f5;
-  }
-
-  .status-paid,
-  .status-delivered,
-  .status-closed {
-    background: #e3f2e8;
-    color: #2f7a4b;
-  }
-
-  .status-pending {
-    background: #fff3d6;
-    color: #8a5a00;
+  .item {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
   }
 
   @media (max-width: 1000px) {
@@ -518,9 +637,27 @@
     .grid {
       grid-template-columns: 1fr;
     }
+  }
 
-    .kpis {
+  @media (max-width: 767px) {
+    .stats {
       grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .stat:nth-child(3n) {
+      border-right: 1px solid var(--border-soft);
+    }
+
+    .stat:nth-child(2n) {
+      border-right: none;
+    }
+
+    .stat:nth-child(n + 4) {
+      border-bottom: 1px solid var(--border-soft);
+    }
+
+    .stat:nth-child(n + 5) {
+      border-bottom: none;
     }
   }
 </style>

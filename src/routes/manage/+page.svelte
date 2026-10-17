@@ -366,7 +366,7 @@
                 <li>
                   <span class="rank-name">
                     <WineDot robe={robeOf(w.vintage.wine?.wine_type)} />
-                    <span><strong>{vintageName(w.vintage)}</strong><span class="t-muted"> · {w.vintage.wine?.winery?.name ?? ""}</span></span>
+                    <span><strong>{vintageName(w.vintage)}</strong><span class="t-muted">&nbsp;· {w.vintage.wine?.winery?.name ?? ""}</span></span>
                   </span>
                   <span class="rank-value"><strong>{formatEUR(w.revenue)}</strong><span class="t-muted">{w.sold} bt.</span></span>
                   <span class="rank-bar" aria-hidden="true"><span style="width: {(w.revenue / topWines[0].revenue) * 100}%"></span></span>
@@ -387,7 +387,7 @@
                 <li>
                   <WineDot robe={robeOf(s.vintage.wine?.wine_type)} />
                   <span class="list-main">
-                    <span><strong>{vintageName(s.vintage)}</strong><span class="t-muted"> · {s.vintage.wine?.winery?.name ?? ""}</span></span>
+                    <span><strong>{vintageName(s.vintage)}</strong><span class="t-muted">&nbsp;· {s.vintage.wine?.winery?.name ?? ""}</span></span>
                     <span class="t-caption">{s.sold ? `${s.sold} vendue${s.sold > 1 ? "s" : ""}` : "aucune vente"}</span>
                   </span>
                   {#if s.stock <= 0}
@@ -414,7 +414,7 @@
                 <li>
                   <WineDot robe={robeOf(s.vintage.wine?.wine_type)} />
                   <span class="list-main">
-                    <span><strong>{vintageName(s.vintage)}</strong><span class="t-muted"> · {s.vintage.wine?.winery?.name ?? ""}</span></span>
+                    <span><strong>{vintageName(s.vintage)}</strong><span class="t-muted">&nbsp;· {s.vintage.wine?.winery?.name ?? ""}</span></span>
                     <span class="t-caption">
                       {s.stock} bt. · {#if s.lastSale}dernière vente il y a <strong class="t-warn">{s.idleDays} j</strong>{:else}<strong class="t-warn">jamais vendu</strong>{/if}
                     </span>

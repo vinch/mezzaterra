@@ -33,6 +33,10 @@
   onMount(async () => {
     await loadCustomers();
     await loadCountries();
+    /* Lien « Modifier » depuis la fiche client. */
+    const editId = new URLSearchParams(window.location.search).get("modifier");
+    const toEdit = editId ? customers.find((c) => c.id === editId) : null;
+    if (toEdit) openEditModal(toEdit);
   });
 
   async function loadCustomers() {

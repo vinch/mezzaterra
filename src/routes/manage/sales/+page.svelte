@@ -110,7 +110,18 @@
     await loadCustomers();
     await loadWineVintages();
     loading = false;
-    if (params.has("nouvelle")) openCreateModal();
+    if (params.has("nouvelle")) {
+      openCreateModal();
+      const client = params.get("client");
+      if (client) formData.customer_id = client;
+    }
+    const facture = params.get("facture");
+    if (facture) {
+      const sale = sales.find((x) => x.id === facture);
+      if (sale) void openDetailsModal(sale);
+    }
+    const telecharger = params.get("telecharger");
+    if (telecharger) void downloadInvoice(telecharger);
   });
 
   function getProductDisplayName(vintage: any) {
@@ -1619,7 +1630,7 @@
               <td>{formatDate(sale.date)}</td>
               <td>
                 <button type="button" class="link-cell" on:click={() => openDetailsModal(sale)}>{customerName(sale)}</button>
-                {#if sale.customer?.company_name}<span class="t-muted"> · {sale.customer.company_name}</span>{/if}
+                {#if sale.customer?.company_name}<span class="t-muted">&nbsp;· {sale.customer.company_name}</span>{/if}
               </td>
               <td>
                 {#if EDITABLE_STATUSES.includes(sale.status)}
@@ -1719,7 +1730,7 @@
           <div class="chip">
             <span class="chip-avatar" aria-hidden="true">{initials(selectedCustomer.first_name, selectedCustomer.last_name)}</span>
             <span class="chip-name">
-              <strong>{selectedCustomer.first_name} {selectedCustomer.last_name}</strong>{#if selectedCustomer.city}<span class="t-muted"> · {selectedCustomer.city}</span>{/if}
+              <strong>{selectedCustomer.first_name} {selectedCustomer.last_name}</strong>{#if selectedCustomer.city}<span class="t-muted">&nbsp;· {selectedCustomer.city}</span>{/if}
             </span>
             <IconButton label="Changer de client" on:click={clearCustomer}><IconX size={16} strokeWidth={1.75} /></IconButton>
           </div>
@@ -1890,7 +1901,7 @@
       <div>
         <dt>Client</dt>
         <dd>
-          <a href="/manage/customers/{detailsSale.customer_id}">{customerName(detailsSale)}</a>{#if detailsSale.customer?.company_name}<span class="t-muted"> · {detailsSale.customer.company_name}</span>{/if}
+          <a href="/manage/customers/{detailsSale.customer_id}">{customerName(detailsSale)}</a>{#if detailsSale.customer?.company_name}<span class="t-muted">&nbsp;· {detailsSale.customer.company_name}</span>{/if}
         </dd>
       </div>
       <div><dt>Facture</dt><dd>{detailsSale.invoice_number || "—"}</dd></div>
