@@ -91,10 +91,11 @@
   </div>
 
   <div class="foot">
-    <span class="email" title={email}>{email}</span>
-    <IconButton label="Déconnexion" variant="dark" on:click={() => dispatch("logout")}>
-      <IconLogout size={18} strokeWidth={1.75} />
-    </IconButton>
+    <span class="email">{email}</span>
+    <button type="button" class="logout" on:click={() => dispatch("logout")}>
+      <IconLogout size={16} strokeWidth={1.75} aria-hidden="true" />
+      Se déconnecter
+    </button>
   </div>
 </nav>
 
@@ -247,20 +248,50 @@
 
   .foot {
     display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 8px;
-    margin: 0 12px;
-    padding: 14px 0 16px 12px;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 6px;
+    padding: 14px 12px 14px;
     border-top: 1px solid rgba(255, 255, 255, 0.12);
   }
 
   .email {
-    min-width: 0;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
+    max-width: 100%;
+    padding: 0 12px;
     font-size: 13px;
+    line-height: 18px;
     color: rgba(255, 255, 255, 0.86);
+    overflow-wrap: anywhere;
+  }
+
+  .logout {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    min-height: 36px;
+    padding: 0 12px;
+    border: none;
+    border-radius: var(--r-sm);
+    background: none;
+    color: rgba(255, 255, 255, 0.86);
+    font: inherit;
+    font-size: 13px;
+    cursor: pointer;
+  }
+
+  .logout:hover {
+    background: rgba(255, 255, 255, 0.07);
+    color: #fff;
+  }
+
+  .logout:focus-visible {
+    outline: 2px solid #fff;
+    outline-offset: -2px;
+  }
+
+  @media (max-width: 767px) {
+    .logout {
+      min-height: 44px;
+    }
   }
 </style>
