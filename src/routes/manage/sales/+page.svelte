@@ -2,8 +2,36 @@
   import { supabase } from "$lib/supabase";
   import { onMount } from "svelte";
   import type { PageData } from "./$types";
-  import Modal from "$lib/components/Modal.svelte";
   import ManagePageShell from "$lib/components/manage/ManagePageShell.svelte";
+  import Modal from "$lib/ui/Modal.svelte";
+  import Button from "$lib/ui/Button.svelte";
+  import IconButton from "$lib/ui/IconButton.svelte";
+  import StatusBadge, { EDITABLE_STATUSES, STATUS_META, type SaleStatus } from "$lib/ui/StatusBadge.svelte";
+  import Menu, { type MenuItem } from "$lib/ui/Menu.svelte";
+  import RowMenu from "$lib/ui/RowMenu.svelte";
+  import ConfirmDialog from "$lib/ui/ConfirmDialog.svelte";
+  import DataTable from "$lib/ui/DataTable.svelte";
+  import EmptyState from "$lib/ui/EmptyState.svelte";
+  import Field from "$lib/ui/Field.svelte";
+  import Select from "$lib/ui/Select.svelte";
+  import AmountTypeInput from "$lib/ui/AmountTypeInput.svelte";
+  import Stepper from "$lib/ui/Stepper.svelte";
+  import WineDot, { robeOf, ROBE_LABEL } from "$lib/ui/WineDot.svelte";
+  import {
+    IconCheck,
+    IconClock,
+    IconDownload,
+    IconEye,
+    IconLock,
+    IconPencil,
+    IconPlus,
+    IconReceipt,
+    IconSearch,
+    IconTrash,
+    IconTruck,
+    IconX,
+  } from "$lib/ui/icons";
+  import { formatDate, formatEUR, initials } from "$lib/format";
   import { sortCustomersByLabel } from "$lib/customerDisplay";
   import ProductVintageAutocomplete from "$lib/components/manage/ProductVintageAutocomplete.svelte";
   import CustomerAutocomplete from "$lib/components/manage/CustomerAutocomplete.svelte";
@@ -164,7 +192,8 @@
         wine (
           *,
           winery (*),
-          appelation (*)
+          appelation (*),
+          wine_type (*)
         )
       `,
       )
@@ -1305,14 +1334,15 @@
     return true;
   }
 
-  async function deleteSale(id: string) {
+  /** `confirmed` : la confirmation a déjà été donnée via le ConfirmDialog. */
+  async function deleteSale(id: string, confirmed = false) {
     const sale = sales.find((s) => s.id === id);
     if (sale && sale.status !== "pending") {
       error = "Seules les ventes en attente peuvent être supprimées.";
       return;
     }
 
-    if (!confirm("Êtes-vous sûr de vouloir supprimer cette vente ?")) {
+    if (!confirmed && !confirm("Êtes-vous sûr de vouloir supprimer cette vente ?")) {
       return;
     }
 
@@ -1328,929 +1358,1024 @@
 
     window.location.reload();
   }
+
+  /* ——— Interface (refonte) : filtres, menus, confirmation ——— */
+  type Tab = "all" | SaleStatus;
+  const TABS: { key: Tab; label: string }[] = [
+    { key: "all", label: "Toutes" },
+    { key: "pending", label: STATUS_META.pending.plural },
+    { key: "paid", label: STATUS_META.paid.plural },
+    { key: "delivered", label: STATUS_META.delivered.plural },
+    { key: "closed", label: STATUS_META.closed.plural },
+    { key: "cancelled", label: STATUS_META.cancelled.plural },
+  ];
+  let tab: Tab = "all";
+  let search = "";
+  let period = "all";
+
+  $: years = [...new Set(sales.map((s) => String(s.date).slice(0, 4)))].sort().reverse();
+  $: periodSales = sales.filter((s) => period === "all" || String(s.date).startsWith(period));
+  $: counts = TABS.reduce(
+    (acc, t) => ({ ...acc, [t.key]: t.key === "all" ? periodSales.length : periodSales.filter((s) => s.status === t.key).length }),
+    {} as Record<Tab, number>,
+  );
+  function fold(v: string): string {
+    return v.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
+  }
+  $: visibleSales = periodSales
+    .filter((s) => tab === "all" || s.status === tab)
+    .filter((s) => {
+      const q = fold(search.trim());
+      if (!q) return true;
+      const c = s.customer || {};
+      return fold(`${c.first_name ?? ""} ${c.last_name ?? ""} ${c.company_name ?? ""} ${s.invoice_number ?? ""}`).includes(q);
+    });
+  $: pendingCount = sales.filter((s) => s.status === "pending").length;
+  $: subtitle = `${periodSales.length} vente${periodSales.length > 1 ? "s" : ""}${period === "all" ? "" : ` en ${period}`} · ${pendingCount} en attente de paiement`;
+
+  function customerName(s: any): string {
+    return s?.customer ? `${s.customer.first_name} ${s.customer.last_name}`.trim() : "—";
+  }
+
+  /* Changement de statut depuis le badge (mêmes transitions que l'ancien sélecteur). */
+  const STATUS_ACTIONS: Record<string, { label: string; icon: any }> = {
+    paid: { label: "Marquer comme payée", icon: IconCheck },
+    delivered: { label: "Marquer comme livrée", icon: IconTruck },
+    closed: { label: "Clôturer et facturer", icon: IconLock },
+  };
+  function nextStatuses(cur: string): string[] {
+    if (cur === "pending") return ["paid", "delivered"];
+    if (cur === "paid") return ["delivered", "closed"];
+    if (cur === "delivered") return ["paid", "closed"];
+    return [];
+  }
+  async function changeStatus(sale: any, next: string) {
+    error = "";
+    const ok = await updateSaleStatus(sale.id, next, sale.status);
+    if (!ok) sales = [...sales];
+  }
+
+  let statusMenuSale: any = null;
+  let statusMenuOpen = false;
+  let statusAnchor: HTMLElement | null = null;
+  const statusAnchors: Record<string, HTMLElement | null> = {};
+  function openStatusMenu(sale: any) {
+    statusMenuSale = sale;
+    statusAnchor = statusAnchors[sale.id] ?? null;
+    statusMenuOpen = true;
+  }
+  $: statusItems = statusMenuSale
+    ? nextStatuses(statusMenuSale.status).map<MenuItem>((st) => ({
+        label: STATUS_ACTIONS[st].label,
+        icon: STATUS_ACTIONS[st].icon,
+        onSelect: () => changeStatus(statusMenuSale, st),
+      }))
+    : [];
+
+  function rowItems(sale: any): MenuItem[] {
+    const st = sale.status;
+    const items: MenuItem[] = [];
+    if (st === "closed" || st === "cancelled") {
+      items.push({ label: "Voir le détail", icon: IconEye, onSelect: () => openDetailsModal(sale) });
+      if (st === "closed") {
+        items.push({ label: "Télécharger la facture", icon: IconDownload, onSelect: () => downloadInvoice(sale.id) });
+      }
+      return items;
+    }
+    items.push({ label: "Ouvrir", icon: IconEye, onSelect: () => openDetailsModal(sale) });
+    items.push({ label: "Modifier", icon: IconPencil, onSelect: () => openEditModal(sale) });
+    for (const next of st === "pending" ? ["paid"] : st === "paid" ? ["delivered", "closed"] : ["closed"]) {
+      items.push({ label: STATUS_ACTIONS[next].label, icon: STATUS_ACTIONS[next].icon, onSelect: () => changeStatus(sale, next) });
+    }
+    if (st === "pending") {
+      items.push({ label: "Supprimer…", icon: IconTrash, danger: true, separator: true, onSelect: () => askDelete(sale) });
+    }
+    return items;
+  }
+
+  function openRow(sale: any, e: MouseEvent) {
+    const t = e.target as HTMLElement;
+    if (t.closest("button, a, input, select, [role=menu]")) return;
+    openDetailsModal(sale);
+  }
+
+  let deleteTarget: any = null;
+  let confirmOpen = false;
+  let deleting = false;
+  function askDelete(sale: any) {
+    deleteTarget = sale;
+    confirmOpen = true;
+  }
+  async function confirmDelete() {
+    if (!deleteTarget) return;
+    deleting = true;
+    await deleteSale(deleteTarget.id, true);
+    deleting = false;
+    confirmOpen = false;
+  }
+
+  /* Modale unique création / édition. */
+  $: formOpen = showModal || showEditModal;
+  function closeForm() {
+    if (showEditModal) closeEditModal();
+    else closeModal();
+  }
+  function submitForm() {
+    if (editingSale) void handleUpdate();
+    else void handleSubmit();
+  }
+  $: grossTotal = Math.round(
+    saleItems.reduce((sum, it) => sum + toNumber(it.price) * (parseInt(String(it.quantity ?? 0), 10) || 0), 0) * 100,
+  ) / 100;
+  $: discountsTotal = Math.max(0, Math.round((grossTotal - (formData.total_price || 0)) * 100) / 100);
+  $: bottleCount = saleItems.reduce((n, it) => n + (it.wine_vintage_id ? parseInt(String(it.quantity), 10) || 0 : 0), 0);
+
+  /** Stock connu pour une ligne (millésime) ; null pour une ligne dégustation. */
+  function lineStock(item: any): number | null {
+    if (!item.wine_vintage_id) return null;
+    const v = wineVintages.find((w) => w.id === item.wine_vintage_id) ?? item.wine_vintage;
+    return v?.stock ?? null;
+  }
+  function setItemQuantity(index: number, q: number) {
+    saleItems = saleItems.map((it, i) => (i === index ? { ...it, quantity: q } : it));
+  }
+
+  /* Client choisi : puce + aide (goûts, dernier achat). */
+  $: selectedCustomer = customers.find((c) => c.id === formData.customer_id) ?? null;
+  let customerHint = "";
+  let hintFor = "";
+  $: if (formOpen && formData.customer_id && formData.customer_id !== hintFor) void loadCustomerHint(formData.customer_id);
+  async function loadCustomerHint(id: string) {
+    hintFor = id;
+    customerHint = "";
+    const own = sales.filter((s) => s.customer_id === id && s.status !== "cancelled");
+    const last = own.map((s) => String(s.date)).sort().pop();
+    const { data } = await supabase
+      .from("sale_item")
+      .select("quantity, sale_id, wine_vintage ( wine ( wine_type ( name ) ) )")
+      .in("sale_id", own.map((s) => s.id).slice(0, 100));
+    const byRobe = new Map<string, number>();
+    for (const it of (data || []) as any[]) {
+      const r = robeOf(it.wine_vintage?.wine?.wine_type);
+      if (r !== "autre") byRobe.set(r, (byRobe.get(r) ?? 0) + (it.quantity || 0));
+    }
+    const fav = [...byRobe.entries()].sort((a, b) => b[1] - a[1])[0]?.[0] as keyof typeof ROBE_LABEL | undefined;
+    if (hintFor !== id) return;
+    customerHint = [
+      fav ? `Aime les ${ROBE_LABEL[fav].toLowerCase()}s` : "",
+      last ? `dernier achat le ${formatDate(last)}` : "premier achat",
+    ]
+      .filter(Boolean)
+      .join(" · ");
+  }
+  function clearCustomer() {
+    formData.customer_id = "";
+    hintFor = "";
+    customerHint = "";
+  }
 </script>
+
 
 <svelte:head>
   <title>Ventes - Gestion</title>
 </svelte:head>
 
-<ManagePageShell title="Ventes">
+<ManagePageShell title="Ventes" {subtitle}>
   <svelte:fragment slot="actions">
-    <button class="btn-primary" on:click={openCreateModal}>+ Nouvelle vente</button>
+    <Button variant="primary" on:click={openCreateModal}>
+      <IconPlus size={18} strokeWidth={1.75} /> <span class="label-long">Nouvelle vente</span><span class="label-short">Nouvelle</span>
+    </Button>
+  </svelte:fragment>
+
+  <svelte:fragment slot="tabs">
+    <div class="tabs" role="tablist" aria-label="Filtrer par statut">
+      {#each TABS as t}
+        <button
+          type="button"
+          role="tab"
+          class="tab"
+          aria-selected={tab === t.key}
+          on:click={() => (tab = t.key)}
+        >
+          {t.label}<span class="tab-count">{counts[t.key] ?? 0}</span>
+        </button>
+      {/each}
+    </div>
   </svelte:fragment>
 
   {#if error}
-      <div class="error-message">{error}</div>
-    {/if}
+    <div class="error-message" role="alert">{error}</div>
+  {/if}
 
-    {#if loading}
-      <div class="loading">Chargement...</div>
-    {:else if sales.length === 0}
-      <div class="empty-state">
-        <p>Aucune vente trouvée</p>
-        <button class="btn-primary" on:click={openCreateModal}>
-          Créer la première vente
-        </button>
-      </div>
-    {:else}
-      <div class="table-container">
-        <table>
-          <thead>
-            <tr>
-              <th>Date</th>
-              <th>Client</th>
-              <th>Statut</th>
-              <th>Montant total</th>
-              <th>Actions</th>
-            </tr>
-          </thead>
-          <tbody>
-            {#each sales as sale}
-              <tr>
-                <td>{new Date(sale.date).toLocaleDateString("fr-FR")}</td>
-                <td>
-                  <strong>
-                    {sale.customer.first_name}
-                    {sale.customer.last_name}
-                    {#if sale.customer.company_name}
-                      ({sale.customer.company_name})
-                    {/if}
-                  </strong>
-                </td>
-                <td>
-                  {#if sale.status === "cancelled"}
-                    <span class="status-badge status-cancelled">Annulée</span>
-                  {:else if sale.status === "closed"}
-                    <span class="status-badge status-closed">Clôturée</span>
-                  {:else}
-                    <select
-                      class="status-select status-{sale.status}"
-                      value={sale.status}
-                      on:change={async (e) => {
-                        const target = e.target as HTMLSelectElement;
-                        const previousStatus = sale.status;
-                        const newStatus = target.value;
+  <div class="toolbar">
+    <label class="search">
+      <span class="sr-only">Rechercher un client ou un n° de facture</span>
+      <IconSearch size={16} strokeWidth={1.75} aria-hidden="true" />
+      <input class="ui-control" type="search" placeholder="Client, n° de facture…" bind:value={search} />
+    </label>
+    <div class="period">
+      <Select bind:value={period} ariaLabel="Période">
+        <option value="all">Toutes les périodes</option>
+        {#each years as y}
+          <option value={y}>Toute l’année {y}</option>
+        {/each}
+      </Select>
+    </div>
+  </div>
 
-                        const success = await updateSaleStatus(
-                          sale.id,
-                          newStatus,
-                          previousStatus,
-                        );
-
-                        if (!success) {
-                          target.value = previousStatus;
-                          await new Promise((resolve) =>
-                            setTimeout(resolve, 0),
-                          );
-                          sales = [...sales];
-                        }
-                      }}
-                    >
-                      <option
-                        value="pending"
-                        disabled={sale.status !== "pending"}>En attente</option
-                      >
-                      <option value="delivered">Livrée</option>
-                      <option value="paid">Payée</option>
-                      <option
-                        value="closed"
-                        disabled={sale.status === "pending"}>Clôturée</option
-                      >
-                    </select>
+  {#if loading}
+    <div class="loading">Chargement…</div>
+  {:else if sales.length === 0}
+    <div class="empty-card">
+      <EmptyState icon={IconReceipt} title="Aucune vente pour l’instant" text="Créez la première vente : elle sera enregistrée « En attente ».">
+        <Button on:click={openCreateModal}>Créer la première vente</Button>
+      </EmptyState>
+    </div>
+  {:else if visibleSales.length === 0}
+    <div class="empty-card">
+      <EmptyState icon={IconSearch} title="Aucune vente ne correspond" text="Essayez un autre statut, une autre période ou une autre recherche." compact />
+    </div>
+  {:else}
+    <!-- Ordinateur : tableau -->
+    <div class="desktop-only">
+      <DataTable caption="Liste des ventes">
+        <thead>
+          <tr>
+            <th scope="col">Date</th>
+            <th scope="col">Client</th>
+            <th scope="col">Statut</th>
+            <th scope="col" class="num">Montant TTC</th>
+            <th scope="col" class="col-actions"><span class="sr-only">Actions</span></th>
+          </tr>
+        </thead>
+        <tbody>
+          {#each visibleSales as sale (sale.id)}
+            <tr class="is-clickable" on:click={(e) => openRow(sale, e)}>
+              <td>{formatDate(sale.date)}</td>
+              <td>
+                <button type="button" class="link-cell" on:click={() => openDetailsModal(sale)}>{customerName(sale)}</button>
+                {#if sale.customer?.company_name}<span class="t-muted"> · {sale.customer.company_name}</span>{/if}
+              </td>
+              <td>
+                {#if EDITABLE_STATUSES.includes(sale.status)}
+                  <StatusBadge
+                    status={sale.status}
+                    interactive
+                    bind:el={statusAnchors[sale.id]}
+                    expanded={statusMenuOpen && statusMenuSale?.id === sale.id}
+                    on:click={() => openStatusMenu(sale)}
+                  />
+                {:else}
+                  <StatusBadge status={sale.status} />
+                {/if}
+              </td>
+              <td class="num">
+                {#if sale.status === "cancelled"}
+                  <span class="t-caption">hors CA</span> <s class="t-muted">{formatEUR(sale.total_price)}</s>
+                {:else}
+                  <strong>{formatEUR(sale.total_price)}</strong>
+                {/if}
+              </td>
+              <td class="col-actions">
+                <div class="row-actions">
+                  {#if sale.status === "closed"}
+                    <IconButton label="Télécharger la facture" on:click={() => downloadInvoice(sale.id)}>
+                      <IconDownload size={18} strokeWidth={1.75} />
+                    </IconButton>
                   {/if}
-                </td>
-                <td><strong>€{sale.total_price.toFixed(2)}</strong></td>
-                <td>
-                  <div class="actions">
-                    {#if sale.status === "pending"}
-                      <button
-                        class="btn-edit"
-                        on:click={() => openEditModal(sale)}
-                      >
-                        Modifier
-                      </button>
-                      <button
-                        class="btn-delete"
-                        on:click={() => deleteSale(sale.id)}
-                      >
-                        Supprimer
-                      </button>
-                    {:else if sale.status === "paid" || sale.status === "delivered"}
-                      <button
-                        class="btn-edit"
-                        on:click={() => openEditModal(sale)}
-                      >
-                        Modifier
-                      </button>
-                    {:else if sale.status === "closed"}
-                      <button
-                        class="btn-details"
-                        on:click={() => openDetailsModal(sale)}
-                      >
-                        Détails
-                      </button>
-                      <button
-                        class="btn-download"
-                        on:click={() => downloadInvoice(sale.id)}
-                      >
-                        Télécharger facture
-                      </button>
-                    {:else if sale.status === "cancelled"}
-                      <button
-                        class="btn-details"
-                        on:click={() => openDetailsModal(sale)}
-                      >
-                        Détails
-                      </button>
-                    {/if}
-                  </div>
-                </td>
-              </tr>
-            {/each}
-          </tbody>
-        </table>
-      </div>
-    {/if}
+                  <RowMenu items={rowItems(sale)} label="Actions pour la vente de {customerName(sale)}" />
+                </div>
+              </td>
+            </tr>
+          {/each}
+        </tbody>
+      </DataTable>
+    </div>
+
+    <!-- Mobile : cartes empilées -->
+    <ul class="cards mobile-only">
+      {#each visibleSales as sale (sale.id)}
+        <li class="sale-card">
+          <button type="button" class="sale-card-main" on:click={() => openDetailsModal(sale)}>
+            <span class="sc-top">
+              <strong class="sc-name">{customerName(sale)}{sale.customer?.company_name ? ` (${sale.customer.company_name})` : ""}</strong>
+              {#if sale.status === "cancelled"}
+                <s class="t-muted">{formatEUR(sale.total_price)}</s>
+              {:else}
+                <strong>{formatEUR(sale.total_price)}</strong>
+              {/if}
+            </span>
+            <span class="sc-bottom">
+              <StatusBadge status={sale.status} />
+              <span class="t-muted">{formatDate(sale.date)}</span>
+            </span>
+          </button>
+          <RowMenu items={rowItems(sale)} label="Actions pour la vente de {customerName(sale)}" />
+        </li>
+      {/each}
+    </ul>
+  {/if}
 </ManagePageShell>
 
-<!-- Modal de création -->
-<Modal
-  show={showModal}
-  title="Nouvelle vente"
-  modalId="modal-title-create"
-  on:close={closeModal}
->
-  <form on:submit|preventDefault={handleSubmit}>
-    <div class="form-grid">
-      <div class="form-group">
-        <label for="date">Date *</label>
-        <input type="date" id="date" bind:value={formData.date} required />
-      </div>
+<Menu bind:open={statusMenuOpen} anchor={statusAnchor} items={statusItems} label="Changer le statut" align="start" />
 
-      <div class="form-group form-group--customer">
-        <label for="customer_id">Client *</label>
-        <CustomerAutocomplete
-          bind:value={formData.customer_id}
-          customers={sortedCustomers}
-          isCustomerAlreadyAdded={() => false}
-          placeholder="Rechercher un client…"
-        />
-      </div>
+<ConfirmDialog
+  bind:open={confirmOpen}
+  title="Supprimer cette vente ?"
+  busy={deleting}
+  message={deleteTarget
+    ? `La vente du ${formatDate(deleteTarget.date)} à ${customerName(deleteTarget)} (${formatEUR(deleteTarget.total_price)}) sera définitivement supprimée, avec ses articles. Le stock n’est pas modifié : une vente en attente ne l’a pas encore débité.`
+    : ""}
+  on:confirm={confirmDelete}
+/>
 
-      <div class="form-group full-width">
-        <label for="payment-method-create">Mode de paiement</label>
-        <select id="payment-method-create" bind:value={formData.payment_method}>
-          <option value="">— Non renseigné —</option>
-          {#each PAYMENT_METHOD_OPTIONS as opt}
-            <option value={opt.value}>{opt.label}</option>
-          {/each}
-        </select>
-        <p class="field-hint">
-          Obligatoire avant de passer la vente en « Payée ».
-        </p>
-      </div>
+<!-- Création / modification -->
+<Modal open={formOpen} title={editingSale ? "Modifier la vente" : "Nouvelle vente"} maxWidth={820} on:close={closeForm}>
+  <svelte:fragment slot="title-extra">
+    {#if editingSale}
+      <StatusBadge status={editingSale.status} />
+    {:else}
+      <span class="will-be"><IconClock size={14} strokeWidth={1.75} aria-hidden="true" /> Sera créée « En attente »</span>
+    {/if}
+  </svelte:fragment>
 
-      <div class="form-group full-width">
-        <label for="note">Note</label>
-        <textarea id="note" bind:value={formData.note} rows="2"></textarea>
-      </div>
+  <form id="sale-form" class="sale-form" on:submit|preventDefault={submitForm}>
+    {#if error && formOpen}
+      <div class="error-message" role="alert">{error}</div>
+    {/if}
 
-      <div class="form-group full-width">
-        <label for="global-discount-create">Ristourne globale (optionnel)</label
-        >
-        <div class="global-discount-row">
-          <input
-            id="global-discount-create"
-            type="number"
-            min="0"
-            step="0.01"
-            placeholder="0"
-            bind:value={formData.global_discount}
-          />
-          <select
-            id="global-discount-type-create"
-            bind:value={formData.global_discount_type}
-            aria-label="Type de ristourne globale"
-          >
-            <option value="amount">Montant TTC (€)</option>
-            <option value="percent">Pourcentage (%)</option>
-          </select>
-        </div>
-        <p class="field-hint">
-          Sur le sous-total des lignes, après remises par article.
-        </p>
-      </div>
+    <div class="grid-2">
+      <Field id="sale-date" label="Date" required>
+        <input id="sale-date" class="ui-control" type="date" bind:value={formData.date} required />
+      </Field>
 
-      <div class="form-group full-width">
-        <div class="section-title">Articles *</div>
-        <div class="sale-items-container">
-          {#if saleItems.length === 0}
-            <p class="empty-text">Aucun article ajouté</p>
-          {:else}
-            <div class="sale-items-list">
-              {#each saleItems as item, index}
-                <div class="sale-item">
-                  <span>
-                    {saleItemDescription(item)} — x{item.quantity}
-                    @ €{toNumber(item.price).toFixed(2)}
-                    {#if toNumber(item.discount) > 0}
-                      {#if item.discount_type === "percent"}
-                        (-{toNumber(item.discount)}%)
-                      {:else if item.discount_type === "amount"}
-                        (-€{toNumber(item.discount).toFixed(2)})
-                      {/if}
-                    {/if}
-                    = €{calculateItemTotal(item).toFixed(2)}
-                  </span>
-                  <button
-                    type="button"
-                    class="btn-remove"
-                    on:click={() => removeSaleItem(index)}
-                  >
-                    ×
-                  </button>
-                </div>
-              {/each}
-            </div>
-          {/if}
-          <div class="add-item-form">
-            <div class="add-item-row">
-              {#key saleItems
-                .map((i) => i.wine_vintage_id ?? "_tasting")
-                .join("|")}
-                <ProductVintageAutocomplete
-                  bind:value={selectedVintageId}
-                  {wineVintages}
-                  tastingValue={TASTING_SELECT_VALUE}
-                  {getAvailableStock}
-                  {isVintageAlreadyAdded}
-                  formatLabel={getProductDisplayNameWithStock}
-                  on:change={handleVintageChange}
-                />
-              {/key}
-              <input
-                type="number"
-                min="1"
-                placeholder="Qté"
-                bind:value={selectedQuantity}
-              />
-              <input
-                type="number"
-                step="0.01"
-                min="0"
-                placeholder="Prix"
-                bind:value={selectedPrice}
-              />
-            </div>
-            <div class="add-item-row">
-              <label for="discount-create-row">Remise</label>
-              <input
-                type="number"
-                id="discount-create-row"
-                step="0.01"
-                min="0"
-                placeholder="Montant"
-                bind:value={selectedDiscount}
-              />
-              <select bind:value={selectedDiscountType}>
-                <option value="amount">Montant (€)</option>
-                <option value="percent">Pourcentage (%)</option>
-              </select>
-            </div>
-            <div class="add-item-row">
-              <button type="button" class="btn-add" on:click={addSaleItem}>
-                Ajouter
-              </button>
-            </div>
-          </div>
-          <div class="total-display">
-            {#if toNumber(formData.global_discount) > 0}
-              <div class="total-display-sub">
-                Sous-total : €{calculateSubtotal().toFixed(2)}
-              </div>
-            {/if}
-            <strong>Total: €{formData.total_price.toFixed(2)}</strong>
-          </div>
-        </div>
-      </div>
-    </div>
-
-    <div class="modal-footer">
-      <button type="button" class="btn-secondary" on:click={closeModal}>
-        Annuler
-      </button>
-      <button type="submit" class="btn-primary">Créer la vente</button>
-    </div>
-  </form>
-</Modal>
-
-<!-- Modal d'édition -->
-<Modal
-  show={showEditModal}
-  title="Modifier la vente"
-  modalId="modal-title-edit"
-  on:close={closeEditModal}
->
-  <form on:submit|preventDefault={handleUpdate}>
-    <div class="form-grid">
-      <div class="form-group">
-        <label for="edit-date">Date *</label>
-        <input type="date" id="edit-date" bind:value={formData.date} required />
-      </div>
-
-      <div class="form-group form-group--customer">
-        <label for="edit-customer_id">Client *</label>
-        <CustomerAutocomplete
-          bind:value={formData.customer_id}
-          customers={sortedCustomers}
-          isCustomerAlreadyAdded={() => false}
-          placeholder="Rechercher un client…"
-        />
-      </div>
-
-      <div class="form-group full-width">
-        <label for="payment-method-edit">Mode de paiement</label>
-        <select id="payment-method-edit" bind:value={formData.payment_method}>
-          <option value="">— Non renseigné —</option>
-          {#each PAYMENT_METHOD_OPTIONS as opt}
-            <option value={opt.value}>{opt.label}</option>
-          {/each}
-        </select>
-        <p class="field-hint">
-          Obligatoire avant de passer la vente en « Payée ».
-        </p>
-      </div>
-
-      <div class="form-group full-width">
-        <label for="edit-note">Note</label>
-        <textarea id="edit-note" bind:value={formData.note} rows="2"></textarea>
-      </div>
-
-      <div class="form-group full-width">
-        <label for="global-discount-edit">Ristourne globale (optionnel)</label>
-        <div class="global-discount-row">
-          <input
-            id="global-discount-edit"
-            type="number"
-            min="0"
-            step="0.01"
-            placeholder="0"
-            bind:value={formData.global_discount}
-          />
-          <select
-            id="global-discount-type-edit"
-            bind:value={formData.global_discount_type}
-            aria-label="Type de ristourne globale"
-          >
-            <option value="amount">Montant TTC (€)</option>
-            <option value="percent">Pourcentage (%)</option>
-          </select>
-        </div>
-        <p class="field-hint">
-          Sur le sous-total des lignes, après remises par article.
-        </p>
-      </div>
-
-      <div class="form-group full-width">
-        <div class="section-title">Articles *</div>
-        <div class="sale-items-container">
-          {#if saleItems.length === 0}
-            <p class="empty-text">Aucun article ajouté</p>
-          {:else}
-            <div class="sale-items-list">
-              {#each saleItems as item, index}
-                <div class="sale-item">
-                  <span>
-                    {saleItemDescription(item)} — x{item.quantity}
-                    @ €{toNumber(item.price).toFixed(2)}
-                    {#if toNumber(item.discount) > 0}
-                      {#if item.discount_type === "percent"}
-                        (-{toNumber(item.discount)}%)
-                      {:else if item.discount_type === "amount"}
-                        (-€{toNumber(item.discount).toFixed(2)})
-                      {/if}
-                    {/if}
-                    = €{calculateItemTotal(item).toFixed(2)}
-                  </span>
-                  <button
-                    type="button"
-                    class="btn-remove"
-                    on:click={() => removeSaleItem(index)}
-                  >
-                    ×
-                  </button>
-                </div>
-              {/each}
-            </div>
-          {/if}
-          <div class="add-item-form">
-            <div class="add-item-row">
-              {#key saleItems
-                .map((i) => i.wine_vintage_id ?? "_tasting")
-                .join("|")}
-                <ProductVintageAutocomplete
-                  bind:value={selectedVintageId}
-                  {wineVintages}
-                  tastingValue={TASTING_SELECT_VALUE}
-                  {getAvailableStock}
-                  {isVintageAlreadyAdded}
-                  formatLabel={getProductDisplayNameWithStock}
-                  on:change={handleVintageChange}
-                />
-              {/key}
-              <input
-                type="number"
-                min="1"
-                placeholder="Qté"
-                bind:value={selectedQuantity}
-              />
-              <input
-                type="number"
-                step="0.01"
-                min="0"
-                placeholder="Prix"
-                bind:value={selectedPrice}
-              />
-            </div>
-            <div class="add-item-row">
-              <label for="discount-edit-row">Remise</label>
-              <input
-                type="number"
-                id="discount-edit-row"
-                step="0.01"
-                min="0"
-                placeholder="Montant"
-                bind:value={selectedDiscount}
-              />
-              <select bind:value={selectedDiscountType}>
-                <option value="amount">Montant (€)</option>
-                <option value="percent">Pourcentage (%)</option>
-              </select>
-            </div>
-            <div class="add-item-row">
-              <button type="button" class="btn-add" on:click={addSaleItem}>
-                Ajouter
-              </button>
-            </div>
-          </div>
-          <div class="total-display">
-            {#if toNumber(formData.global_discount) > 0}
-              <div class="total-display-sub">
-                Sous-total : €{calculateSubtotal().toFixed(2)}
-              </div>
-            {/if}
-            <strong>Total: €{formData.total_price.toFixed(2)}</strong>
-          </div>
-        </div>
-      </div>
-    </div>
-
-    <div class="modal-footer">
-      <button type="button" class="btn-secondary" on:click={closeEditModal}>
-        Annuler
-      </button>
-      <button type="submit" class="btn-primary">Enregistrer</button>
-    </div>
-  </form>
-</Modal>
-
-<!-- Modal de détails -->
-<Modal
-  show={showDetailsModal}
-  title="Détails de la vente"
-  modalId="modal-title-details"
-  on:close={closeDetailsModal}
->
-  {#if detailsSale}
-    <div class="details-content">
-      <div class="details-grid">
-        <div class="details-group">
-          <label>Date</label>
-          <div>{new Date(detailsSale.date).toLocaleDateString("fr-FR")}</div>
-        </div>
-
-        <div class="details-group">
-          <label>Client</label>
-          <div>
-            <strong>
-              {detailsSale.customer.first_name}
-              {detailsSale.customer.last_name}
-              {#if detailsSale.customer.company_name}
-                ({detailsSale.customer.company_name})
-              {/if}
-            </strong>
-          </div>
-        </div>
-
-        <div class="details-group">
-          <label>Statut</label>
-          <div>
-            <span class="status-badge status-{detailsSale.status}">
-              {detailsSale.status === "pending"
-                ? "En attente"
-                : detailsSale.status === "paid"
-                  ? "Payée"
-                  : detailsSale.status === "delivered"
-                    ? "Livrée"
-                    : detailsSale.status === "closed"
-                      ? "Clôturée"
-                      : detailsSale.status === "cancelled"
-                        ? "Annulée"
-                        : detailsSale.status}
+      <Field id="sale-customer" label="Client" required>
+        {#if selectedCustomer}
+          <div class="chip">
+            <span class="chip-avatar" aria-hidden="true">{initials(selectedCustomer.first_name, selectedCustomer.last_name)}</span>
+            <span class="chip-name">
+              <strong>{selectedCustomer.first_name} {selectedCustomer.last_name}</strong>{#if selectedCustomer.city}<span class="t-muted"> · {selectedCustomer.city}</span>{/if}
             </span>
+            <IconButton label="Changer de client" on:click={clearCustomer}><IconX size={16} strokeWidth={1.75} /></IconButton>
           </div>
-        </div>
-
-        <div class="details-group">
-          <label>Mode de paiement</label>
-          <div>{paymentMethodLabel(detailsSale.payment_method)}</div>
-        </div>
-
-        {#if detailsSale.note}
-          <div class="details-group full-width">
-            <label>Note</label>
-            <div>{detailsSale.note}</div>
-          </div>
-        {/if}
-      </div>
-
-      <div class="details-section">
-        <h3>Articles</h3>
-        {#if detailsSaleItems.length === 0}
-          <p class="empty-text">Aucun article</p>
+          <p class="t-caption hint">
+            {customerHint}{customerHint ? " · " : ""}<a href="/manage/customers/{selectedCustomer.id}" target="_blank" rel="noopener noreferrer">voir la fiche</a>
+          </p>
         {:else}
-          <div class="details-items-list">
-            {#each detailsSaleItems as item}
-              <div class="details-item">
-                <div class="details-item-name">
-                  {saleItemDescription(item)}
-                </div>
-                <div class="details-item-details">
-                  <span>x{item.quantity}</span>
-                  <span>@ €{toNumber(item.price).toFixed(2)}</span>
-                  {#if toNumber(item.discount) > 0}
-                    <span>
-                      {#if item.discount_type === "percent"}
-                        (-{toNumber(item.discount)}%)
-                      {:else if item.discount_type === "amount"}
-                        (-€{toNumber(item.discount).toFixed(2)})
-                      {/if}
-                    </span>
-                  {/if}
-                  <strong>= €{calculateItemTotal(item).toFixed(2)}</strong>
-                </div>
-              </div>
-            {/each}
-          </div>
-          {#if toNumber(detailsSale.global_discount) > 0}
-            <div class="details-summary-line">
-              <span>Sous-total articles (TTC)</span>
-              <span>€{sumDetailsItemsTTC().toFixed(2)}</span>
-            </div>
-            <div class="details-summary-line details-summary-discount">
-              <span>
-                Ristourne globale
-                {#if detailsSale.global_discount_type === "percent"}
-                  ({toNumber(detailsSale.global_discount)} %)
-                {:else}
-                  (montant)
-                {/if}
-              </span>
-              <span
-                >–€{Math.max(
-                  0,
-                  sumDetailsItemsTTC() - toNumber(detailsSale.total_price),
-                ).toFixed(2)}</span
-              >
-            </div>
-          {/if}
-          <div class="details-total">
-            <strong>Total: €{detailsSale.total_price.toFixed(2)}</strong>
-          </div>
+          <CustomerAutocomplete id="sale-customer" bind:value={formData.customer_id} customers={sortedCustomers} placeholder="Rechercher un client…" />
+        {/if}
+      </Field>
+    </div>
+
+    <section class="items" aria-labelledby="items-title">
+      <div class="items-head">
+        <h3 id="items-title" class="t-label">Articles <span class="req" aria-hidden="true">*</span></h3>
+        {#if saleItems.length}
+          <span class="t-caption">{saleItems.length} ligne{saleItems.length > 1 ? "s" : ""} · {bottleCount} bt.</span>
         {/if}
       </div>
+
+      <div class="items-box">
+        {#if saleItems.length === 0}
+          <EmptyState title="Aucun article ajouté" text="Cherchez un vin ci-dessous, puis « Ajouter »." compact />
+        {:else}
+          <div class="items-scroll">
+            <table class="ui-table items-table">
+              <thead>
+                <tr>
+                  <th scope="col">Vin</th>
+                  <th scope="col">Quantité</th>
+                  <th scope="col" class="num">Prix unit.</th>
+                  <th scope="col" class="num">Remise</th>
+                  <th scope="col" class="num">Total</th>
+                  <th scope="col"><span class="sr-only">Retirer</span></th>
+                </tr>
+              </thead>
+              <tbody>
+                {#each saleItems as item, index}
+                  {@const stock = lineStock(item)}
+                  {@const v = wineVintages.find((w) => w.id === item.wine_vintage_id) ?? item.wine_vintage}
+                  <tr>
+                    <td>
+                      <span class="wine-cell">
+                        {#if item.wine_vintage_id}
+                          <WineDot robe={robeOf(v?.wine?.wine_type)} />
+                        {/if}
+                        <span class="wine-name">
+                          {#if item.wine_vintage_id && v?.wine}
+                            <strong>{v.wine.name?.trim() || v.wine.appelation?.name || "Vin"} {v.year ?? v.production_year ?? ""}</strong>
+                            <span class="t-caption">{v.wine.winery?.name ?? ""}</span>
+                          {:else}
+                            <strong>{saleItemDescription(item)}</strong>
+                          {/if}
+                        </span>
+                      </span>
+                    </td>
+                    <td>
+                      <Stepper
+                        value={parseInt(String(item.quantity), 10) || 1}
+                        min={1}
+                        max={stock != null && (!editingSale || editingSale.status === "pending") ? stock : 9999}
+                        label="Quantité de {saleItemDescription(item)}"
+                        on:change={(e) => setItemQuantity(index, e.detail)}
+                      />
+                      {#if stock != null && (parseInt(String(item.quantity), 10) || 0) >= stock}
+                        <p class="t-caption t-warn stock-warn">Dernières bouteilles en stock</p>
+                      {/if}
+                    </td>
+                    <td class="num">{formatEUR(toNumber(item.price))}</td>
+                    <td class="num">
+                      {#if toNumber(item.discount) > 0}
+                        {item.discount_type === "percent" ? `−${toNumber(item.discount)} %` : `−${formatEUR(toNumber(item.discount))}`}
+                      {:else}—{/if}
+                    </td>
+                    <td class="num"><strong>{formatEUR(calculateItemTotal(item))}</strong></td>
+                    <td class="col-actions">
+                      <IconButton label="Retirer {saleItemDescription(item)}" on:click={() => removeSaleItem(index)}>
+                        <IconTrash size={18} strokeWidth={1.75} />
+                      </IconButton>
+                    </td>
+                  </tr>
+                {/each}
+              </tbody>
+            </table>
+          </div>
+        {/if}
+
+        <div class="add-row">
+          <div class="add-wine">
+            <span class="t-label" id="add-wine-label">Ajouter un vin</span>
+            {#key saleItems.map((i) => i.wine_vintage_id ?? "_tasting").join("|")}
+              <ProductVintageAutocomplete
+                bind:value={selectedVintageId}
+                {wineVintages}
+                tastingValue={TASTING_SELECT_VALUE}
+                {getAvailableStock}
+                {isVintageAlreadyAdded}
+                formatLabel={getProductDisplayNameWithStock}
+                on:change={handleVintageChange}
+              />
+            {/key}
+          </div>
+          <label class="add-qty">
+            <span class="t-label">Qté</span>
+            <input class="ui-control" type="number" min="1" inputmode="numeric" bind:value={selectedQuantity} placeholder="1" />
+          </label>
+          <label class="add-price">
+            <span class="t-label">Prix unit.</span>
+            <input class="ui-control num-input" type="number" step="0.01" min="0" inputmode="decimal" bind:value={selectedPrice} placeholder="0,00" />
+          </label>
+          <div class="add-discount">
+            <span class="t-label">Remise</span>
+            <AmountTypeInput bind:amount={selectedDiscount} bind:type={selectedDiscountType} ariaLabel="Remise sur la ligne" />
+          </div>
+          <div class="add-btn">
+            <Button on:click={addSaleItem}><IconPlus size={16} strokeWidth={1.75} /> Ajouter</Button>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <div class="grid-2">
+      <Field id="sale-payment" label="Mode de paiement" help="Obligatoire avant de passer la vente en « Payée »." let:describedby>
+        <select id="sale-payment" class="ui-control" bind:value={formData.payment_method} aria-describedby={describedby}>
+          <option value="">— Non renseigné —</option>
+          {#each PAYMENT_METHOD_OPTIONS as opt}
+            <option value={opt.value}>{opt.label}</option>
+          {/each}
+        </select>
+      </Field>
+
+      <Field id="sale-global-discount" label="Ristourne globale" optional help="Sur le sous-total, après les remises par article." let:describedby>
+        <AmountTypeInput
+          id="sale-global-discount"
+          {describedby}
+          bind:amount={formData.global_discount}
+          bind:type={formData.global_discount_type}
+          amountLabel="Montant TTC (€)"
+          percentLabel="Pourcentage (%)"
+        />
+      </Field>
     </div>
+
+    <Field id="sale-note" label="Note">
+      <textarea id="sale-note" class="ui-control" rows="2" placeholder="Visible uniquement par vous" bind:value={formData.note}></textarea>
+    </Field>
+  </form>
+
+  <svelte:fragment slot="footer">
+    <div class="totals" aria-live="polite">
+      <span>Sous-total <strong>{formatEUR(grossTotal)}</strong></span>
+      <span>Remises <strong>{formatEUR(discountsTotal)}</strong></span>
+      <span class="grand">Total TTC <strong>{formatEUR(formData.total_price)}</strong></span>
+    </div>
+    <Button variant="ghost" on:click={closeForm}>Annuler</Button>
+    <Button variant="primary" type="submit" on:click={submitForm}>Enregistrer la vente</Button>
+  </svelte:fragment>
+</Modal>
+
+<!-- Détail -->
+<Modal open={showDetailsModal} title="Détail de la vente" maxWidth={720} on:close={closeDetailsModal}>
+  <svelte:fragment slot="title-extra">
+    {#if detailsSale}<StatusBadge status={detailsSale.status} />{/if}
+  </svelte:fragment>
+  {#if detailsSale}
+    <dl class="facts">
+      <div><dt>Date</dt><dd>{formatDate(detailsSale.date)}</dd></div>
+      <div>
+        <dt>Client</dt>
+        <dd>
+          <a href="/manage/customers/{detailsSale.customer_id}">{customerName(detailsSale)}</a>{#if detailsSale.customer?.company_name}<span class="t-muted"> · {detailsSale.customer.company_name}</span>{/if}
+        </dd>
+      </div>
+      <div><dt>Facture</dt><dd>{detailsSale.invoice_number || "—"}</dd></div>
+      <div><dt>Mode de paiement</dt><dd>{paymentMethodLabel(detailsSale.payment_method)}</dd></div>
+      {#if detailsSale.note}
+        <div class="wide"><dt>Note</dt><dd>{detailsSale.note}</dd></div>
+      {/if}
+    </dl>
+
+    {#if detailsSaleItems.length === 0}
+      <EmptyState title="Aucun article" compact />
+    {:else}
+      <DataTable caption="Articles de la vente">
+        <thead>
+          <tr>
+            <th scope="col">Article</th>
+            <th scope="col" class="num">Qté</th>
+            <th scope="col" class="num">Prix unit.</th>
+            <th scope="col" class="num">Remise</th>
+            <th scope="col" class="num">Total</th>
+          </tr>
+        </thead>
+        <tbody>
+          {#each detailsSaleItems as item}
+            <tr>
+              <td>{saleItemDescription(item)}</td>
+              <td class="num">{item.quantity}</td>
+              <td class="num">{formatEUR(toNumber(item.price))}</td>
+              <td class="num">
+                {#if toNumber(item.discount) > 0}
+                  {item.discount_type === "percent" ? `−${toNumber(item.discount)} %` : `−${formatEUR(toNumber(item.discount))}`}
+                {:else}—{/if}
+              </td>
+              <td class="num"><strong>{formatEUR(calculateItemTotal(item))}</strong></td>
+            </tr>
+          {/each}
+        </tbody>
+      </DataTable>
+      <div class="detail-totals">
+        {#if toNumber(detailsSale.global_discount) > 0}
+          <p><span>Sous-total articles (TTC)</span><span>{formatEUR(sumDetailsItemsTTC())}</span></p>
+          <p>
+            <span>Ristourne globale {detailsSale.global_discount_type === "percent" ? `(${toNumber(detailsSale.global_discount)} %)` : "(montant)"}</span>
+            <span>−{formatEUR(Math.max(0, sumDetailsItemsTTC() - toNumber(detailsSale.total_price)))}</span>
+          </p>
+        {/if}
+        <p class="grand"><span>Total TTC</span><span>{formatEUR(detailsSale.total_price)}</span></p>
+      </div>
+    {/if}
   {/if}
+  <svelte:fragment slot="footer">
+    {#if detailsSale?.status === "closed"}
+      <Button on:click={() => downloadInvoice(detailsSale.id)}><IconDownload size={16} strokeWidth={1.75} /> Télécharger la facture</Button>
+    {/if}
+    {#if detailsSale && EDITABLE_STATUSES.includes(detailsSale.status)}
+      <Button
+        on:click={() => {
+          const s = detailsSale;
+          closeDetailsModal();
+          openEditModal(s);
+        }}><IconPencil size={16} strokeWidth={1.75} /> Modifier</Button
+      >
+    {/if}
+    <Button variant="primary" on:click={closeDetailsModal}>Fermer</Button>
+  </svelte:fragment>
 </Modal>
 
 <style>
-  .form-group--customer :global(.customer-autocomplete) {
-    width: 100%;
+  .tabs {
+    display: flex;
+    gap: 4px;
+    overflow-x: auto;
+    scrollbar-width: none;
+  }
+
+  .tab {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    height: 44px;
+    padding: 0 12px;
+    border: none;
+    background: none;
+    color: var(--ink-2);
+    font: inherit;
+    font-weight: 500;
+    white-space: nowrap;
+    cursor: pointer;
+  }
+
+  .tab[aria-selected="true"] {
+    color: var(--ink);
+    font-weight: 600;
+  }
+
+  .tab[aria-selected="true"]::after {
+    content: "";
+    position: absolute;
+    left: 8px;
+    right: 8px;
+    bottom: -1px;
+    height: 2px;
+    background: var(--teal-600);
+    border-radius: 2px;
+  }
+
+  .tab-count {
+    min-width: 22px;
+    padding: 1px 6px;
+    border-radius: var(--r-pill);
+    background: var(--table-head);
+    font-size: 12px;
+    font-weight: 500;
+    color: var(--ink-2);
+    text-align: center;
+  }
+
+  .toolbar {
+    display: flex;
+    gap: 12px;
+    margin-bottom: 16px;
+  }
+
+  .search {
+    position: relative;
+    flex: 0 1 380px;
+    display: flex;
+    align-items: center;
+    color: var(--ink-2);
+  }
+
+  .search :global(svg) {
+    position: absolute;
+    left: 12px;
+  }
+
+  .search input {
+    padding-left: 36px;
+  }
+
+  .period {
+    flex: 0 0 200px;
+  }
+
+  .empty-card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: var(--r-md);
+  }
+
+  .link-cell {
+    padding: 0;
+    border: none;
+    background: none;
+    font: inherit;
+    font-weight: 600;
+    color: var(--ink);
+    cursor: pointer;
+    text-align: left;
+  }
+
+  .link-cell:hover {
+    color: var(--teal-700);
+    text-decoration: underline;
+  }
+
+  .row-actions {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+  }
+
+  .label-short {
+    display: none;
+  }
+
+  .mobile-only {
+    display: none;
+  }
+
+  .cards {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .sale-card {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    padding-right: 4px;
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: var(--r-md);
+  }
+
+  .sale-card-main {
+    flex: 1;
     min-width: 0;
-  }
-
-  .sale-items-container {
     display: flex;
     flex-direction: column;
-    gap: 1rem;
+    gap: 8px;
+    padding: 12px 8px 12px 14px;
+    border: none;
+    background: none;
+    font: inherit;
+    color: inherit;
+    text-align: left;
+    cursor: pointer;
   }
 
-  .sale-items-list {
+  .sc-top,
+  .sc-bottom {
     display: flex;
-    flex-direction: column;
-    gap: 0.5rem;
-    max-height: 200px;
-    overflow-y: auto;
-    border: 1px solid #ced4da;
-    border-radius: 4px;
-    padding: 0.5rem;
-  }
-
-  .sale-item {
-    display: flex;
+    align-items: center;
     justify-content: space-between;
-    align-items: center;
-    padding: 0.5rem;
-    background: #f8f9fa;
-    border-radius: 4px;
-    font-size: 0.9rem;
+    gap: 8px;
   }
 
-  .add-item-form {
-    display: flex;
-    flex-direction: column;
-    gap: 0.75rem;
-  }
-
-  .add-item-row {
-    display: flex;
-    gap: 0.5rem;
-    align-items: center;
-  }
-
-  .add-item-row label {
-    margin-bottom: 0;
-    margin-right: 0.5rem;
+  .sc-name {
+    overflow: hidden;
+    text-overflow: ellipsis;
     white-space: nowrap;
   }
 
-  .add-item-row :global(.product-autocomplete) {
-    flex: 1;
-    min-width: 200px;
-  }
-
-  .add-item-row input {
-    width: 100px;
-  }
-
-  .add-item-row select:last-child {
-    min-width: 120px;
-  }
-
-  .add-item-row:last-child {
-    justify-content: flex-end;
-  }
-
-  .btn-add {
-    padding: 0.5rem 1rem;
-    background: #28a745;
-    color: white;
-    border: none;
-    border-radius: 4px;
-    cursor: pointer;
-    font-size: 0.9rem;
-  }
-
-  .btn-add:hover {
-    background: #218838;
-  }
-
-  .btn-remove {
-    background: none;
-    border: none;
-    color: #dc3545;
-    font-size: 1.5rem;
-    cursor: pointer;
-    padding: 0 0.5rem;
-    line-height: 1;
-  }
-
-  .btn-remove:hover {
-    color: #c82333;
-  }
-
-  .empty-text {
-    color: #666;
-    font-style: italic;
-    font-size: 0.9rem;
-    text-align: center;
-    padding: 1rem;
-  }
-
-  .total-display {
-    text-align: right;
-    padding: 0.5rem;
-    font-size: 1.2rem;
-    color: #333;
-  }
-
-  .total-display-sub {
-    font-size: 0.95rem;
-    font-weight: normal;
-    color: #666;
-    margin-bottom: 0.25rem;
-  }
-
-  .global-discount-row {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 0.75rem;
+  /* ——— Formulaire ——— */
+  .will-be {
+    display: inline-flex;
     align-items: center;
+    gap: 6px;
+    height: 24px;
+    padding: 0 10px;
+    border-radius: var(--r-pill);
+    background: var(--st-pending-bg);
+    color: var(--st-pending-fg);
+    font-size: 12px;
+    font-weight: 500;
   }
 
-  .global-discount-row input {
-    flex: 1;
-    min-width: 6rem;
-    max-width: 12rem;
-    padding: 0.5rem;
-    border: 1px solid #ced4da;
-    border-radius: 4px;
-  }
-
-  .global-discount-row select {
-    padding: 0.5rem;
-    border: 1px solid #ced4da;
-    border-radius: 4px;
-    min-width: 11rem;
-  }
-
-  .field-hint {
-    margin: 0.35rem 0 0 0;
-    font-size: 0.85rem;
-    color: #666;
-  }
-
-  .details-summary-line {
+  .sale-form {
     display: flex;
-    justify-content: space-between;
-    align-items: baseline;
-    gap: 1rem;
-    padding: 0.35rem 0;
-    font-size: 0.95rem;
+    flex-direction: column;
+    gap: 20px;
   }
 
-  .details-summary-discount {
-    color: #856404;
-  }
-
-  .status-badge {
-    padding: 0.25rem 0.5rem;
-    border-radius: 4px;
-    font-size: 0.85rem;
-    font-weight: 500;
-  }
-
-  .status-select {
-    padding: 0.25rem 0.5rem;
-    border-radius: 4px;
-    font-size: 0.85rem;
-    font-weight: 500;
-    border: 1px solid rgba(0, 0, 0, 0.1);
-    cursor: pointer;
-    min-width: 120px;
-  }
-
-  .status-select:disabled {
-    cursor: not-allowed;
-    opacity: 0.7;
-  }
-
-  .status-select.status-pending {
-    background: #fff3cd;
-    color: #856404;
-  }
-
-  .status-select.status-paid {
-    background: #d4edda;
-    color: #155724;
-  }
-
-  .status-select.status-delivered {
-    background: #cce5ff;
-    color: #004085;
-  }
-
-  .status-select.status-closed {
-    background: #e2e3e5;
-    color: #383d41;
-  }
-
-  .status-pending {
-    background: #fff3cd;
-    color: #856404;
-  }
-
-  .status-paid {
-    background: #d4edda;
-    color: #155724;
-  }
-
-  .status-cancelled {
-    background: #f8d7da;
-    color: #721c24;
-  }
-
-  .status-delivered {
-    background: #cce5ff;
-    color: #004085;
-  }
-
-  .status-closed {
-    background: #e2e3e5;
-    color: #383d41;
-  }
-
-  select option:disabled {
-    color: #999;
-    background-color: #f5f5f5;
-    font-style: italic;
-  }
-
-  /* Details modal styles */
-  .details-content {
-    padding: 1.5rem;
-  }
-
-  .details-grid {
+  .grid-2 {
     display: grid;
     grid-template-columns: 1fr 1fr;
-    gap: 1rem;
-    margin-bottom: 1.5rem;
+    gap: 16px;
   }
 
-  .details-group {
+  .chip {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    min-height: var(--control-h);
+    padding: 0 4px 0 6px;
+    border: 1px solid var(--input-border);
+    border-radius: var(--r-sm);
+    background: #fff;
+  }
+
+  .chip-avatar {
+    display: grid;
+    place-items: center;
+    width: 28px;
+    height: 28px;
+    border-radius: 50%;
+    background: var(--mist);
+    color: var(--teal-700);
+    font-size: 11px;
+    font-weight: 600;
+  }
+
+  .chip-name {
+    flex: 1;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .hint {
+    margin: 0;
+  }
+
+  .items-head {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    margin-bottom: 8px;
+  }
+
+  .items-head h3 {
+    margin: 0;
+  }
+
+  .req {
+    color: var(--danger);
+  }
+
+  .items-box {
+    border: 1px solid var(--border);
+    border-radius: var(--r-md);
+    background: #fff;
+    overflow: hidden;
+  }
+
+  .items-scroll {
+    overflow-x: auto;
+  }
+
+  .items-table td {
+    height: auto;
+    padding-top: 10px;
+    padding-bottom: 10px;
+  }
+
+  .wine-cell {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+
+  .wine-name {
     display: flex;
     flex-direction: column;
   }
 
-  .details-group.full-width {
+  .stock-warn {
+    margin: 4px 0 0;
+  }
+
+  .add-row {
+    display: grid;
+    grid-template-columns: minmax(200px, 2.2fr) 72px 104px minmax(140px, 1.3fr) auto;
+    gap: 10px;
+    align-items: end;
+    padding: 12px;
+    background: var(--table-head);
+    border-top: 1px solid var(--border-soft);
+  }
+
+  .add-row > * {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    min-width: 0;
+  }
+
+  .num-input {
+    text-align: right;
+  }
+
+  .totals {
+    display: flex;
+    align-items: baseline;
+    gap: 20px;
+    margin-right: auto;
+    font-size: 13px;
+    color: var(--ink-2);
+  }
+
+  .totals strong {
+    color: var(--ink);
+  }
+
+  .totals .grand strong {
+    font-family: var(--font-serif);
+    font-size: 26px;
+    font-weight: 600;
+    margin-left: 4px;
+  }
+
+  /* ——— Détail ——— */
+  .facts {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px 24px;
+    margin: 0 0 20px;
+  }
+
+  .facts .wide {
     grid-column: 1 / -1;
   }
 
-  .details-group label {
-    margin-bottom: 0.5rem;
-    color: #666;
-    font-weight: 600;
-    font-size: 0.9rem;
+  .facts dt {
+    font-size: 12px;
+    color: var(--ink-2);
   }
 
-  .details-group div {
-    color: #333;
+  .facts dd {
+    margin: 2px 0 0;
   }
 
-  .details-section {
-    margin-top: 1.5rem;
-    padding-top: 1.5rem;
-    border-top: 1px solid #e9ecef;
+  .detail-totals {
+    margin-top: 12px;
   }
 
-  .details-section h3 {
-    margin-top: 0;
-    margin-bottom: 1rem;
-    color: #333;
-    font-size: 1.1rem;
-  }
-
-  .details-items-list {
-    display: flex;
-    flex-direction: column;
-    gap: 0.75rem;
-    margin-bottom: 1rem;
-  }
-
-  .details-item {
+  .detail-totals p {
     display: flex;
     justify-content: space-between;
-    align-items: center;
-    padding: 0.75rem;
-    background: #f8f9fa;
-    border-radius: 4px;
+    margin: 4px 0;
+    color: var(--ink-2);
   }
 
-  .details-item-name {
-    flex: 1;
-    color: #333;
-    font-weight: 500;
+  .detail-totals .grand {
+    color: var(--ink);
+    font-weight: 600;
+    font-size: 16px;
   }
 
-  .details-item-details {
-    display: flex;
-    gap: 1rem;
-    align-items: center;
-    color: #666;
-  }
+  @media (max-width: 767px) {
+    .desktop-only {
+      display: none;
+    }
 
-  .details-item-details strong {
-    color: #333;
-    font-size: 1rem;
-  }
+    .mobile-only {
+      display: flex;
+    }
 
-  .details-total {
-    text-align: right;
-    padding: 0.75rem;
-    font-size: 1.2rem;
-    color: #333;
-    border-top: 2px solid #dee2e6;
-    margin-top: 0.5rem;
+    .label-long {
+      display: none;
+    }
+
+    .label-short {
+      display: inline;
+    }
+
+    .toolbar {
+      flex-direction: column;
+    }
+
+    /* Onglets → puces défilant horizontalement. */
+    .tabs {
+      gap: 8px;
+      padding: 12px 0;
+    }
+
+    .tab {
+      height: 44px;
+      padding: 0 14px;
+      border: 1px solid var(--btn-border);
+      border-radius: var(--r-pill);
+      background: #fff;
+      color: var(--ink);
+    }
+
+    .tab[aria-selected="true"] {
+      background: var(--night);
+      border-color: var(--night);
+      color: #fff;
+    }
+
+    .tab[aria-selected="true"]::after {
+      display: none;
+    }
+
+    .tab[aria-selected="true"] .tab-count {
+      background: rgba(255, 255, 255, 0.18);
+      color: #fff;
+    }
+
+    .search,
+    .period {
+      flex: 1 1 auto;
+    }
+
+    .grid-2,
+    .facts {
+      grid-template-columns: 1fr;
+    }
+
+    .add-row {
+      grid-template-columns: 1fr 1fr;
+    }
+
+    .add-wine,
+    .add-discount,
+    .add-btn {
+      grid-column: 1 / -1;
+    }
+
+    .totals {
+      width: 100%;
+      flex-wrap: wrap;
+      gap: 8px 16px;
+    }
   }
 </style>

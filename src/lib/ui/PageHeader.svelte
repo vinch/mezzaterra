@@ -89,11 +89,20 @@
     .page-head {
       padding: 16px;
       align-items: flex-start;
-      flex-direction: column;
+      flex-wrap: wrap;
+    }
+
+    .page-head-main {
+      flex: 1 1 60%;
     }
 
     .page-head-actions {
-      width: 100%;
+      margin-left: auto;
+    }
+
+    .t-page-title {
+      font-size: 26px;
+      line-height: 32px;
     }
 
     .page-tabs {
