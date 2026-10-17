@@ -34,3 +34,9 @@ Fonctions de la maquette qui n'existent pas encore :
 - **« Ajouter un participant »** depuis le pilotage : non disponible ici (se fait dans la modale de la dégustation).
 - **Durée « En direct · 1 h 24 »** : l'heure de début n'est connue que si la migration (colonne `start_time`)
   est appliquée et renseignée ; le badge affiche « En direct » sans durée.
+
+## Pages hors maquettes
+Les autres pages de l'outil (dégustations, commandes, transports, stock, référentiels…) héritent du nouveau
+cadre, des tokens, des boutons neutres et des couleurs de statut, mais gardent leur structure.
+Prochaines candidates à une migration complète (DataTable + menu « … ») : **Dégustations** (5 boutons par
+ligne), **Commandes** et **Transports** (sélecteurs de statut colorés à remplacer par StatusBadge).

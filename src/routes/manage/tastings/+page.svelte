@@ -573,18 +573,18 @@
                 <div class="actions">
                   <a
                     href="/tastings/{tasting.id}"
-                    class="btn-view"
+                    class="ui-btn ui-btn--secondary ui-btn--sm"
                     target="_blank"
                     rel="noopener noreferrer"
                   >
                     Voir
                   </a>
-                  <a href="/manage/tastings/{tasting.id}/live" class="btn-live">
+                  <a href="/manage/tastings/{tasting.id}/live" class="ui-btn ui-btn--secondary ui-btn--sm">
                     Piloter
                   </a>
                   <button
                     type="button"
-                    class="btn-pdf"
+                    class="ui-btn ui-btn--secondary ui-btn--sm"
                     disabled={cardsBusyId === tasting.id}
                     on:click={() => downloadCards(tasting)}
                   >
@@ -592,14 +592,14 @@
                   </button>
                   <button
                     type="button"
-                    class="btn-edit"
+                    class="ui-btn ui-btn--secondary ui-btn--sm"
                     on:click={() => openEditModal(tasting)}
                   >
                     Modifier
                   </button>
                   <button
                     type="button"
-                    class="btn-delete"
+                    class="ui-btn ui-btn--danger ui-btn--sm"
                     on:click={() => deleteTasting(tasting)}
                   >
                     Supprimer
@@ -697,7 +697,7 @@
                 </button>
                 <button
                   type="button"
-                  class="btn-remove"
+                  class="ui-remove"
                   title="Retirer"
                   on:click={() => removeWineFromList(i)}
                   aria-label="Retirer"
@@ -725,7 +725,7 @@
         {/key}
         <button
           type="button"
-          class="btn-add"
+          class="ui-btn ui-btn--secondary ui-btn--sm"
           disabled={!selectedVintageId}
           on:click={addWineToTasting}
         >
@@ -746,7 +746,7 @@
                 <span>{customerDisplayLabel(entry.customer)}</span>
                 <button
                   type="button"
-                  class="btn-remove"
+                  class="ui-remove"
                   title="Retirer"
                   on:click={() => removeCustomerFromList(i)}
                   aria-label="Retirer"
@@ -769,7 +769,7 @@
           {/key}
           <button
             type="button"
-            class="btn-add"
+            class="ui-btn ui-btn--secondary ui-btn--sm"
             disabled={!selectedCustomerId}
             on:click={addCustomerToTasting}
           >
@@ -805,42 +805,12 @@
     font-variant-numeric: tabular-nums;
   }
 
-  .btn-view {
-    padding: 0.35rem 0.65rem;
-    background: #6c757d;
-    color: white;
-    border-radius: 4px;
-    font-size: 0.85rem;
-    text-decoration: none;
-    display: inline-block;
-  }
-
-  .btn-view:hover {
-    background: #5a6268;
-    color: white;
-  }
-
-  .btn-live {
-    padding: 0.35rem 0.65rem;
-    background: var(--mz-teal, #256169);
-    color: white;
-    border-radius: 4px;
-    font-size: 0.85rem;
-    text-decoration: none;
-    display: inline-block;
-  }
-
-  .btn-live:hover {
-    background: var(--mz-teal-deep, #1a474d);
-    color: white;
-  }
-
   .actions {
     flex-wrap: wrap;
   }
 
   .field-hint {
-    color: #868e96;
+    color: var(--ink-2);
     font-size: 0.8rem;
   }
 
@@ -862,7 +832,7 @@
     list-style: none;
     margin: 0 0 1rem;
     padding: 0;
-    border: 1px solid #e9ecef;
+    border: 1px solid var(--border-soft);
     border-radius: 6px;
     overflow: hidden;
   }
@@ -873,7 +843,7 @@
     justify-content: space-between;
     gap: 0.75rem;
     padding: 0.6rem 0.75rem;
-    border-bottom: 1px solid #e9ecef;
+    border-bottom: 1px solid var(--border-soft);
     background: #fafbfc;
     font-size: 0.9rem;
   }
@@ -896,7 +866,7 @@
   }
 
   .empty-text {
-    color: #666;
+    color: var(--ink-2);
     margin: 0 0 1rem;
     font-size: 0.9rem;
   }
@@ -905,7 +875,7 @@
     list-style: none;
     margin: 0 0 1rem;
     padding: 0;
-    border: 1px solid #e9ecef;
+    border: 1px solid var(--border-soft);
     border-radius: 6px;
     overflow: hidden;
   }
@@ -915,7 +885,7 @@
     align-items: center;
     gap: 0.75rem;
     padding: 0.6rem 0.75rem;
-    border-bottom: 1px solid #e9ecef;
+    border-bottom: 1px solid var(--border-soft);
     background: #fafbfc;
   }
 
@@ -926,7 +896,7 @@
   .wine-order-num {
     flex: 0 0 1.5rem;
     font-weight: 700;
-    color: #666;
+    color: var(--ink-2);
     text-align: center;
   }
 
@@ -943,7 +913,7 @@
 
   .btn-icon {
     padding: 0.25rem 0.5rem;
-    border: 1px solid #ced4da;
+    border: 1px solid var(--input-border);
     background: white;
     border-radius: 4px;
     cursor: pointer;
@@ -954,17 +924,6 @@
   .btn-icon:disabled {
     opacity: 0.4;
     cursor: not-allowed;
-  }
-
-  .btn-remove {
-    padding: 0.2rem 0.45rem;
-    border: none;
-    background: #dc3545;
-    color: white;
-    border-radius: 4px;
-    cursor: pointer;
-    font-size: 1rem;
-    line-height: 1;
   }
 
   .add-wine-row {
@@ -979,22 +938,4 @@
     min-width: 220px;
   }
 
-  .btn-add {
-    padding: 0.5rem 1rem;
-    background: #28a745;
-    color: white;
-    border: none;
-    border-radius: 4px;
-    cursor: pointer;
-    font-size: 0.9rem;
-  }
-
-  .btn-add:disabled {
-    opacity: 0.55;
-    cursor: not-allowed;
-  }
-
-  .btn-add:hover:not(:disabled) {
-    background: #218838;
-  }
 </style>

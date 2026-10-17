@@ -232,7 +232,7 @@
 
   .kpi-label {
     font-size: 0.88rem;
-    color: #6c757d;
+    color: var(--ink-2);
   }
 
   .tabs {
@@ -245,7 +245,7 @@
   .tabs button {
     padding: 0.5rem 1rem;
     border-radius: 999px;
-    border: 1px solid #dee2e6;
+    border: 1px solid var(--border);
     background: white;
     font: inherit;
     font-size: 0.9rem;
@@ -261,7 +261,7 @@
   .explain {
     margin: 0 0 1rem;
     font-size: 0.88rem;
-    color: #6c757d;
+    color: var(--ink-2);
     max-width: 60rem;
   }
 
@@ -299,7 +299,7 @@
   }
 
   .muted {
-    color: #868e96;
+    color: var(--ink-2);
   }
 
   .mz-dot {

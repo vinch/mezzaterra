@@ -415,13 +415,13 @@
     align-items: center;
     gap: 0.75rem 1rem;
     padding-top: 1rem;
-    border-top: 1px solid #e9ecef;
+    border-top: 1px solid var(--border-soft);
     font-size: 0.9rem;
   }
 
   .selection-count {
     font-weight: 600;
-    color: #333;
+    color: var(--ink);
   }
 
   .col-check {
@@ -439,7 +439,7 @@
     width: 1.05rem;
     height: 1.05rem;
     cursor: pointer;
-    accent-color: #007bff;
+    accent-color: var(--teal-600);
   }
 
   .num {
@@ -458,7 +458,7 @@
 
   .empty-filter {
     margin-top: 1rem;
-    color: #666;
+    color: var(--ink-2);
     padding: 0 0.25rem;
   }
 
@@ -505,7 +505,7 @@
   .notes-date-row label {
     font-weight: 500;
     font-size: 0.9rem;
-    color: #333;
+    color: var(--ink);
   }
 
   .notes-order-list {
@@ -524,8 +524,8 @@
     align-items: center;
     gap: 0.75rem;
     padding: 0.65rem 0.75rem;
-    background: #f8f9fa;
-    border: 1px solid #e9ecef;
+    background: var(--table-head);
+    border: 1px solid var(--border-soft);
     border-radius: 6px;
   }
 
@@ -536,7 +536,7 @@
     display: flex;
     align-items: center;
     justify-content: center;
-    background: #2c3e50;
+    background: var(--ink);
     color: white;
     font-weight: 700;
     font-size: 0.85rem;
@@ -552,12 +552,12 @@
   }
 
   .notes-order-wine {
-    color: #333;
+    color: var(--ink);
   }
 
   .notes-order-meta {
     font-size: 0.8rem;
-    color: #666;
+    color: var(--ink-2);
   }
 
   .notes-order-actions {
@@ -571,17 +571,17 @@
     width: 2rem;
     height: 2rem;
     padding: 0;
-    border: 1px solid #ced4da;
+    border: 1px solid var(--input-border);
     border-radius: 4px;
     background: white;
     cursor: pointer;
     font-size: 1rem;
     line-height: 1;
-    color: #333;
+    color: var(--ink);
   }
 
   .btn-icon:hover:not(:disabled) {
-    background: #e9ecef;
+    background: var(--border-soft);
     border-color: #adb5bd;
   }
 

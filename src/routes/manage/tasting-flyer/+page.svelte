@@ -210,7 +210,7 @@
   .flyer-hint {
     margin: 0;
     font-size: 0.85rem;
-    color: #666;
+    color: var(--ink-2);
   }
 
   .flyer-preview {

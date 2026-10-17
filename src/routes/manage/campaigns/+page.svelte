@@ -303,7 +303,7 @@
   h2 {
     margin: 0 0 1rem;
     font-size: 1.05rem;
-    color: #2c3e50;
+    color: var(--ink);
     display: flex;
     align-items: center;
     gap: 0.5rem;
@@ -331,7 +331,7 @@
   .templates label {
     padding: 0.45rem 0.9rem;
     border-radius: 999px;
-    border: 1px solid #dee2e6;
+    border: 1px solid var(--border);
     cursor: pointer;
     font-size: 0.9rem;
   }
@@ -365,7 +365,7 @@
   .form-group textarea,
   .indent {
     padding: 0.55rem 0.7rem;
-    border: 1px solid #ced4da;
+    border: 1px solid var(--input-border);
     border-radius: 6px;
     font: inherit;
     font-size: 0.95rem;
@@ -383,7 +383,7 @@
 
   .muted,
   .hint {
-    color: #868e96;
+    color: var(--ink-2);
   }
 
   .check {

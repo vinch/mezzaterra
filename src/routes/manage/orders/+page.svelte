@@ -848,7 +848,7 @@
                 <td>
                   <div class="actions">
                     <button
-                      class="btn-pdf"
+                      class="ui-btn ui-btn--secondary ui-btn--sm"
                       on:click={() => openLanguageModal(order.id)}
                       title="Exporter en PDF"
                     >
@@ -856,20 +856,20 @@
                     </button>
                     {#if order.status === "confirmed" || (order.transport && (order.transport.status === "delivered" || order.transport.status === "cancelled"))}
                       <button
-                        class="btn-details"
+                        class="ui-btn ui-btn--secondary ui-btn--sm"
                         on:click={() => openDetailsModal(order)}
                       >
                         Détails
                       </button>
                     {:else}
                       <button
-                        class="btn-edit"
+                        class="ui-btn ui-btn--secondary ui-btn--sm"
                         on:click={() => openEditModal(order)}
                       >
                         Modifier
                       </button>
                       <button
-                        class="btn-delete"
+                        class="ui-btn ui-btn--danger ui-btn--sm"
                         on:click={() => deleteOrder(order.id)}
                       >
                         Supprimer
@@ -931,7 +931,7 @@
                   </span>
                   <button
                     type="button"
-                    class="btn-remove"
+                    class="ui-remove"
                     on:click={() => removeOrderItem(index)}
                   >
                     ×
@@ -968,7 +968,7 @@
               placeholder="Prix d'achat"
               bind:value={selectedPrice}
             />
-            <button type="button" class="btn-add" on:click={addOrderItem}>
+            <button type="button" class="ui-btn ui-btn--secondary ui-btn--sm" on:click={addOrderItem}>
               Ajouter
             </button>
           </div>
@@ -1038,7 +1038,7 @@
                   </span>
                   <button
                     type="button"
-                    class="btn-remove"
+                    class="ui-remove"
                     on:click={() => removeOrderItem(index)}
                   >
                     ×
@@ -1075,7 +1075,7 @@
               placeholder="Prix d'achat"
               bind:value={selectedPrice}
             />
-            <button type="button" class="btn-add" on:click={addOrderItem}>
+            <button type="button" class="ui-btn ui-btn--secondary ui-btn--sm" on:click={addOrderItem}>
               Ajouter
             </button>
           </div>
@@ -1226,7 +1226,7 @@
     gap: 0.5rem;
     max-height: 200px;
     overflow-y: auto;
-    border: 1px solid #ced4da;
+    border: 1px solid var(--input-border);
     border-radius: 4px;
     padding: 0.5rem;
   }
@@ -1236,7 +1236,7 @@
     justify-content: space-between;
     align-items: center;
     padding: 0.5rem;
-    background: #f8f9fa;
+    background: var(--table-head);
     border-radius: 4px;
     font-size: 0.9rem;
   }
@@ -1256,36 +1256,8 @@
     width: 80px;
   }
 
-  .btn-add {
-    padding: 0.5rem 1rem;
-    background: #28a745;
-    color: white;
-    border: none;
-    border-radius: 4px;
-    cursor: pointer;
-    font-size: 0.9rem;
-  }
-
-  .btn-add:hover {
-    background: #218838;
-  }
-
-  .btn-remove {
-    background: none;
-    border: none;
-    color: #dc3545;
-    font-size: 1.5rem;
-    cursor: pointer;
-    padding: 0 0.5rem;
-    line-height: 1;
-  }
-
-  .btn-remove:hover {
-    color: #c82333;
-  }
-
   .empty-text {
-    color: #666;
+    color: var(--ink-2);
     font-style: italic;
     font-size: 0.9rem;
     text-align: center;
@@ -1295,7 +1267,7 @@
   .total-display {
     text-align: right;
     padding-top: 0.5rem;
-    border-top: 1px solid #dee2e6;
+    border-top: 1px solid var(--border);
     font-size: 1.1rem;
   }
 
@@ -1323,12 +1295,12 @@
   .details-section strong {
     display: block;
     margin-bottom: 0.5rem;
-    color: #333;
+    color: var(--ink);
   }
 
   .details-section p {
     margin: 0;
-    color: #666;
+    color: var(--ink-2);
   }
 
   .details-items-list {
@@ -1340,7 +1312,7 @@
 
   .details-item {
     padding: 0.75rem;
-    background: #f8f9fa;
+    background: var(--table-head);
     border-radius: 4px;
   }
 
@@ -1351,13 +1323,13 @@
 
   .details-item-details {
     font-size: 0.9rem;
-    color: #666;
+    color: var(--ink-2);
   }
 
   .details-total {
     text-align: right;
     padding-top: 1rem;
-    border-top: 2px solid #dee2e6;
+    border-top: 2px solid var(--border);
     font-size: 1.2rem;
     margin-top: 1rem;
   }
@@ -1382,13 +1354,13 @@
   }
 
   .status-select.status-pending {
-    background: #fff3cd;
-    color: #856404;
+    background: var(--st-pending-bg);
+    color: var(--st-pending-fg);
   }
 
   .status-select.status-confirmed {
-    background: #d4edda;
-    color: #155724;
+    background: var(--st-paid-bg);
+    color: var(--st-paid-fg);
   }
 
   .status-badge {
@@ -1400,13 +1372,13 @@
   }
 
   .status-badge.status-pending {
-    background: #fff3cd;
-    color: #856404;
+    background: var(--st-pending-bg);
+    color: var(--st-pending-fg);
   }
 
   .status-badge.status-confirmed {
-    background: #d4edda;
-    color: #155724;
+    background: var(--st-paid-bg);
+    color: var(--st-paid-fg);
   }
 
   .language-selection {
@@ -1415,7 +1387,7 @@
 
   .language-selection p {
     margin: 0 0 1.5rem 0;
-    color: #333;
+    color: var(--ink);
     font-size: 0.95rem;
   }
 
@@ -1427,8 +1399,8 @@
 
   .btn-language {
     padding: 1rem;
-    background: #f8f9fa;
-    border: 2px solid #dee2e6;
+    background: var(--table-head);
+    border: 2px solid var(--border);
     border-radius: 8px;
     cursor: pointer;
     font-size: 1rem;
@@ -1440,8 +1412,8 @@
   }
 
   .btn-language:hover {
-    background: #e9ecef;
-    border-color: #007bff;
+    background: var(--border-soft);
+    border-color: var(--teal-600);
     transform: translateX(4px);
   }
 

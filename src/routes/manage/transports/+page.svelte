@@ -659,26 +659,26 @@
                   <div class="actions">
                     {#if transport.status === "delivered" || transport.status === "cancelled"}
                       <button
-                        class="btn-details"
+                        class="ui-btn ui-btn--secondary ui-btn--sm"
                         on:click={() => openDetailsModal(transport)}
                       >
                         Détails
                       </button>
                     {:else}
                       <button
-                        class="btn-associate"
+                        class="ui-btn ui-btn--secondary ui-btn--sm"
                         on:click={() => openOrdersModal(transport)}
                       >
                         Associer des commandes
                       </button>
                       <button
-                        class="btn-edit"
+                        class="ui-btn ui-btn--secondary ui-btn--sm"
                         on:click={() => openEditModal(transport)}
                       >
                         Modifier
                       </button>
                       <button
-                        class="btn-delete"
+                        class="ui-btn ui-btn--danger ui-btn--sm"
                         on:click={() => deleteTransport(transport.id)}
                       >
                         Supprimer
@@ -1127,43 +1127,43 @@
   }
 
   .status-select.status-pending {
-    background: #fff3cd;
-    color: #856404;
+    background: var(--st-pending-bg);
+    color: var(--st-pending-fg);
   }
 
   .status-select.status-in_transit {
-    background: #d1ecf1;
-    color: #0c5460;
+    background: var(--st-delivered-bg);
+    color: var(--st-delivered-fg);
   }
 
   .status-select.status-delivered {
-    background: #d4edda;
-    color: #155724;
+    background: var(--st-paid-bg);
+    color: var(--st-paid-fg);
   }
 
   .status-select.status-cancelled {
-    background: #f8d7da;
-    color: #721c24;
+    background: var(--st-cancelled-bg);
+    color: var(--st-cancelled-fg);
   }
 
   .status-pending {
-    background: #fff3cd;
-    color: #856404;
+    background: var(--st-pending-bg);
+    color: var(--st-pending-fg);
   }
 
   .status-in_transit {
-    background: #d1ecf1;
-    color: #0c5460;
+    background: var(--st-delivered-bg);
+    color: var(--st-delivered-fg);
   }
 
   .status-delivered {
-    background: #d4edda;
-    color: #155724;
+    background: var(--st-paid-bg);
+    color: var(--st-paid-fg);
   }
 
   .status-cancelled {
-    background: #f8d7da;
-    color: #721c24;
+    background: var(--st-cancelled-bg);
+    color: var(--st-cancelled-fg);
   }
 
   /* Orders modal styles */
@@ -1173,12 +1173,12 @@
 
   .modal-description {
     margin-bottom: 1.5rem;
-    color: #666;
+    color: var(--ink-2);
     font-size: 0.95rem;
   }
 
   .modal-description strong {
-    color: #333;
+    color: var(--ink);
   }
 
   .orders-list {
@@ -1189,7 +1189,7 @@
     overflow-y: auto;
     margin-bottom: 1.5rem;
     padding: 0.5rem;
-    border: 1px solid #e9ecef;
+    border: 1px solid var(--border-soft);
     border-radius: 4px;
   }
 
@@ -1198,14 +1198,14 @@
     align-items: flex-start;
     gap: 0.75rem;
     padding: 0.75rem;
-    background: #f8f9fa;
+    background: var(--table-head);
     border-radius: 4px;
     cursor: pointer;
     transition: background 0.2s;
   }
 
   .order-checkbox:hover {
-    background: #e9ecef;
+    background: var(--border-soft);
   }
 
   .order-checkbox input[type="checkbox"] {
@@ -1231,7 +1231,7 @@
   }
 
   .order-header strong {
-    color: #333;
+    color: var(--ink);
     font-size: 0.95rem;
   }
 
@@ -1245,23 +1245,23 @@
   }
 
   .order-status-badge.status-pending {
-    background: #fff3cd;
-    color: #856404;
+    background: var(--st-pending-bg);
+    color: var(--st-pending-fg);
   }
 
   .order-status-badge.status-confirmed {
-    background: #d4edda;
-    color: #155724;
+    background: var(--st-paid-bg);
+    color: var(--st-paid-fg);
   }
 
   .order-total {
-    color: #007bff;
+    color: var(--teal-600);
     font-weight: 600;
     font-size: 0.95rem;
   }
 
   .order-note {
-    color: #666;
+    color: var(--ink-2);
     font-size: 0.85rem;
     font-style: italic;
     margin-top: 0.25rem;
@@ -1269,20 +1269,20 @@
 
   .empty-text {
     text-align: center;
-    color: #666;
+    color: var(--ink-2);
     padding: 2rem;
     font-style: italic;
   }
 
   .section-title {
     margin-bottom: 0.75rem;
-    color: #333;
+    color: var(--ink);
     font-weight: 600;
     font-size: 1rem;
   }
 
   .orders-list-readonly {
-    background: #f8f9fa;
+    background: var(--table-head);
     opacity: 0.8;
   }
 
@@ -1291,7 +1291,7 @@
     align-items: flex-start;
     gap: 0.75rem;
     padding: 0.75rem;
-    background: #e9ecef;
+    background: var(--border-soft);
     border-radius: 4px;
     cursor: default;
   }
@@ -1301,35 +1301,15 @@
   }
 
   .order-item-readonly .order-header strong {
-    color: #666;
+    color: var(--ink-2);
   }
 
   .order-item-readonly .order-total {
-    color: #666;
-  }
-
-  .btn-primary:disabled {
-    background: #ccc;
-    color: #666;
-    cursor: not-allowed;
+    color: var(--ink-2);
   }
 
   .btn-primary:disabled:hover {
     background: #ccc;
-  }
-
-  .btn-details {
-    padding: 0.4rem 0.8rem;
-    background: #17a2b8;
-    color: white;
-    border: none;
-    border-radius: 4px;
-    cursor: pointer;
-    font-size: 0.85rem;
-  }
-
-  .btn-details:hover {
-    background: #138496;
   }
 
   /* Details modal styles */
@@ -1355,25 +1335,25 @@
 
   .details-label {
     margin-bottom: 0.5rem;
-    color: #666;
+    color: var(--ink-2);
     font-weight: 600;
     font-size: 0.9rem;
   }
 
   .details-group div {
-    color: #333;
+    color: var(--ink);
   }
 
   .details-section {
     margin-top: 1.5rem;
     padding-top: 1.5rem;
-    border-top: 1px solid #e9ecef;
+    border-top: 1px solid var(--border-soft);
   }
 
   .details-section h3 {
     margin-top: 0;
     margin-bottom: 1rem;
-    color: #333;
+    color: var(--ink);
     font-size: 1.1rem;
   }
 
@@ -1386,9 +1366,9 @@
 
   .details-order {
     padding: 1rem;
-    background: #f8f9fa;
+    background: var(--table-head);
     border-radius: 4px;
-    border: 1px solid #e9ecef;
+    border: 1px solid var(--border-soft);
   }
 
   .details-order-header {
@@ -1402,18 +1382,18 @@
   }
 
   .details-order-info strong {
-    color: #333;
+    color: var(--ink);
     font-size: 1rem;
   }
 
   .details-order-total {
-    color: #007bff;
+    color: var(--teal-600);
     font-weight: 600;
     font-size: 1rem;
   }
 
   .details-order-note {
-    color: #666;
+    color: var(--ink-2);
     font-size: 0.85rem;
     font-style: italic;
     margin-bottom: 0.75rem;
@@ -1426,7 +1406,7 @@
     gap: 0.5rem;
     margin-top: 0.75rem;
     padding-top: 0.75rem;
-    border-top: 1px solid #dee2e6;
+    border-top: 1px solid var(--border);
   }
 
   .details-order-item {
@@ -1440,7 +1420,7 @@
 
   .details-order-item-name {
     flex: 1;
-    color: #333;
+    color: var(--ink);
     font-weight: 500;
     font-size: 0.9rem;
   }
@@ -1449,12 +1429,12 @@
     display: flex;
     gap: 1rem;
     align-items: center;
-    color: #666;
+    color: var(--ink-2);
     font-size: 0.9rem;
   }
 
   .details-order-item-details strong {
-    color: #333;
+    color: var(--ink);
     font-size: 0.95rem;
   }
 </style>

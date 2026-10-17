@@ -328,13 +328,13 @@
                 <td>
                   <div class="actions">
                     <button
-                      class="btn-edit"
+                      class="ui-btn ui-btn--secondary ui-btn--sm"
                       on:click={() => openEditModal(move)}
                     >
                       Modifier
                     </button>
                     <button
-                      class="btn-delete"
+                      class="ui-btn ui-btn--danger ui-btn--sm"
                       on:click={() => deleteMove(move.id)}
                     >
                       Supprimer
@@ -470,7 +470,7 @@
   .page-header {
     background: white;
     padding: 1.5rem 2rem;
-    border-bottom: 1px solid #e9ecef;
+    border-bottom: 1px solid var(--border-soft);
     display: flex;
     justify-content: space-between;
     align-items: flex-start;
@@ -485,7 +485,7 @@
   }
 
   .breadcrumb a {
-    color: #007bff;
+    color: var(--teal-600);
     text-decoration: none;
     font-size: 0.9rem;
   }
@@ -495,7 +495,7 @@
   }
 
   .breadcrumb span {
-    color: #666;
+    color: var(--ink-2);
     font-size: 0.9rem;
   }
 
@@ -505,7 +505,7 @@
 
   .wine-info h1 {
     margin: 0 0 0.5rem 0;
-    color: #333;
+    color: var(--ink);
     font-size: 1.75rem;
   }
 
@@ -520,24 +520,24 @@
     align-items: center;
     gap: 0.5rem;
     padding: 0.5rem 1rem;
-    background: #f8f9fa;
+    background: var(--table-head);
     border-radius: 6px;
-    border: 1px solid #dee2e6;
+    border: 1px solid var(--border);
   }
 
   .stock-label {
     font-size: 0.9rem;
-    color: #666;
+    color: var(--ink-2);
   }
 
   .stock-value {
     font-size: 1.1rem;
     font-weight: 600;
-    color: #28a745;
+    color: var(--st-paid-fg);
   }
 
   .stock-value.negative {
-    color: #dc3545;
+    color: var(--danger);
   }
 
   .page-content {
@@ -545,8 +545,8 @@
   }
 
   .error-message {
-    background: #f8d7da;
-    color: #721c24;
+    background: var(--st-cancelled-bg);
+    color: var(--st-cancelled-fg);
     padding: 1rem;
     border-radius: 4px;
     margin-bottom: 1rem;
@@ -555,7 +555,7 @@
   .loading {
     text-align: center;
     padding: 2rem;
-    color: #666;
+    color: var(--ink-2);
   }
 
   .empty-state {
@@ -566,7 +566,7 @@
   }
 
   .empty-state p {
-    color: #666;
+    color: var(--ink-2);
     margin: 0 0 1rem 0;
   }
 
@@ -583,24 +583,24 @@
   }
 
   thead {
-    background: #f8f9fa;
+    background: var(--table-head);
   }
 
   th {
     padding: 1rem;
     text-align: left;
     font-weight: 600;
-    color: #333;
-    border-bottom: 2px solid #dee2e6;
+    color: var(--ink);
+    border-bottom: 2px solid var(--border);
   }
 
   td {
     padding: 1rem;
-    border-bottom: 1px solid #e9ecef;
+    border-bottom: 1px solid var(--border-soft);
   }
 
   tbody tr:hover {
-    background: #f8f9fa;
+    background: var(--table-head);
   }
 
   .quantity-cell {
@@ -613,11 +613,11 @@
   }
 
   .quantity.in {
-    color: #28a745;
+    color: var(--st-paid-fg);
   }
 
   .quantity.out {
-    color: #dc3545;
+    color: var(--danger);
   }
 
   .type-badge {
@@ -628,74 +628,18 @@
   }
 
   .type-badge.in {
-    background: #d4edda;
-    color: #155724;
+    background: var(--st-paid-bg);
+    color: var(--st-paid-fg);
   }
 
   .type-badge.out {
-    background: #f8d7da;
-    color: #721c24;
+    background: var(--st-cancelled-bg);
+    color: var(--st-cancelled-fg);
   }
 
   .actions {
     display: flex;
     gap: 0.5rem;
-  }
-
-  .btn-primary {
-    padding: 0.5rem 1rem;
-    background: #007bff;
-    color: white;
-    border: none;
-    border-radius: 4px;
-    cursor: pointer;
-    font-size: 0.9rem;
-  }
-
-  .btn-primary:hover {
-    background: #0056b3;
-  }
-
-  .btn-secondary {
-    padding: 0.5rem 1rem;
-    background: #6c757d;
-    color: white;
-    border: none;
-    border-radius: 4px;
-    cursor: pointer;
-    font-size: 0.9rem;
-  }
-
-  .btn-secondary:hover {
-    background: #5a6268;
-  }
-
-  .btn-edit {
-    padding: 0.4rem 0.8rem;
-    background: #ffc107;
-    color: #333;
-    border: none;
-    border-radius: 4px;
-    cursor: pointer;
-    font-size: 0.85rem;
-  }
-
-  .btn-edit:hover {
-    background: #e0a800;
-  }
-
-  .btn-delete {
-    padding: 0.4rem 0.8rem;
-    background: #dc3545;
-    color: white;
-    border: none;
-    border-radius: 4px;
-    cursor: pointer;
-    font-size: 0.85rem;
-  }
-
-  .btn-delete:hover {
-    background: #c82333;
   }
 
   form {
@@ -720,7 +664,7 @@
 
   label {
     margin-bottom: 0.5rem;
-    color: #333;
+    color: var(--ink);
     font-weight: 500;
     font-size: 0.9rem;
   }
@@ -729,7 +673,7 @@
   select,
   textarea {
     padding: 0.5rem;
-    border: 1px solid #ced4da;
+    border: 1px solid var(--input-border);
     border-radius: 4px;
     font-size: 1rem;
   }
@@ -738,7 +682,7 @@
   select:focus,
   textarea:focus {
     outline: none;
-    border-color: #007bff;
+    border-color: var(--teal-600);
   }
 
   .modal-footer {
@@ -746,6 +690,6 @@
     justify-content: flex-end;
     gap: 1rem;
     padding-top: 1rem;
-    border-top: 1px solid #e9ecef;
+    border-top: 1px solid var(--border-soft);
   }
 </style>

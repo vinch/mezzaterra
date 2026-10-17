@@ -245,51 +245,6 @@
   cursor: not-allowed;
 }
 
-/* TEMPORAIRE (retiré à l'étape 5) : anciennes classes colorées → aspect neutre. */
-.app .btn-edit,
-.app .btn-details,
-.app .btn-pdf,
-.app .btn-download,
-.app .btn-associate,
-.app .btn-vintages,
-.app .btn-pairings,
-.app .btn-stock-link,
-.app .btn-stock,
-.app .btn-grapes,
-.app .btn-view,
-.app .btn-live,
-.app .btn-add,
-.app .btn-delete {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  height: 32px;
-  padding: 0 12px;
-  border: 1px solid var(--btn-border);
-  border-radius: var(--r-sm);
-  background: #fff;
-  color: var(--ink);
-  font: inherit;
-  font-size: 13px;
-  font-weight: 600;
-  text-decoration: none;
-  white-space: nowrap;
-  cursor: pointer;
-}
-
-.app .btn-delete {
-  border-color: var(--danger);
-  color: var(--danger);
-}
-
-.app .btn-remove {
-  border: none;
-  background: none;
-  color: var(--danger);
-  font-size: 20px;
-  cursor: pointer;
-}
-
 /* Bouton « retirer » d'une ligne de formulaire (×) */
 .app .ui-remove {
   display: inline-grid;

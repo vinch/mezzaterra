@@ -167,7 +167,7 @@
   .tabs button {
     padding: 0.45rem 0.9rem;
     border-radius: 999px;
-    border: 1px solid #dee2e6;
+    border: 1px solid var(--border);
     background: white;
     font: inherit;
     font-size: 0.9rem;
@@ -226,7 +226,7 @@
 
   .meta {
     font-size: 0.82rem;
-    color: #6c757d;
+    color: var(--ink-2);
   }
 
   .source {
@@ -247,12 +247,12 @@
 
   .lines tfoot td {
     border-bottom: none;
-    color: #6c757d;
+    color: var(--ink-2);
   }
 
   .qty {
     width: 3rem;
-    color: #6c757d;
+    color: var(--ink-2);
     white-space: nowrap;
   }
 

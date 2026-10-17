@@ -231,15 +231,15 @@
               </td>
               <td>
                 <div class="actions">
-                  <a class="btn-details" href="/manage/customers/{customer.id}">Fiche</a>
+                  <a class="ui-btn ui-btn--secondary ui-btn--sm" href="/manage/customers/{customer.id}">Fiche</a>
                   <button
-                    class="btn-edit"
+                    class="ui-btn ui-btn--secondary ui-btn--sm"
                     on:click={() => openEditModal(customer)}
                   >
                     Modifier
                   </button>
                   <button
-                    class="btn-delete"
+                    class="ui-btn ui-btn--danger ui-btn--sm"
                     on:click={() => deleteCustomer(customer.id)}
                   >
                     Supprimer
@@ -383,8 +383,4 @@
     text-decoration: underline;
   }
 
-  a.btn-details {
-    text-decoration: none;
-    display: inline-block;
-  }
 </style>
