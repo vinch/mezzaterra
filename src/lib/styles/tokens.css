@@ -1,0 +1,89 @@
+/**
+ * Design tokens Mezzaterra — partagés par le site public, le mode live et l’admin.
+ * Couleurs de marque reprises du logo et du visuel « Prochaine dégustation ».
+ */
+
+@font-face {
+  font-family: "Inter";
+  src: url("/fonts/Inter-Regular.woff2") format("woff2");
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "Inter";
+  src: url("/fonts/Inter-Medium.woff2") format("woff2");
+  font-weight: 500 600;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "Inter";
+  src: url("/fonts/Inter-Bold.woff2") format("woff2");
+  font-weight: 700;
+  font-style: normal;
+  font-display: swap;
+}
+
+:root {
+  /* Marque */
+  --mz-teal: #256169;
+  --mz-teal-deep: #1a474d;
+  --mz-teal-soft: #5b7d7f;
+  --mz-teal-wash: rgba(37, 97, 105, 0.08);
+
+  /* Surfaces */
+  --mz-paper: #e8e5de;
+  --mz-paper-raised: #f4f2ed;
+  --mz-paper-sunk: #dedad1;
+  --mz-line: #cdc8bc;
+  --mz-line-soft: #ddd8cd;
+
+  /* Texte */
+  --mz-ink: #1d2a2c;
+  --mz-ink-soft: #3d4f51;
+  --mz-muted: #66787a;
+
+  /* États */
+  --mz-success: #2f7a4b;
+  --mz-danger: #a3352f;
+  --mz-warning: #a86b12;
+
+  /* Couleurs de robe */
+  --mz-wine-red: #7a1f2e;
+  --mz-wine-red-light: #b04456;
+  --mz-wine-white: #d8bf62;
+  --mz-wine-white-light: #efe2a6;
+  --mz-wine-rose: #e0879a;
+  --mz-wine-rose-light: #f3c3cb;
+  --mz-wine-orange: #d07b2c;
+  --mz-wine-sparkling: #e2cf7f;
+
+  /* Mode « cave » (live) */
+  --mz-cave-bg: #0e1819;
+  --mz-cave-surface: #162426;
+  --mz-cave-surface-2: #1e3133;
+  --mz-cave-line: rgba(236, 230, 218, 0.12);
+  --mz-cave-text: #ece6da;
+  --mz-cave-muted: rgba(236, 230, 218, 0.62);
+
+  /* Typo */
+  --mz-font-display: "Fraunces", "Iowan Old Style", Georgia, serif;
+  --mz-font-body: "Inter", system-ui, -apple-system, "Segoe UI", sans-serif;
+
+  /* Formes */
+  --mz-radius-sm: 6px;
+  --mz-radius: 14px;
+  --mz-radius-lg: 22px;
+  --mz-shadow-sm: 0 1px 2px rgba(29, 42, 44, 0.06), 0 1px 1px rgba(29, 42, 44, 0.04);
+  --mz-shadow: 0 10px 30px -12px rgba(29, 42, 44, 0.25), 0 2px 6px rgba(29, 42, 44, 0.06);
+  --mz-ease: cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :root {
+    --mz-ease: linear;
+  }
+}

@@ -644,6 +644,11 @@ export type Database = {
           location: string | null
           name: string | null
           notes: string | null
+          start_time?: string | null
+          price?: number | null
+          capacity?: number | null
+          description?: string | null
+          live_position?: number | null
         }
         Insert: {
           created_at?: string
@@ -652,6 +657,11 @@ export type Database = {
           location?: string | null
           name?: string | null
           notes?: string | null
+          start_time?: string | null
+          price?: number | null
+          capacity?: number | null
+          description?: string | null
+          live_position?: number | null
         }
         Update: {
           created_at?: string
@@ -660,6 +670,11 @@ export type Database = {
           location?: string | null
           name?: string | null
           notes?: string | null
+          start_time?: string | null
+          price?: number | null
+          capacity?: number | null
+          description?: string | null
+          live_position?: number | null
         }
         Relationships: []
       }
@@ -689,6 +704,111 @@ export type Database = {
           },
           {
             foreignKeyName: "tasting_customer_tasting_id_fkey"
+            columns: ["tasting_id"]
+            isOneToOne: false
+            referencedRelation: "tasting"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      tasting_feedback: {
+        Row: {
+          comment: string | null
+          created_at: string
+          guest_email: string | null
+          guest_id: string
+          guest_name: string | null
+          id: string
+          rating: number | null
+          tasting_id: string
+          wine_vintage_id: string
+        }
+        Insert: {
+          comment?: string | null
+          created_at?: string
+          guest_email?: string | null
+          guest_id: string
+          guest_name?: string | null
+          id?: string
+          rating?: number | null
+          tasting_id: string
+          wine_vintage_id: string
+        }
+        Update: {
+          comment?: string | null
+          created_at?: string
+          guest_email?: string | null
+          guest_id?: string
+          guest_name?: string | null
+          id?: string
+          rating?: number | null
+          tasting_id?: string
+          wine_vintage_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "tasting_feedback_tasting_id_fkey"
+            columns: ["tasting_id"]
+            isOneToOne: false
+            referencedRelation: "tasting"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tasting_feedback_wine_vintage_id_fkey"
+            columns: ["wine_vintage_id"]
+            isOneToOne: false
+            referencedRelation: "wine_vintage"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      tasting_registration: {
+        Row: {
+          created_at: string
+          customer_id: string | null
+          email: string
+          first_name: string
+          id: string
+          last_name: string | null
+          phone: string | null
+          seats: number
+          status: string
+          tasting_id: string
+        }
+        Insert: {
+          created_at?: string
+          customer_id?: string | null
+          email: string
+          first_name: string
+          id?: string
+          last_name?: string | null
+          phone?: string | null
+          seats?: number
+          status?: string
+          tasting_id: string
+        }
+        Update: {
+          created_at?: string
+          customer_id?: string | null
+          email?: string
+          first_name?: string
+          id?: string
+          last_name?: string | null
+          phone?: string | null
+          seats?: number
+          status?: string
+          tasting_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "tasting_registration_customer_id_fkey"
+            columns: ["customer_id"]
+            isOneToOne: false
+            referencedRelation: "customer"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tasting_registration_tasting_id_fkey"
             columns: ["tasting_id"]
             isOneToOne: false
             referencedRelation: "tasting"
@@ -1072,6 +1192,69 @@ export type Database = {
           },
         ]
       }
+      wish_request: {
+        Row: {
+          created_at: string
+          email: string | null
+          first_name: string
+          guest_id: string | null
+          id: string
+          items: Json
+          last_name: string | null
+          message: string | null
+          phone: string | null
+          sale_id: string | null
+          source: string
+          status: string
+          tasting_id: string | null
+        }
+        Insert: {
+          created_at?: string
+          email?: string | null
+          first_name: string
+          guest_id?: string | null
+          id?: string
+          items: Json
+          last_name?: string | null
+          message?: string | null
+          phone?: string | null
+          sale_id?: string | null
+          source?: string
+          status?: string
+          tasting_id?: string | null
+        }
+        Update: {
+          created_at?: string
+          email?: string | null
+          first_name?: string
+          guest_id?: string | null
+          id?: string
+          items?: Json
+          last_name?: string | null
+          message?: string | null
+          phone?: string | null
+          sale_id?: string | null
+          source?: string
+          status?: string
+          tasting_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "wish_request_sale_id_fkey"
+            columns: ["sale_id"]
+            isOneToOne: false
+            referencedRelation: "sale"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "wish_request_tasting_id_fkey"
+            columns: ["tasting_id"]
+            isOneToOne: false
+            referencedRelation: "tasting"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Views: {
       inventory: {
@@ -1084,6 +1267,35 @@ export type Database = {
     }
     Functions: {
       is_admin: { Args: never; Returns: boolean }
+      my_notebook: { Args: never; Returns: Json }
+      public_wine_availability: {
+        Args: never
+        Returns: {
+          in_stock: boolean
+          low_stock: boolean
+          wine_vintage_id: string
+        }[]
+      }
+      register_for_tasting: {
+        Args: {
+          p_email: string
+          p_first_name: string
+          p_last_name: string
+          p_phone: string
+          p_seats: number
+          p_tasting_id: string
+        }
+        Returns: string
+      }
+      tasting_availability: {
+        Args: { p_tasting_id: string }
+        Returns: {
+          capacity: number | null
+          seats_left: number | null
+          seats_taken: number
+        }[]
+      }
+      unsubscribe_email: { Args: { p_id: string }; Returns: boolean }
     }
     Enums: {
       [_ in never]: never

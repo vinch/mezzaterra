@@ -211,7 +211,9 @@
         <tbody>
           {#each customers as customer}
             <tr>
-              <td>{customer.first_name} {customer.last_name}</td>
+              <td>
+                <a class="customer-link" href="/manage/customers/{customer.id}">{customer.first_name} {customer.last_name}</a>
+              </td>
               <td>{customer.email || "-"}</td>
               <td>{customer.company_name || "-"}</td>
               <td>{customer.phone_number || "-"}</td>
@@ -225,6 +227,7 @@
               </td>
               <td>
                 <div class="actions">
+                  <a class="btn-details" href="/manage/customers/{customer.id}">Fiche</a>
                   <button
                     class="btn-edit"
                     on:click={() => openEditModal(customer)}
@@ -363,3 +366,21 @@
     </div>
   </form>
 </Modal>
+
+<style>
+  .customer-link {
+    color: inherit;
+    font-weight: 600;
+    text-decoration: none;
+  }
+
+  .customer-link:hover {
+    color: var(--mz-teal, #256169);
+    text-decoration: underline;
+  }
+
+  a.btn-details {
+    text-decoration: none;
+    display: inline-block;
+  }
+</style>

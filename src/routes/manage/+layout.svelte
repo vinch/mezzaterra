@@ -5,19 +5,95 @@
   import { onMount, setContext } from "svelte";
   import { writable } from "svelte/store";
   import { page } from "$app/stores";
+  import Icon, { type IconName } from "$lib/components/Icon.svelte";
+  import CommandPalette from "$lib/components/manage/CommandPalette.svelte";
+  import { hasTable } from "$lib/features";
 
   const userStore = writable<any>(null);
   const checkingAuthStore = writable(true);
+  /** `false` uniquement si la base confirme que l'utilisateur n'est pas admin. */
+  const isAdminStore = writable<boolean | null>(null);
 
   let mobileNavOpen = false;
+  let paletteOpen = false;
+  let newRequests = 0;
 
   setContext("auth", {
     user: userStore,
     checkingAuth: checkingAuthStore,
   });
 
+  type NavLink = { href: string; label: string; icon: IconName; badge?: "requests" };
+  type NavSection = { title: string | null; links: NavLink[] };
+
+  const NAV: NavSection[] = [
+    { title: null, links: [{ href: "/manage", label: "Tableau de bord", icon: "home" }] },
+    {
+      title: "Produits",
+      links: [
+        { href: "/manage/wines", label: "Vins", icon: "wine" },
+        { href: "/manage/stock", label: "Stock", icon: "box" },
+      ],
+    },
+    {
+      title: "Dégustations",
+      links: [
+        { href: "/manage/tastings", label: "Dégustations", icon: "glasses" },
+        { href: "/manage/documents", label: "Documents", icon: "file" },
+        { href: "/manage/tasting-flyer", label: "Visuel dégustation", icon: "image" },
+      ],
+    },
+    {
+      title: "Ventes",
+      links: [
+        { href: "/manage/requests", label: "Demandes", icon: "inbox", badge: "requests" },
+        { href: "/manage/customers", label: "Clients", icon: "users" },
+        { href: "/manage/sales", label: "Ventes", icon: "cash" },
+        { href: "/manage/campaigns", label: "Campagnes", icon: "mail" },
+      ],
+    },
+    {
+      title: "Pilotage",
+      links: [{ href: "/manage/insights", label: "Analyses", icon: "chart" }],
+    },
+    {
+      title: "Achats",
+      links: [
+        { href: "/manage/orders", label: "Commandes", icon: "clipboard" },
+        { href: "/manage/suppliers", label: "Fournisseurs", icon: "factory" },
+        { href: "/manage/transports", label: "Transports", icon: "route" },
+        { href: "/manage/transporters", label: "Transporteurs", icon: "truck" },
+      ],
+    },
+    {
+      title: "Références",
+      links: [
+        { href: "/manage/appellations", label: "Appellations", icon: "pin" },
+        { href: "/manage/grapes", label: "Cépages", icon: "grape" },
+        { href: "/manage/labels", label: "Labels", icon: "tag" },
+        { href: "/manage/pairings", label: "Accords", icon: "plate" },
+        { href: "/manage/wineries", label: "Vignobles", icon: "castle" },
+      ],
+    },
+    {
+      title: "Géographie",
+      links: [
+        { href: "/manage/countries", label: "Pays", icon: "globe" },
+        { href: "/manage/regions", label: "Régions", icon: "map" },
+      ],
+    },
+  ];
+
+  const allLinks = NAV.flatMap((s) => s.links);
+
+  function isActive(href: string, path: string): boolean {
+    if (href === "/manage") return path === "/manage";
+    return path === href || path.startsWith(href + "/");
+  }
+
   afterNavigate(() => {
     mobileNavOpen = false;
+    void refreshRequestBadge();
   });
 
   function toggleMobileNav() {
@@ -26,6 +102,30 @@
 
   function closeMobileNav() {
     mobileNavOpen = false;
+  }
+
+  async function checkAdmin(user: any) {
+    if (!user) {
+      isAdminStore.set(null);
+      return;
+    }
+    try {
+      const { data, error } = await supabase.rpc("is_admin");
+      /* En cas d'erreur on ne bloque pas : la RLS protège de toute façon les données. */
+      isAdminStore.set(error ? null : data === false ? false : true);
+    } catch {
+      isAdminStore.set(null);
+    }
+  }
+
+  async function refreshRequestBadge() {
+    if (!$userStore || $isAdminStore === false) return;
+    if (!(await hasTable("wish_request"))) return;
+    const { count } = await supabase
+      .from("wish_request")
+      .select("id", { count: "exact", head: true })
+      .eq("status", "new");
+    newRequests = count ?? 0;
   }
 
   onMount(() => {
@@ -39,16 +139,19 @@
         data: { user: currentUser },
       } = await supabase.auth.getUser();
       userStore.set(currentUser);
+      await checkAdmin(currentUser);
 
       if (!currentUser && $page.url.pathname !== "/manage") {
         goto("/manage");
       }
 
       checkingAuthStore.set(false);
+      void refreshRequestBadge();
 
       supabase.auth.onAuthStateChange((event, session) => {
         const user = session?.user ?? null;
         userStore.set(user);
+        void checkAdmin(user).then(refreshRequestBadge);
         if (!user && $page.url.pathname !== "/manage") {
           goto("/manage");
         }
@@ -69,6 +172,13 @@
     <div class="spinner"></div>
     <p>Chargement...</p>
   </div>
+{:else if $userStore && $isAdminStore === false}
+  <div class="loading-container denied">
+    <h1>Accès réservé</h1>
+    <p>Le compte <strong>{$userStore.email}</strong> n’a pas accès à la gestion.</p>
+    <p><a href="/carnet">Voir mon carnet de dégustation</a></p>
+    <button class="logout-btn denied-logout" on:click={handleLogout}>Se déconnecter</button>
+  </div>
 {:else if $userStore}
   <div class="admin-layout" class:nav-open={mobileNavOpen}>
     <button
@@ -83,208 +193,41 @@
       class:open={mobileNavOpen}
     >
       <div class="sidebar-header">
-        <h2>Gestion</h2>
+        <a href="/" class="sidebar-brand" target="_blank" rel="noopener noreferrer" title="Voir le site">
+          <img src="/flyer/logo-text.svg" alt="Mezzaterra" />
+        </a>
+        <button type="button" class="search-trigger" on:click={() => (paletteOpen = true)}>
+          <Icon name="search" size="1rem" />
+          <span>Rechercher…</span>
+          <kbd>⌘K</kbd>
+        </button>
       </div>
       <ul class="nav-list">
-        <li>
-          <a href="/manage" class:active={$page.url.pathname === "/manage"}>
-            <span class="icon">🏠</span>
-            Tableau de bord
-          </a>
-        </li>
-
-        <li class="nav-divider">
-          <span class="nav-divider-text">Produits</span>
-        </li>
-        <li>
-          <a
-            href="/manage/wines"
-            class:active={$page.url.pathname === "/manage/wines"}
-          >
-            <span class="icon">🍷</span>
-            Vins
-          </a>
-        </li>
-        <li>
-          <a
-            href="/manage/stock"
-            class:active={$page.url.pathname === "/manage/stock"}
-          >
-            <span class="icon">📦</span>
-            Stock
-          </a>
-        </li>
-
-        <li class="nav-divider">
-          <span class="nav-divider-text">Dégustations</span>
-        </li>
-        <li>
-          <a
-            href="/manage/tastings"
-            class:active={$page.url.pathname === "/manage/tastings"}
-          >
-            <span class="icon">🥂</span>
-            Dégustations
-          </a>
-        </li>
-        <li>
-          <a
-            href="/manage/documents"
-            class:active={$page.url.pathname === "/manage/documents"}
-          >
-            <span class="icon">📄</span>
-            Documents
-          </a>
-        </li>
-        <li>
-          <a
-            href="/manage/tasting-flyer"
-            class:active={$page.url.pathname === "/manage/tasting-flyer"}
-          >
-            <span class="icon">🖼️</span>
-            Visuel dégustation
-          </a>
-        </li>
-
-        <li class="nav-divider">
-          <span class="nav-divider-text">Ventes</span>
-        </li>
-        <li>
-          <a
-            href="/manage/customers"
-            class:active={$page.url.pathname === "/manage/customers"}
-          >
-            <span class="icon">👥</span>
-            Clients
-          </a>
-        </li>
-        <li>
-          <a
-            href="/manage/sales"
-            class:active={$page.url.pathname === "/manage/sales"}
-          >
-            <span class="icon">💵</span>
-            Ventes
-          </a>
-        </li>
-
-        <li class="nav-divider">
-          <span class="nav-divider-text">Achats</span>
-        </li>
-        <li>
-          <a
-            href="/manage/orders"
-            class:active={$page.url.pathname === "/manage/orders"}
-          >
-            <span class="icon">📋</span>
-            Commandes
-          </a>
-        </li>
-        <li>
-          <a
-            href="/manage/suppliers"
-            class:active={$page.url.pathname === "/manage/suppliers"}
-          >
-            <span class="icon">📦</span>
-            Fournisseurs
-          </a>
-        </li>
-        <li>
-          <a
-            href="/manage/transports"
-            class:active={$page.url.pathname === "/manage/transports"}
-          >
-            <span class="icon">🚛</span>
-            Transports
-          </a>
-        </li>
-        <li>
-          <a
-            href="/manage/transporters"
-            class:active={$page.url.pathname === "/manage/transporters"}
-          >
-            <span class="icon">🚚</span>
-            Transporteurs
-          </a>
-        </li>
-
-        <li class="nav-divider">
-          <span class="nav-divider-text">Références</span>
-        </li>
-        <li>
-          <a
-            href="/manage/appellations"
-            class:active={$page.url.pathname === "/manage/appellations"}
-          >
-            <span class="icon">📍</span>
-            Appellations
-          </a>
-        </li>
-        <li>
-          <a
-            href="/manage/grapes"
-            class:active={$page.url.pathname === "/manage/grapes"}
-          >
-            <span class="icon">🍇</span>
-            Cépages
-          </a>
-        </li>
-        <li>
-          <a
-            href="/manage/labels"
-            class:active={$page.url.pathname === "/manage/labels"}
-          >
-            <span class="icon">🏷️</span>
-            Labels
-          </a>
-        </li>
-        <li>
-          <a
-            href="/manage/pairings"
-            class:active={$page.url.pathname === "/manage/pairings"}
-          >
-            <span class="icon">🧀</span>
-            Pairings
-          </a>
-        </li>
-        <li>
-          <a
-            href="/manage/wineries"
-            class:active={$page.url.pathname === "/manage/wineries"}
-          >
-            <span class="icon">🏰</span>
-            Vignobles
-          </a>
-        </li>
-
-        <li class="nav-divider">
-          <span class="nav-divider-text">Géographie</span>
-        </li>
-        <li>
-          <a
-            href="/manage/countries"
-            class:active={$page.url.pathname === "/manage/countries"}
-          >
-            <span class="icon">🌍</span>
-            Pays
-          </a>
-        </li>
-        <li>
-          <a
-            href="/manage/regions"
-            class:active={$page.url.pathname === "/manage/regions"}
-          >
-            <span class="icon">🗺️</span>
-            Régions
-          </a>
-        </li>
+        {#each NAV as section}
+          {#if section.title}
+            <li class="nav-divider">
+              <span class="nav-divider-text">{section.title}</span>
+            </li>
+          {/if}
+          {#each section.links as link}
+            <li>
+              <a href={link.href} class:active={isActive(link.href, $page.url.pathname)}>
+                <span class="icon"><Icon name={link.icon} /></span>
+                <span class="nav-label">{link.label}</span>
+                {#if link.badge === "requests" && newRequests > 0}
+                  <span class="nav-badge">{newRequests}</span>
+                {/if}
+              </a>
+            </li>
+          {/each}
+        {/each}
       </ul>
       <div class="sidebar-footer">
         <div class="user-info">
           <span class="user-email">{$userStore?.email}</span>
         </div>
         <button class="logout-btn" on:click={handleLogout}>
-          <span class="icon">🚪</span>
+          <span class="icon"><Icon name="logout" size="1rem" /></span>
           Déconnexion
         </button>
       </div>
@@ -304,12 +247,16 @@
           <span class="menu-toggle-bar" aria-hidden="true"></span>
         </button>
         <span class="mobile-topbar-title">Gestion</span>
+        <button type="button" class="mobile-search" on:click={() => (paletteOpen = true)} aria-label="Rechercher">
+          <Icon name="search" />
+        </button>
       </header>
       <main class="main-content">
         <slot />
       </main>
     </div>
   </div>
+  <CommandPalette bind:open={paletteOpen} pages={allLinks} />
 {:else}
   <slot />
 {/if}
@@ -333,7 +280,7 @@
     width: 40px;
     height: 40px;
     border: 4px solid #f3f3f3;
-    border-top: 4px solid #007bff;
+    border-top: 4px solid #256169;
     border-radius: 50%;
     animation: spin 1s linear infinite;
   }
@@ -404,7 +351,7 @@
 
   .sidebar {
     width: 250px;
-    background: #2c3e50;
+    background: linear-gradient(180deg, #1a474d 0%, #143a3f 100%);
     color: white;
     position: fixed;
     height: 100vh;
@@ -415,14 +362,102 @@
   }
 
   .sidebar-header {
-    padding: 1.5rem;
+    padding: 1.25rem 1.25rem 1rem;
     border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+    display: flex;
+    flex-direction: column;
+    gap: 0.9rem;
   }
 
-  .sidebar-header h2 {
-    margin: 0;
-    font-size: 1.5rem;
+  .sidebar-brand img {
+    display: block;
+    height: 2.1rem;
+    width: auto;
+    filter: brightness(0) invert(0.95);
+  }
+
+  .search-trigger {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    width: 100%;
+    padding: 0.5rem 0.65rem;
+    border-radius: 8px;
+    border: 1px solid rgba(255, 255, 255, 0.14);
+    background: rgba(255, 255, 255, 0.06);
+    color: rgba(255, 255, 255, 0.7);
+    font: inherit;
+    font-size: 0.85rem;
+    cursor: pointer;
+    text-align: left;
+  }
+
+  .search-trigger:hover {
+    background: rgba(255, 255, 255, 0.12);
     color: white;
+  }
+
+  .search-trigger span {
+    flex: 1;
+  }
+
+  .search-trigger kbd {
+    font-family: inherit;
+    font-size: 0.7rem;
+    padding: 0.05rem 0.35rem;
+    border-radius: 4px;
+    border: 1px solid rgba(255, 255, 255, 0.2);
+  }
+
+  .nav-label {
+    flex: 1;
+  }
+
+  .nav-badge {
+    min-width: 1.35rem;
+    height: 1.35rem;
+    padding: 0 0.35rem;
+    border-radius: 999px;
+    background: #e4566b;
+    color: white;
+    font-size: 0.72rem;
+    font-weight: 700;
+    display: inline-grid;
+    place-items: center;
+  }
+
+  .mobile-search {
+    margin-left: auto;
+    width: 2.5rem;
+    height: 2.5rem;
+    border: none;
+    border-radius: 6px;
+    background: #f1f3f5;
+    color: #2c3e50;
+    display: grid;
+    place-items: center;
+    cursor: pointer;
+  }
+
+  .denied {
+    text-align: center;
+    padding: 2rem;
+  }
+
+  .denied h1 {
+    margin: 0 0 0.5rem;
+    color: #256169;
+  }
+
+  .denied a {
+    color: #256169;
+  }
+
+  .denied-logout {
+    background: #256169;
+    width: auto;
+    margin-top: 1rem;
+    padding: 0.6rem 1.2rem;
   }
 
   .nav-list {
@@ -458,7 +493,8 @@
     display: flex;
     align-items: center;
     gap: 0.75rem;
-    padding: 1rem 1.5rem;
+    padding: 0.7rem 1.5rem;
+    border-left: 3px solid transparent;
     color: rgba(255, 255, 255, 0.8);
     text-decoration: none;
     transition: all 0.2s;
@@ -472,11 +508,12 @@
   .nav-list a.active {
     background: rgba(255, 255, 255, 0.15);
     color: white;
-    border-left: 3px solid #3498db;
+    border-left: 3px solid #e2cf7f;
   }
 
   .nav-list .icon {
-    font-size: 1.2rem;
+    display: inline-flex;
+    opacity: 0.9;
   }
 
   .sidebar-footer {
@@ -497,8 +534,8 @@
 
   .logout-btn {
     width: 100%;
-    padding: 0.75rem;
-    background: rgba(231, 76, 60, 0.9);
+    padding: 0.65rem;
+    background: rgba(255, 255, 255, 0.08);
     color: white;
     border: none;
     border-radius: 4px;
@@ -512,11 +549,11 @@
   }
 
   .logout-btn:hover {
-    background: rgba(192, 57, 43, 1);
+    background: rgba(192, 57, 43, 0.9);
   }
 
   .logout-btn .icon {
-    font-size: 1rem;
+    display: inline-flex;
   }
 
   .main-content {

@@ -1,6 +1,8 @@
 <script lang="ts">
   import { onMount } from "svelte";
   import ManagePageShell from "$lib/components/manage/ManagePageShell.svelte";
+  import { supabase } from "$lib/supabase";
+  import { todayIso } from "$lib/dates";
   import {
     FLYER_WIDTH,
     FLYER_HEIGHT,
@@ -30,6 +32,7 @@
   }
 
   onMount(async () => {
+    void prefillFromNextTasting();
     try {
       assets = await loadFlyerAssets();
     } catch (e) {
@@ -38,6 +41,21 @@
       loading = false;
     }
   });
+
+  /** Reprend la date (et l’heure / le prix s’ils sont renseignés) de la prochaine dégustation. */
+  async function prefillFromNextTasting() {
+    const { data } = await supabase
+      .from("tasting")
+      .select("*")
+      .gte("date", todayIso())
+      .order("date", { ascending: true })
+      .limit(1);
+    const next = (data || [])[0] as any;
+    if (!next) return;
+    date = next.date;
+    if (next.start_time) time = String(next.start_time).slice(0, 5);
+    if (next.price != null) price = Number(next.price);
+  }
 
   $: if (canvasEl && assets) {
     drawTastingFlyer(canvasEl.getContext("2d")!, assets, {

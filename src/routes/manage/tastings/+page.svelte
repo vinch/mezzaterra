@@ -7,6 +7,9 @@
   import ProductVintageAutocomplete from "$lib/components/manage/ProductVintageAutocomplete.svelte";
   import CustomerAutocomplete from "$lib/components/manage/CustomerAutocomplete.svelte";
   import { customerDisplayLabel, sortCustomersByLabel } from "$lib/customerDisplay";
+  import { hasTastingExtras } from "$lib/features";
+  import { fetchTastingWithWines } from "$lib/publicData";
+  import { downloadTableCardsPdf } from "$lib/tableCards";
 
   type TastingRow = Tasting & {
     tasting_wine_vintage: { order: number; wine_vintage_id: string }[];
@@ -35,18 +38,53 @@
   let selectedVintageId = "";
   let selectedCustomerId = "";
   let saving = false;
+  /** Colonnes publiques (heure, prix, capacité, description) présentes en base ? */
+  let extras = false;
+  let cardsBusyId = "";
 
   let formData = {
     name: "",
     date: "",
     location: "",
     notes: "",
+    start_time: "",
+    price: "",
+    capacity: "",
+    description: "",
   };
 
   onMount(async () => {
-    await Promise.all([loadTastings(), loadWineVintages(), loadCustomers()]);
+    const [, , , hasExtras] = await Promise.all([
+      loadTastings(),
+      loadWineVintages(),
+      loadCustomers(),
+      hasTastingExtras(),
+    ]);
+    extras = hasExtras;
     loading = false;
   });
+
+  async function downloadCards(tasting: TastingRow) {
+    cardsBusyId = tasting.id;
+    error = "";
+    try {
+      const res = await fetchTastingWithWines(tasting.id);
+      if (!res.tasting || res.wineVintages.length === 0) {
+        error = "Ajoutez des vins à la dégustation pour générer les fiches.";
+        return;
+      }
+      await downloadTableCardsPdf(res.tasting, res.wineVintages, window.location.origin);
+    } catch (e) {
+      error = e instanceof Error ? e.message : "Génération des fiches impossible";
+    } finally {
+      cardsBusyId = "";
+    }
+  }
+
+  function numOrNull(v: string): number | null {
+    const n = parseFloat(String(v).replace(",", "."));
+    return Number.isFinite(n) ? n : null;
+  }
 
   function isCustomerInModal(customerId: string): boolean {
     return modalCustomers.some((e) => e.customer_id === customerId);
@@ -236,6 +274,10 @@
       date: todayIsoDate(),
       location: "",
       notes: "",
+      start_time: "",
+      price: "",
+      capacity: "",
+      description: "",
     };
     modalWines = [];
     modalCustomers = [];
@@ -258,6 +300,10 @@
       date: isoDateOnly(tasting.date),
       location: tasting.location || "",
       notes: tasting.notes || "",
+      start_time: tasting.start_time ? tasting.start_time.slice(0, 5) : "",
+      price: tasting.price != null ? String(tasting.price) : "",
+      capacity: tasting.capacity != null ? String(tasting.capacity) : "",
+      description: tasting.description || "",
     };
     selectedVintageId = "";
     selectedCustomerId = "";
@@ -379,18 +425,25 @@
     saving = true;
     error = "";
 
-    const payload = {
+    const payload: Record<string, unknown> = {
       name: formData.name.trim() || null,
       date: formData.date,
       location: formData.location.trim() || null,
       notes: formData.notes.trim() || null,
     };
+    if (extras) {
+      const capacity = numOrNull(formData.capacity);
+      payload.start_time = formData.start_time || null;
+      payload.price = numOrNull(formData.price);
+      payload.capacity = capacity != null ? Math.max(0, Math.round(capacity)) : null;
+      payload.description = formData.description.trim() || null;
+    }
 
     try {
       if (editingTasting) {
         const { error: updateError } = await supabase
           .from("tasting")
-          .update(payload)
+          .update(payload as any)
           .eq("id", editingTasting.id);
 
         if (updateError) throw new Error(updateError.message);
@@ -399,7 +452,7 @@
       } else {
         const { data: created, error: insertError } = await supabase
           .from("tasting")
-          .insert(payload)
+          .insert(payload as any)
           .select("id")
           .single();
 
@@ -526,6 +579,17 @@
                   >
                     Voir
                   </a>
+                  <a href="/manage/tastings/{tasting.id}/live" class="btn-live">
+                    Piloter
+                  </a>
+                  <button
+                    type="button"
+                    class="btn-pdf"
+                    disabled={cardsBusyId === tasting.id}
+                    on:click={() => downloadCards(tasting)}
+                  >
+                    {cardsBusyId === tasting.id ? "…" : "Fiches de table"}
+                  </button>
                   <button
                     type="button"
                     class="btn-edit"
@@ -573,9 +637,28 @@
         <label for="tasting-location">Lieu</label>
         <input type="text" id="tasting-location" bind:value={formData.location} />
       </div>
+      {#if extras}
+        <div class="form-group">
+          <label for="tasting-time">Heure</label>
+          <input type="time" id="tasting-time" bind:value={formData.start_time} />
+        </div>
+        <div class="form-group">
+          <label for="tasting-price">Prix / personne (€)</label>
+          <input type="text" inputmode="decimal" id="tasting-price" bind:value={formData.price} />
+        </div>
+        <div class="form-group">
+          <label for="tasting-capacity">Places (inscriptions en ligne)</label>
+          <input type="number" min="0" id="tasting-capacity" bind:value={formData.capacity} placeholder="Illimité" />
+        </div>
+        <div class="form-group full-width">
+          <label for="tasting-description">Description publique</label>
+          <textarea id="tasting-description" rows="3" bind:value={formData.description} placeholder="Affichée sur le site (thème, vigneron invité, menu…)"></textarea>
+        </div>
+      {/if}
       <div class="form-group full-width">
-        <label for="tasting-notes">Notes</label>
+        <label for="tasting-notes">Notes internes</label>
         <textarea id="tasting-notes" rows="3" bind:value={formData.notes}></textarea>
+        <small class="field-hint">Jamais affichées sur le site public.</small>
       </div>
 
       <div class="form-group full-width tasting-wines-block">
@@ -735,6 +818,30 @@
   .btn-view:hover {
     background: #5a6268;
     color: white;
+  }
+
+  .btn-live {
+    padding: 0.35rem 0.65rem;
+    background: var(--mz-teal, #256169);
+    color: white;
+    border-radius: 4px;
+    font-size: 0.85rem;
+    text-decoration: none;
+    display: inline-block;
+  }
+
+  .btn-live:hover {
+    background: var(--mz-teal-deep, #1a474d);
+    color: white;
+  }
+
+  .actions {
+    flex-wrap: wrap;
+  }
+
+  .field-hint {
+    color: #868e96;
+    font-size: 0.8rem;
   }
 
   .tasting-wines-block .section-title {

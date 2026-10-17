@@ -15,3 +15,38 @@ npm run dev
 npm run build
 npm run preview
 ```
+
+## Base de données
+
+Les migrations sont dans `supabase/migrations/`. `20261016120000_public_experience.sql` est
+purement additive et active : inscriptions en ligne, notes et demandes « J'en veux » du mode live,
+disponibilité publique des vins, carnet client et désinscription. Tant qu'elle n'est pas appliquée,
+le site fonctionne en mode dégradé (ces fonctions sont simplement masquées ou remplacées).
+
+```sh
+supabase link --project-ref wmerreifcpttrhxwmkmn
+supabase db push
+npm run update-types
+```
+
+## Pages
+
+| Public | |
+|---|---|
+| `/` | Accueil : le concept Mezzaterra, vin du moment, inscription (sans annonce de dégustation) |
+| `/tastings`, `/tastings/[id]` | Dégustations à venir / passées, réservation, ajout à l'agenda |
+| `/tastings/[id]/live` | Mode live (thème sombre) : vin servi en direct, notes, « J'en veux » |
+| `/vins`, `/vins/[id]` | Catalogue et fiches vin partageables (Open Graph) |
+| `/accords` | « Qu'est-ce qu'on boit ce soir ? » |
+| `/carnet` | Carnet client (notes locales + achats via lien magique) |
+
+| Gestion | |
+|---|---|
+| `/manage` | Tableau de bord : CA 12 mois, top vins, stock bas (réassort), stock dormant |
+| `/manage/tastings/[id]/live` | Pilotage en direct, QR code, mode projection, demandes, inscrits |
+| `/manage/requests` | Demandes « J'en veux » → ventes « En attente » |
+| `/manage/insights` | Marges, rotation du stock, rentabilité des dégustations |
+| `/manage/customers/[id]` | Fiche client : historique, goûts, suggestions |
+| `/manage/campaigns` | Invitations et rappels par email (Resend, ou copier / messagerie) |
+
+⌘K / Ctrl+K ouvre la recherche globale dans la gestion.

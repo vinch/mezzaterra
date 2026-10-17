@@ -16,6 +16,7 @@
 		"@sveltejs/adapter-auto": "^6.0.0",
 		"@sveltejs/kit": "^2.22.0",
 		"@sveltejs/vite-plugin-svelte": "^6.0.0",
+		"@types/qrcode": "^1.5.6",
 		"svelte": "^5.0.0",
 		"svelte-check": "^4.0.0",
 		"typescript": "^5.0.0",
@@ -23,6 +24,7 @@
 	},
 	"dependencies": {
 		"@supabase/supabase-js": "^2.53.0",
-		"jspdf": "^2.5.2"
+		"jspdf": "^2.5.2",
+		"qrcode": "^1.5.4"
 	}
 }

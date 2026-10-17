@@ -35,7 +35,7 @@ function arrayBufferToBase64(buffer: ArrayBuffer): string {
 }
 
 /** Roboto (Identity-H) : €, accents, etc. — Helvetica WinAnsi corrompt l’Unicode. */
-async function attachRobotoPdf(doc: jsPDF): Promise<boolean> {
+export async function attachRobotoPdf(doc: jsPDF): Promise<boolean> {
   if (typeof fetch === "undefined") return false;
   try {
     const [regRes, boldRes] = await Promise.all([

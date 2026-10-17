@@ -1,0 +1,235 @@
+/**
+ * Primitives du site public (préfixe mz- pour ne jamais entrer en collision avec l’admin).
+ * Importé par routes/(site)/+layout.svelte et la page d’accueil.
+ */
+
+.mz-container {
+  max-width: 1160px;
+  margin: 0 auto;
+  padding: 0 1.5rem;
+}
+
+.mz-section {
+  padding-top: 3rem;
+  padding-bottom: 3rem;
+}
+
+.mz-eyebrow {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-family: var(--mz-font-body);
+  font-size: 0.75rem;
+  font-weight: 600;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--mz-teal-soft);
+}
+
+.mz-display {
+  font-family: var(--mz-font-display);
+  font-weight: 500;
+  font-variation-settings: "opsz" 144;
+  letter-spacing: -0.015em;
+  line-height: 1.05;
+  color: var(--mz-teal);
+  margin: 0;
+}
+
+.mz-h1 {
+  font-size: clamp(2.2rem, 5vw, 3.6rem);
+}
+
+.mz-h2 {
+  font-size: clamp(1.6rem, 3vw, 2.2rem);
+}
+
+.mz-h3 {
+  font-size: 1.35rem;
+}
+
+.mz-lead {
+  font-size: 1.08rem;
+  line-height: 1.6;
+  color: var(--mz-ink-soft);
+  max-width: 42rem;
+}
+
+.mz-muted {
+  color: var(--mz-muted);
+}
+
+/* ——— Boutons ——— */
+.mz-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  padding: 0.75rem 1.3rem;
+  border-radius: 999px;
+  border: 1px solid var(--mz-teal);
+  background: var(--mz-teal);
+  color: #fff;
+  font-family: var(--mz-font-body);
+  font-size: 0.95rem;
+  font-weight: 600;
+  text-decoration: none;
+  cursor: pointer;
+  transition:
+    background-color 0.2s ease,
+    color 0.2s ease,
+    transform 0.2s var(--mz-ease),
+    box-shadow 0.2s ease;
+}
+
+.mz-btn:hover:not(:disabled) {
+  background: var(--mz-teal-deep);
+  transform: translateY(-1px);
+  box-shadow: 0 6px 16px -8px rgba(37, 97, 105, 0.7);
+}
+
+.mz-btn:disabled {
+  opacity: 0.55;
+  cursor: default;
+}
+
+.mz-btn--ghost {
+  background: transparent;
+  color: var(--mz-teal);
+}
+
+.mz-btn--ghost:hover:not(:disabled) {
+  background: var(--mz-teal-wash);
+  box-shadow: none;
+}
+
+.mz-btn--sm {
+  padding: 0.45rem 0.9rem;
+  font-size: 0.85rem;
+}
+
+.mz-btn--block {
+  width: 100%;
+}
+
+.mz-link {
+  color: var(--mz-teal);
+  font-weight: 600;
+  text-decoration: none;
+  border-bottom: 1px solid currentColor;
+  padding-bottom: 1px;
+}
+
+.mz-link:hover {
+  color: var(--mz-teal-deep);
+}
+
+/* ——— Cartes & puces ——— */
+.mz-card {
+  background: var(--mz-paper-raised);
+  border: 1px solid var(--mz-line-soft);
+  border-radius: var(--mz-radius);
+  box-shadow: var(--mz-shadow-sm);
+}
+
+.mz-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.3rem 0.7rem;
+  border-radius: 999px;
+  background: var(--mz-teal-wash);
+  color: var(--mz-teal);
+  font-size: 0.8rem;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.mz-dot {
+  width: 0.6rem;
+  height: 0.6rem;
+  border-radius: 50%;
+  display: inline-block;
+  flex-shrink: 0;
+  box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.08);
+}
+
+/* ——— Formulaires ——— */
+.mz-field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+.mz-field label,
+.mz-label {
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: var(--mz-ink-soft);
+}
+
+.mz-input,
+.mz-field input,
+.mz-field select,
+.mz-field textarea {
+  font: inherit;
+  font-size: 1rem;
+  padding: 0.7rem 0.85rem;
+  border-radius: 10px;
+  border: 1px solid var(--mz-line);
+  background: #fff;
+  color: var(--mz-ink);
+  transition:
+    border-color 0.15s ease,
+    box-shadow 0.15s ease;
+}
+
+.mz-input:focus,
+.mz-field input:focus,
+.mz-field select:focus,
+.mz-field textarea:focus {
+  outline: none;
+  border-color: var(--mz-teal);
+  box-shadow: 0 0 0 3px var(--mz-teal-wash);
+}
+
+.mz-feedback {
+  margin: 0.75rem 0 0;
+  font-size: 0.92rem;
+}
+
+.mz-feedback--success {
+  color: var(--mz-success);
+}
+
+.mz-feedback--error {
+  color: var(--mz-danger);
+}
+
+.mz-empty {
+  padding: 3rem 1.5rem;
+  text-align: center;
+  color: var(--mz-muted);
+}
+
+/* Apparition douce au scroll / au chargement. */
+@keyframes mz-rise {
+  from {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+.mz-rise {
+  animation: mz-rise 0.6s var(--mz-ease) both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .mz-rise {
+    animation: none;
+  }
+}

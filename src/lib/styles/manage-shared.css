@@ -4,6 +4,10 @@
  */
 
 /* ——— Page shell ——— */
+.admin-layout {
+  font-family: var(--mz-font-body, sans-serif);
+}
+
 .page-container {
   min-height: 100vh;
 }
@@ -20,8 +24,15 @@
 
 .page-header h1 {
   margin: 0;
-  color: #333;
-  font-size: 1.75rem;
+  color: var(--mz-teal, #256169);
+  font-family: var(--mz-font-display, inherit);
+  font-weight: 500;
+  font-size: 1.85rem;
+  letter-spacing: -0.01em;
+}
+
+.page-header-actions a {
+  text-decoration: none;
 }
 
 .page-header-actions {
@@ -120,7 +131,7 @@
 .filter-group select:focus,
 .filter-group textarea:focus {
   outline: none;
-  border-color: #007bff;
+  border-color: var(--mz-teal, #256169);
 }
 
 .filter-group button {
@@ -189,7 +200,7 @@ tbody tr:hover {
 /* ——— Boutons principaux ——— */
 .btn-primary {
   padding: 0.5rem 1rem;
-  background: #007bff;
+  background: var(--mz-teal, #256169);
   color: white;
   border: none;
   border-radius: 4px;
@@ -198,7 +209,7 @@ tbody tr:hover {
 }
 
 .btn-primary:hover:not(:disabled) {
-  background: #0056b3;
+  background: var(--mz-teal-deep, #1a474d);
 }
 
 .btn-secondary {
@@ -496,7 +507,7 @@ tbody tr:hover {
 
 .btn-language:hover {
   background: #e9ecef;
-  border-color: #007bff;
+  border-color: var(--mz-teal, #256169);
   transform: translateX(4px);
 }
 
@@ -561,7 +572,7 @@ input:focus,
 select:focus,
 textarea:focus {
   outline: none;
-  border-color: #007bff;
+  border-color: var(--mz-teal, #256169);
 }
 
 .modal-footer {
