@@ -1,17 +1,20 @@
+import { error } from "@sveltejs/kit";
 import { supabase } from "$lib/supabase";
 import { VINTAGE_PUBLIC_SELECT } from "$lib/wine";
 import type { PageLoad } from "./$types";
 
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
 export const load: PageLoad = async ({ params }) => {
-  const { data: vintage, error } = await supabase
+  if (!UUID.test(params.id)) throw error(404, "Page introuvable");
+  const { data: vintage, error: fetchError } = await supabase
     .from("wine_vintage")
     .select(VINTAGE_PUBLIC_SELECT)
     .eq("id", params.id)
     .maybeSingle();
 
-  if (error || !vintage) {
-    return { vintage: null as any, siblings: [] as any[], fromWinery: [] as any[] };
-  }
+  if (fetchError) throw error(500, "Impossible de charger ce vin");
+  if (!vintage) throw error(404, "Vin introuvable");
 
   const v = vintage as any;
   const wineryId = v.wine?.winery_id ?? v.wine?.winery?.id;

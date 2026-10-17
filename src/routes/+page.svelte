@@ -47,6 +47,26 @@
     isSubmitting = false;
   }
 
+  let emailInput: HTMLInputElement;
+
+  /** « Sur invitation ↓ » : défilement doux jusqu'au formulaire, puis focus dans le champ email. */
+  function goToSignup(e: MouseEvent) {
+    const target = document.getElementById("newsletter");
+    if (!target || !emailInput) return;
+    e.preventDefault();
+    const reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    target.scrollIntoView({ behavior: reduce ? "auto" : "smooth", block: "center" });
+    history.replaceState(history.state, "", "#newsletter");
+    const focus = () => emailInput.focus({ preventScroll: true });
+    if (reduce || !("onscrollend" in window)) {
+      setTimeout(focus, reduce ? 0 : 600);
+    } else {
+      window.addEventListener("scrollend", focus, { once: true });
+      /* Filet de sécurité si aucun défilement n'a lieu (déjà en bas de page). */
+      setTimeout(focus, 900);
+    }
+  }
+
   /** « A, B et C » */
   function listFr(items: string[]): string {
     if (items.length <= 1) return items.join("");
@@ -77,7 +97,7 @@
           mer Adriatique et le massif du Gran Sasso. Des vins de vignerons, encore confidentiels de ce
           côté des Alpes, que l’on prend le temps de faire découvrir.
         </p>
-        <a class="hero-link" href="#newsletter">Sur invitation <span aria-hidden="true">↓</span></a>
+        <a class="hero-link" href="#newsletter" on:click={goToSignup}>Sur invitation <span aria-hidden="true">↓</span></a>
       </div>
       <div class="hero-map mz-rise" style="animation-delay: 120ms">
         <AbruzzoMap wineries={data.wineries} />
@@ -131,6 +151,8 @@
       </p>
       <form on:submit|preventDefault={handleSubscribe} class="subscribe-form">
         <input
+          bind:this={emailInput}
+          id="newsletter-email"
           type="email"
           bind:value={email}
           placeholder="Votre email"
