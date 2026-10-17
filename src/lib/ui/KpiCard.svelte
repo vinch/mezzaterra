@@ -58,6 +58,17 @@
     color: var(--teal-600);
   }
 
+  @media (max-width: 767px) {
+    .kpi {
+      padding: 12px 14px 14px;
+    }
+
+    .kpi :global(.t-figure) {
+      font-size: 22px;
+      line-height: 28px;
+    }
+  }
+
   .kpi-context {
     font-size: 12px;
     line-height: 16px;

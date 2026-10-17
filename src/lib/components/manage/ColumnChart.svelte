@@ -7,14 +7,18 @@
   export let data: { key: string; label: string; value: number }[] = [];
   export let format: (n: number) => string = (n) => String(Math.round(n));
   export let title = "";
-  export let color = "var(--mz-teal, #256169)";
-  /** Clé mise en valeur (ex. mois courant). */
+  /** Description complète pour les lecteurs d'écran (sinon : titre). */
+  export let ariaLabel = "";
+  export let color = "var(--teal-600, #256169)";
+  /** Clé en cours (ex. mois courant, non terminé) : affichée plus claire. */
   export let highlightKey: string | null = null;
+  /** Format des graduations de l'axe. */
+  export let tickFormat: ((n: number) => string) | null = null;
 
   const H = 180;
   const PAD_TOP = 18;
   const PAD_BOTTOM = 24;
-  const PAD_LEFT = 44;
+  const PAD_LEFT = 56;
   const BAR_MAX = 24;
 
   let width = 600;
@@ -51,10 +55,10 @@
 
 <figure class="chart" bind:clientWidth={width}>
   {#if title}<figcaption>{title}</figcaption>{/if}
-  <svg viewBox="0 0 {width} {H}" width="100%" height={H} role="img" aria-label={title}>
+  <svg viewBox="0 0 {width} {H}" width="100%" height={H} role="img" aria-label={ariaLabel || title}>
     {#each ticks as t}
       <line x1={PAD_LEFT} x2={width - 8} y1={y(t)} y2={y(t)} class="grid" />
-      <text x={PAD_LEFT - 8} y={y(t) + 4} class="tick" text-anchor="end">{compact(t)}</text>
+      <text x={PAD_LEFT - 8} y={y(t) + 4} class="tick" text-anchor="end">{tickFormat ? tickFormat(t) : compact(t)}</text>
     {/each}
 
     {#each data as d, i (d.key)}
@@ -71,11 +75,11 @@
         <path
           d={columnPath(cx - barW / 2, top, barW)}
           fill={color}
-          opacity={highlightKey && d.key !== highlightKey ? 0.55 : 1}
+          opacity={highlightKey && d.key === highlightKey ? 0.4 : 1}
         />
         <text x={cx} y={H - 6} class="tick" text-anchor="middle">{d.label}</text>
         {#if i === peak && d.value > 0 && hover == null}
-          <text x={cx} y={top - 6} class="value" text-anchor="middle">{compact(d.value)}</text>
+          <text x={cx} y={top - 6} class="value" text-anchor="middle">{format(d.value)}</text>
         {/if}
       </g>
     {/each}
@@ -124,19 +128,19 @@
   }
 
   .grid {
-    stroke: #ebe8e1;
+    stroke: var(--border-soft, #e7e2d6);
     stroke-width: 1;
   }
 
   .tick {
     font-size: 11px;
-    fill: #868e96;
+    fill: var(--ink-2, #5f6764);
   }
 
   .value {
     font-size: 11px;
     font-weight: 600;
-    fill: #3d4f51;
+    fill: var(--ink, #1f2a2b);
   }
 
   .col path {
@@ -170,7 +174,7 @@
   .table-view {
     margin-top: 0.4rem;
     font-size: 0.8rem;
-    color: #868e96;
+    color: var(--teal-600, #256169);
   }
 
   .table-view summary {

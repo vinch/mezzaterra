@@ -3,7 +3,24 @@
   import { getContext, onMount } from "svelte";
   import ManagePageShell from "$lib/components/manage/ManagePageShell.svelte";
   import ColumnChart from "$lib/components/manage/ColumnChart.svelte";
-  import Icon, { type IconName } from "$lib/components/Icon.svelte";
+  import Button from "$lib/ui/Button.svelte";
+  import Card from "$lib/ui/Card.svelte";
+  import KpiCard from "$lib/ui/KpiCard.svelte";
+  import EmptyState from "$lib/ui/EmptyState.svelte";
+  import StockBadge from "$lib/ui/StockBadge.svelte";
+  import WineDot, { robeOf } from "$lib/ui/WineDot.svelte";
+  import {
+    IconBox,
+    IconCalendar,
+    IconChart,
+    IconEuro,
+    IconGlasses,
+    IconInbox,
+    IconLightbulb,
+    IconPlus,
+    IconUsers,
+    IconWine,
+  } from "$lib/ui/icons";
   import {
     REVENUE_STATUSES,
     loadDataset,
@@ -15,19 +32,9 @@
   import { addToNextSupplierOrder } from "$lib/reorder";
   import { hasTable } from "$lib/features";
   import { daysUntil, formatDateLong, todayIso } from "$lib/dates";
-  import { formatEur, vintageLabel } from "$lib/wine";
+  import { formatDate, formatEUR } from "$lib/format";
 
   const { user: userStore } = getContext<any>("auth");
-
-  type StatCard = {
-    id: string;
-    icon: IconName;
-    label: string;
-    value: string;
-    hint?: string;
-    href: string;
-    tone: "blue" | "green" | "purple" | "amber" | "rose" | "slate";
-  };
 
   let email = "";
   let error = "";
@@ -36,34 +43,51 @@
 
   let statsLoading = true;
   let statsError = "";
-  let statCards: StatCard[] = [];
 
+  /** Seuil « stock bas » (aligné sur l'ancien indicateur). */
+  const LOW_STOCK = 3;
+  /** Jours sans vente au-delà desquels un vin en stock est « dormant ». */
+  const DORMANT_DAYS = 90;
+
+  let kpi = {
+    revenueAll: 0,
+    revenueMonth: 0,
+    pendingSales: 0,
+    wineMargin: 0,
+    marginPct: null as number | null,
+    bottles: 0,
+    stockValue: 0,
+    lowCount: 0,
+    wines: 0,
+    vintages: 0,
+    customers: 0,
+    tastings: 0,
+  };
   let months: { key: string; label: string; value: number }[] = [];
   let topWines: VintageStats[] = [];
+  let outOfStock: VintageStats[] = [];
   let lowStock: VintageStats[] = [];
   let dormant: VintageStats[] = [];
   let nextTasting: any = null;
+  let lastTasting: any = null;
   let nextTastingSeats: number | null = null;
   let newRequests = 0;
   let reorderBusy = "";
   let reorderMsg = "";
 
-  /** Seuil « stock bas » (aligné sur l’ancien indicateur). */
-  const LOW_STOCK = 3;
-  /** Jours sans vente au-delà desquels un vin en stock est « dormant ». */
-  const DORMANT_DAYS = 90;
-
-  function formatInt(n: number): string {
-    return new Intl.NumberFormat("fr-FR").format(n);
-  }
-
-  function formatEurRound(n: number): string {
-    return formatEur(n, true);
-  }
+  const today = formatDateLong(todayIso());
 
   function monthStartIso(): string {
     const d = new Date();
     return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-01`;
+  }
+
+  /** « Riserva 2019 » */
+  function vintageName(v: any): string {
+    const w = v?.wine;
+    const name = w?.name?.trim() || w?.appelation?.name || "Vin";
+    const year = v?.year ?? v?.production_year;
+    return year ? `${name} ${year}` : name;
   }
 
   async function loadDashboardStats() {
@@ -72,8 +96,7 @@
 
     try {
       const monthStart = monthStartIso();
-
-      const [ds, customersRes, winesRes, vintagesRes, tastingsRes, nextRes] = await Promise.all([
+      const [ds, customersRes, winesRes, vintagesRes, tastingsRes, nextRes, lastRes] = await Promise.all([
         loadDataset(),
         supabase.from("customer").select("id", { count: "exact", head: true }),
         supabase.from("wine").select("id", { count: "exact", head: true }),
@@ -85,51 +108,45 @@
           .gte("date", todayIso())
           .order("date", { ascending: true })
           .limit(1),
+        supabase.from("tasting").select("id, name, date, location").lt("date", todayIso()).order("date", { ascending: false }).limit(1),
       ]);
 
-      const firstErr =
-        customersRes.error || winesRes.error || vintagesRes.error || tastingsRes.error;
+      const firstErr = customersRes.error || winesRes.error || vintagesRes.error || tastingsRes.error;
       if (firstErr) throw new Error(firstErr.message);
 
-      const invRows = [...ds.stock.values()].filter((q) => q > 0);
-      const bottlesInStock = invRows.reduce((s, q) => s + q, 0);
-      const vintagesInStock = invRows.length;
-      const lowStockCount = invRows.filter((q) => q <= LOW_STOCK).length;
-      const stockValue = ds.vintages.reduce(
-        (s, v) => s + Math.max(0, ds.stock.get(v.id) ?? 0) * Number(v.purchase_price || 0),
-        0,
-      );
-
-      const revenueSales = ds.sales.filter(
-        (s) => s.status !== "cancelled" && REVENUE_STATUSES.includes(s.status ?? ""),
-      );
-      const revenueAll = revenueSales.reduce((sum, r) => sum + Number(r.total_price ?? 0), 0);
-      const revenueMonth = revenueSales
-        .filter((r) => r.date >= monthStart)
-        .reduce((sum, r) => sum + Number(r.total_price ?? 0), 0);
-
+      const inStock = [...ds.stock.values()].filter((q) => q > 0);
+      const revenueSales = ds.sales.filter((s) => REVENUE_STATUSES.includes(s.status ?? ""));
       const lines = revenueLines(ds);
       const wineLines = lines.filter((l) => !l.isTastingFee);
       const wineRevenue = wineLines.reduce((s, l) => s + l.revenue, 0);
       const wineMargin = wineLines.reduce((s, l) => s + l.revenue - l.cost, 0);
-      const pendingSales = ds.sales.filter((s) => s.status === "pending").length;
+
+      kpi = {
+        revenueAll: revenueSales.reduce((sum, r) => sum + Number(r.total_price ?? 0), 0),
+        revenueMonth: revenueSales.filter((r) => r.date >= monthStart).reduce((sum, r) => sum + Number(r.total_price ?? 0), 0),
+        pendingSales: ds.sales.filter((s) => s.status === "pending").length,
+        wineMargin,
+        marginPct: wineRevenue > 0 ? Math.round((wineMargin / wineRevenue) * 100) : null,
+        bottles: inStock.reduce((s, q) => s + q, 0),
+        stockValue: ds.vintages.reduce((s, v) => s + Math.max(0, ds.stock.get(v.id) ?? 0) * Number(v.purchase_price || 0), 0),
+        lowCount: inStock.filter((q) => q <= LOW_STOCK).length,
+        wines: winesRes.count ?? 0,
+        vintages: vintagesRes.count ?? 0,
+        customers: customersRes.count ?? 0,
+        tastings: tastingsRes.count ?? 0,
+      };
 
       const stats = vintageStats(ds, lines);
       months = monthlyRevenue(ds);
-      topWines = stats
-        .filter((s) => s.sold > 0)
-        .sort((a, b) => b.revenue - a.revenue)
-        .slice(0, 5);
-      lowStock = stats
-        .filter((s) => (s.stock > 0 && s.stock <= LOW_STOCK) || (s.stock <= 0 && s.sold > 0))
-        .sort((a, b) => a.stock - b.stock || b.sold - a.sold)
-        .slice(0, 8);
+      topWines = stats.filter((s) => s.sold > 0).sort((a, b) => b.revenue - a.revenue).slice(0, 5);
+      outOfStock = stats.filter((s) => s.stock <= 0 && s.sold > 0).sort((a, b) => b.sold - a.sold);
+      lowStock = stats.filter((s) => s.stock > 0 && s.stock <= LOW_STOCK).sort((a, b) => a.stock - b.stock || b.sold - a.sold);
       dormant = stats
         .filter((s) => s.stock > 0 && (s.idleDays == null || s.idleDays >= DORMANT_DAYS))
-        .sort((a, b) => b.stock * Number(b.vintage.purchase_price || 0) - a.stock * Number(a.vintage.purchase_price || 0))
-        .slice(0, 6);
+        .sort((a, b) => b.stock * Number(b.vintage.purchase_price || 0) - a.stock * Number(a.vintage.purchase_price || 0));
 
       nextTasting = (nextRes.data || [])[0] ?? null;
+      lastTasting = (lastRes.data || [])[0] ?? null;
       nextTastingSeats = null;
       if (nextTasting && (await hasTable("tasting_registration"))) {
         const { data } = await supabase
@@ -141,82 +158,18 @@
       }
       newRequests = 0;
       if (await hasTable("wish_request")) {
-        const { count } = await supabase
-          .from("wish_request")
-          .select("id", { count: "exact", head: true })
-          .eq("status", "new");
+        const { count } = await supabase.from("wish_request").select("id", { count: "exact", head: true }).eq("status", "new");
         newRequests = count ?? 0;
       }
-
-      statCards = [
-        {
-          id: "bottles",
-          icon: "bottle",
-          label: "Bouteilles en stock",
-          value: formatInt(bottlesInStock),
-          hint:
-            lowStockCount > 0
-              ? `${formatInt(lowStockCount)} millésime${lowStockCount > 1 ? "s" : ""} ≤ ${LOW_STOCK} bt. · ${formatEurRound(stockValue)} au prix d’achat`
-              : `${formatInt(vintagesInStock)} référence${vintagesInStock > 1 ? "s" : ""} · ${formatEurRound(stockValue)} au prix d’achat`,
-          href: "/manage/stock",
-          tone: "green",
-        },
-        {
-          id: "wines",
-          icon: "wine",
-          label: "Vins au catalogue",
-          value: formatInt(winesRes.count ?? 0),
-          hint: `${formatInt(vintagesRes.count ?? 0)} millésime${(vintagesRes.count ?? 0) > 1 ? "s" : ""}`,
-          href: "/manage/wines",
-          tone: "purple",
-        },
-        {
-          id: "customers",
-          icon: "users",
-          label: "Clients",
-          value: formatInt(customersRes.count ?? 0),
-          href: "/manage/customers",
-          tone: "blue",
-        },
-        {
-          id: "revenue",
-          icon: "cash",
-          label: "Chiffre d'affaires",
-          value: formatEurRound(revenueAll),
-          hint: `${formatEurRound(revenueMonth)} ce mois-ci${pendingSales ? ` · ${pendingSales} vente${pendingSales > 1 ? "s" : ""} en attente` : ""}`,
-          href: "/manage/sales",
-          tone: "amber",
-        },
-        {
-          id: "margin",
-          icon: "chart",
-          label: "Marge brute sur les vins",
-          value: formatEurRound(wineMargin),
-          hint: wineRevenue > 0 ? `${Math.round((wineMargin / wineRevenue) * 100)} % du CA vin` : "Aucune vente encaissée",
-          href: "/manage/insights",
-          tone: "rose",
-        },
-        {
-          id: "tastings",
-          icon: "glasses",
-          label: "Dégustations",
-          value: formatInt(tastingsRes.count ?? 0),
-          hint: newRequests > 0 ? `${newRequests} demande${newRequests > 1 ? "s" : ""} « J’en veux » à traiter` : undefined,
-          href: newRequests > 0 ? "/manage/requests" : "/manage/tastings",
-          tone: "purple",
-        },
-      ];
     } catch (e) {
-      statsError =
-        e instanceof Error ? e.message : "Impossible de charger les statistiques";
-      statCards = [];
+      statsError = e instanceof Error ? e.message : "Impossible de charger les statistiques";
     } finally {
       statsLoading = false;
     }
   }
 
   async function reorder(s: VintageStats) {
-    const raw = prompt(`Combien de bouteilles de « ${vintageLabel(s.vintage)} » ajouter à la commande fournisseur ?`, "12");
+    const raw = prompt(`Combien de bouteilles de « ${vintageName(s.vintage)} » ajouter à la commande fournisseur ?`, "12");
     if (raw == null) return;
     const qty = parseInt(raw, 10);
     if (!Number.isFinite(qty) || qty < 1) return;
@@ -269,6 +222,11 @@
       handleMagicLink();
     }
   }
+
+  $: stockAlerts = [...outOfStock, ...lowStock];
+  $: chartLabel = `Chiffre d'affaires encaissé par mois sur les 12 derniers mois. ${months
+    .map((m) => `${m.label} : ${formatEUR(m.value)}`)
+    .join(", ")}.`;
 </script>
 
 <svelte:head>
@@ -276,403 +234,332 @@
 </svelte:head>
 
 {#if !$userStore}
-  <div class="login-container">
-    <div class="login-form">
-      <h1>Accès gestion</h1>
+  <div class="login">
+    <div class="login-card">
+      <p class="login-brand"><span>Mezza</span><small>TERRA</small></p>
+      <h1 class="t-card-title">Accès gestion</h1>
 
       {#if !magicLinkSent}
-        <div class="input-group">
-          <input
-            type="email"
-            bind:value={email}
-            placeholder="Votre email"
-            on:keydown={handleKeydown}
-          />
-          <button on:click={handleMagicLink} disabled={loading}>
-            {loading ? "Envoi..." : "Envoyer le lien de connexion"}
-          </button>
-        </div>
+        <label class="t-label" for="login-email">Email</label>
+        <input
+          id="login-email"
+          class="ui-control"
+          type="email"
+          autocomplete="email"
+          bind:value={email}
+          placeholder="vous@exemple.be"
+          on:keydown={handleKeydown}
+        />
+        <Button variant="primary" block disabled={loading} on:click={handleMagicLink}>
+          {loading ? "Envoi…" : "Envoyer le lien de connexion"}
+        </Button>
         {#if error}
-          <p class="error">{error}</p>
+          <p class="t-danger login-error" role="alert">{error}</p>
         {/if}
       {:else}
-        <div class="magic-link-sent">
-          <p>✅ Un lien de connexion a été envoyé à <strong>{email}</strong></p>
-          <p>
-            Vérifiez votre boîte mail et cliquez sur le lien pour vous
-            connecter.
-          </p>
-          <button class="resend-btn" on:click={() => (magicLinkSent = false)}>
-            Envoyer un nouveau lien
-          </button>
-        </div>
+        <p role="status">Un lien de connexion a été envoyé à <strong>{email}</strong>.</p>
+        <p class="t-muted">Vérifiez votre boîte mail et cliquez sur le lien pour vous connecter.</p>
+        <Button on:click={() => (magicLinkSent = false)}>Envoyer un nouveau lien</Button>
       {/if}
     </div>
   </div>
 {:else}
-  <ManagePageShell title="Tableau de bord">
+  <ManagePageShell title="Tableau de bord" subtitle={today}>
+    <svelte:fragment slot="actions">
+      <Button href="/manage/tastings">Planifier une dégustation</Button>
+      <Button variant="primary" href="/manage/sales?nouvelle=1"><IconPlus size={18} strokeWidth={1.75} /> Nouvelle vente</Button>
+    </svelte:fragment>
+
     {#if statsError}
-      <div class="error-message">{statsError}</div>
+      <div class="error-message" role="alert">{statsError}</div>
     {/if}
 
     {#if statsLoading}
       <div class="loading">Chargement des indicateurs…</div>
     {:else}
-      <div class="stats-grid">
-        {#each statCards as card (card.id)}
-          <a href={card.href} class="stat-card stat-card--{card.tone}">
-            <span class="stat-icon" aria-hidden="true"><Icon name={card.icon} size="1.6rem" /></span>
-            <div class="stat-body">
-              <span class="stat-value">{card.value}</span>
-              <span class="stat-label">{card.label}</span>
-              {#if card.hint}
-                <span class="stat-hint">{card.hint}</span>
-              {/if}
-            </div>
-          </a>
-        {/each}
+      {#if kpi.pendingSales || outOfStock.length || lowStock.length || dormant.length || newRequests}
+        <nav class="todo" aria-label="À traiter">
+          <span class="todo-title"><IconInbox size={16} strokeWidth={1.75} aria-hidden="true" /> À traiter</span>
+          {#if kpi.pendingSales}
+            <a href="/manage/sales?statut=pending">{kpi.pendingSales} vente{kpi.pendingSales > 1 ? "s" : ""} en attente de paiement</a>
+          {/if}
+          {#if newRequests}
+            <a href="/manage/requests">{newRequests} demande{newRequests > 1 ? "s" : ""} « J’en veux »</a>
+          {/if}
+          {#if outOfStock.length}
+            <a class="danger" href="#stock-alerts">{outOfStock.length} millésime{outOfStock.length > 1 ? "s" : ""} en rupture</a>
+          {/if}
+          {#if lowStock.length}
+            <a class="warn" href="#stock-alerts">{lowStock.length} millésime{lowStock.length > 1 ? "s" : ""} presque épuisé{lowStock.length > 1 ? "s" : ""}</a>
+          {/if}
+          {#if dormant.length}
+            <a href="#stock-dormant">{dormant.length} vin{dormant.length > 1 ? "s" : ""} dormant{dormant.length > 1 ? "s" : ""}</a>
+          {/if}
+        </nav>
+      {/if}
+
+      <div class="kpis">
+        <KpiCard label="Chiffre d’affaires" value={formatEUR(kpi.revenueAll)} icon={IconEuro} href="/manage/sales">
+          {formatEUR(kpi.revenueMonth)} ce mois-ci · {kpi.pendingSales} vente{kpi.pendingSales > 1 ? "s" : ""} en attente
+        </KpiCard>
+        <KpiCard label="Marge brute sur les vins" value={formatEUR(kpi.wineMargin)} icon={IconChart} href="/manage/insights">
+          {kpi.marginPct != null ? `${kpi.marginPct} % du CA vin` : "Aucune vente encaissée"}
+        </KpiCard>
+        <KpiCard label="Bouteilles en stock" value={String(kpi.bottles)} icon={IconBox} href="/manage/stock">
+          {formatEUR(kpi.stockValue)} au prix d’achat
+          {#if kpi.lowCount}<br /><span class="t-warn">{kpi.lowCount} millésime{kpi.lowCount > 1 ? "s" : ""} ≤ {LOW_STOCK} bt.</span>{/if}
+        </KpiCard>
+        <KpiCard label="Vins au catalogue" value={String(kpi.wines)} icon={IconWine} href="/manage/wines">
+          {kpi.vintages} millésime{kpi.vintages > 1 ? "s" : ""}
+        </KpiCard>
+        <KpiCard label="Clients" value={String(kpi.customers)} icon={IconUsers} href="/manage/customers" />
+        <KpiCard label="Dégustations" value={String(kpi.tastings)} icon={IconGlasses} href="/manage/tastings" />
       </div>
 
-      <div class="dash-grid">
-        <section class="panel panel--wide">
-          <ColumnChart
-            data={months}
-            title="Chiffre d’affaires encaissé — 12 derniers mois"
-            format={(n) => formatEur(n, true)}
-            highlightKey={months[months.length - 1]?.key ?? null}
-          />
-        </section>
+      <Card title="Chiffre d’affaires encaissé" id="ca-card">
+        <span slot="actions" class="t-caption">12 derniers mois</span>
+        <ColumnChart
+          data={months}
+          ariaLabel={chartLabel}
+          format={(n) => formatEUR(n)}
+          tickFormat={(n) => formatEUR(n).replace(/,00/, "")}
+          highlightKey={months[months.length - 1]?.key ?? null}
+        />
+      </Card>
 
-        <section class="panel next-tasting">
-          <h2 class="panel-title-sm"><Icon name="glasses" /> Prochaine dégustation</h2>
+      <div class="grid-2">
+        <Card title="Prochaine dégustation" id="next-tasting">
           {#if nextTasting}
             <p class="next-name">{nextTasting.name || "Dégustation"}</p>
-            <p class="muted">
-              {formatDateLong(nextTasting.date)}{nextTasting.location ? ` · ${nextTasting.location}` : ""}
-            </p>
-            <p class="countdown">
-              {daysUntil(nextTasting.date) === 0 ? "C’est aujourd’hui !" : `J−${daysUntil(nextTasting.date)}`}
-            </p>
+            <p class="t-muted">{formatDateLong(nextTasting.date)}{nextTasting.location ? ` · ${nextTasting.location}` : ""}</p>
+            <p class="countdown">{daysUntil(nextTasting.date) === 0 ? "C’est aujourd’hui !" : `Dans ${daysUntil(nextTasting.date)} jours`}</p>
             <ul class="next-facts">
               <li><strong>{nextTasting.tasting_wine_vintage?.length ?? 0}</strong> vins</li>
               <li><strong>{nextTasting.tasting_customer?.length ?? 0}</strong> participants</li>
               {#if nextTastingSeats != null}
-                <li>
-                  <strong>{nextTastingSeats}</strong>{nextTasting.capacity ? ` / ${nextTasting.capacity}` : ""} places réservées en ligne
-                </li>
+                <li><strong>{nextTastingSeats}</strong>{nextTasting.capacity ? ` / ${nextTasting.capacity}` : ""} places réservées en ligne</li>
               {/if}
             </ul>
             <div class="row-actions">
-              <a class="btn-primary btn-sm" href="/manage/tastings/{nextTasting.id}/live">Piloter</a>
-              <a class="btn-secondary btn-sm" href="/manage/tasting-flyer">Visuel</a>
-              <a class="btn-secondary btn-sm" href="/manage/campaigns">Inviter</a>
+              <Button size="sm" href="/manage/tasting-flyer">Visuel</Button>
+              <Button size="sm" href="/manage/campaigns">Inviter</Button>
+              <Button size="sm" variant="primary" href="/manage/tastings/{nextTasting.id}/live">Piloter</Button>
             </div>
           {:else}
-            <p class="muted">Aucune date planifiée.</p>
-            <a class="btn-primary btn-sm" href="/manage/tastings">Planifier une dégustation</a>
+            <EmptyState
+              icon={IconCalendar}
+              title="Aucune date planifiée"
+              text={lastTasting ? `La dernière a eu lieu le ${formatDate(lastTasting.date)}${lastTasting.location ? ` (${lastTasting.location})` : ""}.` : ""}
+            >
+              <Button size="sm" href="/manage/tastings">Planifier une dégustation</Button>
+            </EmptyState>
           {/if}
-        </section>
+        </Card>
 
-        <section class="panel">
-          <h2 class="panel-title-sm"><Icon name="sparkle" /> Top 5 des vins (CA)</h2>
+        <Card title="Top 5 des vins" id="top-wines">
+          <span slot="actions" class="t-caption">par chiffre d’affaires</span>
           {#if topWines.length === 0}
-            <p class="empty-text">Pas encore de ventes encaissées.</p>
+            <EmptyState icon={IconWine} title="Pas encore de ventes encaissées" compact />
           {:else}
             <ol class="rank">
               {#each topWines as w}
                 <li>
-                  <span class="rank-name">{vintageLabel(w.vintage)}</span>
-                  <span class="rank-bar" aria-hidden="true">
-                    <span style="width: {(w.revenue / topWines[0].revenue) * 100}%"></span>
+                  <span class="rank-name">
+                    <WineDot robe={robeOf(w.vintage.wine?.wine_type)} />
+                    <span><strong>{vintageName(w.vintage)}</strong><span class="t-muted"> · {w.vintage.wine?.winery?.name ?? ""}</span></span>
                   </span>
-                  <span class="rank-value">{formatEur(w.revenue, true)}<small>{w.sold} bt.</small></span>
+                  <span class="rank-value"><strong>{formatEUR(w.revenue)}</strong><span class="t-muted">{w.sold} bt.</span></span>
+                  <span class="rank-bar" aria-hidden="true"><span style="width: {(w.revenue / topWines[0].revenue) * 100}%"></span></span>
                 </li>
               {/each}
             </ol>
           {/if}
-        </section>
+        </Card>
 
-        <section class="panel">
-          <h2 class="panel-title-sm"><Icon name="alert" /> Stock bas & ruptures</h2>
-          {#if reorderMsg}<p class="reorder-msg" role="status">{reorderMsg}</p>{/if}
-          {#if lowStock.length === 0}
-            <p class="empty-text">Rien à signaler 👌</p>
+        <Card title="Stock bas et ruptures" id="stock-alerts">
+          <svelte:fragment slot="actions"><Button size="sm" href="/manage/orders">Préparer une commande</Button></svelte:fragment>
+          {#if reorderMsg}<p class="notice" role="status">{reorderMsg}</p>{/if}
+          {#if stockAlerts.length === 0}
+            <EmptyState icon={IconBox} title="Rien à signaler" text="Aucun millésime en rupture ni presque épuisé." compact />
           {:else}
-            <ul class="alerts">
-              {#each lowStock as s}
+            <ul class="list">
+              {#each stockAlerts.slice(0, 8) as s}
                 <li>
-                  <span class="alert-name">
-                    {vintageLabel(s.vintage)}
-                    <small class:out={s.stock <= 0}>{s.stock <= 0 ? "Rupture" : `${s.stock} bt. restante${s.stock > 1 ? "s" : ""}`} · {s.sold} vendue{s.sold > 1 ? "s" : ""}</small>
+                  <WineDot robe={robeOf(s.vintage.wine?.wine_type)} />
+                  <span class="list-main">
+                    <span><strong>{vintageName(s.vintage)}</strong><span class="t-muted"> · {s.vintage.wine?.winery?.name ?? ""}</span></span>
+                    <span class="t-caption">{s.sold ? `${s.sold} vendue${s.sold > 1 ? "s" : ""}` : "aucune vente"}</span>
                   </span>
-                  <button type="button" class="btn-secondary btn-sm" disabled={reorderBusy === s.vintage.id} on:click={() => reorder(s)}>
+                  {#if s.stock <= 0}
+                    <StockBadge kind="out" />
+                  {:else}
+                    <StockBadge kind="low" label="{s.stock} bt." />
+                  {/if}
+                  <Button size="sm" variant="ghost" disabled={reorderBusy === s.vintage.id} on:click={() => reorder(s)}>
                     {reorderBusy === s.vintage.id ? "…" : "Réassort"}
-                  </button>
+                  </Button>
                 </li>
               {/each}
             </ul>
           {/if}
-        </section>
+        </Card>
 
-        <section class="panel">
-          <h2 class="panel-title-sm"><Icon name="box" /> Stock dormant (&gt; {DORMANT_DAYS} j sans vente)</h2>
+        <Card title="Stock dormant" id="stock-dormant">
+          <span slot="actions" class="t-caption">plus de {DORMANT_DAYS} j sans vente</span>
           {#if dormant.length === 0}
-            <p class="empty-text">Tout tourne bien.</p>
+            <EmptyState icon={IconBox} title="Tout tourne bien" compact />
           {:else}
-            <ul class="alerts">
-              {#each dormant as s}
+            <ul class="list">
+              {#each dormant.slice(0, 6) as s}
                 <li>
-                  <span class="alert-name">
-                    {vintageLabel(s.vintage)}
-                    <small>{s.stock} bt. · {s.lastSale ? `dernière vente il y a ${s.idleDays} j` : "jamais vendu"}</small>
+                  <WineDot robe={robeOf(s.vintage.wine?.wine_type)} />
+                  <span class="list-main">
+                    <span><strong>{vintageName(s.vintage)}</strong><span class="t-muted"> · {s.vintage.wine?.winery?.name ?? ""}</span></span>
+                    <span class="t-caption">
+                      {s.stock} bt. · {#if s.lastSale}dernière vente il y a <strong class="t-warn">{s.idleDays} j</strong>{:else}<strong class="t-warn">jamais vendu</strong>{/if}
+                    </span>
                   </span>
-                  <span class="muted small">{formatEur(s.stock * Number(s.vintage.purchase_price || 0), true)}</span>
+                  <span class="value">{formatEUR(s.stock * Number(s.vintage.purchase_price || 0))}</span>
                 </li>
               {/each}
             </ul>
-            <p class="small muted">Idée : mettez-les à l’honneur lors de la prochaine dégustation.</p>
+            <div class="idea">
+              <IconLightbulb size={18} strokeWidth={1.75} aria-hidden="true" />
+              <p>Idée : mettez-les à l’honneur lors de la prochaine dégustation.</p>
+              <Button size="sm" variant="ghost" href="/manage/tastings">Ouvrir les dégustations</Button>
+            </div>
           {/if}
-        </section>
+        </Card>
       </div>
     {/if}
   </ManagePageShell>
 {/if}
 
 <style>
-  .login-container {
+  /* ——— Connexion ——— */
+  .login {
     min-height: 100vh;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    background: #f5f5f5;
+    display: grid;
+    place-items: center;
+    padding: 16px;
+    background: var(--paper);
   }
 
-  .login-form {
-    background: white;
-    padding: 2rem;
-    border-radius: 8px;
-    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
-    width: 100%;
-    max-width: 400px;
-  }
-
-  .login-form h1 {
-    margin: 0 0 1.5rem 0;
-    text-align: center;
-    color: #333;
-  }
-
-  .input-group {
+  .login-card {
+    width: min(100%, 380px);
     display: flex;
     flex-direction: column;
-    gap: 0.5rem;
-    margin-bottom: 1rem;
+    gap: 12px;
+    padding: 32px;
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: var(--r-md);
   }
 
-  .input-group input {
-    padding: 0.75rem;
-    border: 1px solid #ddd;
-    border-radius: 4px;
-    font-size: 1rem;
+  .login-brand {
+    display: flex;
+    flex-direction: column;
+    margin: 0 0 8px;
+    color: var(--teal-600);
+    font-family: var(--font-serif);
+    font-weight: 600;
+    line-height: 1;
   }
 
-  .input-group button {
-    padding: 0.75rem 1.5rem;
-    background: #007bff;
-    color: white;
-    border: none;
-    border-radius: 4px;
-    cursor: pointer;
-    font-size: 1rem;
+  .login-brand span {
+    font-style: italic;
+    font-size: 30px;
   }
 
-  .input-group button:hover {
-    background: #0056b3;
+  .login-brand small {
+    font-size: 11px;
+    letter-spacing: 0.32em;
+    padding-left: 18px;
+    margin-top: 4px;
   }
 
-  .input-group button:disabled {
-    background: #6c757d;
-    cursor: not-allowed;
-  }
-
-  .magic-link-sent {
-    text-align: center;
-  }
-
-  .magic-link-sent p {
-    margin: 0.5rem 0;
-    color: #666;
-  }
-
-  .magic-link-sent p:first-child {
-    color: #28a745;
-    font-weight: 500;
-  }
-
-  .resend-btn {
-    margin-top: 1rem;
-    padding: 0.5rem 1rem;
-    background: #6c757d;
-    color: white;
-    border: none;
-    border-radius: 4px;
-    cursor: pointer;
-    font-size: 0.9rem;
-  }
-
-  .resend-btn:hover {
-    background: #5a6268;
-  }
-
-  .error {
-    color: #dc3545;
-    text-align: center;
+  .login-card p {
     margin: 0;
   }
 
-  .stats-grid {
-    display: grid;
-    grid-template-columns: repeat(3, 1fr);
-    gap: 1.5rem;
+  .login-error {
+    font-size: 13px;
   }
 
-  @media (max-width: 960px) {
-    .stats-grid {
-      grid-template-columns: repeat(2, 1fr);
-    }
-  }
-
-  @media (max-width: 560px) {
-    .stats-grid {
-      grid-template-columns: 1fr;
-    }
-  }
-
-  .stat-card {
+  /* ——— Tableau de bord ——— */
+  .todo {
     display: flex;
-    align-items: flex-start;
-    gap: 1.25rem;
-    padding: 1.75rem 2rem;
-    min-height: 7.5rem;
-    background: white;
-    border-radius: 12px;
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
-    text-decoration: none;
-    color: inherit;
-    border-left: 5px solid #ced4da;
-    transition:
-      transform 0.15s ease,
-      box-shadow 0.15s ease;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px 24px;
+    padding: 12px 16px;
+    margin-bottom: 16px;
+    background: #f7efd7;
+    border: 1px solid #ead9a8;
+    border-radius: var(--r-md);
   }
 
-  .stat-card:hover {
-    transform: translateY(-2px);
-    box-shadow: 0 6px 16px rgba(0, 0, 0, 0.1);
+  .todo-title {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    font-weight: 600;
   }
 
-  .stat-card--green {
-    border-left-color: #28a745;
-  }
-  .stat-card--blue {
-    border-left-color: #007bff;
-  }
-  .stat-card--purple {
-    border-left-color: #6f42c1;
-  }
-  .stat-card--amber {
-    border-left-color: #e0a800;
-  }
-  .stat-card--rose {
-    border-left-color: #e83e8c;
-  }
-  .stat-card--slate {
-    border-left-color: #6c757d;
+  .todo a {
+    color: var(--teal-700);
+    font-weight: 500;
   }
 
-  .stat-icon {
+  .todo a.danger {
+    color: var(--danger);
+  }
+
+  .todo a.warn {
+    color: var(--warn);
+  }
+
+  .kpis {
     display: grid;
-    place-items: center;
-    width: 3rem;
-    height: 3rem;
-    border-radius: 12px;
-    background: #f3f1ec;
-    color: #256169;
-    flex-shrink: 0;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 16px;
+    margin-bottom: 16px;
   }
 
-  .dash-grid {
+  .grid-2 {
     display: grid;
     grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: 1.5rem;
-    margin-top: 1.5rem;
-  }
-
-  .panel {
-    background: white;
-    border-radius: 12px;
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
-    padding: 1.4rem 1.6rem;
-    min-width: 0;
-  }
-
-  .panel--wide {
-    grid-column: 1 / -1;
-  }
-
-  .panel-title-sm {
-    display: flex;
-    align-items: center;
-    gap: 0.5rem;
-    margin: 0 0 1rem;
-    font-size: 0.95rem;
-    font-weight: 600;
-    color: #2c3e50;
-  }
-
-  .muted {
-    color: #6c757d;
-  }
-
-  .small {
-    font-size: 0.85rem;
+    gap: 16px;
+    margin-top: 16px;
   }
 
   .next-name {
     margin: 0;
-    font-family: var(--mz-font-display);
-    font-size: 1.6rem;
-    color: #256169;
-  }
-
-  .next-tasting p {
-    margin: 0.2rem 0;
+    font-family: var(--font-serif);
+    font-weight: 600;
+    font-size: 22px;
+    color: var(--title);
   }
 
   .countdown {
-    font-weight: 700;
-    color: #7a1f2e;
+    margin: 4px 0 0;
+    font-weight: 600;
+    color: var(--teal-700);
   }
 
   .next-facts {
     list-style: none;
+    margin: 12px 0 16px;
     padding: 0;
-    margin: 0.75rem 0 1rem;
     display: flex;
     flex-wrap: wrap;
-    gap: 0.4rem 1.25rem;
-    color: #3d4f51;
+    gap: 4px 20px;
   }
 
   .row-actions {
     display: flex;
     flex-wrap: wrap;
-    gap: 0.5rem;
-  }
-
-  .row-actions a,
-  .next-tasting a {
-    text-decoration: none;
-    display: inline-block;
+    gap: 8px;
   }
 
   .rank {
@@ -681,125 +568,118 @@
     padding: 0;
     display: flex;
     flex-direction: column;
-    gap: 0.75rem;
+    gap: 14px;
   }
 
   .rank li {
     display: grid;
-    grid-template-columns: minmax(0, 1fr) 6.5rem;
-    grid-template-areas: "name value" "bar value";
-    column-gap: 1rem;
-    row-gap: 0.3rem;
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 6px 12px;
     align-items: center;
   }
 
   .rank-name {
-    grid-area: name;
-    font-size: 0.9rem;
-    overflow: hidden;
-    text-overflow: ellipsis;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    min-width: 0;
+  }
+
+  .rank-value {
+    display: flex;
+    gap: 10px;
+    align-items: baseline;
     white-space: nowrap;
   }
 
   .rank-bar {
-    grid-area: bar;
-    height: 6px;
+    grid-column: 1 / -1;
+    height: 4px;
+    margin-left: 20px;
     border-radius: 999px;
-    background: #eef4f4;
+    background: var(--border-soft);
     overflow: hidden;
   }
 
   .rank-bar span {
     display: block;
     height: 100%;
-    border-radius: 999px;
-    background: #256169;
+    background: var(--teal-600);
+    border-radius: inherit;
   }
 
-  .rank-value {
-    grid-area: value;
-    text-align: right;
-    font-weight: 700;
-    font-variant-numeric: tabular-nums;
-    display: flex;
-    flex-direction: column;
-  }
-
-  .rank-value small {
-    font-weight: 400;
-    color: #6c757d;
-  }
-
-  .alerts {
+  .list {
     list-style: none;
     margin: 0;
     padding: 0;
   }
 
-  .alerts li {
+  .list li {
     display: flex;
-    justify-content: space-between;
     align-items: center;
-    gap: 1rem;
-    padding: 0.55rem 0;
-    border-bottom: 1px solid #f1f1f1;
+    gap: 10px;
+    min-height: 56px;
+    padding: 8px 0;
+    border-bottom: 1px solid var(--border-soft);
   }
 
-  .alert-name {
+  .list li:last-child {
+    border-bottom: none;
+  }
+
+  .list-main {
+    flex: 1;
+    min-width: 0;
     display: flex;
     flex-direction: column;
-    font-size: 0.9rem;
-    min-width: 0;
+    line-height: 18px;
   }
 
-  .alert-name small {
-    color: #a86b12;
-  }
-
-  .alert-name small.out {
-    color: #c0392b;
+  .value {
     font-weight: 600;
+    white-space: nowrap;
   }
 
-  .reorder-msg {
-    margin: 0 0 0.75rem;
-    padding: 0.5rem 0.75rem;
-    border-radius: 6px;
-    background: #eef4f4;
-    color: #1a474d;
-    font-size: 0.88rem;
+  .notice {
+    margin: 0 0 12px;
+    padding: 8px 12px;
+    border-radius: var(--r-sm);
+    background: var(--mist);
+    color: var(--teal-700);
+    font-size: 13px;
+  }
+
+  .idea {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-top: 16px;
+    padding: 12px 14px;
+    border-radius: var(--r-md);
+    background: var(--mist);
+    color: var(--teal-700);
+  }
+
+  .idea p {
+    flex: 1;
+    margin: 0;
+    color: var(--ink);
   }
 
   @media (max-width: 1100px) {
-    .dash-grid {
+    .grid-2 {
       grid-template-columns: 1fr;
     }
   }
 
-  .stat-body {
-    display: flex;
-    flex-direction: column;
-    gap: 0.35rem;
-    min-width: 0;
-  }
+  @media (max-width: 767px) {
+    .kpis {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 10px;
+    }
 
-  .stat-value {
-    font-size: 2.1rem;
-    font-weight: 700;
-    color: #212529;
-    line-height: 1.15;
-    font-variant-numeric: tabular-nums;
-  }
-
-  .stat-label {
-    font-size: 1rem;
-    font-weight: 600;
-    color: #444;
-  }
-
-  .stat-hint {
-    font-size: 0.9rem;
-    color: #6c757d;
-    line-height: 1.35;
+    .idea {
+      flex-wrap: wrap;
+    }
   }
 </style>

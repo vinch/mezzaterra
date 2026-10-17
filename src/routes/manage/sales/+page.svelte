@@ -103,9 +103,14 @@
   }
 
   onMount(async () => {
+    /* Liens profonds depuis le tableau de bord : ?statut=pending, ?nouvelle=1 */
+    const params = new URLSearchParams(window.location.search);
+    const st = params.get("statut");
+    if (st && ["pending", "paid", "delivered", "closed", "cancelled"].includes(st)) tab = st as Tab;
     await loadCustomers();
     await loadWineVintages();
     loading = false;
+    if (params.has("nouvelle")) openCreateModal();
   });
 
   function getProductDisplayName(vintage: any) {
