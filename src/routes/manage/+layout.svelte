@@ -93,7 +93,7 @@
     },
     {
       title: "Référentiels",
-      collapsible: "Références, géographie",
+      collapsible: "Référentiels",
       links: [
         { href: "/manage/appellations", label: "Appellations", icon: IconMapPin },
         { href: "/manage/grapes", label: "Cépages", icon: IconGrape },

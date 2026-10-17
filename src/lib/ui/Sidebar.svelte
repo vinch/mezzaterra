@@ -47,10 +47,10 @@
   <div class="nav-scroll">
     {#each sections as section}
       {#if section.collapsible}
-        <p class="group-title">{section.title}</p>
         <button
           type="button"
           class="nav-item collapse-toggle"
+          style="margin-top: 12px"
           aria-expanded={expanded[section.collapsible]}
           aria-controls="nav-{section.collapsible}"
           on:click={() => (expanded[section.collapsible!] = !expanded[section.collapsible!])}
@@ -209,7 +209,11 @@
 
   .nav-label {
     flex: 1;
+    min-width: 0;
     line-height: 18px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
   }
 
   .count {
