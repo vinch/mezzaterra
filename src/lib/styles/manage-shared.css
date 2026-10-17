@@ -361,9 +361,11 @@
   font-size: 14px;
 }
 
-.app .form-group textarea,
-.app .filter-group textarea {
+.app .form-group textarea:not(.ui-control),
+.app .filter-group textarea:not(.ui-control) {
   padding: 10px 12px;
+  line-height: 20px;
+  resize: vertical;
 }
 
 .app .form-group input:focus,
