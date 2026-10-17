@@ -47,10 +47,10 @@
   <div class="nav-scroll">
     {#each sections as section}
       {#if section.collapsible}
+        <hr class="nav-sep" />
         <button
           type="button"
           class="nav-item collapse-toggle"
-          style="margin-top: 12px"
           aria-expanded={expanded[section.collapsible]}
           aria-controls="nav-{section.collapsible}"
           on:click={() => (expanded[section.collapsible!] = !expanded[section.collapsible!])}
@@ -156,6 +156,13 @@
     letter-spacing: 0.1em;
     text-transform: uppercase;
     color: var(--night-label);
+  }
+
+  /* Sépare les référentiels des groupes métier (sinon ils semblent faire partie des Achats). */
+  .nav-sep {
+    margin: 16px 12px 12px;
+    border: none;
+    border-top: 1px solid rgba(255, 255, 255, 0.12);
   }
 
   .nav-list {
