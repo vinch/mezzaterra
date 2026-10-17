@@ -53,34 +53,40 @@
 <style>
   .modal-backdrop {
     position: fixed;
-    top: 0;
-    left: 0;
-    right: 0;
-    bottom: 0;
-    background: rgba(0, 0, 0, 0.5);
+    inset: 0;
+    background: rgba(28, 44, 46, 0.55);
     display: flex;
-    align-items: center;
+    align-items: flex-start;
     justify-content: center;
-    z-index: 1000;
+    padding: 40px 16px;
+    overflow-y: auto;
+    z-index: 2000;
   }
 
   .modal-content {
-    background: white;
-    border-radius: 8px;
-    width: 90%;
-    max-width: 600px;
-    max-height: 90vh;
+    background: var(--card);
+    border-radius: var(--r-md);
+    box-shadow: var(--shadow-pop);
+    width: 100%;
+    max-width: 640px;
+    max-height: calc(100vh - 80px);
     overflow-y: auto;
+    font-family: var(--font-sans);
+    font-size: 14px;
+    color: var(--ink);
   }
 
   .modal-content--wide {
-    width: min(1200px, 96vw);
     max-width: min(1200px, 96vw);
   }
 
   .modal-header {
-    padding: 1.5rem;
-    border-bottom: 1px solid #e9ecef;
+    position: sticky;
+    top: 0;
+    z-index: 1;
+    padding: 16px 16px 16px 24px;
+    border-bottom: 1px solid var(--border-soft);
+    background: var(--card);
     display: flex;
     justify-content: space-between;
     align-items: center;
@@ -88,24 +94,42 @@
 
   .modal-header h2 {
     margin: 0;
-    color: #333;
+    font-family: var(--font-serif);
+    font-weight: 600;
+    font-size: 22px;
+    line-height: 28px;
+    color: var(--title);
   }
 
   .close-btn {
-    background: none;
-    border: none;
-    font-size: 2rem;
-    color: #666;
-    cursor: pointer;
+    display: grid;
+    place-items: center;
+    width: 36px;
+    height: 36px;
     padding: 0;
-    width: 2rem;
-    height: 2rem;
-    display: flex;
-    align-items: center;
-    justify-content: center;
+    border: none;
+    border-radius: var(--r-sm);
+    background: none;
+    color: var(--ink-2);
+    font-size: 24px;
+    line-height: 1;
+    cursor: pointer;
   }
 
   .close-btn:hover {
-    color: #333;
+    background: var(--mist);
+    color: var(--teal-700);
+  }
+
+  @media (max-width: 767px) {
+    .modal-backdrop {
+      padding: 0;
+    }
+
+    .modal-content {
+      max-height: none;
+      min-height: 100%;
+      border-radius: 0;
+    }
   }
 </style>

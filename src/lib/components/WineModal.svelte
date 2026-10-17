@@ -1,384 +1,375 @@
 <script lang="ts">
   import { createEventDispatcher, onMount } from "svelte";
+  import { fade, fly } from "svelte/transition";
   import { supabase } from "$lib/supabase";
-  import type { WineVintage, WinePairing } from "$lib/types";
+  import type { WineVintage } from "$lib/types";
+  import WineBottle from "$lib/components/site/WineBottle.svelte";
+  import {
+    NOTE_TYPES,
+    findNote,
+    formatEur,
+    grapesText,
+    wineStyle,
+    wineSubtitle,
+    wineTitle,
+  } from "$lib/wine";
 
   export let wineVintage: WineVintage | null = null;
 
-  let winePairings: WinePairing[] = [];
-  let loadingPairings = false;
+  let pairings: string[] = [];
 
   const dispatch = createEventDispatcher();
 
+  $: v = wineVintage as any;
+  $: wine = v?.wine;
+  $: style = wineStyle(wine?.wine_type);
+  $: region = wine?.winery?.region?.name || wine?.winery?.country?.name || "";
+  $: flag = wine?.winery?.region?.country?.flag || wine?.winery?.country?.flag || "";
+  $: grapes = grapesText(v?.wine_vintage_grape, true);
+  $: notes = NOTE_TYPES.map((t) => ({ ...t, content: findNote(v?.note, t.key) })).filter(
+    (n) => n.content,
+  );
+
   onMount(async () => {
-    if (wineVintage?.wine?.id) {
-      await loadWinePairings();
+    const embedded = (wine?.wine_pairing || [])
+      .map((wp: any) => wp.pairing?.description)
+      .filter(Boolean);
+    if (embedded.length) {
+      pairings = embedded;
+      return;
     }
-  });
-
-  async function loadWinePairings() {
-    if (!wineVintage?.wine?.id) return;
-
-    loadingPairings = true;
+    if (!wine?.id) return;
     const { data } = await supabase
       .from("wine_pairing")
-      .select(
-        `
-        *,
-        wine (
-          *,
-          winery (*),
-          appelation (*),
-          wine_type (*)
-        ),
-        pairing (*)
-      `
-      )
-      .eq("wine_id", wineVintage.wine.id);
-
-    winePairings = data || [];
-    loadingPairings = false;
-  }
+      .select("pairing ( description )")
+      .eq("wine_id", wine.id);
+    pairings = (data || []).map((r: any) => r.pairing?.description).filter(Boolean);
+  });
 
   function closeModal() {
     dispatch("close");
   }
 
-  function handleBackdropClick(event: MouseEvent) {
-    if (event.target === event.currentTarget) {
-      closeModal();
-    }
-  }
-
   function handleKeydown(event: KeyboardEvent) {
-    if (event.key === "Escape") {
-      closeModal();
-    }
+    if (event.key === "Escape") closeModal();
   }
 </script>
 
 <svelte:window on:keydown={handleKeydown} />
 
-{#if wineVintage && wineVintage.wine}
+{#if v && wine}
   <div
-    class="modal-backdrop"
-    onclick={handleBackdropClick}
-    onkeydown={handleKeydown}
-    role="button"
-    tabindex="0"
+    class="backdrop"
+    transition:fade={{ duration: 180 }}
+    on:click|self={closeModal}
+    role="presentation"
   >
     <div
-      class="modal-content"
-      onclick={(e) => e.stopPropagation()}
-      onkeydown={(e) => e.stopPropagation()}
+      class="sheet"
+      style="--robe: {style.color}; --robe-light: {style.light};"
       role="dialog"
       aria-modal="true"
-      tabindex="0"
+      aria-labelledby="wine-modal-title"
+      transition:fly={{ y: 24, duration: 260 }}
     >
-      <button class="close-button" onclick={closeModal} aria-label="Fermer">
-        ×
-      </button>
+      <button class="close" on:click={closeModal} aria-label="Fermer">×</button>
 
-      <div class="wine-header">
-        <div class="wine-layout">
-          {#if wineVintage.image_url}
-            <div class="wine-image">
-              <img
-                src={wineVintage.image_url}
-                alt={wineVintage.wine.name || "Wine"}
-              />
-            </div>
+      <header class="hero">
+        <div class="hero-bottle">
+          <WineBottle src={v.image_url} alt={wineTitle(wine)} wine={style} height="15rem" />
+        </div>
+        <div class="hero-text">
+          <span class="mz-eyebrow">
+            <span class="mz-dot" style="background: {style.color}"></span>
+            {style.label}{v.organic ? " · Bio" : ""}
+          </span>
+          <h2 id="wine-modal-title" class="title">{wineTitle(wine)}</h2>
+          {#if wineSubtitle(wine)}
+            <p class="appellation">{wineSubtitle(wine)}</p>
+          {/if}
+          {#if wine.winery?.name}
+            <p class="winery">{wine.winery.name}</p>
+          {/if}
+          {#if region}
+            <p class="region">{flag} {region}</p>
           {/if}
 
-          <div class="wine-info">
-            <h1>
-              {#if wineVintage.wine.name}
-                {wineVintage.wine.name}
-              {:else}
-                {wineVintage.wine.appelation?.name || "Unknown Appellation"}
-                {#if wineVintage.wine.appelation?.label?.name}
-                  {wineVintage.wine.appelation.label.name}
-                {/if}
-              {/if}
-              {#if wineVintage.organic}
-                <img src="/organic.png" alt="Organic" class="organic-logo" />
-              {/if}
-            </h1>
-
-            {#if wineVintage.wine.name && wineVintage.wine.appelation?.name}
-              <p class="appellation">
-                {wineVintage.wine.appelation.name}
-                {#if wineVintage.wine.appelation.label?.name}
-                  {wineVintage.wine.appelation.label.name}
-                {/if}
-              </p>
+          <dl class="facts">
+            {#if v.year}
+              <div><dt>Millésime</dt><dd>{v.year}</dd></div>
             {/if}
-
-            {#if wineVintage.wine.winery}
-              <p class="winery">{wineVintage.wine.winery.name}</p>
+            {#if v.abv}
+              <div><dt>Alcool</dt><dd>{v.abv} % vol.</dd></div>
             {/if}
-
-            {#if wineVintage.wine.winery?.region || wineVintage.wine.winery?.country}
-              <p class="region">
-                {wineVintage.wine.winery.region?.country?.flag ||
-                  wineVintage.wine.winery.country?.flag ||
-                  ""}
-                {wineVintage.wine.winery.region?.name ||
-                  wineVintage.wine.winery.country?.name}
-              </p>
+            {#if v.price}
+              <div><dt>Prix</dt><dd>{formatEur(v.price)}</dd></div>
             {/if}
+          </dl>
 
-            {#if wineVintage.wine_vintage_grape && wineVintage.wine_vintage_grape.length > 0}
-              <p class="grapes">
-                🍇 {wineVintage.wine_vintage_grape
-                  .map(
-                    (g) =>
-                      g.grape.name + (g.percentage ? ` (${g.percentage}%)` : "")
-                  )
-                  .join(", ")}
-              </p>
-            {/if}
-
-            {#if wineVintage.wine.description}
-              <p class="description">{wineVintage.wine.description}</p>
-            {/if}
-
-            <div class="wine-details">
-              {#if wineVintage.year}
-                <span class="vintage-tag">{wineVintage.year}</span>
-              {/if}
-              {#if wineVintage.abv}
-                <span class="abv">{wineVintage.abv}% ABV</span>
-              {/if}
-              {#if wineVintage.price}
-                <span class="price">€{wineVintage.price}</span>
-              {/if}
-            </div>
-          </div>
+          {#if v.organic}
+            <img src="/organic.png" alt="Agriculture biologique" class="organic" />
+          {/if}
         </div>
-      </div>
+      </header>
 
-      {#if wineVintage.note && wineVintage.note.length > 0}
-        <div class="section">
-          <h2>Notes de dégustation</h2>
-          <div class="tasting-notes">
-            {#each ["color", "nose", "mouth", "vinification"] as noteType}
-              {@const note = wineVintage.note.find(
-                (note: any) => note.type === noteType
-              )}
-              {#if note}
+      <div class="content">
+        {#if grapes}
+          <section>
+            <h3>Cépages</h3>
+            <p>{grapes}</p>
+          </section>
+        {/if}
+
+        {#if wine.description}
+          <section>
+            <h3>Le vin</h3>
+            <p class="prose">{wine.description}</p>
+          </section>
+        {/if}
+
+        {#if notes.length}
+          <section>
+            <h3>Notes de dégustation</h3>
+            <div class="notes">
+              {#each notes as note}
                 <div class="note">
-                  <h3>
-                    {#if noteType === "color"}
-                      Couleur
-                    {:else if noteType === "nose"}
-                      Nez
-                    {:else if noteType === "mouth"}
-                      Bouche
-                    {:else if noteType === "vinification"}
-                      Vinification
-                    {/if}
-                  </h3>
+                  <span class="note-label">{note.label}</span>
                   <p>{note.content}</p>
                 </div>
-              {/if}
-            {/each}
-          </div>
-        </div>
-      {/if}
+              {/each}
+            </div>
+          </section>
+        {/if}
 
-      {#if winePairings.length > 0}
-        <div class="section">
-          <h2>Accompagnements</h2>
-          <div class="pairings">
-            {#each winePairings as winePairing}
-              <div class="pairing">
-                <p>
-                  {winePairing.pairing?.description ||
-                    "No description available"}
-                </p>
-              </div>
-            {/each}
-          </div>
-        </div>
-      {/if}
+        {#if pairings.length}
+          <section>
+            <h3>À table avec</h3>
+            <div class="pairings">
+              {#each pairings as p}
+                <span class="mz-chip">{p}</span>
+              {/each}
+            </div>
+          </section>
+        {/if}
+
+        <footer class="actions">
+          <a class="mz-btn mz-btn--ghost mz-btn--sm" href="/vins/{v.id}">Fiche complète &amp; partage →</a>
+        </footer>
+      </div>
     </div>
   </div>
 {/if}
 
 <style>
-  .modal-backdrop {
+  .backdrop {
     position: fixed;
-    top: 0;
-    left: 0;
-    width: 100%;
-    height: 100%;
-    background: rgba(0, 0, 0, 0.5);
+    inset: 0;
+    z-index: 1000;
     display: flex;
     align-items: center;
     justify-content: center;
-    z-index: 1000;
-    padding: 2rem;
+    padding: 2rem 1rem;
+    background: rgba(14, 24, 25, 0.55);
+    backdrop-filter: blur(3px);
   }
 
-  .modal-content {
-    background: white;
-    border-radius: 12px;
-    max-width: 800px;
-    max-height: 90vh;
-    overflow-y: auto;
+  .sheet {
     position: relative;
-    width: 100%;
+    width: min(820px, 100%);
+    max-height: 92vh;
+    overflow-y: auto;
+    background: var(--mz-paper-raised);
+    border-radius: var(--mz-radius-lg);
+    box-shadow: 0 30px 80px -20px rgba(0, 0, 0, 0.45);
+    font-family: var(--mz-font-body);
+    color: var(--mz-ink);
   }
 
-  .close-button {
+  .close {
     position: absolute;
-    top: 1rem;
-    right: 1rem;
-    background: none;
+    top: 0.75rem;
+    right: 0.9rem;
+    z-index: 2;
+    width: 2.4rem;
+    height: 2.4rem;
+    border-radius: 50%;
     border: none;
-    font-size: 2rem;
+    background: rgba(255, 255, 255, 0.75);
+    font-size: 1.6rem;
+    line-height: 1;
+    color: var(--mz-ink-soft);
     cursor: pointer;
-    color: #666;
-    z-index: 1;
   }
 
-  .close-button:hover {
-    color: #333;
+  .close:hover {
+    background: #fff;
+    color: var(--mz-ink);
   }
 
-  .wine-header {
-    padding: 2rem;
-    border-bottom: 1px solid #e0e0e0;
+  .hero {
+    display: grid;
+    grid-template-columns: 11rem 1fr;
+    gap: 1.5rem;
+    padding: 2rem 2rem 1.5rem;
+    background:
+      radial-gradient(ellipse at 15% 100%, color-mix(in srgb, var(--robe-light) 45%, transparent), transparent 60%),
+      linear-gradient(180deg, var(--mz-paper) 0%, var(--mz-paper-raised) 100%);
+    border-bottom: 1px solid var(--mz-line-soft);
   }
 
-  .wine-layout {
+  .hero-bottle {
     display: flex;
-    gap: 2rem;
-    align-items: flex-start;
+    justify-content: center;
+    align-items: flex-end;
   }
 
-  .wine-image {
-    flex-shrink: 0;
-    width: 150px;
-  }
-
-  .wine-image img {
-    width: 100%;
-    height: auto;
-    aspect-ratio: 1/2;
-    object-fit: contain;
-  }
-
-  .wine-info {
-    flex: 1;
-  }
-
-  .wine-info h1 {
-    margin: 0 0 0.5rem 0;
-    color: #333;
-    font-size: 2rem;
-    font-family: "Zilla Slab", serif;
-    font-weight: 600;
+  .hero-text {
     display: flex;
-    align-items: center;
-    gap: 1rem;
+    flex-direction: column;
+    gap: 0.3rem;
+    min-width: 0;
   }
 
-  .appellation {
-    margin: 0 0 0.5rem 0;
-    color: #888;
-    font-size: 1rem;
+  .title {
+    margin: 0.35rem 0 0;
+    font-family: var(--mz-font-display);
+    font-weight: 500;
+    font-size: clamp(1.8rem, 4vw, 2.5rem);
+    line-height: 1.05;
+    color: var(--mz-teal);
+  }
+
+  .appellation,
+  .winery,
+  .region {
+    margin: 0;
+    color: var(--mz-ink-soft);
   }
 
   .winery {
-    margin: 0 0 0.5rem 0;
-    color: #666;
-    font-style: italic;
-    font-size: 1.1rem;
+    font-weight: 600;
   }
 
-  .region {
-    margin: 0 0 0.5rem 0;
-    color: #666;
-    font-size: 1rem;
+  .facts {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 1.5rem;
+    margin: 1rem 0 0;
   }
 
-  .grapes {
-    margin: 0.5rem 0 0.5rem 0;
-    color: #666;
-    font-size: 1rem;
+  .facts div {
+    display: flex;
+    flex-direction: column;
   }
 
-  .description {
-    margin: 1rem 0;
-    color: #666;
+  .facts dt {
+    font-size: 0.72rem;
+    font-weight: 600;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--mz-muted);
+  }
+
+  .facts dd {
+    margin: 0;
+    font-family: var(--mz-font-display);
+    font-size: 1.35rem;
+    color: var(--mz-ink);
+  }
+
+  .organic {
+    width: 3.2rem;
+    margin-top: 0.75rem;
+  }
+
+  .content {
+    padding: 1.5rem 2rem 2rem;
+    display: flex;
+    flex-direction: column;
+    gap: 1.5rem;
+  }
+
+  section h3 {
+    margin: 0 0 0.5rem;
+    font-size: 0.75rem;
+    font-weight: 600;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--mz-teal-soft);
+  }
+
+  section p {
+    margin: 0;
     line-height: 1.6;
   }
 
-  .wine-details {
-    display: flex;
-    gap: 1rem;
-    margin-top: 1rem;
-    flex-wrap: wrap;
+  .prose {
+    white-space: pre-line;
   }
 
-  .vintage-tag,
-  .abv,
-  .price {
-    background: #f5f5f5;
-    padding: 0.5rem 0.75rem;
-    border-radius: 6px;
-    font-size: 0.875rem;
-    color: #666;
-  }
-
-  .organic-logo {
-    width: 36px;
-    height: 24px;
-  }
-
-  .section {
-    padding: 2rem;
-    border-bottom: 1px solid #e0e0e0;
-  }
-
-  .section:last-child {
-    border-bottom: none;
-  }
-
-  .section h2 {
-    margin: 0 0 1rem 0;
-    color: #333;
-    font-family: "Zilla Slab", serif;
-    font-weight: 600;
-    font-size: 1.5rem;
-  }
-
-  .tasting-notes,
-  .pairings {
+  .notes {
     display: grid;
-    gap: 1rem;
+    grid-template-columns: repeat(auto-fit, minmax(14rem, 1fr));
+    gap: 0.75rem;
   }
 
-  .note,
-  .pairing {
-    padding: 1rem;
-    background: #f9f9f9;
-    border-radius: 8px;
+  .note {
+    padding: 0.9rem 1rem;
+    border-radius: var(--mz-radius-sm);
+    background: var(--mz-paper);
+    border-left: 3px solid var(--robe);
   }
 
-  .note h3 {
-    margin: 0 0 0.5rem 0;
-    color: #333;
-    font-size: 1.1rem;
-    font-weight: 600;
+  .note-label {
+    display: block;
+    font-family: var(--mz-font-display);
+    font-size: 1.05rem;
+    color: var(--mz-teal);
+    margin-bottom: 0.2rem;
   }
 
-  .note p,
-  .pairing p {
-    margin: 0;
-    color: #666;
-    line-height: 1.5;
+  .note p {
+    font-size: 0.95rem;
+    color: var(--mz-ink-soft);
+  }
+
+  .pairings {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+  }
+
+  .actions {
+    display: flex;
+    justify-content: flex-end;
+  }
+
+  @media (max-width: 640px) {
+    .backdrop {
+      align-items: flex-end;
+      padding: 0;
+    }
+
+    .sheet {
+      max-height: 94vh;
+      border-radius: var(--mz-radius-lg) var(--mz-radius-lg) 0 0;
+    }
+
+    .hero {
+      grid-template-columns: 1fr;
+      padding: 1.5rem 1.25rem 1.25rem;
+    }
+
+    .hero-bottle {
+      height: 11rem;
+    }
+
+    .hero-bottle :global(.bottle) {
+      --h: 11rem !important;
+    }
+
+    .content {
+      padding: 1.25rem;
+    }
   }
 </style>

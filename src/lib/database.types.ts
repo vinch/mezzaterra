@@ -467,6 +467,7 @@ export type Database = {
           note: string | null
           payment_method: string | null
           status: string
+          tasting_id: string | null
           total_price: number
         }
         Insert: {
@@ -480,6 +481,7 @@ export type Database = {
           note?: string | null
           payment_method?: string | null
           status?: string
+          tasting_id?: string | null
           total_price: number
         }
         Update: {
@@ -493,6 +495,7 @@ export type Database = {
           note?: string | null
           payment_method?: string | null
           status?: string
+          tasting_id?: string | null
           total_price?: number
         }
         Relationships: [
@@ -501,6 +504,13 @@ export type Database = {
             columns: ["customer_id"]
             isOneToOne: false
             referencedRelation: "customer"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sale_tasting_id_fkey"
+            columns: ["tasting_id"]
+            isOneToOne: false
+            referencedRelation: "tasting"
             referencedColumns: ["id"]
           },
         ]
@@ -638,28 +648,43 @@ export type Database = {
       }
       tasting: {
         Row: {
+          capacity: number | null
           created_at: string
           date: string
+          description: string | null
           id: string
+          live_position: number | null
           location: string | null
           name: string | null
           notes: string | null
+          price: number | null
+          start_time: string | null
         }
         Insert: {
+          capacity?: number | null
           created_at?: string
           date: string
+          description?: string | null
           id?: string
+          live_position?: number | null
           location?: string | null
           name?: string | null
           notes?: string | null
+          price?: number | null
+          start_time?: string | null
         }
         Update: {
+          capacity?: number | null
           created_at?: string
           date?: string
+          description?: string | null
           id?: string
+          live_position?: number | null
           location?: string | null
           name?: string | null
           notes?: string | null
+          price?: number | null
+          start_time?: string | null
         }
         Relationships: []
       }
@@ -689,6 +714,111 @@ export type Database = {
           },
           {
             foreignKeyName: "tasting_customer_tasting_id_fkey"
+            columns: ["tasting_id"]
+            isOneToOne: false
+            referencedRelation: "tasting"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      tasting_feedback: {
+        Row: {
+          comment: string | null
+          created_at: string
+          guest_email: string | null
+          guest_id: string
+          guest_name: string | null
+          id: string
+          rating: number | null
+          tasting_id: string
+          wine_vintage_id: string
+        }
+        Insert: {
+          comment?: string | null
+          created_at?: string
+          guest_email?: string | null
+          guest_id: string
+          guest_name?: string | null
+          id?: string
+          rating?: number | null
+          tasting_id: string
+          wine_vintage_id: string
+        }
+        Update: {
+          comment?: string | null
+          created_at?: string
+          guest_email?: string | null
+          guest_id?: string
+          guest_name?: string | null
+          id?: string
+          rating?: number | null
+          tasting_id?: string
+          wine_vintage_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "tasting_feedback_tasting_id_fkey"
+            columns: ["tasting_id"]
+            isOneToOne: false
+            referencedRelation: "tasting"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tasting_feedback_wine_vintage_id_fkey"
+            columns: ["wine_vintage_id"]
+            isOneToOne: false
+            referencedRelation: "wine_vintage"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      tasting_registration: {
+        Row: {
+          created_at: string
+          customer_id: string | null
+          email: string
+          first_name: string
+          id: string
+          last_name: string | null
+          phone: string | null
+          seats: number
+          status: string
+          tasting_id: string
+        }
+        Insert: {
+          created_at?: string
+          customer_id?: string | null
+          email: string
+          first_name: string
+          id?: string
+          last_name?: string | null
+          phone?: string | null
+          seats?: number
+          status?: string
+          tasting_id: string
+        }
+        Update: {
+          created_at?: string
+          customer_id?: string | null
+          email?: string
+          first_name?: string
+          id?: string
+          last_name?: string | null
+          phone?: string | null
+          seats?: number
+          status?: string
+          tasting_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "tasting_registration_customer_id_fkey"
+            columns: ["customer_id"]
+            isOneToOne: false
+            referencedRelation: "customer"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tasting_registration_tasting_id_fkey"
             columns: ["tasting_id"]
             isOneToOne: false
             referencedRelation: "tasting"
@@ -1072,6 +1202,69 @@ export type Database = {
           },
         ]
       }
+      wish_request: {
+        Row: {
+          created_at: string
+          email: string | null
+          first_name: string
+          guest_id: string | null
+          id: string
+          items: Json
+          last_name: string | null
+          message: string | null
+          phone: string | null
+          sale_id: string | null
+          source: string
+          status: string
+          tasting_id: string | null
+        }
+        Insert: {
+          created_at?: string
+          email?: string | null
+          first_name: string
+          guest_id?: string | null
+          id?: string
+          items: Json
+          last_name?: string | null
+          message?: string | null
+          phone?: string | null
+          sale_id?: string | null
+          source?: string
+          status?: string
+          tasting_id?: string | null
+        }
+        Update: {
+          created_at?: string
+          email?: string | null
+          first_name?: string
+          guest_id?: string | null
+          id?: string
+          items?: Json
+          last_name?: string | null
+          message?: string | null
+          phone?: string | null
+          sale_id?: string | null
+          source?: string
+          status?: string
+          tasting_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "wish_request_sale_id_fkey"
+            columns: ["sale_id"]
+            isOneToOne: false
+            referencedRelation: "sale"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "wish_request_tasting_id_fkey"
+            columns: ["tasting_id"]
+            isOneToOne: false
+            referencedRelation: "tasting"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Views: {
       inventory: {
@@ -1084,6 +1277,35 @@ export type Database = {
     }
     Functions: {
       is_admin: { Args: never; Returns: boolean }
+      my_notebook: { Args: never; Returns: Json }
+      public_wine_availability: {
+        Args: never
+        Returns: {
+          in_stock: boolean
+          low_stock: boolean
+          wine_vintage_id: string
+        }[]
+      }
+      register_for_tasting: {
+        Args: {
+          p_email: string
+          p_first_name: string
+          p_last_name: string
+          p_phone: string
+          p_seats: number
+          p_tasting_id: string
+        }
+        Returns: string
+      }
+      tasting_availability: {
+        Args: { p_tasting_id: string }
+        Returns: {
+          capacity: number
+          seats_left: number
+          seats_taken: number
+        }[]
+      }
+      unsubscribe_email: { Args: { p_id: string }; Returns: boolean }
     }
     Enums: {
       [_ in never]: never
@@ -1102,12 +1324,12 @@ export type Tables<
   DefaultSchemaTableNameOrOptions extends
     | keyof (DefaultSchema["Tables"] & DefaultSchema["Views"])
     | { schema: keyof DatabaseWithoutInternals },
-  TableName extends DefaultSchemaTableNameOrOptions extends {
+  TableName extends (DefaultSchemaTableNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
     ? keyof (DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"] &
         DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Views"])
-    : never = never,
+    : never) = never,
 > = DefaultSchemaTableNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }
@@ -1131,11 +1353,11 @@ export type TablesInsert<
   DefaultSchemaTableNameOrOptions extends
     | keyof DefaultSchema["Tables"]
     | { schema: keyof DatabaseWithoutInternals },
-  TableName extends DefaultSchemaTableNameOrOptions extends {
+  TableName extends (DefaultSchemaTableNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
     ? keyof DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"]
-    : never = never,
+    : never) = never,
 > = DefaultSchemaTableNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }
@@ -1156,11 +1378,11 @@ export type TablesUpdate<
   DefaultSchemaTableNameOrOptions extends
     | keyof DefaultSchema["Tables"]
     | { schema: keyof DatabaseWithoutInternals },
-  TableName extends DefaultSchemaTableNameOrOptions extends {
+  TableName extends (DefaultSchemaTableNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
     ? keyof DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"]
-    : never = never,
+    : never) = never,
 > = DefaultSchemaTableNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }
@@ -1181,11 +1403,11 @@ export type Enums<
   DefaultSchemaEnumNameOrOptions extends
     | keyof DefaultSchema["Enums"]
     | { schema: keyof DatabaseWithoutInternals },
-  EnumName extends DefaultSchemaEnumNameOrOptions extends {
+  EnumName extends (DefaultSchemaEnumNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
     ? keyof DatabaseWithoutInternals[DefaultSchemaEnumNameOrOptions["schema"]]["Enums"]
-    : never = never,
+    : never) = never,
 > = DefaultSchemaEnumNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }
@@ -1198,11 +1420,11 @@ export type CompositeTypes<
   PublicCompositeTypeNameOrOptions extends
     | keyof DefaultSchema["CompositeTypes"]
     | { schema: keyof DatabaseWithoutInternals },
-  CompositeTypeName extends PublicCompositeTypeNameOrOptions extends {
+  CompositeTypeName extends (PublicCompositeTypeNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
     ? keyof DatabaseWithoutInternals[PublicCompositeTypeNameOrOptions["schema"]]["CompositeTypes"]
-    : never = never,
+    : never) = never,
 > = PublicCompositeTypeNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }

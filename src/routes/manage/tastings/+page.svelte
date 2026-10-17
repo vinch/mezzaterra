@@ -7,6 +7,9 @@
   import ProductVintageAutocomplete from "$lib/components/manage/ProductVintageAutocomplete.svelte";
   import CustomerAutocomplete from "$lib/components/manage/CustomerAutocomplete.svelte";
   import { customerDisplayLabel, sortCustomersByLabel } from "$lib/customerDisplay";
+  import { hasTastingExtras } from "$lib/features";
+  import { fetchTastingWithWines } from "$lib/publicData";
+  import { downloadTableCardsPdf } from "$lib/tableCards";
 
   type TastingRow = Tasting & {
     tasting_wine_vintage: { order: number; wine_vintage_id: string }[];
@@ -35,18 +38,53 @@
   let selectedVintageId = "";
   let selectedCustomerId = "";
   let saving = false;
+  /** Colonnes publiques (heure, prix, capacité, description) présentes en base ? */
+  let extras = false;
+  let cardsBusyId = "";
 
   let formData = {
     name: "",
     date: "",
     location: "",
     notes: "",
+    start_time: "",
+    price: "",
+    capacity: "",
+    description: "",
   };
 
   onMount(async () => {
-    await Promise.all([loadTastings(), loadWineVintages(), loadCustomers()]);
+    const [, , , hasExtras] = await Promise.all([
+      loadTastings(),
+      loadWineVintages(),
+      loadCustomers(),
+      hasTastingExtras(),
+    ]);
+    extras = hasExtras;
     loading = false;
   });
+
+  async function downloadCards(tasting: TastingRow) {
+    cardsBusyId = tasting.id;
+    error = "";
+    try {
+      const res = await fetchTastingWithWines(tasting.id);
+      if (!res.tasting || res.wineVintages.length === 0) {
+        error = "Ajoutez des vins à la dégustation pour générer les fiches.";
+        return;
+      }
+      await downloadTableCardsPdf(res.tasting, res.wineVintages, window.location.origin);
+    } catch (e) {
+      error = e instanceof Error ? e.message : "Génération des fiches impossible";
+    } finally {
+      cardsBusyId = "";
+    }
+  }
+
+  function numOrNull(v: string): number | null {
+    const n = parseFloat(String(v).replace(",", "."));
+    return Number.isFinite(n) ? n : null;
+  }
 
   function isCustomerInModal(customerId: string): boolean {
     return modalCustomers.some((e) => e.customer_id === customerId);
@@ -236,6 +274,10 @@
       date: todayIsoDate(),
       location: "",
       notes: "",
+      start_time: "",
+      price: "",
+      capacity: "",
+      description: "",
     };
     modalWines = [];
     modalCustomers = [];
@@ -258,6 +300,10 @@
       date: isoDateOnly(tasting.date),
       location: tasting.location || "",
       notes: tasting.notes || "",
+      start_time: tasting.start_time ? tasting.start_time.slice(0, 5) : "",
+      price: tasting.price != null ? String(tasting.price) : "",
+      capacity: tasting.capacity != null ? String(tasting.capacity) : "",
+      description: tasting.description || "",
     };
     selectedVintageId = "";
     selectedCustomerId = "";
@@ -379,18 +425,25 @@
     saving = true;
     error = "";
 
-    const payload = {
+    const payload: Record<string, unknown> = {
       name: formData.name.trim() || null,
       date: formData.date,
       location: formData.location.trim() || null,
       notes: formData.notes.trim() || null,
     };
+    if (extras) {
+      const capacity = numOrNull(formData.capacity);
+      payload.start_time = formData.start_time || null;
+      payload.price = numOrNull(formData.price);
+      payload.capacity = capacity != null ? Math.max(0, Math.round(capacity)) : null;
+      payload.description = formData.description.trim() || null;
+    }
 
     try {
       if (editingTasting) {
         const { error: updateError } = await supabase
           .from("tasting")
-          .update(payload)
+          .update(payload as any)
           .eq("id", editingTasting.id);
 
         if (updateError) throw new Error(updateError.message);
@@ -399,7 +452,7 @@
       } else {
         const { data: created, error: insertError } = await supabase
           .from("tasting")
-          .insert(payload)
+          .insert(payload as any)
           .select("id")
           .single();
 
@@ -520,22 +573,33 @@
                 <div class="actions">
                   <a
                     href="/tastings/{tasting.id}"
-                    class="btn-view"
+                    class="ui-btn ui-btn--secondary ui-btn--sm"
                     target="_blank"
                     rel="noopener noreferrer"
                   >
                     Voir
                   </a>
+                  <a href="/manage/tastings/{tasting.id}/live" class="ui-btn ui-btn--secondary ui-btn--sm">
+                    Piloter
+                  </a>
                   <button
                     type="button"
-                    class="btn-edit"
+                    class="ui-btn ui-btn--secondary ui-btn--sm"
+                    disabled={cardsBusyId === tasting.id}
+                    on:click={() => downloadCards(tasting)}
+                  >
+                    {cardsBusyId === tasting.id ? "…" : "Fiches de table"}
+                  </button>
+                  <button
+                    type="button"
+                    class="ui-btn ui-btn--secondary ui-btn--sm"
                     on:click={() => openEditModal(tasting)}
                   >
                     Modifier
                   </button>
                   <button
                     type="button"
-                    class="btn-delete"
+                    class="ui-btn ui-btn--danger ui-btn--sm"
                     on:click={() => deleteTasting(tasting)}
                   >
                     Supprimer
@@ -573,9 +637,28 @@
         <label for="tasting-location">Lieu</label>
         <input type="text" id="tasting-location" bind:value={formData.location} />
       </div>
+      {#if extras}
+        <div class="form-group">
+          <label for="tasting-time">Heure</label>
+          <input type="time" id="tasting-time" bind:value={formData.start_time} />
+        </div>
+        <div class="form-group">
+          <label for="tasting-price">Prix / personne (€)</label>
+          <input type="text" inputmode="decimal" id="tasting-price" bind:value={formData.price} />
+        </div>
+        <div class="form-group">
+          <label for="tasting-capacity">Places (inscriptions en ligne)</label>
+          <input type="number" min="0" id="tasting-capacity" bind:value={formData.capacity} placeholder="Illimité" />
+        </div>
+        <div class="form-group full-width">
+          <label for="tasting-description">Description publique</label>
+          <textarea id="tasting-description" rows="3" bind:value={formData.description} placeholder="Affichée sur le site (thème, vigneron invité, menu…)"></textarea>
+        </div>
+      {/if}
       <div class="form-group full-width">
-        <label for="tasting-notes">Notes</label>
+        <label for="tasting-notes">Notes internes</label>
         <textarea id="tasting-notes" rows="3" bind:value={formData.notes}></textarea>
+        <small class="field-hint">Jamais affichées sur le site public.</small>
       </div>
 
       <div class="form-group full-width tasting-wines-block">
@@ -614,7 +697,7 @@
                 </button>
                 <button
                   type="button"
-                  class="btn-remove"
+                  class="ui-remove"
                   title="Retirer"
                   on:click={() => removeWineFromList(i)}
                   aria-label="Retirer"
@@ -642,7 +725,7 @@
         {/key}
         <button
           type="button"
-          class="btn-add"
+          class="ui-btn ui-btn--secondary ui-btn--sm"
           disabled={!selectedVintageId}
           on:click={addWineToTasting}
         >
@@ -663,7 +746,7 @@
                 <span>{customerDisplayLabel(entry.customer)}</span>
                 <button
                   type="button"
-                  class="btn-remove"
+                  class="ui-remove"
                   title="Retirer"
                   on:click={() => removeCustomerFromList(i)}
                   aria-label="Retirer"
@@ -686,7 +769,7 @@
           {/key}
           <button
             type="button"
-            class="btn-add"
+            class="ui-btn ui-btn--secondary ui-btn--sm"
             disabled={!selectedCustomerId}
             on:click={addCustomerToTasting}
           >
@@ -722,19 +805,13 @@
     font-variant-numeric: tabular-nums;
   }
 
-  .btn-view {
-    padding: 0.35rem 0.65rem;
-    background: #6c757d;
-    color: white;
-    border-radius: 4px;
-    font-size: 0.85rem;
-    text-decoration: none;
-    display: inline-block;
+  .actions {
+    flex-wrap: wrap;
   }
 
-  .btn-view:hover {
-    background: #5a6268;
-    color: white;
+  .field-hint {
+    color: var(--ink-2);
+    font-size: 0.8rem;
   }
 
   .tasting-wines-block .section-title {
@@ -755,7 +832,7 @@
     list-style: none;
     margin: 0 0 1rem;
     padding: 0;
-    border: 1px solid #e9ecef;
+    border: 1px solid var(--border-soft);
     border-radius: 6px;
     overflow: hidden;
   }
@@ -766,7 +843,7 @@
     justify-content: space-between;
     gap: 0.75rem;
     padding: 0.6rem 0.75rem;
-    border-bottom: 1px solid #e9ecef;
+    border-bottom: 1px solid var(--border-soft);
     background: #fafbfc;
     font-size: 0.9rem;
   }
@@ -789,7 +866,7 @@
   }
 
   .empty-text {
-    color: #666;
+    color: var(--ink-2);
     margin: 0 0 1rem;
     font-size: 0.9rem;
   }
@@ -798,7 +875,7 @@
     list-style: none;
     margin: 0 0 1rem;
     padding: 0;
-    border: 1px solid #e9ecef;
+    border: 1px solid var(--border-soft);
     border-radius: 6px;
     overflow: hidden;
   }
@@ -808,7 +885,7 @@
     align-items: center;
     gap: 0.75rem;
     padding: 0.6rem 0.75rem;
-    border-bottom: 1px solid #e9ecef;
+    border-bottom: 1px solid var(--border-soft);
     background: #fafbfc;
   }
 
@@ -819,7 +896,7 @@
   .wine-order-num {
     flex: 0 0 1.5rem;
     font-weight: 700;
-    color: #666;
+    color: var(--ink-2);
     text-align: center;
   }
 
@@ -836,7 +913,7 @@
 
   .btn-icon {
     padding: 0.25rem 0.5rem;
-    border: 1px solid #ced4da;
+    border: 1px solid var(--input-border);
     background: white;
     border-radius: 4px;
     cursor: pointer;
@@ -847,17 +924,6 @@
   .btn-icon:disabled {
     opacity: 0.4;
     cursor: not-allowed;
-  }
-
-  .btn-remove {
-    padding: 0.2rem 0.45rem;
-    border: none;
-    background: #dc3545;
-    color: white;
-    border-radius: 4px;
-    cursor: pointer;
-    font-size: 1rem;
-    line-height: 1;
   }
 
   .add-wine-row {
@@ -872,22 +938,4 @@
     min-width: 220px;
   }
 
-  .btn-add {
-    padding: 0.5rem 1rem;
-    background: #28a745;
-    color: white;
-    border: none;
-    border-radius: 4px;
-    cursor: pointer;
-    font-size: 0.9rem;
-  }
-
-  .btn-add:disabled {
-    opacity: 0.55;
-    cursor: not-allowed;
-  }
-
-  .btn-add:hover:not(:disabled) {
-    background: #218838;
-  }
 </style>

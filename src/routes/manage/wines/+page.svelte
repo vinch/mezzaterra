@@ -2,8 +2,32 @@
   import { supabase } from "$lib/supabase";
   import { onMount } from "svelte";
   import type { Wine, Winery, Appelation, WineType } from "$lib/types";
-  import Modal from "$lib/components/Modal.svelte";
+  import { goto } from "$app/navigation";
   import ManagePageShell from "$lib/components/manage/ManagePageShell.svelte";
+  import Modal from "$lib/ui/Modal.svelte";
+  import Button from "$lib/ui/Button.svelte";
+  import IconButton from "$lib/ui/IconButton.svelte";
+  import RowMenu from "$lib/ui/RowMenu.svelte";
+  import type { MenuItem } from "$lib/ui/Menu.svelte";
+  import ConfirmDialog from "$lib/ui/ConfirmDialog.svelte";
+  import DataTable from "$lib/ui/DataTable.svelte";
+  import EmptyState from "$lib/ui/EmptyState.svelte";
+  import Field from "$lib/ui/Field.svelte";
+  import StockBadge from "$lib/ui/StockBadge.svelte";
+  import WineDot, { robeOf, ROBE_LABEL, type Robe } from "$lib/ui/WineDot.svelte";
+  import {
+    IconClipboard,
+    IconEye,
+    IconPencil,
+    IconPlus,
+    IconSearch,
+    IconTrash,
+    IconWine,
+    IconX,
+  } from "$lib/ui/icons";
+  import IconPlate from "@lucide/svelte/icons/utensils-crossed";
+  import { formatEUR } from "$lib/format";
+  import { addToNextSupplierOrder } from "$lib/reorder";
 
   let wines: Wine[] = [];
   let wineries: Winery[] = [];
@@ -37,6 +61,7 @@
   };
 
   onMount(async () => {
+    void loadStock();
     await loadWines();
     await loadWineries();
     await loadAppellations();
@@ -225,8 +250,9 @@
     await loadWines();
   }
 
-  async function deleteWine(id: string) {
-    if (!confirm("Êtes-vous sûr de vouloir supprimer ce vin ?")) {
+  /** `confirmed` : confirmation déjà donnée via le ConfirmDialog. */
+  async function deleteWine(id: string, confirmed = false) {
+    if (!confirmed && !confirm("Êtes-vous sûr de vouloir supprimer ce vin ?")) {
       return;
     }
 
@@ -360,362 +386,546 @@
     filterWineTypeId = "";
     searchText = "";
   }
+
+  /* ——— Interface (refonte) ——— */
+  let stock = new Map<string, number>();
+  async function loadStock() {
+    const { data } = await supabase.from("inventory").select("wine_vintage_id, quantity_on_hand");
+    stock = new Map((data || []).map((r: any) => [r.wine_vintage_id, r.quantity_on_hand ?? 0]));
+  }
+
+  let robeFilter: Robe | "" = "";
+  let inStockOnly = false;
+  const ROBES: Robe[] = ["rouge", "blanc", "rose"];
+
+  function vintagesOf(wine: any): any[] {
+    return [...(wine.wine_vintage || [])].sort(
+      (a, b) => (a.year ?? a.production_year ?? 0) - (b.year ?? b.production_year ?? 0),
+    );
+  }
+  function totalStock(wine: any): number {
+    return vintagesOf(wine).reduce((n, v) => n + Math.max(0, stock.get(v.id) ?? 0), 0);
+  }
+  function latestVintage(wine: any): any | null {
+    const list = vintagesOf(wine);
+    return list.length ? list[list.length - 1] : null;
+  }
+  function priceText(wine: any): string {
+    const prices = vintagesOf(wine)
+      .map((v) => (v.price != null ? Number(v.price) : null))
+      .filter((p): p is number => p != null);
+    if (!prices.length) return "—";
+    const min = Math.min(...prices);
+    const max = Math.max(...prices);
+    return min === max ? formatEUR(min) : `${formatEUR(min)} – ${formatEUR(max)}`;
+  }
+  function wineTitle(wine: any): string {
+    return wine.name?.trim() || wine.appelation?.name || "Vin sans nom";
+  }
+
+  $: shownWines = filteredWines
+    .filter((w: any) => !robeFilter || robeOf(w.wine_type) === robeFilter)
+    .filter((w: any) => !inStockOnly || totalStock(w) > 0);
+  $: vintageCount = wines.reduce((n, w: any) => n + (w.wine_vintage?.length ?? 0), 0);
+  $: bottleCount = [...stock.values()].reduce((n, q) => n + Math.max(0, q), 0);
+  $: subtitle = `${wines.length} vin${wines.length > 1 ? "s" : ""} · ${vintageCount} millésime${vintageCount > 1 ? "s" : ""} · ${bottleCount} bouteille${bottleCount > 1 ? "s" : ""} en stock`;
+  $: filtersActive = !!(searchText || filterWineryId || filterAppelationId || filterWineTypeId || robeFilter || inStockOnly);
+
+  function resetAll() {
+    clearFilters();
+    robeFilter = "";
+    inStockOnly = false;
+  }
+
+  let notice = "";
+  async function reorder(wine: any) {
+    const v = latestVintage(wine);
+    if (!v) return;
+    const raw = prompt(`Combien de bouteilles de « ${wineTitle(wine)} ${v.year ?? ""} » commander ?`, "12");
+    const qty = parseInt(raw ?? "", 10);
+    if (!Number.isFinite(qty) || qty < 1) return;
+    try {
+      const res = await addToNextSupplierOrder(v.id, qty, Number(v.purchase_price || 0));
+      notice = `${qty} bt. ajoutées à ${res.created ? "une nouvelle commande" : "la commande en attente"} chez ${res.supplierName}.`;
+    } catch (e) {
+      error = e instanceof Error ? e.message : String(e);
+    }
+  }
+
+  function rowItems(wine: any): MenuItem[] {
+    const items: MenuItem[] = [
+      { label: "Ouvrir la fiche", icon: IconEye, href: `/manage/wines/${wine.id}` },
+      { label: "Modifier", icon: IconPencil, onSelect: () => openEditModal(wine) },
+      { label: "Ajouter un millésime", icon: IconPlus, href: `/manage/wines/${wine.id}?nouveau=1` },
+      { label: "Accords mets & vins", icon: IconPlate, onSelect: () => openPairingsModal(wine) },
+    ];
+    if (latestVintage(wine)) items.push({ label: "Commander (réassort)", icon: IconClipboard, onSelect: () => reorder(wine) });
+    items.push({ label: "Supprimer…", icon: IconTrash, danger: true, separator: true, onSelect: () => askDelete(wine) });
+    return items;
+  }
+
+  function openRow(wine: any, e: MouseEvent) {
+    if ((e.target as HTMLElement).closest("button, a, input, select, [role=menu]")) return;
+    void goto(`/manage/wines/${wine.id}`);
+  }
+
+  let deleteTarget: any = null;
+  let confirmOpen = false;
+  function askDelete(wine: any) {
+    deleteTarget = wine;
+    confirmOpen = true;
+  }
+  async function confirmDelete() {
+    if (!deleteTarget) return;
+    await deleteWine(deleteTarget.id, true);
+    confirmOpen = false;
+  }
 </script>
 
 <svelte:head>
   <title>Vins - Gestion</title>
 </svelte:head>
 
-<ManagePageShell title="Vins">
+<ManagePageShell title="Vins" subtitle={loading ? "" : subtitle}>
   <svelte:fragment slot="actions">
-    <button type="button" class="btn-primary" on:click={openCreateModal}>
-      + Nouveau vin
-    </button>
+    <Button variant="primary" on:click={openCreateModal}><IconPlus size={18} strokeWidth={1.75} /> Nouveau vin</Button>
   </svelte:fragment>
 
   {#if error}
-    <div class="error-message">{error}</div>
+    <div class="error-message" role="alert">{error}</div>
+  {/if}
+  {#if notice}
+    <div class="success-message" role="status">{notice}</div>
   {/if}
 
   {#if loading}
-    <div class="loading">Chargement...</div>
+    <div class="loading">Chargement…</div>
   {:else if wines.length === 0}
-    <div class="empty-state">
-      <p>Aucun vin trouvé</p>
-      <button class="btn-primary" on:click={openCreateModal}>
-        Créer le premier vin
-      </button>
+    <div class="empty-card">
+      <EmptyState icon={IconWine} title="Aucun vin au catalogue" text="Ajoutez un premier vin, puis ses millésimes.">
+        <Button on:click={openCreateModal}>Créer le premier vin</Button>
+      </EmptyState>
     </div>
   {:else}
-      <div class="filters-container">
-        <div class="filters">
-          <div class="filter-group">
-            <label for="search-text">Recherche</label>
-            <input
-              type="text"
-              id="search-text"
-              placeholder="Rechercher dans vignoble, nom, appellation..."
-              bind:value={searchText}
-            />
-          </div>
-          <div class="filter-group">
-            <label for="filter-winery">Vignoble</label>
-            <select id="filter-winery" bind:value={filterWineryId}>
-              <option value="">Tous les vignobles</option>
-              {#each wineries as winery}
-                <option value={winery.id}>{winery.name}</option>
-              {/each}
-            </select>
-          </div>
-          <div class="filter-group">
-            <label for="filter-appelation">Appellation</label>
-            <select id="filter-appelation" bind:value={filterAppelationId}>
-              <option value="">Toutes les appellations</option>
-              {#each appellations as appelation}
-                <option value={appelation.id}>
-                  {appelation.name}
-                  {#if appelation.label?.name}
-                    {" " + appelation.label.name}
-                  {/if}
-                </option>
-              {/each}
-            </select>
-          </div>
-          <div class="filter-group">
-            <label for="filter-wine-type">Type de vin</label>
-            <select id="filter-wine-type" bind:value={filterWineTypeId}>
-              <option value="">Tous les types</option>
-              {#each wineTypes as wineType}
-                <option value={wineType.id}>{wineType.name}</option>
-              {/each}
-            </select>
-          </div>
-          <div class="filter-group">
-            <button class="btn-secondary" on:click={clearFilters}>
-              Réinitialiser
-            </button>
-          </div>
-        </div>
+    <div class="filters-bar">
+      <label class="search">
+        <span class="sr-only">Rechercher un vin, un domaine, une appellation</span>
+        <IconSearch size={16} strokeWidth={1.75} aria-hidden="true" />
+        <input class="ui-control" type="search" placeholder="Rechercher un vin, un domaine…" bind:value={searchText} />
+      </label>
+      <div class="chips" role="group" aria-label="Filtrer par robe">
+        <button type="button" class="ui-chip" aria-pressed={!robeFilter} on:click={() => (robeFilter = "")}>Toutes</button>
+        {#each ROBES as r}
+          <button type="button" class="ui-chip" aria-pressed={robeFilter === r} on:click={() => (robeFilter = robeFilter === r ? "" : r)}>
+            <WineDot robe={r} />{ROBE_LABEL[r]}
+          </button>
+        {/each}
+      </div>
+      <select class="ui-control filter-select" bind:value={filterWineryId} aria-label="Domaine">
+        <option value="">Tous les domaines</option>
+        {#each wineries as winery}
+          <option value={winery.id}>{winery.name}</option>
+        {/each}
+      </select>
+      <select class="ui-control filter-select" bind:value={filterAppelationId} aria-label="Appellation">
+        <option value="">Toutes les appellations</option>
+        {#each appellations as appelation}
+          <option value={appelation.id}>{appelation.name}{appelation.label?.name ? ` ${appelation.label.name}` : ""}</option>
+        {/each}
+      </select>
+      <label class="check">
+        <input type="checkbox" bind:checked={inStockOnly} />
+        En stock seulement
+      </label>
+      {#if filtersActive}
+        <Button variant="ghost" size="sm" on:click={resetAll}><IconX size={14} strokeWidth={1.75} /> Réinitialiser</Button>
+      {/if}
+    </div>
+
+    {#if shownWines.length === 0}
+      <div class="empty-card">
+        <EmptyState icon={IconSearch} title="Aucun vin ne correspond" text="Modifiez la recherche ou les filtres." compact>
+          <Button on:click={resetAll}>Réinitialiser les filtres</Button>
+        </EmptyState>
+      </div>
+    {:else}
+      <div class="desktop-only">
+        <DataTable caption="Catalogue des vins">
+          <thead>
+            <tr>
+              <th scope="col">Vin</th>
+              <th scope="col">Robe</th>
+              <th scope="col">Millésimes · stock</th>
+              <th scope="col" class="num">Stock</th>
+              <th scope="col" class="num">Prix de vente</th>
+              <th scope="col" class="col-actions"><span class="sr-only">Actions</span></th>
+            </tr>
+          </thead>
+          <tbody>
+            {#each shownWines as wine (wine.id)}
+              {@const total = totalStock(wine)}
+              {@const robe = robeOf(wine.wine_type)}
+              <tr class="is-clickable" on:click={(e) => openRow(wine, e)}>
+                <td>
+                  <span class="wine-cell">
+                    <WineDot {robe} />
+                    <span class="wine-name">
+                      <a class="name-link" href="/manage/wines/{wine.id}">{wineTitle(wine)}</a>
+                      <span class="t-caption">{wine.winery?.name ?? "—"}{wine.name && wine.appelation?.name ? ` · ${wine.appelation.name}` : ""}</span>
+                    </span>
+                  </span>
+                </td>
+                <td>{ROBE_LABEL[robe]}</td>
+                <td>
+                  <span class="vintages">
+                    {#each vintagesOf(wine) as v (v.id)}
+                      {@const q = stock.get(v.id) ?? 0}
+                      <span class="vintage-chip" class:out={q <= 0}>
+                        {v.year ?? v.production_year} · {q <= 0 ? "rupture" : q}
+                      </span>
+                    {:else}
+                      <span class="t-muted">Aucun millésime</span>
+                    {/each}
+                  </span>
+                </td>
+                <td class="num">
+                  <span class="stock-cell">
+                    {#if vintagesOf(wine).length && total <= 0}
+                      <StockBadge kind="out" />
+                    {:else if total > 0 && total <= 3}
+                      <StockBadge kind="low" />
+                    {/if}
+                    <strong>{total} bt.</strong>
+                  </span>
+                </td>
+                <td class="num">{priceText(wine)}</td>
+                <td class="col-actions"><RowMenu items={rowItems(wine)} label="Actions pour {wineTitle(wine)}" /></td>
+              </tr>
+            {/each}
+          </tbody>
+        </DataTable>
+        <p class="t-caption footnote">Clic sur un vin pour ouvrir sa fiche. Les actions secondaires sont dans « … ».</p>
       </div>
 
-      {#if filteredWines.length === 0}
-        <div class="empty-state">
-          <p>Aucun vin ne correspond aux filtres sélectionnés</p>
-          <button class="btn-secondary" on:click={clearFilters}>
-            Réinitialiser les filtres
-          </button>
-        </div>
-      {:else}
-        <div class="table-container">
-          <table>
-            <thead>
-              <tr>
-                <th>Vignoble</th>
-                <th>Nom</th>
-                <th>Appellation</th>
-                <th>Type</th>
-                <th>Millésimes</th>
-                <th>Actions</th>
-              </tr>
-            </thead>
-            <tbody>
-              {#each filteredWines as wine}
-                <tr>
-                  <td>{wine.winery?.name || "-"}</td>
-                  <td><strong>{wine.name || "-"}</strong></td>
-                  <td>
-                    {#if wine.appelation}
-                      {wine.appelation.name || "-"}
-                      {#if wine.appelation.label?.name}
-                        {" " + wine.appelation.label.name}
-                      {/if}
-                    {:else}
-                      -
-                    {/if}
-                  </td>
-                  <td>{wine.wine_type?.name || "-"}</td>
-                  <td>
-                    {(wine as any).wine_vintage?.length || 0}
-                  </td>
-                  <td>
-                    <div class="actions">
-                      <a href="/manage/wines/{wine.id}" class="btn-vintages">
-                        Millésimes
-                      </a>
-                      <button
-                        class="btn-pairings"
-                        on:click={() => openPairingsModal(wine)}
-                      >
-                        Pairings
-                      </button>
-                      <button
-                        class="btn-edit"
-                        on:click={() => openEditModal(wine)}
-                      >
-                        Modifier
-                      </button>
-                      <button
-                        class="btn-delete"
-                        on:click={() => deleteWine(wine.id)}
-                      >
-                        Supprimer
-                      </button>
-                    </div>
-                  </td>
-                </tr>
-              {/each}
-            </tbody>
-          </table>
-        </div>
-      {/if}
+      <ul class="cards mobile-only">
+        {#each shownWines as wine (wine.id)}
+          {@const total = totalStock(wine)}
+          <li class="wine-card">
+            <a class="wine-card-main" href="/manage/wines/{wine.id}">
+              <span class="wc-top">
+                <span class="wine-cell"><WineDot robe={robeOf(wine.wine_type)} /><strong>{wineTitle(wine)}</strong></span>
+                <strong>{total} bt.</strong>
+              </span>
+              <span class="wc-bottom">
+                <span class="t-muted">{wine.winery?.name ?? ""}</span>
+                {#if vintagesOf(wine).length && total <= 0}<StockBadge kind="out" />{:else if total > 0 && total <= 3}<StockBadge kind="low" />{/if}
+              </span>
+            </a>
+            <RowMenu items={rowItems(wine)} label="Actions pour {wineTitle(wine)}" />
+          </li>
+        {/each}
+      </ul>
     {/if}
+  {/if}
 </ManagePageShell>
 
-<Modal
-  show={showModal}
-  title={editingWine ? "Modifier le vin" : "Nouveau vin"}
-  on:close={closeModal}
->
-  <form on:submit|preventDefault={handleSubmit}>
-    <div class="form-grid">
-      <div class="form-group full-width">
-        <label for="name">Nom du vin</label>
-        <input type="text" id="name" bind:value={formData.name} />
-      </div>
+<ConfirmDialog
+  bind:open={confirmOpen}
+  title="Supprimer ce vin ?"
+  message={deleteTarget
+    ? `« ${wineTitle(deleteTarget)} » (${deleteTarget.winery?.name ?? ""}) sera supprimé du catalogue, ainsi que ses ${deleteTarget.wine_vintage?.length ?? 0} millésime(s) si la base l’autorise. Les ventes passées ne sont pas modifiées.`
+    : ""}
+  on:confirm={confirmDelete}
+/>
 
-      <div class="form-group full-width">
-        <label for="description">Description</label>
-        <textarea id="description" bind:value={formData.description} rows="3"
-        ></textarea>
-      </div>
-
-      <div class="form-group">
-        <label for="winery_id">Vignoble *</label>
-        <select id="winery_id" bind:value={formData.winery_id} required>
-          <option value="">Sélectionner un vignoble</option>
+<Modal open={showModal} title={editingWine ? "Modifier le vin" : "Nouveau vin"} maxWidth={640} on:close={closeModal}>
+  <form id="wine-form" class="wine-form" on:submit|preventDefault={handleSubmit}>
+    <Field id="wine-name" label="Nom du vin" help="Laisser vide pour utiliser le nom de l’appellation.">
+      <input id="wine-name" class="ui-control" type="text" bind:value={formData.name} />
+    </Field>
+    <div class="grid-2">
+      <Field id="wine-winery" label="Domaine" required>
+        <select id="wine-winery" class="ui-control" bind:value={formData.winery_id} required>
+          <option value="">Sélectionner un domaine</option>
           {#each wineries as winery}
             <option value={winery.id}>{winery.name}</option>
           {/each}
         </select>
-      </div>
-
-      <div class="form-group">
-        <label for="appelation_id">Appellation</label>
-        <select id="appelation_id" bind:value={formData.appelation_id}>
-          <option value="">Sélectionner une appellation</option>
-          {#each appellations as appelation}
-            <option value={appelation.id}>
-              {appelation.name}
-              {#if appelation.label?.name}
-                {" " + appelation.label.name}
-              {/if}
-            </option>
-          {/each}
-        </select>
-      </div>
-
-      <div class="form-group">
-        <label for="wine_type_id">Type de vin *</label>
-        <select id="wine_type_id" bind:value={formData.wine_type_id} required>
-          <option value="">Sélectionner un type</option>
+      </Field>
+      <Field id="wine-type" label="Robe" required>
+        <select id="wine-type" class="ui-control" bind:value={formData.wine_type_id} required>
+          <option value="">Sélectionner une robe</option>
           {#each wineTypes as wineType}
-            <option value={wineType.id}>{wineType.name}</option>
+            <option value={wineType.id}>{ROBE_LABEL[robeOf(wineType)] === "Autre" ? wineType.name : ROBE_LABEL[robeOf(wineType)]}</option>
           {/each}
         </select>
-      </div>
+      </Field>
     </div>
-
-    <div class="modal-footer">
-      <button type="button" class="btn-secondary" on:click={closeModal}>
-        Annuler
-      </button>
-      <button type="submit" class="btn-primary">
-        {editingWine ? "Mettre à jour" : "Créer"}
-      </button>
-    </div>
+    <Field id="wine-appellation" label="Appellation" optional>
+      <select id="wine-appellation" class="ui-control" bind:value={formData.appelation_id}>
+        <option value="">Aucune</option>
+        {#each appellations as appelation}
+          <option value={appelation.id}>{appelation.name}{appelation.label?.name ? ` ${appelation.label.name}` : ""}</option>
+        {/each}
+      </select>
+    </Field>
+    <Field id="wine-description" label="Description" optional>
+      <textarea id="wine-description" class="ui-control" rows="3" bind:value={formData.description}></textarea>
+    </Field>
   </form>
+  <svelte:fragment slot="footer">
+    <Button variant="ghost" on:click={closeModal}>Annuler</Button>
+    <Button variant="primary" on:click={handleSubmit}>{editingWine ? "Enregistrer" : "Créer le vin"}</Button>
+  </svelte:fragment>
 </Modal>
 
-<!-- Pairings Modal -->
-<Modal
-  show={showPairingsModal}
-  title="Gérer les pairings"
-  on:close={closePairingsModal}
->
-  <div class="pairings-content">
-    <div class="pairings-section">
-      <h3>Pairings actuels</h3>
-      {#if winePairings.length === 0}
-        <p class="empty-text">Aucun pairing ajouté</p>
-      {:else}
-        <div class="pairings-list">
-          {#each winePairings as winePairing}
-            <div class="pairing-item">
-              <span>{winePairing.pairing.description}</span>
-              <button
-                class="btn-remove"
-                on:click={() => removePairing(winePairing.pairing_id)}
-              >
-                ×
-              </button>
-            </div>
-          {/each}
-        </div>
-      {/if}
-    </div>
-
-    <div class="pairings-section">
-      <h3>Ajouter un pairing</h3>
-      <div class="add-pairing-form">
-        <select
-          bind:value={selectedPairingId}
-          disabled={!selectedPairingId && allPairings.length === 0}
-        >
-          <option value="">Sélectionner un pairing</option>
-          {#each allPairings as pairing}
-            <option value={pairing.id} disabled={isPairingLinked(pairing.id)}>
-              {pairing.description}
-              {#if isPairingLinked(pairing.id)}
-                (déjà ajouté){/if}
-            </option>
-          {/each}
-        </select>
-        <button
-          class="btn-add"
-          on:click={addPairing}
-          disabled={!selectedPairingId}
-        >
-          Ajouter
-        </button>
-      </div>
-    </div>
+<Modal open={showPairingsModal} title="Accords mets & vins" maxWidth={520} on:close={closePairingsModal}>
+  {#if selectedWine}<p class="t-muted pairing-intro">{wineTitle(selectedWine)} · {selectedWine.winery?.name ?? ""}</p>{/if}
+  {#if winePairings.length === 0}
+    <EmptyState icon={IconPlate} title="Aucun accord pour ce vin" compact />
+  {:else}
+    <ul class="pairings">
+      {#each winePairings as wp}
+        <li>
+          <span>{wp.pairing.description}</span>
+          <IconButton label="Retirer {wp.pairing.description}" on:click={() => removePairing(wp.pairing_id)}>
+            <IconX size={16} strokeWidth={1.75} />
+          </IconButton>
+        </li>
+      {/each}
+    </ul>
+  {/if}
+  <div class="add-pairing">
+    <select class="ui-control" bind:value={selectedPairingId} aria-label="Accord à ajouter">
+      <option value="">Choisir un plat…</option>
+      {#each allPairings as pairing}
+        <option value={pairing.id} disabled={isPairingLinked(pairing.id)}>
+          {pairing.description}{isPairingLinked(pairing.id) ? " (déjà ajouté)" : ""}
+        </option>
+      {/each}
+    </select>
+    <Button on:click={addPairing} disabled={!selectedPairingId}><IconPlus size={16} strokeWidth={1.75} /> Ajouter</Button>
   </div>
+  <svelte:fragment slot="footer">
+    <Button variant="primary" on:click={closePairingsModal}>Terminé</Button>
+  </svelte:fragment>
 </Modal>
 
 <style>
-  /* Pairings modal styles */
-  .pairings-content {
-    padding: 1.5rem;
+  .filters-bar {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 16px;
   }
 
-  .pairings-section {
-    margin-bottom: 2rem;
+  .search {
+    position: relative;
+    flex: 0 1 340px;
+    display: flex;
+    align-items: center;
+    color: var(--ink-2);
   }
 
-  .pairings-section:last-child {
-    margin-bottom: 0;
+  .search :global(svg) {
+    position: absolute;
+    left: 12px;
   }
 
-  .pairings-section h3 {
-    margin: 0 0 1rem 0;
-    color: #333;
-    font-size: 1.1rem;
+  .search input {
+    padding-left: 36px;
   }
 
-  .empty-text {
-    color: #666;
-    font-style: italic;
+  .chips {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
   }
 
-  .pairings-list {
+  .filter-select {
+    width: auto;
+    min-width: 180px;
+  }
+
+  .check {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    min-height: 40px;
+    cursor: pointer;
+  }
+
+  .check input {
+    width: 18px;
+    height: 18px;
+    accent-color: var(--teal-600);
+  }
+
+  .empty-card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: var(--r-md);
+  }
+
+  .wine-cell {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+
+  .wine-name {
     display: flex;
     flex-direction: column;
-    gap: 0.5rem;
+    line-height: 18px;
   }
 
-  .pairing-item {
+  .name-link {
+    color: var(--ink) !important;
+    font-weight: 600;
+    text-decoration: none;
+  }
+
+  .name-link:hover {
+    color: var(--teal-700) !important;
+    text-decoration: underline;
+  }
+
+  .vintages {
     display: flex;
-    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 6px;
+  }
+
+  .vintage-chip {
+    padding: 2px 8px;
+    border-radius: 4px;
+    background: var(--table-head);
+    border: 1px solid var(--border-soft);
+    font-size: 12px;
+    white-space: nowrap;
+  }
+
+  .vintage-chip.out {
+    background: var(--st-cancelled-bg);
+    border-color: #ecc9c9;
+    color: var(--danger);
+  }
+
+  .stock-cell {
+    display: inline-flex;
     align-items: center;
-    padding: 0.75rem;
-    background: #f8f9fa;
-    border-radius: 4px;
+    gap: 10px;
   }
 
-  .btn-remove {
-    background: none;
-    border: none;
-    color: #dc3545;
-    font-size: 1.5rem;
-    cursor: pointer;
-    padding: 0 0.5rem;
-    line-height: 1;
+  .footnote {
+    margin: 10px 2px 0;
   }
 
-  .btn-remove:hover {
-    color: #c82333;
+  .mobile-only {
+    display: none;
   }
 
-  .add-pairing-form {
+  .cards {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .wine-card {
     display: flex;
-    gap: 0.5rem;
+    align-items: center;
+    gap: 4px;
+    padding-right: 4px;
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: var(--r-md);
   }
 
-  .add-pairing-form select {
+  .wine-card-main {
     flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    padding: 12px 8px 12px 14px;
+    color: inherit !important;
+    text-decoration: none;
   }
 
-  .add-pairing-form select option:disabled {
-    color: #999;
-    font-style: italic;
+  .wc-top,
+  .wc-bottom {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
   }
 
-  .btn-add {
-    padding: 0.5rem 1rem;
-    background: #28a745;
-    color: white;
-    border: none;
-    border-radius: 4px;
-    cursor: pointer;
-    font-size: 0.9rem;
+  .wine-form {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
   }
 
-  .btn-add:hover:not(:disabled) {
-    background: #218838;
+  .grid-2 {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
   }
 
-  .btn-add:disabled {
-    background: #6c757d;
-    cursor: not-allowed;
+  .pairing-intro {
+    margin: 0 0 12px;
+  }
+
+  .pairings {
+    list-style: none;
+    margin: 0 0 16px;
+    padding: 0;
+    border: 1px solid var(--border-soft);
+    border-radius: var(--r-md);
+    background: #fff;
+  }
+
+  .pairings li {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 4px 4px 4px 14px;
+    border-bottom: 1px solid var(--border-soft);
+  }
+
+  .pairings li:last-child {
+    border-bottom: none;
+  }
+
+  .add-pairing {
+    display: flex;
+    gap: 8px;
+  }
+
+  @media (max-width: 767px) {
+    .desktop-only {
+      display: none;
+    }
+
+    .mobile-only {
+      display: flex;
+    }
+
+    .search,
+    .filter-select {
+      flex: 1 1 100%;
+    }
+
+    .chips {
+      overflow-x: auto;
+      flex-wrap: nowrap;
+    }
+
+    .grid-2 {
+      grid-template-columns: 1fr;
+    }
   }
 </style>

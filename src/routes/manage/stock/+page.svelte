@@ -175,7 +175,7 @@
               <td>
                 <a
                   href="/manage/wines/{w?.id}/stock/{row.wine_vintage.id}"
-                  class="btn-stock-link"
+                  class="ui-btn ui-btn--secondary ui-btn--sm"
                 >
                   Détail
                 </a>
@@ -192,11 +192,11 @@
   .stock-loading {
     margin: 0;
     padding: 0.5rem 0;
-    color: #666;
+    color: var(--ink-2);
   }
 
   .empty-text {
-    color: #666;
+    color: var(--ink-2);
     margin: 0;
   }
 
@@ -204,7 +204,7 @@
     margin-top: 0;
     max-height: none;
     overflow: visible;
-    border: 1px solid #e9ecef;
+    border: 1px solid var(--border-soft);
     border-radius: 6px;
     background: white;
     box-shadow: 0 2px 4px rgba(0, 0, 0, 0.08);
@@ -219,13 +219,13 @@
   .stock-table th,
   .stock-table td {
     padding: 0.65rem 0.75rem;
-    border-bottom: 1px solid #e9ecef;
+    border-bottom: 1px solid var(--border-soft);
     text-align: left;
     vertical-align: middle;
   }
 
   .stock-table thead th {
-    background: #f8f9fa;
+    background: var(--table-head);
     font-weight: 600;
   }
 
@@ -234,18 +234,4 @@
     font-variant-numeric: tabular-nums;
   }
 
-  .btn-stock-link {
-    padding: 0.35rem 0.65rem;
-    background: #28a745;
-    color: white;
-    border-radius: 4px;
-    font-size: 0.8rem;
-    text-decoration: none;
-    display: inline-block;
-  }
-
-  .btn-stock-link:hover {
-    background: #218838;
-    color: white;
-  }
 </style>

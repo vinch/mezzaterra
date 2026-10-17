@@ -5,32 +5,161 @@
   import { onMount, setContext } from "svelte";
   import { writable } from "svelte/store";
   import { page } from "$app/stores";
+  import CommandPalette from "$lib/components/manage/CommandPalette.svelte";
+  import Sidebar, { type NavSection } from "$lib/ui/Sidebar.svelte";
+  import IconButton from "$lib/ui/IconButton.svelte";
+  import { hasTable } from "$lib/features";
+  import {
+    IconBox,
+    IconCastle,
+    IconChart,
+    IconClipboard,
+    IconFactory,
+    IconFile,
+    IconGlasses,
+    IconGlobe,
+    IconGrape,
+    IconHome,
+    IconImage,
+    IconInbox,
+    IconMail,
+    IconMap,
+    IconMapPin,
+    IconMenu,
+    IconReceipt,
+    IconRoute,
+    IconSearch,
+    IconTag,
+    IconTruck,
+    IconUsers,
+    IconWine,
+    IconX,
+  } from "$lib/ui/icons";
+  import IconPlate from "@lucide/svelte/icons/utensils-crossed";
 
   const userStore = writable<any>(null);
   const checkingAuthStore = writable(true);
+  /** `false` uniquement si la base confirme que l'utilisateur n'est pas admin. */
+  const isAdminStore = writable<boolean | null>(null);
 
-  let mobileNavOpen = false;
+  let moreOpen = false;
+  let paletteOpen = false;
+  let newRequests = 0;
+  let pendingSales = 0;
 
   setContext("auth", {
     user: userStore,
     checkingAuth: checkingAuthStore,
   });
 
-  afterNavigate(() => {
-    mobileNavOpen = false;
-  });
+  $: sections = [
+    { title: null, links: [{ href: "/manage", label: "Tableau de bord", icon: IconHome }] },
+    {
+      title: "Produits",
+      links: [
+        { href: "/manage/wines", label: "Vins", icon: IconWine },
+        { href: "/manage/stock", label: "Stock", icon: IconBox },
+      ],
+    },
+    {
+      title: "Dégustations",
+      links: [
+        { href: "/manage/tastings", label: "Dégustations", icon: IconGlasses },
+        { href: "/manage/documents", label: "Documents", icon: IconFile },
+        { href: "/manage/tasting-flyer", label: "Visuel dégustation", icon: IconImage },
+      ],
+    },
+    {
+      title: "Ventes",
+      links: [
+        { href: "/manage/requests", label: "Demandes", icon: IconInbox, count: newRequests },
+        { href: "/manage/customers", label: "Clients", icon: IconUsers },
+        { href: "/manage/sales", label: "Ventes", icon: IconReceipt, count: pendingSales },
+        { href: "/manage/campaigns", label: "Campagnes", icon: IconMail },
+      ],
+    },
+    {
+      title: "Pilotage",
+      links: [{ href: "/manage/insights", label: "Analyses", icon: IconChart }],
+    },
+    {
+      title: "Achats",
+      links: [
+        { href: "/manage/orders", label: "Commandes", icon: IconClipboard },
+        { href: "/manage/suppliers", label: "Fournisseurs", icon: IconFactory },
+        { href: "/manage/transports", label: "Transports", icon: IconRoute },
+        { href: "/manage/transporters", label: "Transporteurs", icon: IconTruck },
+      ],
+    },
+    {
+      title: "Référentiels",
+      collapsible: "Référentiels",
+      links: [
+        { href: "/manage/appellations", label: "Appellations", icon: IconMapPin },
+        { href: "/manage/grapes", label: "Cépages", icon: IconGrape },
+        { href: "/manage/labels", label: "Labels", icon: IconTag },
+        { href: "/manage/pairings", label: "Accords", icon: IconPlate },
+        { href: "/manage/wineries", label: "Vignobles", icon: IconCastle },
+        { href: "/manage/countries", label: "Pays", icon: IconGlobe },
+        { href: "/manage/regions", label: "Régions", icon: IconMap },
+      ],
+    },
+  ] satisfies NavSection[];
 
-  function toggleMobileNav() {
-    mobileNavOpen = !mobileNavOpen;
+  $: allLinks = sections.flatMap((s) => s.links);
+  /* Pilotage en direct : plein écran sur mobile (il a son propre en-tête et sa barre « Vin suivant »). */
+  $: immersive = /^\/manage\/tastings\/[^/]+\/live$/.test($page.url.pathname);
+
+  /* Barre d'onglets mobile. */
+  $: tabs = [
+    { href: "/manage", label: "Accueil", icon: IconHome },
+    { href: "/manage/sales", label: "Ventes", icon: IconReceipt, count: pendingSales },
+    { href: "/manage/tastings", label: "Dégustation", icon: IconGlasses },
+    { href: "/manage/customers", label: "Clients", icon: IconUsers },
+  ];
+
+  function isActive(href: string, path: string): boolean {
+    if (href === "/manage") return path === "/manage";
+    return path === href || path.startsWith(href + "/");
   }
 
-  function closeMobileNav() {
-    mobileNavOpen = false;
+  afterNavigate(() => {
+    moreOpen = false;
+    void refreshCounts();
+  });
+
+  async function checkAdmin(user: any) {
+    if (!user) {
+      isAdminStore.set(null);
+      return;
+    }
+    try {
+      const { data, error } = await supabase.rpc("is_admin");
+      /* En cas d'erreur on ne bloque pas : la RLS protège de toute façon les données. */
+      isAdminStore.set(error ? null : data === false ? false : true);
+    } catch {
+      isAdminStore.set(null);
+    }
+  }
+
+  async function refreshCounts() {
+    if (!$userStore || $isAdminStore === false) return;
+    const { count } = await supabase
+      .from("sale")
+      .select("id", { count: "exact", head: true })
+      .eq("status", "pending");
+    pendingSales = count ?? 0;
+    if (!(await hasTable("wish_request"))) return;
+    const { count: wishes } = await supabase
+      .from("wish_request")
+      .select("id", { count: "exact", head: true })
+      .eq("status", "new");
+    newRequests = wishes ?? 0;
   }
 
   onMount(() => {
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") closeMobileNav();
+      if (e.key === "Escape") moreOpen = false;
     };
     window.addEventListener("keydown", onKey);
 
@@ -39,16 +168,19 @@
         data: { user: currentUser },
       } = await supabase.auth.getUser();
       userStore.set(currentUser);
+      await checkAdmin(currentUser);
 
       if (!currentUser && $page.url.pathname !== "/manage") {
         goto("/manage");
       }
 
       checkingAuthStore.set(false);
+      void refreshCounts();
 
       supabase.auth.onAuthStateChange((event, session) => {
         const user = session?.user ?? null;
         userStore.set(user);
+        void checkAdmin(user).then(refreshCounts);
         if (!user && $page.url.pathname !== "/manage") {
           goto("/manage");
         }
@@ -65,253 +197,78 @@
 </script>
 
 {#if $checkingAuthStore}
-  <div class="loading-container">
+  <div class="app loading-container">
     <div class="spinner"></div>
-    <p>Chargement...</p>
+    <p>Chargement…</p>
+  </div>
+{:else if $userStore && $isAdminStore === false}
+  <div class="app loading-container denied">
+    <h1 class="t-page-title">Accès réservé</h1>
+    <p>Le compte <strong>{$userStore.email}</strong> n’a pas accès à la gestion.</p>
+    <p><a href="/carnet">Voir mon carnet de dégustation</a></p>
+    <button class="denied-logout" on:click={handleLogout}>Se déconnecter</button>
   </div>
 {:else if $userStore}
-  <div class="admin-layout" class:nav-open={mobileNavOpen}>
-    <button
-      type="button"
-      class="nav-backdrop"
-      aria-label="Fermer le menu"
-      on:click={closeMobileNav}
-    ></button>
-    <nav
-      id="manage-sidebar"
-      class="sidebar"
-      class:open={mobileNavOpen}
-    >
-      <div class="sidebar-header">
-        <h2>Gestion</h2>
-      </div>
-      <ul class="nav-list">
-        <li>
-          <a href="/manage" class:active={$page.url.pathname === "/manage"}>
-            <span class="icon">🏠</span>
-            Tableau de bord
-          </a>
-        </li>
+  <div class="app admin-layout" class:more-open={moreOpen} class:immersive>
+    <div class="sidebar-slot">
+      <Sidebar
+        {sections}
+        path={$page.url.pathname}
+        email={$userStore?.email ?? ""}
+        on:search={() => (paletteOpen = true)}
+        on:logout={handleLogout}
+      />
+    </div>
 
-        <li class="nav-divider">
-          <span class="nav-divider-text">Produits</span>
-        </li>
-        <li>
-          <a
-            href="/manage/wines"
-            class:active={$page.url.pathname === "/manage/wines"}
-          >
-            <span class="icon">🍷</span>
-            Vins
-          </a>
-        </li>
-        <li>
-          <a
-            href="/manage/stock"
-            class:active={$page.url.pathname === "/manage/stock"}
-          >
-            <span class="icon">📦</span>
-            Stock
-          </a>
-        </li>
+    <button type="button" class="more-backdrop" aria-label="Fermer le menu" tabindex="-1" on:click={() => (moreOpen = false)}></button>
 
-        <li class="nav-divider">
-          <span class="nav-divider-text">Dégustations</span>
-        </li>
-        <li>
-          <a
-            href="/manage/tastings"
-            class:active={$page.url.pathname === "/manage/tastings"}
-          >
-            <span class="icon">🥂</span>
-            Dégustations
-          </a>
-        </li>
-        <li>
-          <a
-            href="/manage/documents"
-            class:active={$page.url.pathname === "/manage/documents"}
-          >
-            <span class="icon">📄</span>
-            Documents
-          </a>
-        </li>
-        <li>
-          <a
-            href="/manage/tasting-flyer"
-            class:active={$page.url.pathname === "/manage/tasting-flyer"}
-          >
-            <span class="icon">🖼️</span>
-            Visuel dégustation
-          </a>
-        </li>
-
-        <li class="nav-divider">
-          <span class="nav-divider-text">Ventes</span>
-        </li>
-        <li>
-          <a
-            href="/manage/customers"
-            class:active={$page.url.pathname === "/manage/customers"}
-          >
-            <span class="icon">👥</span>
-            Clients
-          </a>
-        </li>
-        <li>
-          <a
-            href="/manage/sales"
-            class:active={$page.url.pathname === "/manage/sales"}
-          >
-            <span class="icon">💵</span>
-            Ventes
-          </a>
-        </li>
-
-        <li class="nav-divider">
-          <span class="nav-divider-text">Achats</span>
-        </li>
-        <li>
-          <a
-            href="/manage/orders"
-            class:active={$page.url.pathname === "/manage/orders"}
-          >
-            <span class="icon">📋</span>
-            Commandes
-          </a>
-        </li>
-        <li>
-          <a
-            href="/manage/suppliers"
-            class:active={$page.url.pathname === "/manage/suppliers"}
-          >
-            <span class="icon">📦</span>
-            Fournisseurs
-          </a>
-        </li>
-        <li>
-          <a
-            href="/manage/transports"
-            class:active={$page.url.pathname === "/manage/transports"}
-          >
-            <span class="icon">🚛</span>
-            Transports
-          </a>
-        </li>
-        <li>
-          <a
-            href="/manage/transporters"
-            class:active={$page.url.pathname === "/manage/transporters"}
-          >
-            <span class="icon">🚚</span>
-            Transporteurs
-          </a>
-        </li>
-
-        <li class="nav-divider">
-          <span class="nav-divider-text">Références</span>
-        </li>
-        <li>
-          <a
-            href="/manage/appellations"
-            class:active={$page.url.pathname === "/manage/appellations"}
-          >
-            <span class="icon">📍</span>
-            Appellations
-          </a>
-        </li>
-        <li>
-          <a
-            href="/manage/grapes"
-            class:active={$page.url.pathname === "/manage/grapes"}
-          >
-            <span class="icon">🍇</span>
-            Cépages
-          </a>
-        </li>
-        <li>
-          <a
-            href="/manage/labels"
-            class:active={$page.url.pathname === "/manage/labels"}
-          >
-            <span class="icon">🏷️</span>
-            Labels
-          </a>
-        </li>
-        <li>
-          <a
-            href="/manage/pairings"
-            class:active={$page.url.pathname === "/manage/pairings"}
-          >
-            <span class="icon">🧀</span>
-            Pairings
-          </a>
-        </li>
-        <li>
-          <a
-            href="/manage/wineries"
-            class:active={$page.url.pathname === "/manage/wineries"}
-          >
-            <span class="icon">🏰</span>
-            Vignobles
-          </a>
-        </li>
-
-        <li class="nav-divider">
-          <span class="nav-divider-text">Géographie</span>
-        </li>
-        <li>
-          <a
-            href="/manage/countries"
-            class:active={$page.url.pathname === "/manage/countries"}
-          >
-            <span class="icon">🌍</span>
-            Pays
-          </a>
-        </li>
-        <li>
-          <a
-            href="/manage/regions"
-            class:active={$page.url.pathname === "/manage/regions"}
-          >
-            <span class="icon">🗺️</span>
-            Régions
-          </a>
-        </li>
-      </ul>
-      <div class="sidebar-footer">
-        <div class="user-info">
-          <span class="user-email">{$userStore?.email}</span>
-        </div>
-        <button class="logout-btn" on:click={handleLogout}>
-          <span class="icon">🚪</span>
-          Déconnexion
-        </button>
-      </div>
-    </nav>
     <div class="main-column">
       <header class="mobile-topbar">
-        <button
-          type="button"
-          class="menu-toggle"
-          aria-label={mobileNavOpen ? "Fermer le menu" : "Ouvrir le menu"}
-          aria-expanded={mobileNavOpen}
-          aria-controls="manage-sidebar"
-          on:click={toggleMobileNav}
-        >
-          <span class="menu-toggle-bar" aria-hidden="true"></span>
-          <span class="menu-toggle-bar" aria-hidden="true"></span>
-          <span class="menu-toggle-bar" aria-hidden="true"></span>
-        </button>
-        <span class="mobile-topbar-title">Gestion</span>
+        <a href="/manage" class="mobile-brand" aria-label="Mezzaterra — accueil">
+          <span class="m-mezza">Mezza</span><span class="m-terra">TERRA</span>
+        </a>
+        <IconButton label="Rechercher" variant="dark" on:click={() => (paletteOpen = true)}>
+          <IconSearch size={20} strokeWidth={1.75} />
+        </IconButton>
       </header>
       <main class="main-content">
         <slot />
       </main>
     </div>
+
+    <nav class="tabbar" aria-label="Navigation principale">
+      {#each tabs as tab}
+        <a
+          href={tab.href}
+          class="tab"
+          class:active={isActive(tab.href, $page.url.pathname) && !moreOpen}
+          aria-current={isActive(tab.href, $page.url.pathname) ? "page" : undefined}
+        >
+          <span class="tab-icon">
+            <svelte:component this={tab.icon} size={22} strokeWidth={1.75} aria-hidden="true" />
+            {#if tab.count}<span class="tab-count" aria-label="{tab.count} en attente">{tab.count}</span>{/if}
+          </span>
+          {tab.label}
+        </a>
+      {/each}
+      <button
+        type="button"
+        class="tab"
+        class:active={moreOpen}
+        aria-expanded={moreOpen}
+        aria-controls="manage-sidebar"
+        on:click={() => (moreOpen = !moreOpen)}
+      >
+        <span class="tab-icon">
+          {#if moreOpen}<IconX size={22} strokeWidth={1.75} />{:else}<IconMenu size={22} strokeWidth={1.75} />{/if}
+        </span>
+        Plus
+      </button>
+    </nav>
   </div>
+  <CommandPalette bind:open={paletteOpen} pages={allLinks} />
 {:else}
-  <slot />
+  <div class="app"><slot /></div>
 {/if}
 
 <style>
@@ -321,320 +278,215 @@
     flex-direction: column;
     align-items: center;
     justify-content: center;
-    background: #f5f5f5;
-  }
-
-  .loading-container p {
-    margin-top: 1rem;
-    color: #666;
+    gap: 8px;
+    background: var(--paper);
+    color: var(--ink-2);
   }
 
   .spinner {
-    width: 40px;
-    height: 40px;
-    border: 4px solid #f3f3f3;
-    border-top: 4px solid #007bff;
+    width: 36px;
+    height: 36px;
+    border: 3px solid var(--border);
+    border-top-color: var(--teal-600);
     border-radius: 50%;
-    animation: spin 1s linear infinite;
+    animation: spin 0.9s linear infinite;
   }
 
   @keyframes spin {
-    0% {
-      transform: rotate(0deg);
-    }
-    100% {
+    to {
       transform: rotate(360deg);
     }
+  }
+
+  .denied {
+    text-align: center;
+    padding: 32px;
+    color: var(--ink);
+  }
+
+  .denied p {
+    margin: 4px 0;
+  }
+
+  .denied-logout {
+    margin-top: 16px;
+    height: 40px;
+    padding: 0 16px;
+    border: none;
+    border-radius: var(--r-sm);
+    background: var(--teal-600);
+    color: #fff;
+    font: inherit;
+    font-weight: 600;
+    cursor: pointer;
   }
 
   .admin-layout {
     display: flex;
     min-height: 100vh;
+    background: var(--paper);
   }
 
-  .nav-backdrop {
-    display: none;
+  .sidebar-slot {
+    position: fixed;
+    inset: 0 auto 0 0;
+    width: 240px;
+    z-index: 300;
   }
 
   .main-column {
     flex: 1;
     min-width: 0;
+    margin-left: 240px;
     display: flex;
     flex-direction: column;
     min-height: 100vh;
-  }
-
-  .mobile-topbar {
-    display: none;
-  }
-
-  .menu-toggle {
-    display: flex;
-    flex-direction: column;
-    justify-content: center;
-    gap: 5px;
-    width: 2.5rem;
-    height: 2.5rem;
-    padding: 0;
-    border: none;
-    border-radius: 6px;
-    background: #f1f3f5;
-    cursor: pointer;
-    flex-shrink: 0;
-  }
-
-  .menu-toggle:hover {
-    background: #e9ecef;
-  }
-
-  .menu-toggle-bar {
-    display: block;
-    height: 2px;
-    width: 1.25rem;
-    margin: 0 auto;
-    background: #2c3e50;
-    border-radius: 1px;
-  }
-
-  .mobile-topbar-title {
-    font-weight: 600;
-    font-size: 1.1rem;
-    color: #333;
-  }
-
-  .sidebar {
-    width: 250px;
-    background: #2c3e50;
-    color: white;
-    position: fixed;
-    height: 100vh;
-    display: flex;
-    flex-direction: column;
-    left: 0;
-    top: 0;
-  }
-
-  .sidebar-header {
-    padding: 1.5rem;
-    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
-  }
-
-  .sidebar-header h2 {
-    margin: 0;
-    font-size: 1.5rem;
-    color: white;
-  }
-
-  .nav-list {
-    list-style: none;
-    padding: 0;
-    margin: 0;
-    flex: 1;
-    overflow-y: auto;
-  }
-
-  .nav-list li {
-    margin: 0;
-  }
-
-  .nav-divider {
-    padding: 0.75rem 1.5rem 0.5rem 1.5rem;
-    margin-top: 0.5rem;
-  }
-
-  .nav-divider:first-child {
-    margin-top: 0;
-  }
-
-  .nav-divider-text {
-    font-size: 0.75rem;
-    font-weight: 600;
-    text-transform: uppercase;
-    letter-spacing: 0.05em;
-    color: rgba(255, 255, 255, 0.5);
-  }
-
-  .nav-list a {
-    display: flex;
-    align-items: center;
-    gap: 0.75rem;
-    padding: 1rem 1.5rem;
-    color: rgba(255, 255, 255, 0.8);
-    text-decoration: none;
-    transition: all 0.2s;
-  }
-
-  .nav-list a:hover {
-    background: rgba(255, 255, 255, 0.1);
-    color: white;
-  }
-
-  .nav-list a.active {
-    background: rgba(255, 255, 255, 0.15);
-    color: white;
-    border-left: 3px solid #3498db;
-  }
-
-  .nav-list .icon {
-    font-size: 1.2rem;
-  }
-
-  .sidebar-footer {
-    border-top: 1px solid rgba(255, 255, 255, 0.1);
-    padding: 1rem 1.5rem;
-    background: rgba(0, 0, 0, 0.2);
-  }
-
-  .user-info {
-    margin-bottom: 0.75rem;
-  }
-
-  .user-email {
-    color: rgba(255, 255, 255, 0.8);
-    font-size: 0.85rem;
-    display: block;
-  }
-
-  .logout-btn {
-    width: 100%;
-    padding: 0.75rem;
-    background: rgba(231, 76, 60, 0.9);
-    color: white;
-    border: none;
-    border-radius: 4px;
-    cursor: pointer;
-    font-size: 0.9rem;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    gap: 0.5rem;
-    transition: background 0.2s;
-  }
-
-  .logout-btn:hover {
-    background: rgba(192, 57, 43, 1);
-  }
-
-  .logout-btn .icon {
-    font-size: 1rem;
   }
 
   .main-content {
-    margin-left: 250px;
     flex: 1;
-    background: #f8f9fa;
-    min-height: 100vh;
     min-width: 0;
   }
 
-  /* ——— Mobile / tablet ——— */
-  @media (max-width: 900px) {
-    .nav-backdrop {
+  .mobile-topbar,
+  .tabbar,
+  .more-backdrop {
+    display: none;
+  }
+
+  /* ——— Mobile (< 768 px) : en-tête sombre + barre d'onglets ——— */
+  @media (max-width: 767px) {
+    .main-column {
+      margin-left: 0;
+      padding-bottom: calc(64px + env(safe-area-inset-bottom));
+    }
+
+    .sidebar-slot {
+      width: min(300px, 86vw);
+      transform: translateX(-100%);
+      transition: transform 0.22s ease;
+      bottom: calc(64px + env(safe-area-inset-bottom));
+      box-shadow: var(--shadow-pop);
+    }
+
+    .more-open .sidebar-slot {
+      transform: none;
+    }
+
+    .more-backdrop {
       display: block;
       position: fixed;
-      inset: 0;
-      z-index: 200;
-      margin: 0;
-      padding: 0;
+      inset: 0 0 calc(64px + env(safe-area-inset-bottom)) 0;
+      z-index: 250;
       border: none;
-      background: rgba(0, 0, 0, 0.45);
-      cursor: pointer;
+      background: rgba(28, 44, 46, 0.5);
       opacity: 0;
       pointer-events: none;
       transition: opacity 0.2s ease;
     }
 
-    .admin-layout.nav-open .nav-backdrop {
+    .more-open .more-backdrop {
       opacity: 1;
       pointer-events: auto;
-    }
-
-    .sidebar {
-      width: min(280px, 88vw);
-      z-index: 210;
-      transform: translateX(-100%);
-      transition: transform 0.22s ease;
-      box-shadow: 4px 0 24px rgba(0, 0, 0, 0.15);
-    }
-
-    .sidebar.open {
-      transform: translateX(0);
     }
 
     .mobile-topbar {
       display: flex;
       align-items: center;
-      gap: 0.75rem;
-      padding: 0.65rem 1rem;
-      background: white;
-      border-bottom: 1px solid #e9ecef;
+      justify-content: space-between;
       position: sticky;
       top: 0;
-      z-index: 50;
+      z-index: 200;
+      height: 56px;
+      padding: 0 8px 0 16px;
+      background: var(--night);
     }
 
-    .main-content {
-      margin-left: 0;
+    .mobile-brand {
+      display: flex;
+      align-items: baseline;
+      gap: 8px;
+      color: #fff !important;
+      text-decoration: none;
     }
 
-    .main-content :global(.page-header) {
+    .m-mezza {
+      font-family: var(--font-serif);
+      font-style: italic;
+      font-weight: 600;
+      font-size: 22px;
+    }
+
+    .m-terra {
+      font-family: var(--font-serif);
+      font-weight: 600;
+      font-size: 10px;
+      letter-spacing: 0.3em;
+    }
+
+    .tabbar {
+      display: grid;
+      grid-template-columns: repeat(5, 1fr);
+      position: fixed;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      z-index: 400;
+      height: calc(64px + env(safe-area-inset-bottom));
+      padding-bottom: env(safe-area-inset-bottom);
+      background: var(--night);
+    }
+
+    .tab {
+      display: flex;
       flex-direction: column;
-      align-items: stretch;
-      gap: 1rem;
-      padding: 1rem 1.25rem;
-    }
-
-    .main-content :global(.page-header h1) {
-      font-size: 1.35rem;
-    }
-
-    .main-content :global(.page-header-actions) {
-      width: 100%;
-      justify-content: flex-start;
-    }
-
-    .main-content :global(.page-content) {
-      padding: 1rem 1.25rem;
-    }
-
-    .main-content :global(.form-grid) {
-      grid-template-columns: 1fr;
-    }
-
-    .main-content :global(.details-grid) {
-      grid-template-columns: 1fr;
-    }
-
-    .main-content :global(.table-container) {
-      overflow-x: auto;
-      -webkit-overflow-scrolling: touch;
-    }
-
-    .main-content :global(table) {
-      min-width: 520px;
-    }
-
-    .main-content :global(.filters) {
-      grid-template-columns: 1fr;
-    }
-
-    .main-content :global(.login-form) {
-      margin: 1rem;
-      max-width: none;
-    }
-  }
-
-  @media (max-width: 480px) {
-    .main-content :global(.page-header-actions) {
-      flex-direction: column;
-      align-items: stretch;
-    }
-
-    .main-content :global(.page-header-actions .btn-primary),
-    .main-content :global(.page-header-actions .btn-secondary),
-    .main-content :global(.page-header-actions button) {
-      width: 100%;
+      align-items: center;
       justify-content: center;
+      gap: 3px;
+      min-height: 44px;
+      border: none;
+      background: none;
+      color: rgba(255, 255, 255, 0.78) !important;
+      font: inherit;
+      font-size: 11px;
+      font-weight: 500;
+      text-decoration: none;
+      cursor: pointer;
+    }
+
+    .tab.active {
+      color: var(--gold) !important;
+      font-weight: 600;
+    }
+
+    .tab-icon {
+      position: relative;
+      display: flex;
+    }
+
+    .immersive .mobile-topbar,
+    .immersive .tabbar {
+      display: none;
+    }
+
+    .immersive .main-column {
+      padding-bottom: 0;
+    }
+
+    .tab-count {
+      position: absolute;
+      top: -4px;
+      right: -10px;
+      min-width: 16px;
+      height: 16px;
+      padding: 0 4px;
+      border-radius: 999px;
+      background: var(--gold);
+      color: #3b2a00;
+      font-size: 10px;
+      font-weight: 700;
+      display: grid;
+      place-items: center;
     }
   }
 </style>

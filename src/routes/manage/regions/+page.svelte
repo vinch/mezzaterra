@@ -177,13 +177,13 @@
                 <td>
                   <div class="actions">
                     <button
-                      class="btn-edit"
+                      class="ui-btn ui-btn--secondary ui-btn--sm"
                       on:click={() => openEditModal(region)}
                     >
                       Modifier
                     </button>
                     <button
-                      class="btn-delete"
+                      class="ui-btn ui-btn--danger ui-btn--sm"
                       on:click={() => deleteRegion(region.id)}
                     >
                       Supprimer

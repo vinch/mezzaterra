@@ -26,7 +26,7 @@
     display: inline-flex;
     align-items: center;
     gap: 0.65rem;
-    color: #2d1810;
+    color: var(--mz-teal, #256169);
     text-decoration: none;
     font-weight: 600;
     padding: 0.75rem 1rem;
@@ -38,7 +38,7 @@
   }
 
   .instagram-link:hover {
-    background-color: rgba(45, 24, 16, 0.08);
+    background-color: var(--mz-teal-wash, rgba(37, 97, 105, 0.08));
     transform: translateY(-1px);
   }
 

@@ -1,0 +1,232 @@
+<script lang="ts">
+  import { createEventDispatcher } from "svelte";
+  import WineBottle from "./WineBottle.svelte";
+  import { formatEur, grapesText, wineStyle, wineSubtitle, wineTitle } from "$lib/wine";
+
+  export let vintage: any;
+  /** Numéro de passage (1-based) dans une dégustation. */
+  export let position: number | null = null;
+  /** Lien vers la fiche ; sinon la carte émet `open`. */
+  export let href: string | null = null;
+  export let availability: { in_stock: boolean; low_stock: boolean } | null = null;
+
+  const dispatch = createEventDispatcher<{ open: any }>();
+
+  $: wine = vintage?.wine;
+  $: style = wineStyle(wine?.wine_type);
+  $: title = wineTitle(wine);
+  $: subtitle = wineSubtitle(wine);
+  $: grapes = grapesText(vintage?.wine_vintage_grape);
+</script>
+
+<svelte:element
+  this={href ? "a" : "button"}
+  {href}
+  type={href ? undefined : "button"}
+  class="wine-card"
+  style="--robe: {style.color}; --robe-light: {style.light};"
+  on:click={() => !href && dispatch("open", vintage)}
+  role={href ? undefined : "button"}
+>
+  <div class="visual">
+    {#if position != null}
+      <span class="position" aria-label="Vin numéro {position}">{position}</span>
+    {/if}
+    <WineBottle src={vintage?.image_url} alt={title} wine={style} height="10.5rem" />
+  </div>
+
+  <div class="body">
+    <div class="meta-top">
+      <span class="style"><span class="mz-dot" style="background: {style.color}"></span>{style.label}</span>
+      {#if vintage?.organic}
+        <span class="organic">Bio</span>
+      {/if}
+      {#if availability && !availability.in_stock}
+        <span class="stock out">Épuisé</span>
+      {:else if availability?.low_stock}
+        <span class="stock low">Dernières bouteilles</span>
+      {/if}
+    </div>
+
+    <h3 class="title">{title}</h3>
+    {#if subtitle}
+      <p class="subtitle">{subtitle}</p>
+    {/if}
+    {#if wine?.winery?.name}
+      <p class="winery">{wine.winery.name}</p>
+    {/if}
+    {#if grapes}
+      <p class="grapes">{grapes}</p>
+    {/if}
+
+    <div class="meta-bottom">
+      {#if vintage?.year}
+        <span class="year">{vintage.year}</span>
+      {/if}
+      {#if vintage?.price}
+        <span class="price">{formatEur(vintage.price)}</span>
+      {/if}
+    </div>
+  </div>
+</svelte:element>
+
+<style>
+  .wine-card {
+    position: relative;
+    display: grid;
+    grid-template-columns: 6.5rem 1fr;
+    gap: 1.1rem;
+    align-items: stretch;
+    padding: 1.1rem 1.25rem 1.1rem 0.75rem;
+    background: var(--mz-paper-raised);
+    border: 1px solid var(--mz-line-soft);
+    border-radius: var(--mz-radius);
+    box-shadow: var(--mz-shadow-sm);
+    color: inherit;
+    text-decoration: none;
+    text-align: left;
+    font: inherit;
+    cursor: pointer;
+    overflow: hidden;
+    transition:
+      transform 0.25s var(--mz-ease),
+      box-shadow 0.25s ease,
+      border-color 0.25s ease;
+  }
+
+  /* Liseré couleur de robe. */
+  .wine-card::before {
+    content: "";
+    position: absolute;
+    inset: 0 auto 0 0;
+    width: 4px;
+    background: linear-gradient(180deg, var(--robe-light), var(--robe));
+  }
+
+  .wine-card:hover,
+  .wine-card:focus-visible {
+    transform: translateY(-3px);
+    box-shadow: var(--mz-shadow);
+    border-color: var(--mz-line);
+    outline: none;
+  }
+
+  .wine-card:hover :global(.bottle img),
+  .wine-card:hover :global(.bottle svg) {
+    transform: rotate(-3deg) translateY(-2px);
+  }
+
+  .wine-card :global(.bottle img),
+  .wine-card :global(.bottle svg) {
+    transition: transform 0.35s var(--mz-ease);
+  }
+
+  .visual {
+    position: relative;
+    display: flex;
+    align-items: flex-end;
+    justify-content: center;
+  }
+
+  .position {
+    position: absolute;
+    top: 0;
+    left: 0.4rem;
+    z-index: 2;
+    width: 1.9rem;
+    height: 1.9rem;
+    border-radius: 50%;
+    display: grid;
+    place-items: center;
+    background: var(--mz-teal);
+    color: #fff;
+    font-family: var(--mz-font-display);
+    font-weight: 600;
+    font-size: 0.95rem;
+  }
+
+  .body {
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+    min-width: 0;
+  }
+
+  .meta-top {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.4rem 0.75rem;
+    align-items: center;
+    font-size: 0.75rem;
+    font-weight: 600;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--mz-muted);
+    margin-bottom: 0.2rem;
+  }
+
+  .style {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+  }
+
+  .organic {
+    color: var(--mz-success);
+  }
+
+  .stock.low {
+    color: var(--mz-warning);
+  }
+
+  .stock.out {
+    color: var(--mz-danger);
+  }
+
+  .title {
+    margin: 0;
+    font-family: var(--mz-font-display);
+    font-weight: 500;
+    font-size: 1.35rem;
+    line-height: 1.15;
+    color: var(--mz-teal);
+  }
+
+  .subtitle,
+  .winery,
+  .grapes {
+    margin: 0;
+    font-size: 0.9rem;
+    color: var(--mz-ink-soft);
+  }
+
+  .winery {
+    font-weight: 600;
+  }
+
+  .grapes {
+    color: var(--mz-muted);
+    font-style: italic;
+  }
+
+  .meta-bottom {
+    margin-top: auto;
+    padding-top: 0.6rem;
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    gap: 1rem;
+  }
+
+  .year {
+    font-family: var(--mz-font-display);
+    font-size: 1.1rem;
+    color: var(--mz-ink-soft);
+  }
+
+  .price {
+    font-weight: 700;
+    color: var(--mz-ink);
+    font-variant-numeric: tabular-nums;
+  }
+</style>

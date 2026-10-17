@@ -33,6 +33,10 @@
   onMount(async () => {
     await loadCustomers();
     await loadCountries();
+    /* Lien « Modifier » depuis la fiche client. */
+    const editId = new URLSearchParams(window.location.search).get("modifier");
+    const toEdit = editId ? customers.find((c) => c.id === editId) : null;
+    if (toEdit) openEditModal(toEdit);
   });
 
   async function loadCustomers() {
@@ -211,7 +215,9 @@
         <tbody>
           {#each customers as customer}
             <tr>
-              <td>{customer.first_name} {customer.last_name}</td>
+              <td>
+                <a class="customer-link" href="/manage/customers/{customer.id}">{customer.first_name} {customer.last_name}</a>
+              </td>
               <td>{customer.email || "-"}</td>
               <td>{customer.company_name || "-"}</td>
               <td>{customer.phone_number || "-"}</td>
@@ -225,14 +231,15 @@
               </td>
               <td>
                 <div class="actions">
+                  <a class="ui-btn ui-btn--secondary ui-btn--sm" href="/manage/customers/{customer.id}">Fiche</a>
                   <button
-                    class="btn-edit"
+                    class="ui-btn ui-btn--secondary ui-btn--sm"
                     on:click={() => openEditModal(customer)}
                   >
                     Modifier
                   </button>
                   <button
-                    class="btn-delete"
+                    class="ui-btn ui-btn--danger ui-btn--sm"
                     on:click={() => deleteCustomer(customer.id)}
                   >
                     Supprimer
@@ -363,3 +370,17 @@
     </div>
   </form>
 </Modal>
+
+<style>
+  .customer-link {
+    color: inherit;
+    font-weight: 600;
+    text-decoration: none;
+  }
+
+  .customer-link:hover {
+    color: var(--mz-teal, #256169);
+    text-decoration: underline;
+  }
+
+</style>
