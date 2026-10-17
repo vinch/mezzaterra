@@ -107,6 +107,8 @@
   ] satisfies NavSection[];
 
   $: allLinks = sections.flatMap((s) => s.links);
+  /* Pilotage en direct : plein écran sur mobile (il a son propre en-tête et sa barre « Vin suivant »). */
+  $: immersive = /^\/manage\/tastings\/[^/]+\/live$/.test($page.url.pathname);
 
   /* Barre d'onglets mobile. */
   $: tabs = [
@@ -207,7 +209,7 @@
     <button class="denied-logout" on:click={handleLogout}>Se déconnecter</button>
   </div>
 {:else if $userStore}
-  <div class="app admin-layout" class:more-open={moreOpen}>
+  <div class="app admin-layout" class:more-open={moreOpen} class:immersive>
     <div class="sidebar-slot">
       <Sidebar
         {sections}
@@ -460,6 +462,15 @@
     .tab-icon {
       position: relative;
       display: flex;
+    }
+
+    .immersive .mobile-topbar,
+    .immersive .tabbar {
+      display: none;
+    }
+
+    .immersive .main-column {
+      padding-bottom: 0;
     }
 
     .tab-count {

@@ -5,6 +5,26 @@
   import type { RealtimeChannel } from "@supabase/supabase-js";
   import { supabase } from "$lib/supabase";
   import ManagePageShell from "$lib/components/manage/ManagePageShell.svelte";
+  import Button from "$lib/ui/Button.svelte";
+  import IconButton from "$lib/ui/IconButton.svelte";
+  import Card from "$lib/ui/Card.svelte";
+  import EmptyState from "$lib/ui/EmptyState.svelte";
+  import WineDot, { robeOf, ROBE_LABEL } from "$lib/ui/WineDot.svelte";
+  import {
+    IconArrowLeft,
+    IconArrowRight,
+    IconCheck,
+    IconCopy,
+    IconExternal,
+    IconInbox,
+    IconMonitor,
+    IconPlay,
+    IconQr,
+    IconUserCheck,
+    IconUsers,
+  } from "$lib/ui/icons";
+  import { formatDate, formatEUR } from "$lib/format";
+  import { daysUntil, formatTime } from "$lib/dates";
   import WineBottle from "$lib/components/site/WineBottle.svelte";
   import GlassProgress from "$lib/components/site/GlassProgress.svelte";
   import StarRating from "$lib/components/site/StarRating.svelte";
@@ -106,8 +126,25 @@
     }
   }
 
+  let participants: any[] = [];
+  let stockMap = new Map<string, number>();
+
   async function refresh() {
-    const jobs: Promise<void>[] = [];
+    const jobs: Promise<void>[] = [
+      (async () => {
+        const { data } = await supabase
+          .from("tasting_customer")
+          .select("customer_id, customer ( id, first_name, last_name, company_name, email )")
+          .eq("tasting_id", tastingId);
+        participants = ((data || []) as any[]).map((r) => r.customer).filter(Boolean);
+      })(),
+      (async () => {
+        const ids = wines.map((w) => w.id);
+        if (!ids.length) return;
+        const { data } = await supabase.from("inventory").select("wine_vintage_id, quantity_on_hand").in("wine_vintage_id", ids);
+        stockMap = new Map((data || []).map((r: any) => [r.wine_vintage_id, r.quantity_on_hand ?? 0]));
+      })(),
+    ];
     if (hasFeedback) {
       jobs.push(
         (async () => {
@@ -245,6 +282,38 @@
   function wishTotal(w: WishRequest): number {
     return wishItems(w.items).reduce((s, i) => s + i.quantity * (prices.get(i.wine_vintage_id) ?? 0), 0);
   }
+
+  /* ——— Interface (refonte) ——— */
+  $: activeWishes = wishes.filter((w) => w.status !== "dismissed");
+  $: orderedBottles = activeWishes.flatMap((w) => wishItems(w.items)).reduce((n, i) => n + i.quantity, 0);
+  $: orderedAmount = activeWishes.reduce((sum, w) => sum + wishTotal(w), 0);
+  $: currentOrdered = current ? (stats.get(current.id)?.wanted ?? 0) : 0;
+  $: currentStock = current ? stockMap.get(current.id) ?? null : null;
+  $: robe = robeOf(current?.wine?.wine_type);
+  $: isLiveDay = tasting ? daysUntil(tasting.date) === 0 || daysUntil(tasting.date) === -1 : false;
+  $: headerSubtitle = tasting
+    ? [formatDate(tasting.date), tasting.location, tasting.start_time ? `depuis ${formatTime(tasting.start_time)}` : ""].filter(Boolean).join(" · ")
+    : "";
+  /* Participants connus = participants enregistrés + inscrits en ligne (sans doublon d'email). */
+  $: participantCount = (() => {
+    const emails = new Set(participants.map((p) => (p.email || p.id).toLowerCase()));
+    let n = participants.length;
+    for (const r of registrations.filter((r) => r.status === "confirmed" && !r.customer_id)) {
+      if (!emails.has((r.email || "").toLowerCase())) n += r.seats;
+    }
+    return n;
+  })();
+
+  function wishFor(w: WishRequest, vintageId: string): number {
+    return wishItems(w.items).filter((i) => i.wine_vintage_id === vintageId).reduce((n, i) => n + i.quantity, 0);
+  }
+  function wishBottles(w: WishRequest): number {
+    return wishItems(w.items).reduce((n, i) => n + i.quantity, 0);
+  }
+  function wineLabel(w: any): string {
+    const name = w?.wine?.name?.trim() || w?.wine?.appelation?.name || "Vin";
+    return w?.year ? `${name} ${w.year}` : name;
+  }
 </script>
 
 <svelte:window on:keydown={onKey} />
@@ -253,181 +322,235 @@
   <title>Piloter la dégustation - Gestion</title>
 </svelte:head>
 
-<ManagePageShell title={tasting ? `En direct — ${tastingTitle(tasting)}` : "Piloter la dégustation"}>
-  <svelte:fragment slot="actions">
-    <a href="/manage/tastings" class="btn-secondary">← Dégustations</a>
-    {#if tasting}
-      <a href="/tastings/{tastingId}/live" class="btn-secondary" target="_blank" rel="noopener noreferrer">Vue invité ↗</a>
-      <button type="button" class="btn-primary" on:click={() => (projecting = true)}>Mode projection</button>
-    {/if}
-  </svelte:fragment>
-
-  {#if loading}
-    <div class="loading">Chargement…</div>
-  {:else if error}
-    <div class="error-message">{error}</div>
-  {:else if wines.length === 0}
-    <div class="empty-state"><p>Ajoutez des vins à cette dégustation pour la piloter.</p></div>
-  {:else}
-    {#if actionError}<div class="error-message">{actionError}</div>{/if}
-
-    <div class="status-bar">
-      <span class="pill" class:ok={connected}>
-        <span class="dot"></span>{connected ? "Diffusion active" : "Connexion…"}
-      </span>
-      <span class="pill">👥 {guestCount} invité{guestCount > 1 ? "s" : ""} connecté{guestCount > 1 ? "s" : ""}</span>
-      {#if hasRegistrations && registrations.length}
-        <span class="pill">🎟️ {confirmedSeats} place{confirmedSeats > 1 ? "s" : ""} réservée{confirmedSeats > 1 ? "s" : ""}</span>
+<div class="pilot" class:has-wines={wines.length > 0}>
+  <ManagePageShell
+    title={tasting ? tastingTitle(tasting) : "Piloter la dégustation"}
+    subtitle={headerSubtitle}
+    back={{ href: "/manage/tastings", label: "Dégustations" }}
+  >
+    <svelte:fragment slot="badge">
+      {#if tasting && isLiveDay}
+        <span class="live-badge" class:off={!connected}>
+          <span class="dot" aria-hidden="true"></span>{connected ? "En direct" : "Connexion…"}
+        </span>
       {/if}
-      <span class="pill">{formatDateLong(tasting.date)}</span>
-      {#if !canPersist}
-        <span class="pill warn" title="Appliquez la migration pour que les retardataires arrivent directement sur le bon vin.">Position non persistée</span>
+    </svelte:fragment>
+    <svelte:fragment slot="actions">
+      {#if tasting}
+        <Button variant="ghost" href="/tastings/{tastingId}/live" target="_blank" rel="noopener noreferrer">
+          <IconExternal size={16} strokeWidth={1.75} /> Vue invité
+        </Button>
+        <Button variant="ghost" on:click={() => (projecting = true)}>
+          <IconMonitor size={16} strokeWidth={1.75} /> Projeter le visuel
+        </Button>
       {/if}
-    </div>
+    </svelte:fragment>
 
-    <div class="layout">
-      <section class="stage" style="--robe: {style.color}; --robe-light: {style.light};">
-        <div class="now">
-          <WineBottle src={current.image_url} alt={wineTitle(current.wine)} wine={style} height="16rem" />
-          <div class="now-text">
-            <span class="now-label">Vin servi · {position + 1} / {wines.length}</span>
-            <h2>{wineTitle(current.wine)}</h2>
-            {#if wineSubtitle(current.wine)}<p>{wineSubtitle(current.wine)}</p>{/if}
-            <p class="muted">{current.wine?.winery?.name}{current.year ? ` · ${current.year}` : ""}{current.price ? ` · ${formatEur(current.price)}` : ""}</p>
-            {#if stats.get(current.id)?.count}
-              <div class="now-stats">
-                <StarRating value={Math.round(stats.get(current.id)?.avg ?? 0)} readonly size="1.2rem" />
-                <span>{stats.get(current.id)?.avg?.toFixed(1)} · {stats.get(current.id)?.count} note{(stats.get(current.id)?.count ?? 0) > 1 ? "s" : ""}</span>
-              </div>
-            {/if}
-          </div>
-          <GlassProgress value={position + 1} total={wines.length} color={style.color} size="5rem" />
-        </div>
-        <div class="controls">
-          <button type="button" class="ctrl" on:click={() => setPosition(position - 1)} disabled={position === 0}>← Précédent</button>
-          <button type="button" class="ctrl primary" on:click={() => setPosition(position + 1)} disabled={position === wines.length - 1}>Vin suivant →</button>
-        </div>
-        <p class="hint">Astuce : flèches ← → ou barre d’espace pour avancer.</p>
+    {#if loading}
+      <div class="loading">Chargement…</div>
+    {:else if error}
+      <div class="error-message" role="alert">{error}</div>
+    {:else if wines.length === 0}
+      <Card>
+        <EmptyState icon={IconPlay} title="Aucun vin au déroulé" text="Ajoutez des vins à cette dégustation pour la piloter.">
+          <Button href="/manage/tastings">Modifier la dégustation</Button>
+        </EmptyState>
+      </Card>
+    {:else}
+      {#if actionError}<div class="error-message" role="alert">{actionError}</div>{/if}
 
-        <ol class="wine-list">
-          {#each wines as w, i (w.id)}
-            {@const s = wineStyle(w.wine?.wine_type)}
-            {@const st = stats.get(w.id)}
-            <li>
-              <button type="button" class:active={i === position} class:done={i < position} on:click={() => setPosition(i)}>
-                <span class="num" style="--c: {s.color}">{i + 1}</span>
-                <span class="name">{wineTitle(w.wine)}<small>{w.wine?.winery?.name}{w.year ? ` · ${w.year}` : ""}</small></span>
-                <span class="metric" title="Note moyenne">{st?.avg != null ? `★ ${st.avg.toFixed(1)}` : "—"}</span>
-                <span class="metric" title="Bouteilles demandées">{st?.wanted ? `🛒 ${st.wanted}` : ""}</span>
-              </button>
-            </li>
-          {/each}
-        </ol>
+      <section class="band" aria-label="La soirée en chiffres">
+        <div class="band-item">
+          <span class="t-caption">Participants</span>
+          <span class="band-v">{participantCount}{#if hasRegistrations && confirmedSeats}<small> · {confirmedSeats} places réservées</small>{/if}</span>
+        </div>
+        <div class="band-item">
+          <span class="t-caption">Bouteilles commandées</span>
+          <span class="band-v">{hasWishes ? `${orderedBottles} bt.` : "—"}</span>
+        </div>
+        <div class="band-item">
+          <span class="t-caption">Montant de la soirée</span>
+          <span class="band-v">{hasWishes ? formatEUR(orderedAmount) : "—"}</span>
+        </div>
+        <div class="band-item">
+          <span class="t-caption">Progression</span>
+          <span class="band-v">Vin {position + 1} <small>sur {wines.length}</small></span>
+        </div>
       </section>
 
-      <aside class="side">
-        <div class="card qr-card">
-          <h3>Invités : scannez pour suivre</h3>
-          {#if qr}<img src={qr} alt="QR code vers la vue invité" class="qr" />{/if}
-          <div class="link-row">
-            <code>{guestUrl.replace(/^https?:\/\//, "")}</code>
-            <button type="button" class="btn-secondary btn-sm" on:click={copyLink}>{copied ? "Copié ✓" : "Copier"}</button>
-          </div>
-        </div>
-
-        {#if hasWishes}
-          <div class="card">
-            <h3>Demandes « J’en veux » {#if newWishes.length}<span class="badge">{newWishes.length}</span>{/if}</h3>
-            {#if wishes.length === 0}
-              <p class="empty-text">Aucune demande pour l’instant.</p>
-            {:else}
-              <ul class="wishes">
-                {#each wishes as w (w.id)}
-                  <li class:muted-row={w.status !== "new"} transition:fade={{ duration: 150 }}>
-                    <div class="wish-head">
-                      <strong>{w.first_name} {w.last_name || ""}</strong>
-                      <span class="muted">{formatEur(wishTotal(w))}</span>
-                    </div>
-                    <ul class="wish-items">
-                      {#each wishItems(w.items) as it}
-                        <li>{it.quantity} × {wineTitle(wineById.get(it.wine_vintage_id)?.wine)}</li>
-                      {/each}
-                    </ul>
-                    {#if w.message}<p class="wish-msg">« {w.message} »</p>{/if}
-                    <p class="muted small">{[w.email, w.phone].filter(Boolean).join(" · ")}</p>
-                    {#if w.status === "new"}
-                      <div class="actions">
-                        <button type="button" class="btn-primary btn-sm" disabled={busyId === w.id} on:click={() => makeSale(w)}>
-                          {busyId === w.id ? "…" : "Créer la vente"}
-                        </button>
-                        <button type="button" class="btn-secondary btn-sm" disabled={busyId === w.id} on:click={() => dismiss(w)}>Ignorer</button>
-                      </div>
-                    {:else if w.sale_id}
-                      <a href="/manage/sales" class="small">✓ Vente créée (en attente)</a>
-                    {:else}
-                      <span class="small muted">Ignorée</span>
-                    {/if}
-                  </li>
-                {/each}
-              </ul>
-            {/if}
-          </div>
-        {/if}
-
-        {#if hasRegistrations}
-          <div class="card">
-            <h3>Inscrits</h3>
-            {#if registrations.length === 0}
-              <p class="empty-text">Aucune inscription en ligne.</p>
-            {:else}
-              <ul class="regs">
-                {#each registrations as r (r.id)}
-                  <li>
-                    <span>
-                      <strong>{r.first_name} {r.last_name || ""}</strong>
-                      <small class="muted">{r.seats} pl.{r.status === "waitlist" ? " · liste d’attente" : r.status === "cancelled" ? " · annulée" : ""}</small>
-                    </span>
-                    {#if r.customer_id}
-                      <span class="small ok">✓ participant</span>
-                    {:else if r.status === "confirmed"}
-                      <button type="button" class="btn-secondary btn-sm" disabled={busyId === r.id} on:click={() => addAsGuest(r)}>Ajouter</button>
-                    {/if}
-                  </li>
-                {/each}
-              </ul>
-              {#if registrations.some((r) => r.status === "confirmed" && !r.customer_id)}
-                <button type="button" class="btn-secondary btn-sm full" on:click={addAllRegistrations}>Ajouter tous les inscrits comme participants</button>
-              {/if}
-            {/if}
-          </div>
-        {/if}
-
-        {#if hasFeedback && comments.length}
-          <div class="card">
-            <h3>Ce qu’ils en disent</h3>
-            <ul class="comments">
-              {#each comments as c (c.id)}
+      <div class="layout">
+        <div class="side">
+          <Card title="Déroulé" id="deroule">
+            <a slot="actions" class="edit-link" href="/manage/tastings">Modifier</a>
+            <ol class="steps">
+              {#each wines as w, i (w.id)}
+                {@const st = stats.get(w.id)}
                 <li>
-                  <p>« {c.comment} »</p>
-                  <small class="muted">{c.guest_name || "Invité"} — {wineTitle(wineById.get(c.wine_vintage_id)?.wine)}{c.rating ? ` · ${"★".repeat(c.rating)}` : ""}</small>
+                  <button type="button" class="step" class:current={i === position} aria-current={i === position ? "step" : undefined} on:click={() => setPosition(i)}>
+                    <span class="step-num">{i + 1}</span>
+                    <WineDot robe={robeOf(w.wine?.wine_type)} />
+                    <span class="step-main">
+                      <strong>{wineLabel(w)}</strong>
+                      <span class="t-caption">
+                        {w.wine?.winery?.name ?? ""}{hasWishes ? ` · ${st?.wanted ? `${st.wanted} bt. commandées` : "aucune commande"}` : ""}{st?.avg != null ? ` · ★ ${st.avg.toFixed(1)}` : ""}
+                      </span>
+                    </span>
+                    {#if i < position}
+                      <span class="step-badge done"><IconCheck size={13} strokeWidth={2} aria-hidden="true" /> Servi</span>
+                    {:else if i === position}
+                      <span class="step-badge is-now"><IconPlay size={12} strokeWidth={2} aria-hidden="true" /> En cours</span>
+                    {/if}
+                  </button>
                 </li>
               {/each}
-            </ul>
-          </div>
-        {/if}
+            </ol>
+          </Card>
 
-        {#if !hasFeedback || !hasWishes}
-          <div class="card notice">
-            <p>
-              Les notes des invités, les demandes « J’en veux » et les inscriptions apparaîtront ici une
-              fois la migration <code>20261016120000_public_experience.sql</code> appliquée.
-            </p>
-          </div>
-        {/if}
-      </aside>
-    </div>
-  {/if}
-</ManagePageShell>
+          <Card title="Invités" id="invites">
+            <span slot="actions" class="t-caption"><IconUsers size={14} strokeWidth={1.75} aria-hidden="true" /> {guestCount} connecté{guestCount > 1 ? "s" : ""}</span>
+            <div class="qr-row">
+              {#if qr}<img src={qr} alt="QR code vers la vue invité" class="qr" />{/if}
+              <div class="qr-text">
+                <p class="t-caption">Les invités scannent ce code pour suivre la soirée, noter les vins et commander.</p>
+                <Button size="sm" on:click={copyLink}>
+                  {#if copied}<IconCheck size={14} strokeWidth={1.75} /> Lien copié{:else}<IconCopy size={14} strokeWidth={1.75} /> Copier le lien{/if}
+                </Button>
+                {#if !canPersist}
+                  <p class="t-caption t-warn">Position non enregistrée en base : les retardataires la reçoivent à la connexion de l’animateur.</p>
+                {/if}
+              </div>
+            </div>
+          </Card>
+        </div>
+
+        <div class="main">
+          <section class="now" aria-labelledby="now-title" aria-live="polite">
+            <span class="bottle bottle--{robe}" aria-hidden="true"></span>
+            <div class="now-text">
+              <span class="now-eyebrow">Vin {position + 1} · {ROBE_LABEL[robe]}</span>
+              <h2 id="now-title" class="now-title">{wineLabel(current)}</h2>
+              <p>{current.wine?.winery?.name ?? ""}{current.price ? " · " : ""}{#if current.price}<strong>{formatEUR(current.price)}</strong> la bouteille{/if}</p>
+              <p class="t-caption">
+                Stock : <strong>{currentStock ?? "—"} bt.</strong>{#if hasWishes} · commandées ce soir : <strong>{currentOrdered} bt.</strong>{#if currentStock != null} · reste {Math.max(0, currentStock - currentOrdered)} bt.{/if}{/if}
+              </p>
+            </div>
+            <div class="now-actions">
+              <Button size="lg" on:click={() => setPosition(position - 1)} disabled={position === 0}>
+                <IconArrowLeft size={18} strokeWidth={1.75} /> Précédent
+              </Button>
+              <Button size="lg" variant="primary" on:click={() => setPosition(position + 1)} disabled={position === wines.length - 1}>
+                Vin suivant <IconArrowRight size={18} strokeWidth={1.75} />
+              </Button>
+            </div>
+          </section>
+
+          <Card title="Commandes des participants" id="orders" padded={false}>
+            <span slot="actions" class="t-caption">Flèches ← → ou espace pour avancer</span>
+            {#if !hasWishes}
+              <EmptyState
+                icon={IconInbox}
+                title="Commandes « J’en veux » indisponibles"
+                text="Elles apparaîtront ici une fois la migration 20261016120000_public_experience.sql appliquée."
+                compact
+              />
+            {:else if wishes.length === 0}
+              <EmptyState icon={IconInbox} title="Aucune commande pour l’instant" text="Les invités commandent depuis leur téléphone (« J’en veux »)." compact />
+            {:else}
+              <div class="orders-wrap">
+                <table class="ui-table">
+                  <thead>
+                    <tr>
+                      <th scope="col">Participant</th>
+                      <th scope="col" class="num">{wineLabel(current)}</th>
+                      <th scope="col" class="num">Total de la soirée</th>
+                      <th scope="col" class="col-actions"><span class="sr-only">Action</span></th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {#each wishes as w (w.id)}
+                      <tr class:muted-row={w.status !== "new"}>
+                        <td>
+                          <strong>{w.first_name} {w.last_name || ""}</strong>
+                          <span class="t-caption block">{[w.email, w.phone].filter(Boolean).join(" · ")}</span>
+                          {#if w.message}<span class="t-caption block">« {w.message} »</span>{/if}
+                        </td>
+                        <td class="num">{wishFor(w, current.id) || "—"}</td>
+                        <td class="num"><span class="t-muted">{wishBottles(w)} bt.</span> <strong>{formatEUR(wishTotal(w))}</strong></td>
+                        <td class="col-actions">
+                          {#if w.status === "new"}
+                            <span class="order-actions">
+                              <Button size="sm" disabled={busyId === w.id} on:click={() => makeSale(w)}>{busyId === w.id ? "…" : "Créer la vente"}</Button>
+                              <Button size="sm" variant="ghost" disabled={busyId === w.id} on:click={() => dismiss(w)}>Ignorer</Button>
+                            </span>
+                          {:else if w.sale_id}
+                            <a href="/manage/sales?statut=pending" class="t-caption">Vente créée</a>
+                          {:else}
+                            <span class="t-caption">Ignorée</span>
+                          {/if}
+                        </td>
+                      </tr>
+                    {/each}
+                  </tbody>
+                </table>
+              </div>
+            {/if}
+          </Card>
+
+          {#if hasRegistrations && registrations.length}
+            <Card title="Inscrits en ligne" id="registrations">
+              <svelte:fragment slot="actions">
+                {#if registrations.some((r) => r.status === "confirmed" && !r.customer_id)}
+                  <Button size="sm" on:click={addAllRegistrations}><IconUserCheck size={14} strokeWidth={1.75} /> Tous comme participants</Button>
+                {/if}
+              </svelte:fragment>
+              <ul class="list">
+                {#each registrations as r (r.id)}
+                  <li>
+                    <span class="list-main">
+                      <strong>{r.first_name} {r.last_name || ""}</strong>
+                      <span class="t-caption">{r.seats} place{r.seats > 1 ? "s" : ""}{r.status === "waitlist" ? " · liste d’attente" : r.status === "cancelled" ? " · annulée" : ""}</span>
+                    </span>
+                    {#if r.customer_id}
+                      <span class="t-caption ok"><IconCheck size={13} strokeWidth={2} aria-hidden="true" /> Participant</span>
+                    {:else if r.status === "confirmed"}
+                      <Button size="sm" variant="ghost" disabled={busyId === r.id} on:click={() => addAsGuest(r)}>Ajouter</Button>
+                    {/if}
+                  </li>
+                {/each}
+              </ul>
+            </Card>
+          {/if}
+
+          {#if hasFeedback && comments.length}
+            <Card title="Ce qu’ils en disent" id="comments">
+              <ul class="list">
+                {#each comments as c (c.id)}
+                  <li>
+                    <span class="list-main">
+                      <span>« {c.comment} »</span>
+                      <span class="t-caption">{c.guest_name || "Invité"} · {wineLabel(wineById.get(c.wine_vintage_id))}{c.rating ? ` · ${"★".repeat(c.rating)}` : ""}</span>
+                    </span>
+                  </li>
+                {/each}
+              </ul>
+            </Card>
+          {/if}
+        </div>
+      </div>
+
+      <!-- Barre fixe (mobile) -->
+      <div class="mobile-next">
+        <IconButton label="Vin précédent" variant="outline" disabled={position === 0} on:click={() => setPosition(position - 1)}>
+          <IconArrowLeft size={20} strokeWidth={1.75} />
+        </IconButton>
+        <button type="button" class="next-btn" disabled={position === wines.length - 1} on:click={() => setPosition(position + 1)}>
+          {position === wines.length - 1 ? "Dernier vin" : `Vin suivant : ${wineLabel(wines[position + 1])}`}
+          <IconArrowRight size={18} strokeWidth={1.75} aria-hidden="true" />
+        </button>
+      </div>
+    {/if}
+  </ManagePageShell>
+</div>
 
 {#if projecting && current}
   <div class="projection" style="--robe: {style.color}; --robe-light: {style.light};" transition:fade={{ duration: 200 }}>
@@ -456,346 +579,516 @@
 {/if}
 
 <style>
-  .status-bar {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 0.5rem;
-    margin-bottom: 1.25rem;
-  }
-
-  .pill {
+  .live-badge {
     display: inline-flex;
     align-items: center;
-    gap: 0.4rem;
-    padding: 0.35rem 0.8rem;
-    border-radius: 999px;
-    background: white;
-    border: 1px solid #e3e0d8;
-    font-size: 0.85rem;
-    color: #3d4f51;
+    gap: 6px;
+    height: 26px;
+    padding: 0 12px;
+    border-radius: var(--r-pill);
+    background: var(--night);
+    color: #fff;
+    font-size: 12px;
+    font-weight: 600;
   }
 
-  .pill .dot {
-    width: 0.5rem;
-    height: 0.5rem;
+  .live-badge .dot {
+    width: 8px;
+    height: 8px;
     border-radius: 50%;
-    background: #adb5bd;
+    background: #7fd1a0;
+    box-shadow: 0 0 0 0 rgba(127, 209, 160, 0.6);
+    animation: live 1.8s ease-out infinite;
   }
 
-  .pill.ok .dot {
-    background: #2f7a4b;
-    box-shadow: 0 0 0 3px rgba(47, 122, 75, 0.2);
+  .live-badge.off {
+    background: var(--st-closed-bg);
+    color: var(--st-closed-fg);
   }
 
-  .pill.warn {
-    background: #fff6e0;
-    border-color: #f0d9a0;
-    color: #8a5a00;
+  .live-badge.off .dot {
+    background: #9aa29e;
+    animation: none;
+  }
+
+  @keyframes live {
+    to {
+      box-shadow: 0 0 0 8px rgba(127, 209, 160, 0);
+    }
+  }
+
+  .band {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    margin-bottom: 16px;
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: var(--r-md);
+    overflow: hidden;
+  }
+
+  .band-item {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    padding: 14px 20px;
+    border-right: 1px solid var(--border-soft);
+  }
+
+  .band-item:last-child {
+    border-right: none;
+  }
+
+  .band-v {
+    font-family: var(--font-serif);
+    font-weight: 600;
+    font-size: 24px;
+    line-height: 30px;
+  }
+
+  .band-v small {
+    font-size: 15px;
+    font-weight: 400;
+    color: var(--ink-2);
   }
 
   .layout {
     display: grid;
-    grid-template-columns: minmax(0, 1.6fr) minmax(300px, 1fr);
-    gap: 1.5rem;
+    grid-template-columns: minmax(260px, 0.42fr) minmax(0, 1fr);
+    gap: 16px;
     align-items: start;
   }
 
-  .stage,
-  .card {
-    background: white;
-    border-radius: 12px;
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+  .side,
+  .main {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    min-width: 0;
   }
 
-  .stage {
-    padding: 1.5rem;
-    background:
-      radial-gradient(ellipse 50% 70% at 12% 80%, color-mix(in srgb, var(--robe-light) 30%, transparent), transparent 70%),
-      white;
+  .edit-link {
+    font-size: 13px;
+    font-weight: 600;
+    text-decoration: none;
+  }
+
+  .steps {
+    list-style: none;
+    margin: 0 -8px;
+    padding: 0;
+  }
+
+  .step {
+    display: grid;
+    grid-template-columns: 20px 10px minmax(0, 1fr) auto;
+    align-items: center;
+    gap: 10px;
+    width: 100%;
+    min-height: 56px;
+    padding: 8px;
+    border: 1px solid transparent;
+    border-radius: var(--r-md);
+    background: none;
+    font: inherit;
+    color: inherit;
+    text-align: left;
+    cursor: pointer;
+  }
+
+  .step:hover {
+    background: var(--row-hover);
+  }
+
+  .step.current {
+    background: var(--mist);
+    border-color: #b9d0cd;
+  }
+
+  .step-num {
+    font-family: var(--font-serif);
+    font-size: 16px;
+    color: var(--ink-2);
+    text-align: center;
+  }
+
+  .step-main {
+    display: flex;
+    flex-direction: column;
+    line-height: 18px;
+    min-width: 0;
+  }
+
+  .step-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    height: 24px;
+    padding: 0 10px;
+    border-radius: var(--r-pill);
+    font-size: 12px;
+    font-weight: 600;
+    white-space: nowrap;
+  }
+
+  .step-badge.done {
+    background: var(--st-closed-bg);
+    color: var(--st-closed-fg);
+  }
+
+  .step-badge.is-now {
+    background: var(--night);
+    color: #fff;
+  }
+
+  .qr-row {
+    display: flex;
+    gap: 14px;
+    align-items: flex-start;
+  }
+
+  .qr {
+    width: 112px;
+    height: 112px;
+    image-rendering: pixelated;
+    border-radius: var(--r-sm);
+    border: 1px solid var(--border-soft);
+    background: #fff;
+  }
+
+  .qr-text {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    align-items: flex-start;
+  }
+
+  .qr-text p {
+    margin: 0;
   }
 
   .now {
     display: grid;
-    grid-template-columns: auto 1fr auto;
-    gap: 1.5rem;
+    grid-template-columns: auto minmax(0, 1fr) auto;
+    gap: 20px;
     align-items: center;
-    color: var(--mz-teal);
+    padding: 20px 24px;
+    background: #fff;
+    border: 1px solid var(--border);
+    border-radius: var(--r-md);
   }
 
-  .now-label {
-    font-size: 0.78rem;
+  /* Silhouette de bouteille à la couleur de la robe. */
+  .bottle {
+    width: 64px;
+    height: 96px;
+    border-radius: 32px 32px 8px 8px;
+    background: #9aa29e;
+    box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.12);
+  }
+
+  .bottle--rouge {
+    background: var(--rouge);
+  }
+
+  .bottle--blanc {
+    background: var(--blanc);
+    box-shadow: inset 0 0 0 1px var(--blanc-ring);
+  }
+
+  .bottle--rose {
+    background: var(--rose);
+    box-shadow: inset 0 0 0 1px var(--rose-ring);
+  }
+
+  .now-eyebrow {
+    font-size: 12px;
     font-weight: 600;
-    letter-spacing: 0.1em;
+    letter-spacing: 0.06em;
     text-transform: uppercase;
-    color: #66787a;
+    color: var(--ink-2);
   }
 
-  .now-text h2 {
-    margin: 0.3rem 0;
-    font-family: var(--mz-font-display);
-    font-weight: 500;
-    font-size: 2.2rem;
-    line-height: 1.05;
-    color: var(--mz-teal);
+  .now-title {
+    margin: 2px 0 4px;
+    font-family: var(--font-serif);
+    font-weight: 600;
+    font-size: 28px;
+    line-height: 34px;
+    color: var(--title);
   }
 
   .now-text p {
-    margin: 0.15rem 0;
-    color: #3d4f51;
+    margin: 2px 0 0;
   }
 
-  .muted {
-    color: #66787a;
-  }
-
-  .now-stats {
+  .now-actions {
     display: flex;
-    align-items: center;
-    gap: 0.5rem;
-    margin-top: 0.6rem;
-    color: #3d4f51;
-    font-size: 0.9rem;
+    gap: 10px;
   }
 
-  .controls {
-    display: grid;
-    grid-template-columns: 1fr 2fr;
-    gap: 0.75rem;
-    margin-top: 1.5rem;
+  .orders-wrap {
+    overflow-x: auto;
+    border-top: 1px solid var(--border-soft);
   }
 
-  .ctrl {
-    padding: 1rem;
-    border-radius: 10px;
-    border: 1px solid #d6d0c4;
-    background: white;
-    font-size: 1.05rem;
-    font-weight: 600;
-    color: #1d2a2c;
-    cursor: pointer;
-  }
-
-  .ctrl.primary {
-    background: var(--mz-teal);
-    border-color: var(--mz-teal);
-    color: white;
-  }
-
-  .ctrl:disabled {
-    opacity: 0.4;
-    cursor: default;
-  }
-
-  .hint {
-    margin: 0.5rem 0 1.25rem;
-    font-size: 0.8rem;
-    color: #868e96;
-  }
-
-  .wine-list {
-    list-style: none;
-    margin: 0;
-    padding: 0;
-    border-top: 1px solid #eee;
-  }
-
-  .wine-list button {
-    width: 100%;
-    display: grid;
-    grid-template-columns: auto 1fr 4rem 3.5rem;
-    gap: 0.75rem;
-    align-items: center;
-    padding: 0.65rem 0.5rem;
-    border: none;
-    border-bottom: 1px solid #f1f1f1;
-    background: none;
-    text-align: left;
-    font: inherit;
-    cursor: pointer;
-  }
-
-  .wine-list button:hover {
-    background: #f8f9fa;
-  }
-
-  .wine-list button.active {
-    background: var(--mz-teal-wash);
-  }
-
-  .wine-list button.done .name {
-    color: #868e96;
-  }
-
-  .num {
-    width: 1.8rem;
-    height: 1.8rem;
-    border-radius: 50%;
-    display: grid;
-    place-items: center;
-    background: var(--c);
-    color: white;
-    font-weight: 700;
-    font-size: 0.85rem;
-  }
-
-  .name {
-    display: flex;
-    flex-direction: column;
-    font-weight: 600;
-  }
-
-  .name small {
-    font-weight: 400;
-    color: #868e96;
-  }
-
-  .metric {
-    font-size: 0.85rem;
-    color: #3d4f51;
-    text-align: right;
-    font-variant-numeric: tabular-nums;
-  }
-
-  .side {
-    display: flex;
-    flex-direction: column;
-    gap: 1rem;
-  }
-
-  .card {
-    padding: 1.1rem 1.25rem;
-  }
-
-  .card h3 {
-    margin: 0 0 0.75rem;
-    font-size: 1rem;
-    color: #2c3e50;
-    display: flex;
-    align-items: center;
-    gap: 0.5rem;
-  }
-
-  .badge {
-    min-width: 1.4rem;
-    height: 1.4rem;
-    padding: 0 0.4rem;
-    border-radius: 999px;
-    background: #c0392b;
-    color: white;
-    font-size: 0.75rem;
-    display: inline-grid;
-    place-items: center;
-  }
-
-  .qr-card {
-    text-align: center;
-  }
-
-  .qr {
-    width: min(100%, 15rem);
-    image-rendering: pixelated;
-  }
-
-  .link-row {
-    display: flex;
-    gap: 0.5rem;
-    align-items: center;
-    justify-content: center;
-    margin-top: 0.5rem;
-  }
-
-  .link-row code {
-    font-size: 0.75rem;
-    color: #66787a;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-  }
-
-  .wishes,
-  .regs,
-  .comments,
-  .wish-items {
-    list-style: none;
-    margin: 0;
-    padding: 0;
-  }
-
-  .wishes > li {
-    padding: 0.75rem 0;
-    border-bottom: 1px solid #f1f1f1;
-  }
-
-  .muted-row {
-    opacity: 0.55;
-  }
-
-  .wish-head {
-    display: flex;
-    justify-content: space-between;
-  }
-
-  .wish-items {
-    margin: 0.3rem 0;
-    font-size: 0.9rem;
-    color: #3d4f51;
-  }
-
-  .wish-msg {
-    margin: 0.25rem 0;
-    font-style: italic;
-    font-size: 0.88rem;
-  }
-
-  .small {
-    font-size: 0.82rem;
-    margin: 0.2rem 0;
-  }
-
-  .ok {
-    color: #2f7a4b;
-  }
-
-  .actions {
-    margin-top: 0.4rem;
-  }
-
-  .regs li {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    gap: 0.5rem;
-    padding: 0.45rem 0;
-    border-bottom: 1px solid #f5f5f5;
-  }
-
-  .regs small {
+  .block {
     display: block;
   }
 
-  .full {
-    width: 100%;
-    margin-top: 0.75rem;
+  .muted-row {
+    opacity: 0.6;
   }
 
-  .comments li {
-    padding: 0.5rem 0;
-    border-bottom: 1px solid #f5f5f5;
+  .order-actions {
+    display: inline-flex;
+    gap: 4px;
   }
 
-  .comments p {
-    margin: 0 0 0.2rem;
-    font-style: italic;
-  }
-
-  .notice {
-    background: #fff9ec;
-    font-size: 0.88rem;
-    color: #6b5a2e;
-  }
-
-  .notice p {
+  .list {
+    list-style: none;
     margin: 0;
+    padding: 0;
+  }
+
+  .list li {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    min-height: 48px;
+    padding: 6px 0;
+    border-bottom: 1px solid var(--border-soft);
+  }
+
+  .list li:last-child {
+    border-bottom: none;
+  }
+
+  .list-main {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    line-height: 18px;
+  }
+
+  .ok {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    color: var(--st-paid-fg);
+  }
+
+  .mobile-next {
+    display: none;
+  }
+
+  @media (max-width: 1100px) {
+    .layout {
+      grid-template-columns: 1fr;
+    }
+
+    .now {
+      grid-template-columns: auto minmax(0, 1fr);
+    }
+
+    .now-actions {
+      grid-column: 1 / -1;
+    }
+  }
+
+  /* ——— Mobile : en-tête sombre, pastilles numérotées, barre fixe « Vin suivant » ——— */
+  @media (max-width: 767px) {
+    .pilot :global(.page-head) {
+      background: var(--night);
+      border-bottom: none;
+    }
+
+    .pilot :global(.page-head .t-page-title),
+    .pilot :global(.page-head .back),
+    .pilot :global(.page-head .subtitle) {
+      color: #fff !important;
+    }
+
+    .pilot :global(.page-head .subtitle) {
+      opacity: 0.8;
+    }
+
+    .pilot :global(.page-head .btn--ghost) {
+      color: #fff !important;
+    }
+
+    .band {
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      margin: -16px -16px 16px;
+      border-radius: 0;
+      border: none;
+      background: var(--night);
+      color: #fff;
+    }
+
+    .band-item {
+      border-right: none;
+      padding: 0 16px 16px;
+    }
+
+    .band-item:last-child {
+      display: none;
+    }
+
+    .band-item :global(.t-caption) {
+      color: rgba(255, 255, 255, 0.75);
+    }
+
+    .band-v {
+      font-family: var(--font-sans);
+      font-size: 18px;
+      font-weight: 700;
+    }
+
+    .band-v small {
+      display: none;
+    }
+
+    /* Les cartes de la colonne latérale rejoignent le flux : déroulé, vin en cours…, invités en bas. */
+    .side {
+      display: contents;
+    }
+
+    .side :global(#deroule) {
+      order: 0;
+    }
+
+    .main {
+      order: 1;
+    }
+
+    .qr-row {
+      flex-wrap: wrap;
+    }
+
+    .main :global(#orders .card-actions) {
+      display: none;
+    }
+
+    .layout {
+      display: flex;
+      flex-direction: column;
+    }
+
+    /* Déroulé → pastilles numérotées */
+    .side :global(#deroule) {
+      padding: 0;
+      background: none;
+      border: none;
+    }
+
+    .side :global(#deroule .card-head) {
+      display: none;
+    }
+
+    .steps {
+      display: flex;
+      gap: 10px;
+      margin: 0;
+      overflow-x: auto;
+    }
+
+    .step {
+      display: grid;
+      grid-template-columns: 1fr;
+      place-items: center;
+      width: 44px;
+      min-width: 44px;
+      height: 44px;
+      min-height: 44px;
+      padding: 0;
+      border-radius: 50%;
+      border: 1px solid var(--btn-border);
+      background: #fff;
+    }
+
+    .step > :global(*:not(.step-num)) {
+      display: none;
+    }
+
+    .step-num {
+      color: var(--ink);
+    }
+
+    .step.current {
+      background: var(--teal-600);
+      border-color: var(--teal-600);
+    }
+
+    .step.current .step-num {
+      color: #fff;
+    }
+
+    .side :global(#invites) {
+      order: 2;
+    }
+
+    .now {
+      grid-template-columns: auto minmax(0, 1fr);
+      padding: 14px 16px;
+      gap: 14px;
+    }
+
+    .bottle {
+      width: 40px;
+      height: 60px;
+    }
+
+    .now-title {
+      font-size: 22px;
+      line-height: 28px;
+    }
+
+    .now-actions {
+      display: none;
+    }
+
+    .pilot.has-wines :global(.page-content) {
+      padding-bottom: 96px;
+    }
+
+    .mobile-next {
+      display: flex;
+      gap: 10px;
+      position: fixed;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      z-index: 450;
+      padding: 12px 16px calc(12px + env(safe-area-inset-bottom));
+      background: var(--card);
+      border-top: 1px solid var(--border);
+    }
+
+    .next-btn {
+      flex: 1;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      min-height: 52px;
+      padding: 0 16px;
+      border: none;
+      border-radius: var(--r-sm);
+      background: var(--teal-600);
+      color: #fff;
+      font: inherit;
+      font-weight: 600;
+      cursor: pointer;
+      overflow: hidden;
+      white-space: nowrap;
+      text-overflow: ellipsis;
+    }
+
+    .next-btn:disabled {
+      opacity: 0.5;
+    }
   }
 
   /* ——— Projection (TV / vidéoprojecteur) ——— */
@@ -907,27 +1200,4 @@
     transform: scale(1.4);
   }
 
-  @media (max-width: 1100px) {
-    .layout {
-      grid-template-columns: 1fr;
-    }
-  }
-
-  @media (max-width: 640px) {
-    .now {
-      grid-template-columns: auto 1fr;
-    }
-
-    .now :global(.glass) {
-      display: none;
-    }
-
-    .now-text h2 {
-      font-size: 1.6rem;
-    }
-
-    .controls {
-      grid-template-columns: 1fr 1fr;
-    }
-  }
 </style>
