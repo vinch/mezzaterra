@@ -115,3 +115,12 @@ export function downloadTextFile(filename: string, content: string, mime: string
   a.remove();
   setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
+
+/** Heure (locale) jusqu'à laquelle une soirée de la veille est encore considérée « en direct ». */
+export const LIVE_GRACE_HOUR = 6;
+
+/** Dégustation en cours : le jour même, ou la nuit suivante jusqu'à 6 h. */
+export function isLiveNow(iso: string, now = new Date()): boolean {
+  const d = daysUntil(iso);
+  return d === 0 || (d === -1 && now.getHours() < LIVE_GRACE_HOUR);
+}

@@ -5,7 +5,7 @@
   import WineCard from "$lib/components/site/WineCard.svelte";
   import RegistrationForm from "$lib/components/site/RegistrationForm.svelte";
   import { fetchAvailability, tastingTitle, type Availability } from "$lib/publicData";
-  import { buildIcs, daysUntil, downloadTextFile, formatDateLong, formatTime } from "$lib/dates";
+  import { buildIcs, daysUntil, downloadTextFile, formatDateLong, formatTime, isLiveNow } from "$lib/dates";
   import { formatEur, wineStyle, wineTitle } from "$lib/wine";
   import type { WineVintage } from "$lib/types";
 
@@ -15,7 +15,7 @@
   $: t = tasting as any;
   $: delta = t ? daysUntil(t.date) : 0;
   $: isUpcoming = delta > 0;
-  $: isLive = delta === 0 || delta === -1;
+  $: isLive = t ? isLiveNow(t.date) : false;
   $: styles = wineVintages.map((v: any) => wineStyle(v.wine?.wine_type));
 
   let selected: WineVintage | null = null;

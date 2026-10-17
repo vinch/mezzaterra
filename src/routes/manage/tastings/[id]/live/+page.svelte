@@ -24,7 +24,7 @@
     IconUsers,
   } from "$lib/ui/icons";
   import { formatDate, formatEUR } from "$lib/format";
-  import { daysUntil, formatTime } from "$lib/dates";
+  import { formatTime, isLiveNow } from "$lib/dates";
   import WineBottle from "$lib/components/site/WineBottle.svelte";
   import GlassProgress from "$lib/components/site/GlassProgress.svelte";
   import StarRating from "$lib/components/site/StarRating.svelte";
@@ -309,7 +309,7 @@
   $: currentOrdered = current ? (stats.get(current.id)?.wanted ?? 0) : 0;
   $: currentStock = current ? stockMap.get(current.id) ?? null : null;
   $: robe = robeOf(current?.wine?.wine_type);
-  $: isLiveDay = tasting ? daysUntil(tasting.date) === 0 || daysUntil(tasting.date) === -1 : false;
+  $: isLiveDay = tasting ? isLiveNow(tasting.date) : false;
   $: headerSubtitle = tasting
     ? [formatDate(tasting.date), tasting.location, tasting.start_time ? `depuis ${formatTime(tasting.start_time)}` : ""].filter(Boolean).join(" · ")
     : "";
