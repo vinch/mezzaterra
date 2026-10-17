@@ -449,6 +449,20 @@
     padding: 16px;
   }
 
+  /* Cibles tactiles ≥ 44 px. */
+  .app .btn-primary,
+  .app .btn-secondary,
+  .app .ui-btn,
+  .app .ui-remove,
+  .app .table-container td button,
+  .app .table-container td a {
+    min-height: 44px;
+  }
+
+  .app .ui-remove {
+    min-width: 44px;
+  }
+
   .app .form-grid {
     grid-template-columns: 1fr;
   }
