@@ -1,0 +1,325 @@
+/**
+ * Design system Mezzaterra — tokens globaux de l'outil de gestion (et éléments partagés).
+ * Source : refonte visuelle Claude Design. Les composants vivent dans src/lib/ui/.
+ */
+
+:root {
+  /* Couleurs */
+  --teal-600: #256169; /* actions, liens, focus */
+  --teal-700: #1b4a50; /* survol, titres */
+  --title: #1f3f43; /* titre de page */
+  --night: #1c4449; /* barre latérale */
+  --night-active: #2f6a71;
+  --night-label: #93b3b5;
+  --mist: #e3ecea; /* sélection, fonds d'icônes */
+  --paper: #e8e5de; /* fond de l'app */
+  --card: #faf8f3; /* cartes, tableaux */
+  --table-head: #f3f0e8;
+  --row-hover: #f4f1ea;
+  --border: #dcd6c8;
+  --border-soft: #e7e2d6;
+  --input-border: #c9c2b2;
+  --btn-border: #cfc9bb;
+  --ink: #1f2a2b; /* texte principal */
+  --ink-2: #5f6764; /* texte secondaire (≥ 4,5:1 sur carte et papier) */
+  --danger: #9b2c2c; /* destructif, rupture */
+  --warn: #8a5a00; /* stock bas (texte) */
+  --gold: #e8c96a; /* compteur de la barre latérale */
+
+  /* Robes — pastilles et barres uniquement, jamais en couleur de texte */
+  --rouge: #7a1f2e;
+  --blanc: #d8bf62;
+  --blanc-ring: #a88d2e;
+  --rose: #e0879a;
+  --rose-ring: #c0627a;
+
+  /* Statuts (badges) */
+  --st-pending-bg: #f5e6bf;
+  --st-pending-fg: #6e4700;
+  --st-paid-bg: #dcebd6;
+  --st-paid-fg: #2a5524;
+  --st-delivered-bg: #dbe6ef;
+  --st-delivered-fg: #1d4a6a;
+  --st-closed-bg: #e3e0d7;
+  --st-closed-fg: #454a47;
+  --st-cancelled-bg: #f4dada;
+  --st-cancelled-fg: #8a2424;
+
+  /* Typo */
+  --font-serif: "Fraunces", Georgia, serif;
+  --font-sans: "Inter", system-ui, -apple-system, "Segoe UI", sans-serif;
+
+  /* Espacements */
+  --s-1: 4px;
+  --s-2: 8px;
+  --s-3: 12px;
+  --s-4: 16px;
+  --s-5: 24px;
+  --s-6: 32px;
+  --s-7: 48px;
+
+  /* Formes */
+  --r-sm: 6px; /* champs, boutons */
+  --r-md: 10px; /* cartes, modales */
+  --r-pill: 999px;
+  --control-h: 40px;
+  --shadow-pop: 0 8px 24px rgba(31, 42, 43, 0.14);
+}
+
+@media (max-width: 767px) {
+  :root {
+    --control-h: 44px;
+  }
+}
+
+/* ——— Socle de l'outil de gestion ——— */
+.app {
+  font-family: var(--font-sans);
+  font-size: 14px;
+  line-height: 20px;
+  color: var(--ink);
+  font-variant-numeric: tabular-nums;
+}
+
+.app :focus-visible {
+  outline: 2px solid var(--teal-600);
+  outline-offset: 1px;
+}
+
+.app a {
+  color: var(--teal-600);
+}
+
+.app a:hover {
+  color: var(--teal-700);
+}
+
+/* Typographie */
+.t-page-title {
+  font-family: var(--font-serif);
+  font-weight: 600;
+  font-size: 30px;
+  line-height: 36px;
+  color: var(--title);
+  margin: 0;
+  letter-spacing: -0.01em;
+}
+
+.t-card-title {
+  font-family: var(--font-serif);
+  font-weight: 600;
+  font-size: 19px;
+  line-height: 26px;
+  color: var(--ink);
+  margin: 0;
+}
+
+.t-figure {
+  font-family: var(--font-serif);
+  font-weight: 600;
+  font-size: 28px;
+  line-height: 34px;
+  color: var(--ink);
+}
+
+.t-label {
+  font-weight: 500;
+  font-size: 13px;
+  line-height: 18px;
+  color: var(--ink);
+}
+
+.t-caption {
+  font-size: 12px;
+  line-height: 16px;
+  color: var(--ink-2);
+}
+
+.t-muted {
+  color: var(--ink-2);
+}
+
+.t-warn {
+  color: var(--warn);
+}
+
+.t-danger {
+  color: var(--danger);
+}
+
+.num {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+/* Champs (utilisés par Input, Select, Combobox, AmountTypeInput…) */
+.ui-control {
+  width: 100%;
+  min-height: var(--control-h);
+  padding: 0 12px;
+  border: 1px solid var(--input-border);
+  border-radius: var(--r-sm);
+  background: #fff;
+  color: var(--ink);
+  font: inherit;
+  font-size: 14px;
+}
+
+textarea.ui-control {
+  padding: 10px 12px;
+  min-height: 80px;
+  resize: vertical;
+  line-height: 20px;
+}
+
+select.ui-control {
+  padding-right: 32px;
+  appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' fill='none' stroke='%235f6764' stroke-width='1.75' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m4 6 4 4 4-4'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 10px center;
+}
+
+.ui-control::placeholder {
+  color: #8a8f8b;
+}
+
+.ui-control:focus {
+  outline: none;
+  border-color: var(--teal-600);
+  box-shadow: 0 0 0 2px rgba(37, 97, 105, 0.18);
+}
+
+.ui-control[aria-invalid="true"] {
+  border-color: var(--danger);
+}
+
+.ui-control:disabled {
+  background: var(--table-head);
+  color: var(--ink-2);
+}
+
+/* Tableaux (DataTable) */
+.ui-table-wrap {
+  overflow-x: auto;
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: var(--r-md);
+}
+
+.ui-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.ui-table th {
+  height: 40px;
+  padding: 0 16px;
+  background: var(--table-head);
+  border-bottom: 1px solid var(--border);
+  font-weight: 600;
+  font-size: 12px;
+  line-height: 16px;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--ink-2);
+  text-align: left;
+  white-space: nowrap;
+}
+
+.ui-table td {
+  height: 56px;
+  padding: 0 16px;
+  border-bottom: 1px solid var(--border-soft);
+  vertical-align: middle;
+}
+
+.ui-table tbody tr:last-child td {
+  border-bottom: none;
+}
+
+.ui-table tbody tr.is-clickable {
+  cursor: pointer;
+}
+
+.ui-table tbody tr:hover {
+  background: var(--row-hover);
+}
+
+.ui-table .col-actions {
+  width: 1%;
+  white-space: nowrap;
+  text-align: right;
+  padding-right: 12px;
+}
+
+/* Lien qui couvre la ligne entière (la ligne ouvre l'élément). */
+.row-link {
+  color: inherit !important;
+  text-decoration: none;
+  font-weight: 600;
+}
+
+.row-link::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+}
+
+.ui-table tbody tr {
+  position: relative;
+}
+
+.ui-table .col-actions > * {
+  position: relative;
+  z-index: 1;
+}
+
+/* Puces de filtre (robes, statuts) */
+.ui-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  height: 36px;
+  padding: 0 14px;
+  border: 1px solid var(--btn-border);
+  border-radius: var(--r-pill);
+  background: #fff;
+  color: var(--ink);
+  font: inherit;
+  font-weight: 500;
+  font-size: 14px;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.ui-chip:hover {
+  border-color: var(--teal-600);
+}
+
+.ui-chip[aria-pressed="true"],
+.ui-chip.is-active {
+  background: var(--night);
+  border-color: var(--night);
+  color: #fff;
+}
+
+.ui-chip .count {
+  font-weight: 500;
+  font-size: 12px;
+  opacity: 0.75;
+}
+
+/* Masquage visuel accessible */
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}

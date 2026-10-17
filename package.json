@@ -23,6 +23,7 @@
 		"vite": "^7.0.4"
 	},
 	"dependencies": {
+		"@lucide/svelte": "^1.59.0",
 		"@supabase/supabase-js": "^2.53.0",
 		"jspdf": "^2.5.2",
 		"qrcode": "^1.5.4"
