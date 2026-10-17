@@ -6,10 +6,10 @@
   import { customerDisplayLabel } from "$lib/customerDisplay";
   import { formatDateShort } from "$lib/dates";
   import { formatEur, vintageLabel } from "$lib/wine";
-  import Icon, { type IconName } from "$lib/components/Icon.svelte";
+  import { IconClipboard, IconGlasses, IconReceipt, IconSearch, IconUsers, IconWine } from "$lib/ui/icons";
 
   /** Pages de l'admin, injectées par le layout (même source que la sidebar). */
-  export let pages: { href: string; label: string; icon: IconName }[] = [];
+  export let pages: { href: string; label: string; icon: any }[] = [];
   export let open = false;
 
   type Item = {
@@ -18,7 +18,7 @@
     label: string;
     hint?: string;
     href: string;
-    icon: IconName;
+    icon: any;
     haystack: string;
   };
 
@@ -63,7 +63,7 @@
         label,
         hint: "Stock",
         href: `/manage/wines/${v.wine_id}/stock/${v.id}`,
-        icon: "bottle",
+        icon: IconWine,
         haystack: normalize(label),
       });
     }
@@ -75,7 +75,7 @@
         label,
         hint: [c.email, c.city].filter(Boolean).join(" · "),
         href: `/manage/customers/${c.id}`,
-        icon: "users",
+        icon: IconUsers,
         haystack: normalize(`${label} ${c.email || ""} ${c.city || ""}`),
       });
     }
@@ -87,7 +87,7 @@
         label: `${s.invoice_number ? `${s.invoice_number} — ` : ""}${who}`,
         hint: `${formatDateShort(s.date)} · ${formatEur(s.total_price)}`,
         href: `/manage/sales`,
-        icon: "cash",
+        icon: IconReceipt,
         haystack: normalize(`${s.invoice_number || ""} ${who} ${s.date}`),
       });
     }
@@ -98,7 +98,7 @@
         label: `${o.supplier?.name || "Fournisseur"} — ${formatDateShort(o.date)}`,
         hint: formatEur(o.total_price),
         href: `/manage/orders`,
-        icon: "clipboard",
+        icon: IconClipboard,
         haystack: normalize(`${o.supplier?.name || ""} ${o.date} commande`),
       });
     }
@@ -110,7 +110,7 @@
         label,
         hint: [formatDateShort(t.date), t.location].filter(Boolean).join(" · "),
         href: `/manage/tastings/${t.id}/live`,
-        icon: "glasses",
+        icon: IconGlasses,
         haystack: normalize(`${label} ${t.location || ""} ${t.date}`),
       });
     }
@@ -205,7 +205,7 @@
   <div class="palette-backdrop" on:click|self={close} role="presentation" transition:fade={{ duration: 120 }}>
     <div class="palette" role="dialog" aria-modal="true" aria-label="Recherche" transition:scale={{ start: 0.97, duration: 140 }}>
       <div class="search">
-        <Icon name="search" size="1.2rem" />
+        <IconSearch size={20} strokeWidth={1.75} />
         <input
           bind:this={input}
           bind:value={query}
@@ -236,7 +236,7 @@
                 on:mouseenter={() => (active = index)}
                 on:click={() => choose(item)}
               >
-                <Icon name={item.icon} />
+                <svelte:component this={item.icon} size={18} strokeWidth={1.75} />
                 <span class="label">{item.label}</span>
                 {#if item.hint}<span class="hint">{item.hint}</span>{/if}
               </button>
@@ -333,8 +333,8 @@
   }
 
   .row.active {
-    background: var(--mz-teal-wash, #eef4f4);
-    color: var(--mz-teal, #256169);
+    background: var(--mist);
+    color: var(--teal-700);
   }
 
   .label {
