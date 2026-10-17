@@ -29,7 +29,7 @@ export async function fetchSeats(tastingId: string): Promise<SeatInfo | null> {
 }
 
 /** Dégustation + vins dans l'ordre de passage. */
-export async function fetchTastingWithWines(tastingId: string) {
+export async function fetchTastingWithWines(tastingId: string, opts: { reveal?: (date: string) => boolean } = {}) {
   const { data: tasting, error } = await supabase
     .from("tasting")
     .select("*")
@@ -38,6 +38,15 @@ export async function fetchTastingWithWines(tastingId: string) {
 
   if (error) return { tasting: null, wineVintages: [] as any[], error: error.message };
   if (!tasting) return { tasting: null, wineVintages: [] as any[], error: null };
+
+  /* Vins encore secrets : on ne les charge pas, seulement leur nombre. */
+  if (opts.reveal && !opts.reveal(tasting.date)) {
+    const { count } = await supabase
+      .from("tasting_wine_vintage")
+      .select("wine_vintage_id", { count: "exact", head: true })
+      .eq("tasting_id", tastingId);
+    return { tasting, wineVintages: [] as any[], hiddenCount: count ?? 0, error: null };
+  }
 
   const { data: links, error: linksError } = await supabase
     .from("tasting_wine_vintage")
@@ -51,7 +60,7 @@ export async function fetchTastingWithWines(tastingId: string) {
     .map((l) => l.wine_vintage)
     .filter(Boolean);
 
-  return { tasting, wineVintages, error: null };
+  return { tasting, wineVintages, hiddenCount: 0, error: null };
 }
 
 /** Nom public d'une dégustation. */

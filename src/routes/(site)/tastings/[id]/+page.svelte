@@ -12,6 +12,7 @@
   export let data;
 
   $: ({ tasting, wineVintages, error } = data);
+  $: hiddenCount = (data as any).hiddenCount ?? 0;
   $: t = tasting as any;
   $: delta = t ? daysUntil(t.date) : 0;
   $: isUpcoming = delta > 0;
@@ -48,7 +49,7 @@
     <meta property="og:title" content="{tastingTitle(t)} — Mezzaterra" />
     <meta
       property="og:description"
-      content="{formatDateLong(t.date)}{t.location ? ` · ${t.location}` : ''} — {wineVintages.length} vins des Abruzzes à découvrir."
+      content="{formatDateLong(t.date)}{t.location ? ` · ${t.location}` : ''} — {wineVintages.length || hiddenCount} vins des Abruzzes à découvrir."
     />
   {/if}
 </svelte:head>
@@ -72,7 +73,7 @@
         <li>{formatDateLong(t.date)}{t.start_time ? ` · ${formatTime(t.start_time)}` : ""}</li>
         {#if t.location}<li>{t.location}</li>{/if}
         {#if t.price}<li>{formatEur(t.price)} / personne</li>{/if}
-        {#if wineVintages.length}<li>{wineVintages.length} vins</li>{/if}
+        {#if wineVintages.length || hiddenCount}<li>{wineVintages.length || hiddenCount} vins</li>{/if}
       </ul>
       {#if t.description}
         <p class="mz-lead description">{t.description}</p>
@@ -122,6 +123,19 @@
             />
           </div>
         {/each}
+      </div>
+    {:else if hiddenCount}
+      <div class="secret">
+        <div class="secret-bottles" aria-hidden="true">
+          {#each Array(Math.min(hiddenCount, 8)) as _, i}<span style="animation-delay: {i * 90}ms"></span>{/each}
+        </div>
+        <p class="secret-title">{hiddenCount} vins à découvrir</p>
+        <p class="mz-muted">
+          {isLive ? "Ils se dévoilent un à un pendant la soirée." : "La sélection reste une surprise jusqu’au soir de la dégustation."}
+        </p>
+        {#if isLive}
+          <a class="mz-btn" href="/tastings/{t.id}/live">Suivre la dégustation en direct →</a>
+        {/if}
       </div>
     {:else}
       <p class="mz-empty">La sélection des vins sera bientôt dévoilée…</p>
@@ -275,6 +289,40 @@
     box-shadow:
       0 0 0 3px var(--mz-paper),
       0 2px 6px rgba(0, 0, 0, 0.2);
+  }
+
+  .secret {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 3rem 1rem;
+    text-align: center;
+  }
+
+  .secret-bottles {
+    display: flex;
+    gap: 0.6rem;
+    margin-bottom: 1rem;
+  }
+
+  .secret-bottles span {
+    width: 1.1rem;
+    height: 3.4rem;
+    border-radius: 0.55rem 0.55rem 0.25rem 0.25rem;
+    background: var(--mz-line);
+    animation: mz-rise 0.6s var(--mz-ease) both;
+  }
+
+  .secret-title {
+    margin: 0;
+    font-family: var(--mz-font-display);
+    font-size: 1.6rem;
+    color: var(--mz-teal);
+  }
+
+  .secret .mz-btn {
+    margin-top: 0.75rem;
   }
 
   .grid {
