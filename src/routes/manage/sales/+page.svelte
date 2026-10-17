@@ -22,6 +22,7 @@
     IconClock,
     IconDownload,
     IconEye,
+    IconGlasses,
     IconLock,
     IconPencil,
     IconPlus,
@@ -80,6 +81,7 @@
     global_discount: "",
     global_discount_type: "amount" as "amount" | "percent",
     payment_method: "",
+    tasting_id: "",
   };
 
   // Sale items
@@ -107,7 +109,9 @@
     const params = new URLSearchParams(window.location.search);
     const st = params.get("statut");
     if (st && ["pending", "paid", "delivered", "closed", "cancelled"].includes(st)) tab = st as Tab;
-    await loadCustomers();
+    await Promise.all([loadCustomers(), loadTastings()]);
+    const t = params.get("degustation");
+    if (t) tastingFilter = t;
     await loadWineVintages();
     loading = false;
     if (params.has("nouvelle")) {
@@ -289,6 +293,7 @@
       global_discount_type:
         sale.global_discount_type === "percent" ? "percent" : "amount",
       payment_method: sale.payment_method ?? "",
+      tasting_id: sale.tasting_id ?? "",
     };
     await loadWineVintages(); // Reload vintages with stock
     await loadSaleItems(sale.id);
@@ -860,6 +865,7 @@
       global_discount: "",
       global_discount_type: "amount",
       payment_method: "",
+      tasting_id: tastingOnDate(new Date().toISOString().split("T")[0]),
     };
     saleItems = [];
     selectedVintageId = "";
@@ -1039,6 +1045,7 @@
       payment_method: formData.payment_method?.trim()
         ? formData.payment_method.trim()
         : null,
+      tasting_id: formData.tasting_id || null,
     };
 
     const { data: newSale, error: insertError } = await supabase
@@ -1109,6 +1116,7 @@
       payment_method: formData.payment_method?.trim()
         ? formData.payment_method.trim()
         : null,
+      tasting_id: formData.tasting_id || null,
     };
 
     const { error: updateError } = await supabase
@@ -1375,6 +1383,31 @@
     window.location.reload();
   }
 
+  /* ——— Dégustations (lien vente ↔ dégustation) ——— */
+  let tastings: { id: string; name: string | null; date: string }[] = [];
+  async function loadTastings() {
+    const { data } = await supabase.from("tasting").select("id, name, date").order("date", { ascending: false });
+    tastings = data || [];
+  }
+  /** Dégustation unique ayant lieu à cette date (sinon chaîne vide). */
+  function tastingOnDate(date: string): string {
+    const same = tastings.filter((t) => t.date === date);
+    return same.length === 1 ? same[0].id : "";
+  }
+  function tastingLabel(id: string | null | undefined): string {
+    const t = tastings.find((x) => x.id === id);
+    return t ? `${t.name || "Dégustation"} · ${formatDate(t.date)}` : "";
+  }
+  /* Nouvelle vente : la dégustation suit la date tant qu'on ne l'a pas choisie à la main. */
+  let tastingTouched = false;
+  let lastDate = "";
+  $: if (showModal && formData.date !== lastDate) {
+    lastDate = formData.date;
+    if (!tastingTouched) formData.tasting_id = tastingOnDate(formData.date);
+  }
+  $: if (!showModal) tastingTouched = false;
+  let tastingFilter = "";
+
   /* ——— Interface (refonte) : filtres, menus, confirmation ——— */
   type Tab = "all" | SaleStatus;
   const TABS: { key: Tab; label: string }[] = [
@@ -1390,7 +1423,9 @@
   let period = "all";
 
   $: years = [...new Set(sales.map((s) => String(s.date).slice(0, 4)))].sort().reverse();
-  $: periodSales = sales.filter((s) => period === "all" || String(s.date).startsWith(period));
+  $: periodSales = sales
+    .filter((s) => period === "all" || String(s.date).startsWith(period))
+    .filter((s) => !tastingFilter || (tastingFilter === "none" ? !s.tasting_id : s.tasting_id === tastingFilter));
   $: counts = TABS.reduce(
     (acc, t) => ({ ...acc, [t.key]: t.key === "all" ? periodSales.length : periodSales.filter((s) => s.status === t.key).length }),
     {} as Record<Tab, number>,
@@ -1590,6 +1625,15 @@
       <input class="ui-control" type="search" placeholder="Client, n° de facture…" bind:value={search} />
     </label>
     <div class="period">
+      <Select bind:value={tastingFilter} ariaLabel="Dégustation">
+        <option value="">Toutes les dégustations</option>
+        <option value="none">Hors dégustation</option>
+        {#each tastings as t}
+          <option value={t.id}>{t.name || "Dégustation"} · {formatDate(t.date)}</option>
+        {/each}
+      </Select>
+    </div>
+    <div class="period">
       <Select bind:value={period} ariaLabel="Période">
         <option value="all">Toutes les périodes</option>
         {#each years as y}
@@ -1631,6 +1675,7 @@
               <td>
                 <button type="button" class="link-cell" on:click={() => openDetailsModal(sale)}>{customerName(sale)}</button>
                 {#if sale.customer?.company_name}<span class="t-muted">&nbsp;· {sale.customer.company_name}</span>{/if}
+                {#if sale.tasting_id}<span class="tasting-tag" title={tastingLabel(sale.tasting_id)}><IconGlasses size={12} strokeWidth={1.75} aria-hidden="true" />{tastings.find((t) => t.id === sale.tasting_id)?.name || "Dégustation"}</span>{/if}
               </td>
               <td>
                 {#if EDITABLE_STATUSES.includes(sale.status)}
@@ -1874,6 +1919,15 @@
       </Field>
     </div>
 
+    <Field id="sale-tasting" label="Dégustation" optional help="Proposée automatiquement quand une dégustation a lieu à la date de la vente.">
+      <select id="sale-tasting" class="ui-control" bind:value={formData.tasting_id} on:change={() => (tastingTouched = true)}>
+        <option value="">— Aucune —</option>
+        {#each tastings as t}
+          <option value={t.id}>{t.name || "Dégustation"} · {formatDate(t.date)}</option>
+        {/each}
+      </select>
+    </Field>
+
     <Field id="sale-note" label="Note">
       <textarea id="sale-note" class="ui-control" rows="2" placeholder="Visible uniquement par vous" bind:value={formData.note}></textarea>
     </Field>
@@ -1906,6 +1960,9 @@
       </div>
       <div><dt>Facture</dt><dd>{detailsSale.invoice_number || "—"}</dd></div>
       <div><dt>Mode de paiement</dt><dd>{paymentMethodLabel(detailsSale.payment_method)}</dd></div>
+      {#if detailsSale.tasting_id}
+        <div><dt>Dégustation</dt><dd><a href="/manage/tastings/{detailsSale.tasting_id}/live">{tastingLabel(detailsSale.tasting_id)}</a></dd></div>
+      {/if}
       {#if detailsSale.note}
         <div class="wide"><dt>Note</dt><dd>{detailsSale.note}</dd></div>
       {/if}
@@ -2044,13 +2101,27 @@
   }
 
   .period {
-    flex: 0 0 200px;
+    flex: 0 0 220px;
   }
 
   .empty-card {
     background: var(--card);
     border: 1px solid var(--border);
     border-radius: var(--r-md);
+  }
+
+  .tasting-tag {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    margin-left: 8px;
+    padding: 1px 8px;
+    border-radius: var(--r-pill);
+    background: var(--mist);
+    color: var(--teal-700);
+    font-size: 12px;
+    font-weight: 500;
+    white-space: nowrap;
   }
 
   .link-cell {

@@ -128,9 +128,18 @@
 
   let participants: any[] = [];
   let stockMap = new Map<string, number>();
+  /** Ventes rattachées à cette dégustation (sale.tasting_id). */
+  let eveningSales: any[] = [];
 
   async function refresh() {
     const jobs: Promise<void>[] = [
+      (async () => {
+        const { data } = await supabase
+          .from("sale")
+          .select("id, status, total_price, customer_id, sale_item ( wine_vintage_id, quantity )")
+          .eq("tasting_id", tastingId);
+        eveningSales = ((data || []) as any[]).filter((x) => x.status !== "cancelled");
+      })(),
       (async () => {
         const { data } = await supabase
           .from("tasting_customer")
@@ -285,6 +294,16 @@
 
   /* ——— Interface (refonte) ——— */
   $: activeWishes = wishes.filter((w) => w.status !== "dismissed");
+  $: soldBottles = eveningSales.reduce(
+    (n, x) => n + (x.sale_item || []).filter((i: any) => i.wine_vintage_id).reduce((m: number, i: any) => m + (i.quantity || 0), 0),
+    0,
+  );
+  $: soldAmount = eveningSales.reduce((n, x) => n + Number(x.total_price || 0), 0);
+  $: soldByWine = (() => {
+    const m = new Map<string, number>();
+    for (const x of eveningSales) for (const i of x.sale_item || []) if (i.wine_vintage_id) m.set(i.wine_vintage_id, (m.get(i.wine_vintage_id) ?? 0) + (i.quantity || 0));
+    return m;
+  })();
   $: orderedBottles = activeWishes.flatMap((w) => wishItems(w.items)).reduce((n, i) => n + i.quantity, 0);
   $: orderedAmount = activeWishes.reduce((sum, w) => sum + wishTotal(w), 0);
   $: currentOrdered = current ? (stats.get(current.id)?.wanted ?? 0) : 0;
@@ -365,13 +384,13 @@
           <span class="band-v">{participantCount}{#if hasRegistrations && confirmedSeats}<small> · {confirmedSeats} places réservées</small>{/if}</span>
         </div>
         <div class="band-item">
-          <span class="t-caption">Bouteilles commandées</span>
-          <span class="band-v">{hasWishes ? `${orderedBottles} bt.` : "—"}</span>
+          <span class="t-caption">Bouteilles vendues</span>
+          <span class="band-v">{soldBottles} bt.{#if hasWishes && orderedBottles}<small> · {orderedBottles} demandées</small>{/if}</span>
         </div>
-        <div class="band-item">
-          <span class="t-caption">Montant de la soirée</span>
-          <span class="band-v">{hasWishes ? formatEUR(orderedAmount) : "—"}</span>
-        </div>
+        <a class="band-item band-link" href="/manage/sales?degustation={tastingId}">
+          <span class="t-caption">Ventes de la soirée</span>
+          <span class="band-v">{formatEUR(soldAmount)}<small> · {eveningSales.length} vente{eveningSales.length > 1 ? "s" : ""}</small></span>
+        </a>
         <div class="band-item">
           <span class="t-caption">Progression</span>
           <span class="band-v">Vin {position + 1} <small>sur {wines.length}</small></span>
@@ -392,7 +411,7 @@
                     <span class="step-main">
                       <strong>{wineLabel(w)}</strong>
                       <span class="t-caption">
-                        {w.wine?.winery?.name ?? ""}{hasWishes ? ` · ${st?.wanted ? `${st.wanted} bt. commandées` : "aucune commande"}` : ""}{st?.avg != null ? ` · ★ ${st.avg.toFixed(1)}` : ""}
+                        {w.wine?.winery?.name ?? ""}{soldByWine.get(w.id) ? ` · ${soldByWine.get(w.id)} bt. vendues` : ""}{st?.wanted ? ` · ${st.wanted} demandées` : ""}{st?.avg != null ? ` · ★ ${st.avg.toFixed(1)}` : ""}
                       </span>
                     </span>
                     {#if i < position}
@@ -431,7 +450,7 @@
               <h2 id="now-title" class="now-title">{wineLabel(current)}</h2>
               <p>{current.wine?.winery?.name ?? ""}{current.price ? " · " : ""}{#if current.price}<strong>{formatEUR(current.price)}</strong> la bouteille{/if}</p>
               <p class="t-caption">
-                Stock : <strong>{currentStock ?? "—"} bt.</strong>{#if hasWishes} · commandées ce soir : <strong>{currentOrdered} bt.</strong>{#if currentStock != null} · reste {Math.max(0, currentStock - currentOrdered)} bt.{/if}{/if}
+                Stock : <strong>{currentStock ?? "—"} bt.</strong> · vendues ce soir : <strong>{soldByWine.get(current.id) ?? 0} bt.</strong>{#if currentOrdered} · demandées : <strong>{currentOrdered} bt.</strong>{/if}
               </p>
             </div>
             <div class="now-actions">
@@ -644,6 +663,15 @@
     font-weight: 600;
     font-size: 24px;
     line-height: 30px;
+  }
+
+  .band-link {
+    color: inherit !important;
+    text-decoration: none;
+  }
+
+  .band-link:hover {
+    background: var(--row-hover);
   }
 
   .band-v small {

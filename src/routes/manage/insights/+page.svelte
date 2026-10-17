@@ -166,9 +166,9 @@
       </div>
     {:else}
       <p class="explain">
-        Pour chaque soirée : entrées payées par les participants + marge sur les vins qu’ils ont achetés
-        dans les 30 jours − coût des bouteilles ouvertes ({BOTTLES_PER_TASTED_WINE} par vin servi).
-        Les participants sont ceux associés à la dégustation.
+        Pour chaque soirée : entrées + marge sur les ventes rattachées à la dégustation − coût des
+        bouteilles ouvertes ({BOTTLES_PER_TASTED_WINE} par vin servi). Les « relances » sont les achats des
+        participants dans les 30 jours suivants, hors soirée.
       </p>
       <div class="table-container">
         <table>
@@ -178,8 +178,9 @@
               <th class="num">Participants</th>
               <th class="num">Bouteilles ouvertes</th>
               <th class="num">Entrées</th>
-              <th class="num">Ventes 30 j</th>
+              <th class="num">Ventes de la soirée</th>
               <th class="num">Acheteurs</th>
+              <th class="num">Relances 30 j</th>
               <th class="num">Résultat estimé</th>
             </tr>
           </thead>
@@ -193,10 +194,14 @@
                 <td class="num">{r.participants}</td>
                 <td class="num">{r.winesPoured} <small class="muted">({formatEur(r.pouredCost, true)})</small></td>
                 <td class="num">{formatEur(r.fees, true)}</td>
-                <td class="num">{formatEur(r.followRevenue, true)} <small class="muted">{r.followBottles} bt.</small></td>
+                <td class="num">
+                  <a href="/manage/sales?degustation={r.tasting.id}">{formatEur(r.eveningRevenue, true)}</a>
+                  <small class="muted">{r.eveningBottles} bt.</small>
+                </td>
                 <td class="num">
                   {r.buyers}{#if r.participants} <small class="muted">({Math.round((r.buyers / r.participants) * 100)} %)</small>{/if}
                 </td>
+                <td class="num">{r.laterRevenue ? formatEur(r.laterRevenue, true) : "—"}</td>
                 <td class="num"><strong class={r.result >= 0 ? "pos" : "neg"}>{formatEur(r.result, true)}</strong></td>
               </tr>
             {/each}

@@ -110,6 +110,7 @@ export async function createSaleFromWish(
       status: "pending",
       total_price: total,
       note: noteParts.join("\n"),
+      tasting_id: wish.tasting_id,
     })
     .select("id")
     .single();

@@ -18,6 +18,8 @@ export type SaleRow = {
   status: string;
   total_price: number;
   customer_id: string;
+  /** Dégustation pendant laquelle la vente a été conclue. */
+  tasting_id?: string | null;
 };
 
 export type SaleItemRow = {
@@ -71,7 +73,7 @@ async function fetchAll<T>(build: (from: number, to: number) => PromiseLike<{ da
 export async function loadDataset(): Promise<Dataset> {
   const [sales, items, vintages, inventory] = await Promise.all([
     fetchAll<SaleRow>((a, b) =>
-      supabase.from("sale").select("id, date, status, total_price, customer_id").range(a, b),
+      supabase.from("sale").select("id, date, status, total_price, customer_id, tasting_id").range(a, b),
     ),
     fetchAll<SaleItemRow>((a, b) =>
       supabase
@@ -113,6 +115,7 @@ export type RevenueLine = {
   saleId: string;
   date: string;
   customerId: string;
+  tastingId: string | null;
   vintageId: string | null;
   isTastingFee: boolean;
   quantity: number;
@@ -144,6 +147,7 @@ export function revenueLines(ds: Dataset, statuses = REVENUE_STATUSES): RevenueL
         saleId,
         date: sale.date,
         customerId: sale.customer_id,
+        tastingId: sale.tasting_id ?? null,
         vintageId: it.wine_vintage_id,
         isTastingFee: !it.wine_vintage_id,
         quantity: Number(it.quantity) || 0,
@@ -223,14 +227,17 @@ export type TastingRoi = {
   winesPoured: number;
   /** Coût d'achat des bouteilles ouvertes. */
   pouredCost: number;
-  /** Lignes « Dégustation » (entrées) payées par les participants. */
+  /** Lignes « Dégustation » (entrées) des ventes de la soirée. */
   fees: number;
-  /** Ventes de vin aux participants dans les 30 jours suivant la soirée. */
-  followRevenue: number;
-  followMargin: number;
-  followBottles: number;
+  /** Ventes de vin rattachées à la soirée (sale.tasting_id). */
+  eveningRevenue: number;
+  eveningMargin: number;
+  eveningBottles: number;
+  /** Clients ayant acheté du vin pendant la soirée. */
   buyers: number;
-  /** Entrées + marge sur les ventes − bouteilles ouvertes. */
+  /** Ventes de vin aux participants dans les N jours qui suivent, hors soirée (relances). */
+  laterRevenue: number;
+  /** Entrées + marge des ventes de la soirée − bouteilles ouvertes. */
   result: number;
 };
 
@@ -249,23 +256,27 @@ export async function tastingRoi(ds: Dataset, lines = revenueLines(ds), windowDa
       (s, w) => s + num(vintages.get(w.wine_vintage_id)?.purchase_price) * BOTTLES_PER_TASTED_WINE,
       0,
     );
+    const evening = lines.filter((l) => l.tastingId === t.id);
+    const fees = evening.filter((l) => l.isTastingFee).reduce((s, l) => s + l.revenue, 0);
+    const wineLines = evening.filter((l) => !l.isTastingFee);
+    const eveningRevenue = wineLines.reduce((s, l) => s + l.revenue, 0);
+    const eveningMargin = wineLines.reduce((s, l) => s + (l.revenue - l.cost), 0);
     const end = addDaysIso(t.date, windowDays);
-    const own = lines.filter((l) => customers.has(l.customerId) && l.date >= t.date && l.date <= end);
-    const fees = own.filter((l) => l.isTastingFee).reduce((s, l) => s + l.revenue, 0);
-    const wineLines = own.filter((l) => !l.isTastingFee);
-    const followRevenue = wineLines.reduce((s, l) => s + l.revenue, 0);
-    const followMargin = wineLines.reduce((s, l) => s + (l.revenue - l.cost), 0);
+    const later = lines.filter(
+      (l) => !l.isTastingFee && !l.tastingId && customers.has(l.customerId) && l.date > t.date && l.date <= end,
+    );
     return {
       tasting: { id: t.id, name: t.name, date: t.date, location: t.location },
       participants: customers.size,
       winesPoured: wines.length,
       pouredCost,
       fees,
-      followRevenue,
-      followMargin,
-      followBottles: wineLines.reduce((s, l) => s + l.quantity, 0),
+      eveningRevenue,
+      eveningMargin,
+      eveningBottles: wineLines.reduce((s, l) => s + l.quantity, 0),
       buyers: new Set(wineLines.map((l) => l.customerId)).size,
-      result: fees + followMargin - pouredCost,
+      laterRevenue: later.reduce((s, l) => s + l.revenue, 0),
+      result: fees + eveningMargin - pouredCost,
     };
   });
 }
