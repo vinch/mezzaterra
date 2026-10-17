@@ -66,67 +66,61 @@
 </svelte:head>
 
 <div class="page">
-  <header class="hero">
-    <img src="/logo.png" alt="Mezzaterra" class="logo-home" />
-  </header>
-
   <main class="mz-container home">
-    <section class="concept" aria-labelledby="concept-title">
-      <div class="concept-top">
-      <div class="concept-intro mz-rise">
-        <span class="mz-eyebrow">Le concept</span>
-        <h1 id="concept-title" class="mz-display mz-h2">Les Abruzzes, un verre à la fois.</h1>
-        <p class="mz-lead">
+    <section class="hero" aria-labelledby="concept-title">
+      <div class="hero-text mz-rise">
+        <img src="/logo.png" alt="Mezzaterra" class="logo-home" />
+        <span class="eyebrow">Le concept</span>
+        <h1 id="concept-title" class="hero-title">Les Abruzzes,<br />un verre à la fois.</h1>
+        <p class="hero-lead">
           Mezzaterra fait venir en direct les vins de quelques domaines familiaux des Abruzzes, entre la
           mer Adriatique et le massif du Gran Sasso. Des vins de vignerons, encore confidentiels de ce
           côté des Alpes, que l’on prend le temps de faire découvrir.
         </p>
+        <a class="hero-link" href="#newsletter">Sur invitation <span aria-hidden="true">↓</span></a>
       </div>
-      <div class="concept-map mz-rise" style="animation-delay: 120ms">
+      <div class="hero-map mz-rise" style="animation-delay: 120ms">
         <AbruzzoMap wineries={data.wineries} />
       </div>
-      </div>
-
-      <ol class="pillars">
-        <li class="mz-rise" style="animation-delay: 80ms">
-          <span class="pillar-num">01</span>
-          <h2 class="pillar-title">Des domaines familiaux</h2>
-          <p>
-            {#if wineryNames.length}
-              Une poignée de domaines choisis — {listFr(wineryNames)} — et leurs cépages du pays :
-              Montepulciano, Pecorino, Passerina, Cerasuolo…
-            {:else}
-              Une poignée de domaines choisis et leurs cépages du pays : Montepulciano, Pecorino,
-              Passerina, Cerasuolo…
-            {/if}
-          </p>
-        </li>
-        <li class="mz-rise" style="animation-delay: 160ms">
-          <span class="pillar-num">02</span>
-          <h2 class="pillar-title">En direct de la cave</h2>
-          <p>
-            Les bouteilles voyagent de la cave du vigneron jusqu’à nous, sans intermédiaire. Chaque vin
-            a une histoire, et quelqu’un pour la raconter.
-          </p>
-        </li>
-        <li class="mz-rise" style="animation-delay: 240ms">
-          <span class="pillar-num">03</span>
-          <h2 class="pillar-title">Goûtés ensemble</h2>
-          <p>
-            Les vins se découvrent autour d’une table, en petit comité et sur invitation, avec de quoi
-            grignoter à l’italienne.
-          </p>
-        </li>
-      </ol>
-
-      <img
-        class="photos mz-rise"
-        style="animation-delay: 300ms"
-        src="/flyer/photos.jpg"
-        alt="Bouteilles alignées, une tablée de dégustation et un plateau de charcuterie et de fromages italiens"
-        loading="lazy"
-      />
     </section>
+
+    <ol class="pillars">
+      <li class="mz-rise" style="animation-delay: 80ms">
+        <span class="pillar-num">01</span>
+        <h2 class="pillar-title">Des domaines familiaux</h2>
+        <p>
+          {#if wineryNames.length}
+            Une poignée de domaines choisis — {listFr(wineryNames)} — et leurs cépages du pays :
+            Montepulciano, Pecorino, Passerina, Cerasuolo…
+          {:else}
+            Une poignée de domaines choisis et leurs cépages du pays : Montepulciano, Pecorino,
+            Passerina, Cerasuolo…
+          {/if}
+        </p>
+      </li>
+      <li class="mz-rise" style="animation-delay: 160ms">
+        <span class="pillar-num">02</span>
+        <h2 class="pillar-title">En direct de la cave</h2>
+        <p>
+          Les bouteilles voyagent de la cave du vigneron jusqu’à nous, sans intermédiaire. Chaque vin
+          a une histoire, et quelqu’un pour la raconter.
+        </p>
+      </li>
+      <li class="mz-rise" style="animation-delay: 240ms">
+        <span class="pillar-num">03</span>
+        <h2 class="pillar-title">Goûtés ensemble</h2>
+        <p>
+          Les vins se découvrent autour d’une table, en petit comité et sur invitation, avec de quoi
+          grignoter à l’italienne.
+        </p>
+      </li>
+    </ol>
+
+    <div class="photos mz-rise" style="animation-delay: 300ms">
+      <img src="/flyer/photo-1.jpg" alt="Bouteilles des domaines alignées sur une table" loading="lazy" />
+      <img src="/flyer/photo-2.jpg" alt="Une tablée de dégustation autour du vigneron" loading="lazy" />
+      <img src="/flyer/photo-3.jpg" alt="Plateau de charcuterie et de fromages italiens" loading="lazy" />
+    </div>
 
     <section id="newsletter" class="cta" aria-labelledby="cta-title">
       <span class="cta-eyebrow">Sur invitation</span>
@@ -169,97 +163,156 @@
     color: var(--mz-ink);
   }
 
+  .home {
+    flex: 1;
+    width: 100%;
+    padding-top: 48px;
+    padding-bottom: 32px;
+  }
+
+  /* ——— Ouverture : texte + carte ——— */
   .hero {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1.05fr);
+    gap: 56px;
+    align-items: start;
+  }
+
+  .hero-text {
     display: flex;
-    justify-content: center;
-    padding: 1rem 1rem 0;
+    flex-direction: column;
+    align-items: flex-start;
   }
 
   .logo-home {
-    width: min(92vw, 44rem);
-    max-height: 46vh;
-    object-fit: contain;
     display: block;
-    /* Le PNG a de larges marges : on les « mange » pour rapprocher le contenu. */
-    margin: -6% 0 -2%;
+    width: 300px;
+    height: auto;
+    /* Le PNG a de larges marges : on les rogne pour caler le logo à gauche. */
+    margin: -78px 0 -64px -44px;
   }
 
-  .home {
-    flex: 1;
-    display: flex;
-    flex-direction: column;
-    gap: 2.5rem;
-    padding-bottom: 2rem;
-    width: 100%;
-  }
-
-  .concept {
-    display: flex;
-    flex-direction: column;
-    gap: 2rem;
-  }
-
-  .concept-top {
-    display: grid;
-    grid-template-columns: minmax(0, 0.85fr) minmax(0, 1.15fr);
-    gap: 2.5rem;
+  .eyebrow {
+    display: inline-flex;
     align-items: center;
-    margin-bottom: 2.5rem;
+    gap: 12px;
+    margin-top: 36px;
+    font-size: 12px;
+    font-weight: 600;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--mz-teal-soft);
   }
 
-  .concept-intro {
-    max-width: 34rem;
+  .eyebrow::before {
+    content: "";
+    width: 28px;
+    height: 1px;
+    background: currentColor;
   }
 
-  .concept-intro h1 {
-    margin: 0.5rem 0 0.9rem;
+  .hero-title {
+    margin: 14px 0 20px;
+    font-family: var(--mz-font-display);
+    font-weight: 600;
+    font-size: clamp(2.4rem, 4.4vw, 3.4rem);
+    line-height: 1.08;
+    letter-spacing: -0.01em;
+    color: var(--mz-teal-deep);
   }
 
-  .concept-intro .mz-lead {
+  .hero-lead {
     margin: 0;
+    max-width: 34rem;
+    font-size: 1.08rem;
+    line-height: 1.7;
+    color: var(--mz-ink-soft);
   }
 
+  .hero-link {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    margin-top: 28px;
+    padding-bottom: 4px;
+    border-bottom: 1px solid currentColor;
+    color: var(--mz-teal);
+    font-weight: 600;
+    font-size: 0.95rem;
+    text-decoration: none;
+  }
+
+  .hero-link:hover {
+    color: var(--mz-teal-deep);
+  }
+
+  .hero-link span {
+    transition: transform 0.25s var(--mz-ease);
+  }
+
+  .hero-link:hover span {
+    transform: translateY(3px);
+  }
+
+  .hero-map {
+    padding-top: 48px;
+  }
+
+  .hero-map :global(svg) {
+    border-radius: 18px;
+    box-shadow: 0 24px 50px -28px rgba(29, 42, 44, 0.45);
+  }
+
+  /* ——— Trois points ——— */
   .pillars {
     list-style: none;
-    margin: 0;
+    margin: 88px 0 0;
     padding: 0;
     display: grid;
     grid-template-columns: repeat(3, minmax(0, 1fr));
-    gap: 1.25rem;
+    gap: 56px;
   }
 
   .pillars li {
-    padding: 1.4rem 1.5rem 1.5rem;
-    border-top: 2px solid var(--mz-teal);
-    background: color-mix(in srgb, var(--mz-paper-raised) 70%, transparent);
-    border-radius: 0 0 var(--mz-radius) var(--mz-radius);
+    padding-top: 22px;
+    border-top: 1px solid var(--mz-line);
   }
 
   .pillar-num {
     font-family: var(--mz-font-display);
-    font-size: 0.95rem;
-    color: var(--mz-teal-soft);
-    letter-spacing: 0.05em;
+    font-style: italic;
+    font-size: 1.15rem;
+    color: var(--mz-wine-red);
   }
 
   .pillar-title {
-    margin: 0.35rem 0 0.5rem;
+    margin: 10px 0 10px;
     font-family: var(--mz-font-display);
-    font-weight: 500;
-    font-size: 1.35rem;
-    color: var(--mz-teal);
+    font-weight: 600;
+    font-size: 1.45rem;
+    line-height: 1.2;
+    color: var(--mz-teal-deep);
   }
 
   .pillars p {
     margin: 0;
-    line-height: 1.6;
+    line-height: 1.65;
     color: var(--mz-ink-soft);
   }
 
+  /* ——— Photos ——— */
   .photos {
+    display: grid;
+    grid-template-columns: 1fr 1.35fr 1fr;
+    gap: 12px;
+    margin-top: 88px;
+  }
+
+  .photos img {
     display: block;
     width: 100%;
-    height: auto;
+    height: 340px;
+    object-fit: cover;
     border-radius: var(--mz-radius);
     box-shadow: var(--mz-shadow-sm);
   }
@@ -267,7 +320,7 @@
   .cta {
     position: relative;
     overflow: hidden;
-    margin-top: 2.5rem;
+    margin-top: 112px;
     padding: clamp(3rem, 6vw, 4.5rem) clamp(1.5rem, 5vw, 3rem);
     border-radius: var(--mz-radius-lg);
     text-align: center;
@@ -403,29 +456,62 @@
     font-weight: 600;
   }
 
-  @media (max-width: 900px) {
-    .concept-top {
+  @media (max-width: 960px) {
+    .hero {
       grid-template-columns: 1fr;
-      gap: 2rem;
-      margin-bottom: 1.5rem;
+      gap: 32px;
+    }
+
+    .hero-map {
+      padding-top: 0;
+    }
+
+    .pillars {
+      gap: 32px;
     }
   }
 
   @media (max-width: 820px) {
     .pillars {
       grid-template-columns: 1fr;
+      margin-top: 56px;
+    }
+
+    .photos {
+      margin-top: 56px;
+    }
+
+    .cta {
+      margin-top: 72px;
     }
   }
 
   @media (max-width: 640px) {
-    .photos {
-      height: 12rem;
-      object-fit: cover;
-      object-position: 50% 40%;
+    .home {
+      padding-top: 24px;
     }
 
     .logo-home {
-      max-height: 34vh;
+      width: 240px;
+      margin: -62px 0 -52px -36px;
+    }
+
+    .eyebrow {
+      margin-top: 28px;
+    }
+
+    .photos {
+      grid-template-columns: 1fr 1fr;
+    }
+
+    .photos img {
+      height: 180px;
+    }
+
+    .photos img:nth-child(2) {
+      grid-column: 1 / -1;
+      grid-row: 1;
+      height: 220px;
     }
 
     .subscribe-form {
