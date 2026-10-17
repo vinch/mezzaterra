@@ -146,6 +146,8 @@
 
   function onBlur() {
     setTimeout(() => {
+      /* Revenu dans le champ entre-temps : ne pas effacer la saisie en cours. */
+      if (document.activeElement === inputEl) return;
       open = false;
       query = selected ? selected.label : value ? query : "";
     }, 120);

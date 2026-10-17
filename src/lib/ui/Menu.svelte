@@ -103,6 +103,7 @@
       list[list.length - 1]?.focus();
     } else if (e.key === "Escape") {
       e.preventDefault();
+      e.stopPropagation();
       closeAndFocus();
     } else if (e.key === "Tab") {
       close();

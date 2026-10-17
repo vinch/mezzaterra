@@ -50,6 +50,17 @@
     dispatch("close");
   }
 
+  /* Si le focus a quitté la modale (élément retiré du DOM…), Échap et Tab restent gérés. */
+  function onWindowKeydown(e: KeyboardEvent) {
+    if (!open || !dialog || dialog.contains(document.activeElement)) return;
+    if (e.key === "Escape") {
+      close();
+    } else if (e.key === "Tab") {
+      e.preventDefault();
+      dialog.querySelector<HTMLElement>(FOCUSABLE)?.focus();
+    }
+  }
+
   function onKeydown(e: KeyboardEvent) {
     if (e.key === "Escape") {
       e.stopPropagation();
@@ -72,6 +83,8 @@
     }
   }
 </script>
+
+<svelte:window on:keydown={onWindowKeydown} />
 
 {#if open}
   <div class="backdrop" transition:fade={{ duration: 120 }} on:click|self={() => closeOnBackdrop && close()} role="presentation">
