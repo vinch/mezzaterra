@@ -19,36 +19,35 @@
   {#if src && !failed}
     <img {src} {alt} loading="lazy" on:error={() => (failed = true)} />
   {:else}
-    <svg viewBox="0 0 60 200" role="img" aria-label={alt || wine.label}>
+    <svg viewBox="0 0 84 200" role="img" aria-label={alt || wine.label}>
       <defs>
         <linearGradient id="{gid}-glass" x1="0" x2="1" y1="0" y2="0">
-          <stop offset="0" stop-color="#16292b" />
-          <stop offset="0.35" stop-color="#2a4447" />
-          <stop offset="0.6" stop-color="#1b3133" />
-          <stop offset="1" stop-color="#0f1e20" />
+          <stop offset="0" stop-color="#132527" />
+          <stop offset="0.3" stop-color="#2c484b" />
+          <stop offset="0.55" stop-color="#1c3335" />
+          <stop offset="1" stop-color="#0e1c1e" />
         </linearGradient>
         <linearGradient id="{gid}-wine" x1="0" x2="1" y1="0" y2="0">
-          <stop offset="0" stop-color={wine.color} stop-opacity="0.95" />
-          <stop offset="0.4" stop-color={wine.light} stop-opacity="0.9" />
-          <stop offset="1" stop-color={wine.color} stop-opacity="0.95" />
+          <stop offset="0" stop-color={wine.color} stop-opacity="0.96" />
+          <stop offset="0.38" stop-color={wine.light} stop-opacity="0.92" />
+          <stop offset="1" stop-color={wine.color} stop-opacity="0.96" />
         </linearGradient>
       </defs>
+      <!-- Bouteille bordelaise : col court, épaules marquées, corps généreux -->
       <path
-        d="M24 4h12v40c0 8 14 18 14 34v108a10 10 0 0 1-10 10H20a10 10 0 0 1-10-10V78c0-16 14-26 14-34z"
+        d="M33 14h18v30c0 10 4 15 12 21 9 7 13 14 13 26v94a11 11 0 0 1-11 11H19a11 11 0 0 1-11-11V91c0-12 4-19 13-26 8-6 12-11 12-21z"
         fill="url(#{gid}-glass)"
       />
-      <path
-        d="M11 96h38v90a8 8 0 0 1-8 8H19a8 8 0 0 1-8-8z"
-        fill="url(#{gid}-wine)"
-        opacity="0.85"
-      />
-      <rect x="23" y="2" width="14" height="14" rx="2" fill={wine.color} />
-      <rect x="14" y="112" width="32" height="44" rx="3" fill="#f4f2ed" />
-      <rect x="18" y="122" width="24" height="2.5" rx="1" fill="#256169" />
-      <rect x="21" y="129" width="18" height="1.6" rx="0.8" fill="#5b7d7f" />
-      <rect x="21" y="134" width="18" height="1.6" rx="0.8" fill="#5b7d7f" />
-      <circle cx="30" cy="145" r="3.2" fill={wine.color} />
-      <path d="M16 70c2-10 8-16 8-24" stroke="rgba(255,255,255,0.18)" stroke-width="2" fill="none" />
+      <path d="M10 100h64v85a9 9 0 0 1-9 9H19a9 9 0 0 1-9-9z" fill="url(#{gid}-wine)" opacity="0.88" />
+      <rect x="31" y="3" width="22" height="15" rx="3" fill={wine.color} />
+      <rect x="31" y="15" width="22" height="3" fill="rgba(0,0,0,0.25)" />
+      <rect x="16" y="112" width="52" height="54" rx="4" fill="#f4f2ed" />
+      <rect x="24" y="124" width="36" height="3" rx="1.5" fill="#256169" />
+      <rect x="28" y="132" width="28" height="2" rx="1" fill="#5b7d7f" />
+      <rect x="28" y="138" width="28" height="2" rx="1" fill="#5b7d7f" />
+      <circle cx="42" cy="152" r="4" fill={wine.color} />
+      <path d="M20 96c1-12 9-20 15-26" stroke="rgba(255,255,255,0.2)" stroke-width="3" stroke-linecap="round" fill="none" />
+      <path d="M15 108v70" stroke="rgba(255,255,255,0.12)" stroke-width="3" stroke-linecap="round" />
     </svg>
   {/if}
 </div>
@@ -57,7 +56,7 @@
   .bottle {
     position: relative;
     height: var(--h);
-    aspect-ratio: 3 / 10;
+    aspect-ratio: 21 / 50;
     display: flex;
     align-items: flex-end;
     justify-content: center;
