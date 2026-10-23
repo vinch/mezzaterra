@@ -4,8 +4,16 @@
   import { todayIso } from "$lib/dates";
   import { formatDate } from "$lib/format";
   import type { StockMove } from "$lib/types";
+  import ManagePageShell from "$lib/components/manage/ManagePageShell.svelte";
   import Modal from "$lib/ui/Modal.svelte";
   import Button from "$lib/ui/Button.svelte";
+  import ConfirmDialog from "$lib/ui/ConfirmDialog.svelte";
+  import DataTable from "$lib/ui/DataTable.svelte";
+  import EmptyState from "$lib/ui/EmptyState.svelte";
+  import RowMenu from "$lib/ui/RowMenu.svelte";
+  import type { MenuItem } from "$lib/ui/Menu.svelte";
+  import { IconBox, IconPencil, IconPlus, IconTrash } from "$lib/ui/icons";
+  import { wineTitle } from "$lib/wine";
 
   export let data: PageData;
 
@@ -147,25 +155,43 @@
     await loadStockMoves();
   }
 
-  async function deleteMove(id: string) {
-    if (
-      !confirm("Êtes-vous sûr de vouloir supprimer ce mouvement de stock ?")
-    ) {
-      return;
-    }
+  let deleteTarget: StockMove | null = null;
+  let confirmOpen = false;
+  let deleting = false;
 
+  function askDelete(move: StockMove) {
+    deleteTarget = move;
+    confirmOpen = true;
+  }
+
+  async function confirmDelete() {
+    if (!deleteTarget) return;
+    deleting = true;
     const { error: deleteError } = await supabase
       .from("stock_move")
       .delete()
-      .eq("id", id);
+      .eq("id", deleteTarget.id);
+    deleting = false;
+    confirmOpen = false;
 
     if (deleteError) {
       error = deleteError.message;
       return;
     }
 
+    error = "";
     await loadStockMoves();
   }
+
+  function rowItems(move: StockMove): MenuItem[] {
+    return [
+      { label: "Modifier", icon: IconPencil, onSelect: () => openEditModal(move) },
+      { label: "Supprimer…", icon: IconTrash, danger: true, separator: true, onSelect: () => askDelete(move) },
+    ];
+  }
+
+  $: title = `${wineTitle(vintage.wine)} ${vintage.year ?? `(${vintage.production_year})`}`;
+  $: subtitle = `${currentStock} bouteille${Math.abs(currentStock) > 1 ? "s" : ""} en stock`;
 
   function getReasonLabel(reason: string) {
     const reasonObj = stockReasons.find((r) => r.value === reason);
@@ -190,109 +216,50 @@
 </script>
 
 <svelte:head>
-  <title
-    >Stock - {vintage.wine.name}
-    {vintage.year || `(${vintage.production_year})`}</title
-  >
+  <title>Stock - {title}</title>
 </svelte:head>
 
-<div class="page-container">
-  <header class="page-header">
-    <div class="breadcrumb">
-      <a href="/manage/wines">← Vins</a>
-      <span> / </span>
-      <a href="/manage/wines/{vintage.wine.id}">Millésimes</a>
-      <span> / </span>
-      <span>Stock</span>
-    </div>
-    <div class="wine-info">
-      <h1>
-        {vintage.wine.name}
-        {vintage.year || `(${vintage.production_year})`}
-      </h1>
-      <div class="stock-info">
-        <div class="current-stock">
-          <span class="stock-label">Stock actuel:</span>
-          <span class="stock-value {currentStock < 0 ? 'negative' : ''}">
-            {currentStock} bouteille{currentStock !== 1 ? "s" : ""}
-          </span>
-        </div>
-      </div>
-    </div>
-    <button class="btn-primary" on:click={openCreateModal}>
-      + Nouveau mouvement
-    </button>
-  </header>
+<ManagePageShell {title} {subtitle} back={{ href: `/manage/wines/${vintage.wine.id}`, label: wineTitle(vintage.wine) }}>
+  <svelte:fragment slot="actions">
+    <Button variant="primary" on:click={openCreateModal}><IconPlus size={16} strokeWidth={1.75} /> Nouveau mouvement</Button>
+  </svelte:fragment>
 
-  <div class="page-content">
-    {#if error}
-      <div class="error-message">{error}</div>
-    {/if}
+  {#if error}
+    <div class="error-message" role="alert">{error}</div>
+  {/if}
 
-    {#if loading}
-      <div class="loading">Chargement...</div>
-    {:else if stockMoves.length === 0}
-      <div class="empty-state">
-        <p>Aucun mouvement de stock trouvé</p>
-        <button class="btn-primary" on:click={openCreateModal}>
-          Créer le premier mouvement
-        </button>
-      </div>
-    {:else}
-      <div class="table-container">
-        <table>
-          <thead>
-            <tr>
-              <th>Date</th>
-              <th>Raison</th>
-              <th>Quantité</th>
-              <th>Type</th>
-              <th>Notes</th>
-              <th>Actions</th>
-            </tr>
-          </thead>
-          <tbody>
-            {#each stockMoves as move}
-              <tr>
-                <td>{formatDate(move.date)}</td>
-                <td>{getReasonLabel(move.reason)}</td>
-                <td class="quantity-cell">
-                  <span class="quantity {getReasonType(move.reason)}">
-                    {getReasonType(move.reason) === "in"
-                      ? `+${Math.abs(move.quantity)}`
-                      : `-${Math.abs(move.quantity)}`}
-                  </span>
-                </td>
-                <td>
-                  <span class="type-badge {getReasonType(move.reason)}">
-                    {getReasonType(move.reason) === "in" ? "Entrée" : "Sortie"}
-                  </span>
-                </td>
-                <td>{move.note || "-"}</td>
-                <td>
-                  <div class="actions">
-                    <button
-                      class="ui-btn ui-btn--secondary ui-btn--sm"
-                      on:click={() => openEditModal(move)}
-                    >
-                      Modifier
-                    </button>
-                    <button
-                      class="ui-btn ui-btn--danger ui-btn--sm"
-                      on:click={() => deleteMove(move.id)}
-                    >
-                      Supprimer
-                    </button>
-                  </div>
-                </td>
-              </tr>
-            {/each}
-          </tbody>
-        </table>
-      </div>
-    {/if}
-  </div>
-</div>
+  {#if loading}
+    <div class="loading">Chargement…</div>
+  {:else if stockMoves.length === 0}
+    <EmptyState icon={IconBox} title="Aucun mouvement de stock" text="Les réceptions de transport et les ventes payées ou livrées s’inscrivent ici automatiquement.">
+      <Button on:click={openCreateModal}><IconPlus size={16} strokeWidth={1.75} /> Nouveau mouvement</Button>
+    </EmptyState>
+  {:else}
+    <DataTable caption="Mouvements de stock">
+      <thead>
+        <tr>
+          <th scope="col">Date</th>
+          <th scope="col">Raison</th>
+          <th scope="col" class="num">Quantité</th>
+          <th scope="col">Note</th>
+          <th scope="col" class="col-actions"><span class="sr-only">Actions</span></th>
+        </tr>
+      </thead>
+      <tbody>
+        {#each stockMoves as move (move.id)}
+          {@const type = getReasonType(move.reason)}
+          <tr>
+            <td>{formatDate(move.date)}</td>
+            <td>{getReasonLabel(move.reason)}</td>
+            <td class="num"><strong class="quantity {type}">{type === "in" ? "+" : "−"}{Math.abs(move.quantity)}</strong></td>
+            <td>{move.note || "—"}</td>
+            <td class="col-actions"><RowMenu items={rowItems(move)} label="Actions pour le mouvement du {formatDate(move.date)}" /></td>
+          </tr>
+        {/each}
+      </tbody>
+    </DataTable>
+  {/if}
+</ManagePageShell>
 
 <!-- Modal de création / édition -->
 <Modal open={formOpen} title={editingMove ? "Modifier le mouvement de stock" : "Nouveau mouvement de stock"} maxWidth={640} on:close={closeForm}>
@@ -342,156 +309,15 @@
   </svelte:fragment>
 </Modal>
 
+<ConfirmDialog
+  bind:open={confirmOpen}
+  title="Supprimer ce mouvement ?"
+  message={deleteTarget ? `Le mouvement du ${formatDate(deleteTarget.date)} (${getReasonLabel(deleteTarget.reason)}, ${Math.abs(deleteTarget.quantity)} bt.) sera supprimé et le stock recalculé.` : ""}
+  busy={deleting}
+  on:confirm={confirmDelete}
+/>
+
 <style>
-  .page-container {
-    min-height: 100vh;
-  }
-
-  .page-header {
-    background: white;
-    padding: 1.5rem 2rem;
-    border-bottom: 1px solid var(--border-soft);
-    display: flex;
-    justify-content: space-between;
-    align-items: flex-start;
-    gap: 2rem;
-  }
-
-  .breadcrumb {
-    flex-shrink: 0;
-    display: flex;
-    align-items: center;
-    gap: 0.5rem;
-  }
-
-  .breadcrumb a {
-    color: var(--teal-600);
-    text-decoration: none;
-    font-size: 0.9rem;
-  }
-
-  .breadcrumb a:hover {
-    text-decoration: underline;
-  }
-
-  .breadcrumb span {
-    color: var(--ink-2);
-    font-size: 0.9rem;
-  }
-
-  .wine-info {
-    flex: 1;
-  }
-
-  .wine-info h1 {
-    margin: 0 0 0.5rem 0;
-    color: var(--ink);
-    font-size: 1.75rem;
-  }
-
-  .stock-info {
-    display: flex;
-    gap: 2rem;
-    align-items: center;
-  }
-
-  .current-stock {
-    display: flex;
-    align-items: center;
-    gap: 0.5rem;
-    padding: 0.5rem 1rem;
-    background: var(--table-head);
-    border-radius: 6px;
-    border: 1px solid var(--border);
-  }
-
-  .stock-label {
-    font-size: 0.9rem;
-    color: var(--ink-2);
-  }
-
-  .stock-value {
-    font-size: 1.1rem;
-    font-weight: 600;
-    color: var(--st-paid-fg);
-  }
-
-  .stock-value.negative {
-    color: var(--danger);
-  }
-
-  .page-content {
-    padding: 2rem;
-  }
-
-  .error-message {
-    background: var(--st-cancelled-bg);
-    color: var(--st-cancelled-fg);
-    padding: 1rem;
-    border-radius: 4px;
-    margin-bottom: 1rem;
-  }
-
-  .loading {
-    text-align: center;
-    padding: 2rem;
-    color: var(--ink-2);
-  }
-
-  .empty-state {
-    background: white;
-    padding: 3rem;
-    border-radius: 8px;
-    text-align: center;
-  }
-
-  .empty-state p {
-    color: var(--ink-2);
-    margin: 0 0 1rem 0;
-  }
-
-  .table-container {
-    background: white;
-    border-radius: 8px;
-    overflow: hidden;
-    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-  }
-
-  table {
-    width: 100%;
-    border-collapse: collapse;
-  }
-
-  thead {
-    background: var(--table-head);
-  }
-
-  th {
-    padding: 1rem;
-    text-align: left;
-    font-weight: 600;
-    color: var(--ink);
-    border-bottom: 2px solid var(--border);
-  }
-
-  td {
-    padding: 1rem;
-    border-bottom: 1px solid var(--border-soft);
-  }
-
-  tbody tr:hover {
-    background: var(--table-head);
-  }
-
-  .quantity-cell {
-    text-align: center;
-  }
-
-  .quantity {
-    font-weight: 600;
-    font-size: 1.1rem;
-  }
-
   .quantity.in {
     color: var(--st-paid-fg);
   }
@@ -499,70 +325,4 @@
   .quantity.out {
     color: var(--danger);
   }
-
-  .type-badge {
-    padding: 0.25rem 0.5rem;
-    border-radius: 4px;
-    font-size: 0.8rem;
-    font-weight: 500;
-  }
-
-  .type-badge.in {
-    background: var(--st-paid-bg);
-    color: var(--st-paid-fg);
-  }
-
-  .type-badge.out {
-    background: var(--st-cancelled-bg);
-    color: var(--st-cancelled-fg);
-  }
-
-  .actions {
-    display: flex;
-    gap: 0.5rem;
-  }
-
-  form {
-    padding: 1.5rem;
-  }
-
-  .form-grid {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 1rem;
-    margin-bottom: 1.5rem;
-  }
-
-  .form-group {
-    display: flex;
-    flex-direction: column;
-  }
-
-  .form-group.full-width {
-    grid-column: 1 / -1;
-  }
-
-  label {
-    margin-bottom: 0.5rem;
-    color: var(--ink);
-    font-weight: 500;
-    font-size: 0.9rem;
-  }
-
-  input,
-  select,
-  textarea {
-    padding: 0.5rem;
-    border: 1px solid var(--input-border);
-    border-radius: 4px;
-    font-size: 1rem;
-  }
-
-  input:focus,
-  select:focus,
-  textarea:focus {
-    outline: none;
-    border-color: var(--teal-600);
-  }
-
 </style>
