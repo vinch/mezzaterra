@@ -144,6 +144,20 @@ export const VINTAGE_PUBLIC_SELECT = `
   note ( * )
 `;
 
+/**
+ * Millésime « plus jamais disponible » : absent du site public, grisé dans la gestion.
+ * Filtré côté client (les requêtes publiques lisent `*`) pour ne rien casser tant que
+ * la colonne n'existe pas encore en base.
+ */
+export function isDiscontinued(v: { discontinued_at?: string | null } | null | undefined): boolean {
+  return !!v?.discontinued_at;
+}
+
+/** Retire les millésimes « plus jamais disponibles » d'une liste publique. */
+export function publicVintages<T extends { discontinued_at?: string | null }>(list: T[]): T[] {
+  return list.filter((v) => !isDiscontinued(v));
+}
+
 type WineryLike = {
   city?: string | null;
   latitude?: number | null;

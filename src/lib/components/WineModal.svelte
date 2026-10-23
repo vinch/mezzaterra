@@ -152,9 +152,12 @@
           </section>
         {/if}
 
-        <footer class="actions">
-          <a class="mz-btn mz-btn--ghost mz-btn--sm" href="/vins/{v.id}">Fiche complète &amp; partage →</a>
-        </footer>
+        <!-- Millésime retiré : sa fiche publique n'existe plus (404). -->
+        {#if !v.discontinued_at}
+          <footer class="actions">
+            <a class="mz-btn mz-btn--ghost mz-btn--sm" href="/vins/{v.id}">Fiche complète &amp; partage →</a>
+          </footer>
+        {/if}
       </div>
     </div>
   </div>

@@ -4,6 +4,7 @@
   import type { PageData } from "./$types";
   import Modal from "$lib/components/Modal.svelte";
   import ManagePageShell from "$lib/components/manage/ManagePageShell.svelte";
+  import { isDiscontinued } from "$lib/wine";
   import jsPDF from "jspdf";
 
   export let data: PageData;
@@ -228,6 +229,9 @@
     }
     return total;
   }
+
+  /* On ne recommande pas un millésime « plus jamais disponible ». */
+  $: orderableVintages = wineVintages.filter((v) => !isDiscontinued(v));
 
   function handleVintageChange() {
     if (selectedVintageId) {
@@ -947,7 +951,7 @@
                 on:change={handleVintageChange}
               >
                 <option value="">Sélectionner un produit</option>
-                {#each wineVintages as vintage}
+                {#each orderableVintages as vintage}
                   {@const alreadyAdded = isVintageAlreadyAdded(vintage.id)}
                   <option value={vintage.id} disabled={alreadyAdded}>
                     {getProductDisplayNameWithYear(vintage)}
@@ -1054,7 +1058,7 @@
                 on:change={handleVintageChange}
               >
                 <option value="">Sélectionner un produit</option>
-                {#each wineVintages as vintage}
+                {#each orderableVintages as vintage}
                   {@const alreadyAdded = isVintageAlreadyAdded(vintage.id)}
                   <option value={vintage.id} disabled={alreadyAdded}>
                     {getProductDisplayNameWithYear(vintage)}

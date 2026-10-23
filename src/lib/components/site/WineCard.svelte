@@ -1,5 +1,6 @@
 <script lang="ts">
   import { createEventDispatcher } from "svelte";
+  import OrganicLogo from "./OrganicLogo.svelte";
   import WineBottle from "./WineBottle.svelte";
   import { formatEur, grapesText, wineStyle, wineSubtitle, wineTitle } from "$lib/wine";
 
@@ -17,6 +18,8 @@
   $: title = wineTitle(wine);
   $: subtitle = wineSubtitle(wine);
   $: grapes = grapesText(vintage?.wine_vintage_grape);
+  $: soldOut = !!availability && !availability.in_stock;
+  $: lowStock = !soldOut && !!availability?.low_stock;
 </script>
 
 <svelte:element
@@ -24,6 +27,7 @@
   {href}
   type={href ? undefined : "button"}
   class="wine-card"
+  class:sold-out={soldOut}
   style="--robe: {style.color}; --robe-light: {style.light};"
   on:click={() => !href && dispatch("open", vintage)}
   role={href ? undefined : "button"}
@@ -39,12 +43,7 @@
     <div class="meta-top">
       <span class="style"><span class="mz-dot" style="background: {style.color}"></span>{style.label}</span>
       {#if vintage?.organic}
-        <span class="organic">Bio</span>
-      {/if}
-      {#if availability && !availability.in_stock}
-        <span class="stock out">Épuisé</span>
-      {:else if availability?.low_stock}
-        <span class="stock low">Dernières bouteilles</span>
+        <span class="organic"><OrganicLogo /></span>
       {/if}
     </div>
 
@@ -59,13 +58,20 @@
       <p class="grapes">{grapes}</p>
     {/if}
 
-    <div class="meta-bottom">
-      {#if vintage?.year}
-        <span class="year">{vintage.year}</span>
+    <div class="foot">
+      {#if soldOut}
+        <span class="stock out">Épuisé</span>
+      {:else if lowStock}
+        <span class="stock low">Dernières bouteilles</span>
       {/if}
-      {#if vintage?.price}
-        <span class="price">{formatEur(vintage.price)}</span>
-      {/if}
+      <div class="meta-bottom">
+        {#if vintage?.year}
+          <span class="year">{vintage.year}</span>
+        {/if}
+        {#if vintage?.price}
+          <span class="price">{formatEur(vintage.price)}</span>
+        {/if}
+      </div>
     </div>
   </div>
 </svelte:element>
@@ -172,15 +178,8 @@
   }
 
   .organic {
-    color: var(--mz-success);
-  }
-
-  .stock.low {
-    color: var(--mz-warning);
-  }
-
-  .stock.out {
-    color: var(--mz-danger);
+    display: inline-flex;
+    margin-left: auto;
   }
 
   .title {
@@ -209,9 +208,15 @@
     font-style: italic;
   }
 
-  .meta-bottom {
+  .foot {
     margin-top: auto;
     padding-top: 0.6rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.35rem;
+  }
+
+  .meta-bottom {
     display: flex;
     justify-content: space-between;
     align-items: baseline;
@@ -225,8 +230,40 @@
   }
 
   .price {
+    margin-left: auto;
     font-weight: 700;
     color: var(--mz-ink);
     font-variant-numeric: tabular-nums;
+  }
+
+  /* Disponibilité : pastille discrète, sur sa ligne au-dessus du prix. */
+  .stock {
+    align-self: flex-end;
+    padding: 0.1rem 0.55rem;
+    border-radius: 999px;
+    font-size: 0.75rem;
+    font-weight: 600;
+    white-space: nowrap;
+  }
+
+  .stock.low {
+    color: var(--mz-warning);
+    background: color-mix(in srgb, var(--mz-warning) 12%, transparent);
+  }
+
+  .stock.out {
+    color: var(--mz-muted);
+    background: color-mix(in srgb, var(--mz-muted) 14%, transparent);
+  }
+
+  /* Épuisé : bouteille ternie et prix en retrait. */
+  .sold-out .visual {
+    filter: grayscale(0.85);
+    opacity: 0.55;
+  }
+
+  .sold-out .price {
+    color: var(--mz-muted);
+    font-weight: 600;
   }
 </style>

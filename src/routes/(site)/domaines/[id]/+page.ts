@@ -1,6 +1,6 @@
 import { error } from "@sveltejs/kit";
 import { supabase } from "$lib/supabase";
-import { VINTAGE_PUBLIC_SELECT } from "$lib/wine";
+import { publicVintages, VINTAGE_PUBLIC_SELECT } from "$lib/wine";
 import type { PageLoad } from "./$types";
 
 type OtherWinery = { id: string; name: string; city: string | null; latitude: number | null; longitude: number | null };
@@ -30,7 +30,7 @@ export const load: PageLoad = async ({ params }) => {
 
   return {
     winery: wineryRes.data as any,
-    vintages: ((vintagesRes.data || []) as any[]).filter((v) => v.wine),
+    vintages: publicVintages((vintagesRes.data || []) as any[]).filter((v) => v.wine),
     others: (othersRes.data || []) as OtherWinery[],
   };
 };

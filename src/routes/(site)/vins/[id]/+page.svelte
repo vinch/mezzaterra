@@ -1,6 +1,7 @@
 <script lang="ts">
   import { onMount } from "svelte";
   import { page } from "$app/stores";
+  import OrganicLogo from "$lib/components/site/OrganicLogo.svelte";
   import WineBottle from "$lib/components/site/WineBottle.svelte";
   import WineCard from "$lib/components/site/WineCard.svelte";
   import { contactHref } from "$lib/contact";
@@ -101,7 +102,8 @@
           <a href="/vins" class="back">← Toute la cave</a>
           <span class="mz-eyebrow">
             <span class="mz-dot" style="background: {style.color}"></span>
-            {style.label}{v.organic ? " · Bio" : ""}
+            {style.label}
+            {#if v.organic}<OrganicLogo height="1.3rem" />{/if}
           </span>
           <h1 class="mz-display mz-h1">{title}</h1>
           {#if wineSubtitle(wine)}

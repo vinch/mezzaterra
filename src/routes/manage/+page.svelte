@@ -30,6 +30,7 @@
     type VintageStats,
   } from "$lib/analytics";
   import { addToNextSupplierOrder } from "$lib/reorder";
+  import { isDiscontinued } from "$lib/wine";
   import { hasTable } from "$lib/features";
   import { daysUntil, formatDateLong, todayIso } from "$lib/dates";
   import { formatDate, formatEUR } from "$lib/format";
@@ -139,8 +140,10 @@
       const stats = vintageStats(ds, lines);
       months = monthlyRevenue(ds);
       topWines = stats.filter((s) => s.sold > 0).sort((a, b) => b.revenue - a.revenue).slice(0, 5);
-      outOfStock = stats.filter((s) => s.stock <= 0 && s.sold > 0).sort((a, b) => b.sold - a.sold);
-      lowStock = stats.filter((s) => s.stock > 0 && s.stock <= LOW_STOCK).sort((a, b) => a.stock - b.stock || b.sold - a.sold);
+      /* Réassort : jamais pour un millésime « plus jamais disponible ». */
+      const reorderable = stats.filter((s) => !isDiscontinued(s.vintage));
+      outOfStock = reorderable.filter((s) => s.stock <= 0 && s.sold > 0).sort((a, b) => b.sold - a.sold);
+      lowStock = reorderable.filter((s) => s.stock > 0 && s.stock <= LOW_STOCK).sort((a, b) => a.stock - b.stock || b.sold - a.sold);
       dormant = stats
         .filter((s) => s.stock > 0 && (s.idleDays == null || s.idleDays >= DORMANT_DAYS))
         .sort((a, b) => b.stock * Number(b.vintage.purchase_price || 0) - a.stock * Number(a.vintage.purchase_price || 0));

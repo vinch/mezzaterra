@@ -10,6 +10,7 @@
   import { hasTastingExtras, hasTastingPrivacy } from "$lib/features";
   import { fetchTastingWithWines } from "$lib/publicData";
   import { downloadTableCardsPdf } from "$lib/tableCards";
+  import { isDiscontinued } from "$lib/wine";
 
   type TastingRow = Tasting & {
     tasting_wine_vintage: { order: number; wine_vintage_id: string }[];
@@ -736,7 +737,7 @@
         {#key modalWines.map((e) => e.wine_vintage_id).join("|")}
           <ProductVintageAutocomplete
             bind:value={selectedVintageId}
-            {wineVintages}
+            wineVintages={wineVintages.filter((v) => !isDiscontinued(v))}
             includeTastingOption={false}
             disableWhenNoStock={false}
             isVintageAlreadyAdded={isVintageInModal}
