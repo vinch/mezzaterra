@@ -2,6 +2,7 @@
   import { onMount } from "svelte";
   import { page } from "$app/stores";
   import { escapeLike, supabase } from "$lib/supabase";
+  import { fetchStockMap } from "$lib/manageData";
   import { goto } from "$app/navigation";
   import ManagePageShell from "$lib/components/manage/ManagePageShell.svelte";
   import StarRating from "$lib/components/site/StarRating.svelte";
@@ -50,7 +51,7 @@
           .select(
             "id, wine_id, year, production_year, price, purchase_price, wine ( id, name, winery ( name ), appelation ( name, label ( name ) ), wine_type ( name, category ) )",
           ),
-        supabase.from("inventory").select("wine_vintage_id, quantity_on_hand"),
+        fetchStockMap(),
       ]);
       if (cRes.error) throw new Error(cRes.error.message);
       customer = cRes.data;
@@ -60,7 +61,7 @@
         .filter(Boolean)
         .sort((a, b) => b.date.localeCompare(a.date));
       vintages = vRes.data || [];
-      stock = new Map((iRes.data || []).map((r: any) => [r.wine_vintage_id, r.quantity_on_hand ?? 0]));
+      stock = iRes;
 
       if (customer?.email) {
         const { data } = await supabase

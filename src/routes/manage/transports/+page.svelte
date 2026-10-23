@@ -5,7 +5,7 @@
   import type { PageData } from "./$types";
   import Modal from "$lib/components/Modal.svelte";
   import ManagePageShell from "$lib/components/manage/ManagePageShell.svelte";
-  import { withOrderTotals } from "$lib/manageData";
+  import { orderItemPrice as itemPrice, withOrderTotals } from "$lib/manageData";
   import { todayIso } from "$lib/dates";
   import { formatDate, formatEUR } from "$lib/format";
   import { vintageProductLabel } from "$lib/wine";
@@ -20,6 +20,7 @@
   let error = "";
   /** Modale unique création / édition (`editingTransport` les distingue). */
   let formOpen = false;
+  let saving = false;
   let showOrdersModal = false;
   let showDetailsModal = false;
   let editingTransport: any = null;
@@ -99,6 +100,16 @@
 
   /** Création (toujours « En attente ») ou modification ; le statut se change dans le tableau. */
   async function submitForm() {
+    if (saving) return;
+    saving = true;
+    try {
+      await saveForm();
+    } finally {
+      saving = false;
+    }
+  }
+
+  async function saveForm() {
     if (!formData.transporter_id) {
       error = "Le transporteur est obligatoire";
       return;
@@ -124,7 +135,9 @@
       return;
     }
 
+    error = "";
     closeForm();
+    error = "";
     await invalidateAll();
   }
 
@@ -143,6 +156,7 @@
       return;
     }
 
+    error = "";
     await invalidateAll();
   }
 
@@ -253,11 +267,6 @@
     showDetailsModal = false;
     detailsTransport = null;
     detailsOrders = [];
-  }
-
-  /** Prix d'une ligne : celui de la commande, sinon le prix d'achat du millésime. */
-  function itemPrice(item: any): number {
-    return item.price || item.wine_vintage?.purchase_price || 0;
   }
 
   async function loadDetailsOrders(transportId: string) {
@@ -381,6 +390,7 @@
     }
 
     closeOrdersModal();
+    error = "";
     await invalidateAll();
   }
 </script>
@@ -591,7 +601,7 @@
       <button type="button" class="btn-secondary" on:click={closeForm}
         >Annuler</button
       >
-      <button type="submit" class="btn-primary">{editingTransport ? "Enregistrer" : "Créer le transport"}</button>
+      <button type="submit" class="btn-primary" disabled={saving}>{editingTransport ? "Enregistrer" : "Créer le transport"}</button>
     </div>
   </form>
 </Modal>

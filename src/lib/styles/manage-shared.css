@@ -348,8 +348,7 @@
 }
 
 .app .form-group select:not(.ui-control),
-.app .filter-group select:not(.ui-control),
-.app .add-item-row select:not(.ui-control) {
+.app .filter-group select:not(.ui-control) {
   padding-right: 2.25em; /* place du chevron (app.css) */
 }
 

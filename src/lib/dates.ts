@@ -27,6 +27,11 @@ const longDate = new Intl.DateTimeFormat("fr-FR", {
 });
 const shortMonth = new Intl.DateTimeFormat("fr-FR", { month: "short" });
 
+/** « oct » : mois abrégé, sans point. */
+export function formatShortMonth(d: Date): string {
+  return shortMonth.format(d).replace(".", "");
+}
+
 export function formatDateLong(iso: string): string {
   const s = longDate.format(parseIsoDate(iso));
   return s.charAt(0).toUpperCase() + s.slice(1);
@@ -36,7 +41,7 @@ export function formatDayMonth(iso: string): { day: string; month: string; year:
   const d = parseIsoDate(iso);
   return {
     day: String(d.getDate()),
-    month: shortMonth.format(d).replace(".", ""),
+    month: formatShortMonth(d),
     year: String(d.getFullYear()),
   };
 }

@@ -5,8 +5,8 @@
   import type { PageData } from "./$types";
   import Modal from "$lib/components/Modal.svelte";
   import ManagePageShell from "$lib/components/manage/ManagePageShell.svelte";
-  import { fetchPickerVintages } from "$lib/manageData";
-  import { todayIso } from "$lib/dates";
+  import { fetchPickerVintages, orderItemPrice } from "$lib/manageData";
+  import { parseIsoDate, todayIso } from "$lib/dates";
   import { formatDate, formatEUR } from "$lib/format";
   import { isDiscontinued, vintageProductLabel } from "$lib/wine";
 
@@ -21,6 +21,7 @@
   let error = "";
   /** Modale unique création / édition (`editingOrder` les distingue). */
   let formOpen = false;
+  let saving = false;
   let showDetailsModal = false;
   let showLanguageModal = false;
   let editingOrder: any = null;
@@ -77,7 +78,7 @@
       wine_vintage: item.wine_vintage,
       wine_vintage_id: item.wine_vintage_id,
       quantity: item.quantity,
-      price: item.price || item.wine_vintage?.purchase_price || 0,
+      price: orderItemPrice(item),
       note: item.note || "",
     }));
     formOpen = true;
@@ -190,6 +191,16 @@
 
   /** Création ou modification (selon `editingOrder`) de la commande et de ses lignes. */
   async function submitForm() {
+    if (saving) return;
+    saving = true;
+    try {
+      await saveForm();
+    } finally {
+      saving = false;
+    }
+  }
+
+  async function saveForm() {
     if (!formData.supplier_id || orderItems.length === 0) {
       error = "Le fournisseur et au moins un article sont obligatoires";
       return;
@@ -255,7 +266,9 @@
       return;
     }
 
+    error = "";
     closeForm();
+    error = "";
     await invalidateAll();
   }
 
@@ -312,6 +325,7 @@
       return;
     }
 
+    error = "";
     await invalidateAll();
   }
 
@@ -456,7 +470,7 @@
       doc.setFontSize(10);
       doc.setFont("helvetica", "normal");
       doc.text(
-        `${t.date}: ${new Date(order.date).toLocaleDateString(locale)}`,
+        `${t.date}: ${parseIsoDate(order.date).toLocaleDateString(locale)}`,
         pageWidth - margin,
         yPos,
         { align: "right" }
@@ -587,7 +601,7 @@
         yPos += 5;
         if (order.transport.departure_date) {
           doc.text(
-            `${t.departureDate}: ${new Date(order.transport.departure_date).toLocaleDateString(locale)}`,
+            `${t.departureDate}: ${parseIsoDate(order.transport.departure_date).toLocaleDateString(locale)}`,
             margin,
             yPos
           );
@@ -595,7 +609,7 @@
         }
         if (order.transport.arrival_date) {
           doc.text(
-            `${t.arrivalDate}: ${new Date(order.transport.arrival_date).toLocaleDateString(locale)}`,
+            `${t.arrivalDate}: ${parseIsoDate(order.transport.arrival_date).toLocaleDateString(locale)}`,
             margin,
             yPos
           );
@@ -859,7 +873,7 @@
       <button type="button" class="btn-secondary" on:click={closeForm}>
         Annuler
       </button>
-      <button type="submit" class="btn-primary">{editingOrder ? "Enregistrer" : "Créer la commande"}</button>
+      <button type="submit" class="btn-primary" disabled={saving}>{editingOrder ? "Enregistrer" : "Créer la commande"}</button>
     </div>
   </form>
 </Modal>

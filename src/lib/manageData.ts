@@ -1,4 +1,4 @@
-import { supabase } from "./supabase";
+import { fetchAllRows, supabase } from "./supabase";
 import { sortCustomersByLabel } from "./customerDisplay";
 import { compareVintages } from "./wine";
 import type { Country, Customer, Region } from "./types";
@@ -37,23 +37,46 @@ export async function fetchStockMap(): Promise<Map<string, number>> {
   return new Map((data || []).map((r) => [r.wine_vintage_id as string, r.quantity_on_hand ?? 0]));
 }
 
+/** Prix d'une ligne de commande : le sien, sinon le prix d'achat du millésime. */
+export function orderItemPrice(item: {
+  price: number | null;
+  wine_vintage?: { purchase_price?: number | null } | null;
+}): number {
+  return item.price || item.wine_vintage?.purchase_price || 0;
+}
+
 /**
  * Commandes sans total_price en base (ou à 0) : total recalculé depuis leurs lignes,
- * lues en une seule requête (prix de la ligne, sinon prix d'achat du millésime).
+ * lues par lots de 100 commandes (URL courte) et paginées au-delà de 1000 lignes.
  */
 export async function withOrderTotals<T extends { id: string; total_price: number | null }>(orders: T[]): Promise<T[]> {
   const missing = orders.filter((o) => o.total_price == null || o.total_price === 0).map((o) => o.id);
   if (!missing.length) return orders;
 
-  const { data: items } = await supabase
-    .from("order_item")
-    .select("order_id, quantity, price, wine_vintage ( purchase_price )")
-    .in("order_id", missing);
+  const chunks: string[][] = [];
+  for (let i = 0; i < missing.length; i += 100) chunks.push(missing.slice(i, i + 100));
+  let items: { order_id: string; quantity: number; price: number | null; wine_vintage: { purchase_price: number } | null }[];
+  try {
+    const pages = await Promise.all(
+      chunks.map((ids) =>
+        fetchAllRows<(typeof items)[number]>((from, to) =>
+          supabase
+            .from("order_item")
+            .select("order_id, quantity, price, wine_vintage ( purchase_price )")
+            .in("order_id", ids)
+            .range(from, to),
+        ),
+      ),
+    );
+    items = pages.flat();
+  } catch (e) {
+    console.error("Totaux des commandes non recalculés :", e);
+    return orders;
+  }
 
   const totals = new Map<string, number>(missing.map((id) => [id, 0]));
-  for (const item of items || []) {
-    const price = item.price || item.wine_vintage?.purchase_price || 0;
-    totals.set(item.order_id, (totals.get(item.order_id) ?? 0) + price * item.quantity);
+  for (const item of items) {
+    totals.set(item.order_id, (totals.get(item.order_id) ?? 0) + orderItemPrice(item) * item.quantity);
   }
   return orders.map((o) => (totals.has(o.id) ? { ...o, total_price: totals.get(o.id)! } : o));
 }

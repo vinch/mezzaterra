@@ -1,6 +1,6 @@
 <script lang="ts">
-  import { supabase } from "$lib/supabase";
-  import { onMount } from "svelte";
+  import { fetchAllRows, supabase } from "$lib/supabase";
+  import { getContext, onMount } from "svelte";
   import type { PageData } from "./$types";
   import ManagePageShell from "$lib/components/manage/ManagePageShell.svelte";
   import Modal from "$lib/ui/Modal.svelte";
@@ -43,6 +43,8 @@
 
   export let data: PageData;
 
+  const { refreshCounts } = getContext<{ refreshCounts: () => void }>("manage");
+
   /** Valeur interne du select « produit » pour une ligne dégustation (sans millésime). */
   const TASTING_SELECT_VALUE = "__tasting__";
   const TASTING_LINE_NOTE = "Dégustation";
@@ -69,6 +71,7 @@
   let error = "";
   /** Modale unique création / édition (`editingSale` les distingue). */
   let formOpen = false;
+  let saving = false;
   let showDetailsModal = false;
   let editingSale: any = null;
   let detailsSale: any = null;
@@ -251,36 +254,33 @@
     saleId: string,
     saleDate: string,
   ): Promise<string | null> {
-    // Extract year from sale date
-    const year = new Date(saleDate).getFullYear();
+    // Year of the sale date (read from the string: a date-only value has no timezone)
+    const year = Number(saleDate.slice(0, 4));
     const yearStart = `${year}-01-01`;
     const yearEnd = `${year}-12-31`;
 
-    // All sales of the year: their order gives the position, those already invoiced give the max number
-    const { data: allSalesInYear, error } = await supabase
-      .from("sale")
-      .select("id, date, created_at, invoice_number")
-      .gte("date", yearStart)
-      .lte("date", yearEnd)
-      .order("date", { ascending: true });
-
-    if (error || !allSalesInYear) {
+    // All sales of the year, by date then creation (paginated past PostgREST's 1000 rows):
+    // their order gives the position, those already invoiced give the max number
+    let allSalesInYear: { id: string; date: string; created_at: string; invoice_number: string | null }[];
+    try {
+      allSalesInYear = await fetchAllRows((from, to) =>
+        supabase
+          .from("sale")
+          .select("id, date, created_at, invoice_number")
+          .gte("date", yearStart)
+          .lte("date", yearEnd)
+          .order("date", { ascending: true })
+          .order("created_at", { ascending: true })
+          .order("id", { ascending: true })
+          .range(from, to),
+      );
+    } catch (err) {
       console.error(
         "Erreur lors de la génération du numéro de facture:",
-        error,
+        err,
       );
       return null;
     }
-
-    // Sort by date, then by created_at for sales with same date
-    allSalesInYear.sort((a, b) => {
-      const dateCompare =
-        new Date(a.date).getTime() - new Date(b.date).getTime();
-      if (dateCompare !== 0) return dateCompare;
-      return (
-        new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
-      );
-    });
 
     // Find the position of this sale in the ordered list
     const saleIndex = allSalesInYear.findIndex((s) => s.id === saleId);
@@ -820,6 +820,7 @@
 
   /** Création ou modification (selon `editingSale`) de la vente et de ses lignes. */
   async function submitForm() {
+    if (saving) return;
     if (!formData.customer_id || saleItems.length === 0) {
       error = "Le client et au moins un article sont obligatoires";
       return;
@@ -854,62 +855,69 @@
       tasting_id: formData.tasting_id || null,
     };
 
-    let saleId: string;
-    if (editingSale) {
-      saleId = editingSale.id;
-      const { error: updateError } = await supabase
-        .from("sale")
-        .update(saleData)
-        .eq("id", saleId);
+    saving = true;
+    try {
+      let saleId: string;
+      if (editingSale) {
+        saleId = editingSale.id;
+        const { error: updateError } = await supabase
+          .from("sale")
+          .update(saleData)
+          .eq("id", saleId);
 
-      if (updateError) {
-        error = updateError.message;
+        if (updateError) {
+          error = updateError.message;
+          return;
+        }
+
+        // Delete existing sale items
+        const { error: deleteError } = await supabase
+          .from("sale_item")
+          .delete()
+          .eq("sale_id", saleId);
+
+        if (deleteError) {
+          error = deleteError.message;
+          return;
+        }
+      } else {
+        const { data: newSale, error: insertError } = await supabase
+          .from("sale")
+          .insert(saleData)
+          .select("id")
+          .single();
+
+        if (insertError) {
+          error = insertError.message;
+          return;
+        }
+        saleId = newSale.id;
+      }
+
+      const { error: itemError } = await supabase.from("sale_item").insert(
+        saleItems.map((item) => ({
+          sale_id: saleId,
+          wine_vintage_id: item.wine_vintage_id ?? null,
+          quantity: item.quantity,
+          price: toNumber(item.price),
+          discount: toNumber(item.discount) > 0 ? toNumber(item.discount) : null,
+          discount_type: item.discount_type || null,
+          note: item.note || null,
+        })),
+      );
+
+      if (itemError) {
+        error = itemError.message;
         return;
       }
 
-      // Delete existing sale items
-      const { error: deleteError } = await supabase
-        .from("sale_item")
-        .delete()
-        .eq("sale_id", saleId);
-
-      if (deleteError) {
-        error = deleteError.message;
-        return;
-      }
-    } else {
-      const { data: newSale, error: insertError } = await supabase
-        .from("sale")
-        .insert(saleData)
-        .select("id")
-        .single();
-
-      if (insertError) {
-        error = insertError.message;
-        return;
-      }
-      saleId = newSale.id;
+      error = "";
+      closeForm();
+      await invalidateAll();
+      refreshCounts();
+    } finally {
+      saving = false;
     }
-
-    const { error: itemError } = await supabase.from("sale_item").insert(
-      saleItems.map((item) => ({
-        sale_id: saleId,
-        wine_vintage_id: item.wine_vintage_id ?? null,
-        quantity: item.quantity,
-        price: toNumber(item.price),
-        discount: toNumber(item.discount) > 0 ? toNumber(item.discount) : null,
-        discount_type: item.discount_type || null,
-        note: item.note || null,
-      })),
-    );
-
-    if (itemError) {
-      error = itemError.message;
-      return;
-    }
-
-    closeForm();
-    await invalidateAll();
   }
 
   async function updateSaleStatus(
@@ -1094,7 +1102,9 @@
       return;
     }
 
+    error = "";
     await invalidateAll();
+    refreshCounts();
   }
 
   /* ——— Dégustations (lien vente ↔ dégustation) ——— */
@@ -1175,7 +1185,8 @@
   async function changeStatus(sale: any, next: string) {
     error = "";
     const ok = await updateSaleStatus(sale.id, next, sale.status);
-    if (!ok) sales = [...sales];
+    if (ok) refreshCounts();
+    else sales = [...sales];
   }
 
   let statusMenuSale: any = null;
@@ -1643,7 +1654,7 @@
       <span class="grand">Total TTC <strong>{formatEUR(total)}</strong></span>
     </div>
     <Button variant="ghost" on:click={closeForm}>Annuler</Button>
-    <Button variant="primary" type="submit" on:click={submitForm}>Enregistrer la vente</Button>
+    <Button variant="primary" type="submit" disabled={saving} on:click={submitForm}>Enregistrer la vente</Button>
   </svelte:fragment>
 </Modal>
 

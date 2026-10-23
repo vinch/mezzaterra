@@ -50,6 +50,8 @@
     user: userStore,
     checkingAuth: checkingAuthStore,
   });
+  /* Les pages qui créent, suppriment ou changent le statut d'une vente rafraîchissent les compteurs. */
+  setContext("manage", { refreshCounts: () => void refreshCounts() });
 
   $: sections = [
     { title: null, links: [{ href: "/manage", label: "Tableau de bord", icon: IconHome }] },
@@ -172,8 +174,8 @@
       let knownUserId = currentUser?.id;
       const { data } = supabase.auth.onAuthStateChange((event, session) => {
         const user = session?.user ?? null;
-        /* INITIAL_SESSION et TOKEN_REFRESHED renvoient le même utilisateur : rien à recharger. */
-        if (user?.id === knownUserId) return;
+        /* INITIAL_SESSION et TOKEN_REFRESHED pour le même utilisateur : rien à recharger. */
+        if ((event === "INITIAL_SESSION" || event === "TOKEN_REFRESHED") && user?.id === knownUserId) return;
         knownUserId = user?.id;
         userStore.set(user);
         void checkAdmin(user).then(refreshCounts);

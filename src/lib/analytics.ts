@@ -1,5 +1,5 @@
-import { supabase } from "./supabase";
-import { addDaysIso, parseIsoDate, todayIso } from "./dates";
+import { fetchAllRows, supabase } from "./supabase";
+import { addDaysIso, formatShortMonth, parseIsoDate, todayIso } from "./dates";
 import { toNumber } from "./format";
 
 /**
@@ -66,31 +66,18 @@ function groupBy<T>(items: T[], key: (item: T) => string | null): Map<string, T[
   return out;
 }
 
-/** Lecture paginée (PostgREST limite à 1000 lignes par défaut). */
-async function fetchAll<T>(build: (from: number, to: number) => PromiseLike<{ data: any; error: any }>): Promise<T[]> {
-  const page = 1000;
-  const out: T[] = [];
-  for (let from = 0; ; from += page) {
-    const { data, error } = await build(from, from + page - 1);
-    if (error) throw new Error(error.message);
-    out.push(...((data || []) as T[]));
-    if (!data || data.length < page) break;
-  }
-  return out;
-}
-
 export async function loadDataset(): Promise<Dataset> {
   const [sales, items, vintages, inventory] = await Promise.all([
-    fetchAll<SaleRow>((a, b) =>
+    fetchAllRows<SaleRow>((a, b) =>
       supabase.from("sale").select("id, date, status, total_price, customer_id, tasting_id").range(a, b),
     ),
-    fetchAll<SaleItemRow>((a, b) =>
+    fetchAllRows<SaleItemRow>((a, b) =>
       supabase
         .from("sale_item")
         .select("id, sale_id, wine_vintage_id, quantity, price, discount, discount_type, note")
         .range(a, b),
     ),
-    fetchAll<VintageRow>((a, b) =>
+    fetchAllRows<VintageRow>((a, b) =>
       supabase
         .from("wine_vintage")
         .select(
@@ -98,7 +85,7 @@ export async function loadDataset(): Promise<Dataset> {
         )
         .range(a, b),
     ),
-    fetchAll<{ wine_vintage_id: string | null; quantity_on_hand: number | null }>((a, b) =>
+    fetchAllRows<{ wine_vintage_id: string | null; quantity_on_hand: number | null }>((a, b) =>
       supabase.from("inventory").select("wine_vintage_id, quantity_on_hand").range(a, b),
     ),
   ]);
@@ -213,7 +200,7 @@ export function monthlyRevenue(ds: Dataset, months = 12): { key: string; label: 
     const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
     buckets.push({
       key,
-      label: d.toLocaleDateString("fr-FR", { month: "short" }).replace(".", ""),
+      label: formatShortMonth(d),
       value: 0,
     });
   }
