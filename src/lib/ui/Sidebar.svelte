@@ -1,6 +1,12 @@
 <script lang="ts" context="module">
   export type NavLink = { href: string; label: string; icon: any; count?: number };
   export type NavSection = { title: string | null; links: NavLink[]; collapsible?: string };
+
+  /** Lien actif pour `path` (le tableau de bord ne l'est que sur sa propre page). */
+  export function isActiveLink(href: string, path: string): boolean {
+    if (href === "/manage") return path === "/manage";
+    return path === href || path.startsWith(href + "/");
+  }
 </script>
 
 <script lang="ts">
@@ -20,10 +26,7 @@
 
   const dispatch = createEventDispatcher<{ search: void; logout: void }>();
 
-  function isActive(href: string): boolean {
-    if (href === "/manage") return path === "/manage";
-    return path === href || path.startsWith(href + "/");
-  }
+  const isActive = (href: string) => isActiveLink(href, path);
 
   let expanded: Record<string, boolean> = {};
   $: for (const s of sections) {

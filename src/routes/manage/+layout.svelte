@@ -6,7 +6,7 @@
   import { writable } from "svelte/store";
   import { page } from "$app/stores";
   import CommandPalette from "$lib/components/manage/CommandPalette.svelte";
-  import Sidebar, { type NavSection } from "$lib/ui/Sidebar.svelte";
+  import Sidebar, { isActiveLink, type NavSection } from "$lib/ui/Sidebar.svelte";
   import IconButton from "$lib/ui/IconButton.svelte";
   import {
     IconBox,
@@ -117,11 +117,6 @@
     { href: "/manage/customers", label: "Clients", icon: IconUsers },
   ];
 
-  function isActive(href: string, path: string): boolean {
-    if (href === "/manage") return path === "/manage";
-    return path === href || path.startsWith(href + "/");
-  }
-
   afterNavigate(() => {
     moreOpen = false;
     void refreshCounts();
@@ -156,6 +151,8 @@
       if (e.key === "Escape") moreOpen = false;
     };
     window.addEventListener("keydown", onKey);
+    let unsubscribeAuth: (() => void) | null = null;
+    let destroyed = false;
 
     void (async () => {
       const {
@@ -170,18 +167,28 @@
 
       checkingAuthStore.set(false);
       void refreshCounts();
+      if (destroyed) return;
 
-      supabase.auth.onAuthStateChange((event, session) => {
+      let knownUserId = currentUser?.id;
+      const { data } = supabase.auth.onAuthStateChange((event, session) => {
         const user = session?.user ?? null;
+        /* INITIAL_SESSION et TOKEN_REFRESHED renvoient le même utilisateur : rien à recharger. */
+        if (user?.id === knownUserId) return;
+        knownUserId = user?.id;
         userStore.set(user);
         void checkAdmin(user).then(refreshCounts);
         if (!user && $page.url.pathname !== "/manage") {
           goto("/manage");
         }
       });
+      unsubscribeAuth = () => data.subscription.unsubscribe();
     })();
 
-    return () => window.removeEventListener("keydown", onKey);
+    return () => {
+      destroyed = true;
+      unsubscribeAuth?.();
+      window.removeEventListener("keydown", onKey);
+    };
   });
 
   async function handleLogout() {
@@ -234,8 +241,8 @@
         <a
           href={tab.href}
           class="tab"
-          class:active={isActive(tab.href, $page.url.pathname) && !moreOpen}
-          aria-current={isActive(tab.href, $page.url.pathname) ? "page" : undefined}
+          class:active={isActiveLink(tab.href, $page.url.pathname) && !moreOpen}
+          aria-current={isActiveLink(tab.href, $page.url.pathname) ? "page" : undefined}
         >
           <span class="tab-icon">
             <svelte:component this={tab.icon} size={22} strokeWidth={1.75} aria-hidden="true" />

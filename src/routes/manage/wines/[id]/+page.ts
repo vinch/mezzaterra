@@ -8,22 +8,8 @@ export const load: PageLoad = async ({ params }) => {
     .select(
       `
       *,
-      winery (
-        *,
-        region (
-          *,
-          country (*)
-        ),
-        country (*)
-      ),
-      appelation (
-        *,
-        region (
-          *,
-          country (*)
-        ),
-        label (*)
-      ),
+      winery (*),
+      appelation ( *, label (*) ),
       wine_type (*),
       wine_vintage (*)
     `

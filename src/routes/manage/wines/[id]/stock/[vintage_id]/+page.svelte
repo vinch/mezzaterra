@@ -1,7 +1,8 @@
 <script lang="ts">
   import { supabase } from "$lib/supabase";
-  import { onMount } from "svelte";
   import type { PageData } from "./$types";
+  import { todayIso } from "$lib/dates";
+  import { formatDate } from "$lib/format";
   import type { StockMove } from "$lib/types";
   import Modal from "$lib/components/Modal.svelte";
 
@@ -10,10 +11,10 @@
   let vintage = data.vintage;
   let stockMoves = data.stockMoves;
   let currentStock = data.currentStock;
-  let loading = true;
+  let loading = false;
   let error = "";
-  let showModal = false;
-  let showEditModal = false;
+  /** Modale unique création / édition (`editingMove` les distingue). */
+  let formOpen = false;
   let editingMove: any = null;
 
   // Form fields
@@ -34,30 +35,28 @@
     { value: "sale_out", label: "Vente payée", type: "out" },
   ];
 
-  onMount(async () => {
-    await loadStockMoves();
-  });
-
+  /** Relit mouvements et stock après une modification (le premier chargement vient de +page.ts). */
   async function loadStockMoves() {
     loading = true;
-    const { data: movesData, error: fetchError } = await supabase
-      .from("stock_move")
-      .select("*")
-      .eq("wine_vintage_id", vintage.id)
-      .order("date", { ascending: false });
+    const [{ data: movesData, error: fetchError }, { data: inventory, error: inventoryError }] = await Promise.all([
+      supabase
+        .from("stock_move")
+        .select("*")
+        .eq("wine_vintage_id", vintage.id)
+        .order("date", { ascending: false }),
+      // Récupérer le stock actuel depuis la vue inventory
+      supabase
+        .from("inventory")
+        .select("quantity_on_hand")
+        .eq("wine_vintage_id", vintage.id)
+        .maybeSingle(),
+    ]);
 
     if (fetchError) {
       error = fetchError.message;
     } else {
       stockMoves = movesData || [];
     }
-
-    // Récupérer le stock actuel depuis la vue inventory
-    const { data: inventory, error: inventoryError } = await supabase
-      .from("inventory")
-      .select("quantity_on_hand")
-      .eq("wine_vintage_id", vintage.id)
-      .maybeSingle();
 
     if (inventoryError) {
       console.warn(
@@ -77,7 +76,7 @@
   function openCreateModal() {
     editingMove = null;
     resetForm();
-    showModal = true;
+    formOpen = true;
   }
 
   function openEditModal(move: StockMove) {
@@ -88,17 +87,11 @@
       date: move.date.split("T")[0], // Format YYYY-MM-DDn
       note: move.note || "",
     };
-    showEditModal = true;
+    formOpen = true;
   }
 
-  function closeModal() {
-    showModal = false;
-    editingMove = null;
-    resetForm();
-  }
-
-  function closeEditModal() {
-    showEditModal = false;
+  function closeForm() {
+    formOpen = false;
     editingMove = null;
     resetForm();
   }
@@ -107,12 +100,13 @@
     formData = {
       reason: "",
       quantity: "",
-      date: new Date().toISOString().split("T")[0],
+      date: todayIso(),
       note: "",
     };
   }
 
-  async function handleSubmit() {
+  /** Création ou modification (selon `editingMove`) du mouvement. */
+  async function submitForm() {
     if (!formData.reason || !formData.quantity || !formData.date) {
       error = "Raison, quantité et date sont obligatoires";
       return;
@@ -133,69 +127,22 @@
     }
 
     const moveData = {
-      wine_vintage_id: vintage.id,
       reason: formData.reason,
       quantity: quantity,
       date: formData.date,
       note: formData.note || null,
     };
 
-    const { error: insertError } = await supabase
-      .from("stock_move")
-      .insert(moveData);
+    const { error: saveError } = editingMove
+      ? await supabase.from("stock_move").update(moveData).eq("id", editingMove.id)
+      : await supabase.from("stock_move").insert({ ...moveData, wine_vintage_id: vintage.id });
 
-    if (insertError) {
-      error = insertError.message;
+    if (saveError) {
+      error = saveError.message;
       return;
     }
 
-    closeModal();
-    await loadStockMoves();
-  }
-
-  async function handleUpdate() {
-    if (
-      !formData.reason ||
-      !formData.quantity ||
-      !formData.date ||
-      !editingMove
-    ) {
-      error = "Raison, quantité et date sont obligatoires";
-      return;
-    }
-
-    // Garde-fou pour les quantités
-    let quantity = parseInt(formData.quantity);
-    const reasonObj = stockReasons.find((r) => r.value === formData.reason);
-
-    if (reasonObj) {
-      if (reasonObj.type === "in" && quantity < 0) {
-        // Pour les achats, enlever le signe négatif
-        quantity = Math.abs(quantity);
-      } else if (reasonObj.type === "out" && quantity > 0) {
-        // Pour les sorties, ajouter le signe négatif
-        quantity = -Math.abs(quantity);
-      }
-    }
-
-    const moveData = {
-      reason: formData.reason,
-      quantity: quantity,
-      date: formData.date,
-      note: formData.note || null,
-    };
-
-    const { error: updateError } = await supabase
-      .from("stock_move")
-      .update(moveData)
-      .eq("id", editingMove.id);
-
-    if (updateError) {
-      error = updateError.message;
-      return;
-    }
-
-    closeEditModal();
+    closeForm();
     await loadStockMoves();
   }
 
@@ -227,10 +174,6 @@
   function getReasonType(reason: string) {
     const reasonObj = stockReasons.find((r) => r.value === reason);
     return reasonObj ? reasonObj.type : "out";
-  }
-
-  function formatDate(dateString: string) {
-    return new Date(dateString).toLocaleDateString("fr-FR");
   }
 
   function normalizeQuantityForDisplay(quantity: number, reason: string) {
@@ -350,14 +293,14 @@
   </div>
 </div>
 
-<!-- Modal de création -->
+<!-- Modal de création / édition -->
 <Modal
-  show={showModal}
-  title="Nouveau mouvement de stock"
-  modalId="modal-title-create"
-  on:close={closeModal}
+  show={formOpen}
+  title={editingMove ? "Modifier le mouvement de stock" : "Nouveau mouvement de stock"}
+  modalId="modal-title-move"
+  on:close={closeForm}
 >
-  <form on:submit|preventDefault={handleSubmit}>
+  <form on:submit|preventDefault={submitForm}>
     <div class="form-grid">
       <div class="form-group">
         <label for="reason">Raison *</label>
@@ -398,66 +341,10 @@
     </div>
 
     <div class="modal-footer">
-      <button type="button" class="btn-secondary" on:click={closeModal}>
+      <button type="button" class="btn-secondary" on:click={closeForm}>
         Annuler
       </button>
-      <button type="submit" class="btn-primary"> Créer le mouvement </button>
-    </div>
-  </form>
-</Modal>
-
-<!-- Modal d'édition -->
-<Modal
-  show={showEditModal && !!editingMove}
-  title="Modifier le mouvement de stock"
-  modalId="modal-title-edit"
-  on:close={closeEditModal}
->
-  <form on:submit|preventDefault={handleUpdate}>
-    <div class="form-grid">
-      <div class="form-group">
-        <label for="edit-reason">Raison *</label>
-        <select id="edit-reason" bind:value={formData.reason} required>
-          <option value="">Sélectionner une raison</option>
-          {#each stockReasons as reason}
-            <option value={reason.value}>{reason.label}</option>
-          {/each}
-        </select>
-      </div>
-
-      <div class="form-group">
-        <label for="edit-quantity">Quantité *</label>
-        <input
-          type="number"
-          id="edit-quantity"
-          bind:value={formData.quantity}
-          min="1"
-          placeholder="Entrez un nombre"
-          required
-        />
-      </div>
-
-      <div class="form-group">
-        <label for="edit-date">Date *</label>
-        <input type="date" id="edit-date" bind:value={formData.date} required />
-      </div>
-
-      <div class="form-group full-width">
-        <label for="edit-note">Note</label>
-        <textarea
-          id="edit-note"
-          bind:value={formData.note}
-          rows="3"
-          placeholder="Commentaires sur ce mouvement..."
-        ></textarea>
-      </div>
-    </div>
-
-    <div class="modal-footer">
-      <button type="button" class="btn-secondary" on:click={closeEditModal}>
-        Annuler
-      </button>
-      <button type="submit" class="btn-primary">Mettre à jour</button>
+      <button type="submit" class="btn-primary">{editingMove ? "Mettre à jour" : "Créer le mouvement"}</button>
     </div>
   </form>
 </Modal>
