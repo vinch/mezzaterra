@@ -1,0 +1,8 @@
+"$schema" = "https://conductor.build/schemas/settings.repo.schema.json"
+
+[prompts]
+create_pr = """
+Avant d'ouvrir la PR : si la branche touche du code et que `/simplify` n'est \
+pas passé depuis sa dernière modification, dérouler la section « Avant de \
+pousser du code » d'AGENTS.md.
+"""
