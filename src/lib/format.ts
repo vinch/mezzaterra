@@ -1,12 +1,13 @@
-/** Formats d'affichage de l'outil (montants belges, dates JJ/MM/AAAA). */
+/** Formats d'affichage du site et de l'outil (montants belges, dates JJ/MM/AAAA). */
 
 const eur = new Intl.NumberFormat("fr-BE", { style: "currency", currency: "EUR" });
+const eurRound = new Intl.NumberFormat("fr-BE", { style: "currency", currency: "EUR", maximumFractionDigits: 0 });
 
-/** « 1 234,50 € » — l'unique helper de montant de l'outil. */
-export function formatEUR(n: number | string | null | undefined): string {
+/** « 1 234,50 € » (ou « 1 235 € » avec `round`) — l'unique helper de montant du site et de l'outil. */
+export function formatEUR(n: number | string | null | undefined, round = false): string {
   const v = typeof n === "string" ? parseFloat(n.replace(",", ".")) : n;
   if (v == null || !Number.isFinite(v)) return "—";
-  return eur.format(v);
+  return (round ? eurRound : eur).format(v);
 }
 
 /** « 17/10/2026 » à partir d'une date ISO (sans décalage de fuseau). */

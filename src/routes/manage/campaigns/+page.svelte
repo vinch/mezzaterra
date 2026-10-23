@@ -4,7 +4,7 @@
   import ManagePageShell from "$lib/components/manage/ManagePageShell.svelte";
   import { hasTable } from "$lib/features";
   import { formatDateLong, formatTime, todayIso } from "$lib/dates";
-  import { formatEur } from "$lib/wine";
+  import { formatEUR } from "$lib/format";
   import { isPrivateTasting, tastingTitle } from "$lib/publicData";
   import { FLYER_HEIGHT, FLYER_WIDTH, drawTastingFlyer, loadFlyerAssets } from "$lib/tastingFlyer";
 
@@ -102,7 +102,7 @@
       message = [
         "Bonjour,",
         `Nous serions ravis de vous accueillir pour notre prochaine dégustation : ${when}${t.location ? `, à ${t.location}` : ""}.`,
-        [t.description, t.price ? `Participation : ${formatEur(t.price)} par personne.` : ""].filter(Boolean).join("\n"),
+        [t.description, t.price ? `Participation : ${formatEUR(t.price)} par personne.` : ""].filter(Boolean).join("\n"),
         `Les places sont limitées — réservez la vôtre ici :\n${tastingUrl(t, "#reserver")}`,
         "À très vite,\nL’équipe Mezzaterra",
       ]

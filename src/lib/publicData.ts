@@ -1,6 +1,13 @@
 import { supabase } from "./supabase";
 import { VINTAGE_PUBLIC_SELECT } from "./wine";
 
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+/** Identifiant de page plausible (évite d'interroger la base pour une URL fantaisiste). */
+export function isUuid(id: string): boolean {
+  return UUID.test(id);
+}
+
 export type Availability = { in_stock: boolean; low_stock: boolean };
 
 /** Disponibilité publique par millésime ; `null` si la fonction SQL n'est pas (encore) déployée. */

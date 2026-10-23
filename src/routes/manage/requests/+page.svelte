@@ -3,8 +3,8 @@
   import { supabase } from "$lib/supabase";
   import ManagePageShell from "$lib/components/manage/ManagePageShell.svelte";
   import { hasTable } from "$lib/features";
-  import { formatDateShort } from "$lib/dates";
-  import { formatEur, vintageLabel } from "$lib/wine";
+  import { vintageLabel } from "$lib/wine";
+  import { formatDate, formatEUR } from "$lib/format";
   import { createSaleFromWish, setWishStatus, wishItems, type WishRequest } from "$lib/wishes";
 
   let available = true;
@@ -56,7 +56,7 @@
   function tastingName(id: string | null): string {
     if (!id) return "Site";
     const t = tastings.get(id);
-    return t ? t.name || `Dégustation du ${formatDateShort(t.date)}` : "Dégustation";
+    return t ? t.name || `Dégustation du ${formatDate(t.date)}` : "Dégustation";
   }
 
   async function run(w: WishRequest, action: () => Promise<unknown>) {
@@ -127,12 +127,12 @@
                   <tr>
                     <td class="qty">{it.quantity} ×</td>
                     <td>{vintageLabel(vintages.get(it.wine_vintage_id))}</td>
-                    <td class="num">{formatEur(it.quantity * (prices.get(it.wine_vintage_id) ?? 0))}</td>
+                    <td class="num">{formatEUR(it.quantity * (prices.get(it.wine_vintage_id) ?? 0))}</td>
                   </tr>
                 {/each}
               </tbody>
               <tfoot>
-                <tr><td></td><td>Total au prix catalogue</td><td class="num"><strong>{formatEur(total(w))}</strong></td></tr>
+                <tr><td></td><td>Total au prix catalogue</td><td class="num"><strong>{formatEUR(total(w))}</strong></td></tr>
               </tfoot>
             </table>
             {#if w.message}<p class="message">« {w.message} »</p>{/if}

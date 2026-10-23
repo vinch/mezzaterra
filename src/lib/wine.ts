@@ -113,17 +113,18 @@ export function findNote(
   return notes?.find((n) => n.type === key)?.content?.trim() || "";
 }
 
-const eurFmt = new Intl.NumberFormat("fr-FR", { style: "currency", currency: "EUR" });
-const eurFmtRound = new Intl.NumberFormat("fr-FR", {
-  style: "currency",
-  currency: "EUR",
-  maximumFractionDigits: 0,
-});
+/** Notes renseignées d'un millésime, dans l'ordre de `NOTE_TYPES`. */
+export function vintageNotes(
+  notes: { type: string; content: string }[] | null | undefined,
+): { key: string; label: string; content: string }[] {
+  return NOTE_TYPES.map((t) => ({ ...t, content: findNote(notes, t.key) })).filter((n) => n.content);
+}
 
-export function formatEur(n: number | string | null | undefined, round = false): string {
-  const v = typeof n === "string" ? parseFloat(n) : n;
-  if (v == null || !Number.isFinite(v)) return "—";
-  return (round ? eurFmtRound : eurFmt).format(v);
+/** Accords mets-vins d'un vin chargé avec `VINTAGE_PUBLIC_SELECT`. */
+export function winePairings(
+  wine: { wine_pairing?: { pairing?: { description?: string | null } | null }[] | null } | null | undefined,
+): string[] {
+  return (wine?.wine_pairing || []).map((wp) => wp.pairing?.description).filter((d): d is string => !!d);
 }
 
 /** Requête Supabase réutilisable : un millésime avec tout ce qu'il faut pour l'afficher. */
@@ -179,4 +180,11 @@ export function wineryFlag(w: WineryLike): string {
 export function wineryMapUrl(w: WineryLike): string | null {
   if (w?.latitude == null || w?.longitude == null) return null;
   return `https://www.openstreetmap.org/?mlat=${w.latitude}&mlon=${w.longitude}#map=12/${w.latitude}/${w.longitude}`;
+}
+
+/** Carte OpenStreetMap intégrable (iframe) centrée sur le domaine. */
+export function wineryMapEmbedUrl(w: WineryLike): string | null {
+  if (w?.latitude == null || w?.longitude == null) return null;
+  const { latitude: lat, longitude: lon } = w;
+  return `https://www.openstreetmap.org/export/embed.html?bbox=${lon - 0.12}%2C${lat - 0.07}%2C${lon + 0.12}%2C${lat + 0.07}&layer=mapnik&marker=${lat}%2C${lon}`;
 }

@@ -7,14 +7,17 @@
   import { contactHref } from "$lib/contact";
   import { fetchAvailability, type Availability } from "$lib/publicData";
   import {
-    NOTE_TYPES,
     findNote,
-    formatEur,
     grapesText,
+    vintageNotes,
+    winePairings,
+    wineryFlag,
+    wineryPlace,
     wineStyle,
     wineSubtitle,
     wineTitle,
   } from "$lib/wine";
+  import { formatEUR } from "$lib/format";
 
   export let data;
 
@@ -23,11 +26,11 @@
   $: style = wineStyle(wine?.wine_type);
   $: title = wine ? wineTitle(wine) : "";
   $: grapes = grapesText(v?.wine_vintage_grape, true);
-  $: notes = NOTE_TYPES.map((t) => ({ ...t, content: findNote(v?.note, t.key) })).filter((n) => n.content);
-  $: pairings = (wine?.wine_pairing || []).map((wp: any) => wp.pairing).filter(Boolean);
+  $: notes = vintageNotes(v?.note);
+  $: pairings = winePairings(wine);
   $: winery = wine?.winery;
-  $: region = [winery?.city, winery?.region?.name].filter(Boolean).join(", ");
-  $: flag = winery?.region?.country?.flag || winery?.country?.flag || "";
+  $: region = wineryPlace(winery);
+  $: flag = wineryFlag(winery);
   $: ogDescription = [
     wineSubtitle(wine),
     winery?.name,
@@ -118,7 +121,7 @@
           <dl class="facts">
             {#if v.year}<div><dt>Millésime</dt><dd>{v.year}</dd></div>{/if}
             {#if v.abv}<div><dt>Alcool</dt><dd>{v.abv} % vol.</dd></div>{/if}
-            {#if v.price}<div><dt>Prix</dt><dd>{formatEur(v.price)}</dd></div>{/if}
+            {#if v.price}<div><dt>Prix</dt><dd>{formatEUR(v.price)}</dd></div>{/if}
             {#if grapes}<div><dt>Cépages</dt><dd class="small">{grapes}</dd></div>{/if}
             {#if stock}
               <div>
@@ -178,7 +181,7 @@
             <h2>À table avec</h2>
             <div class="pairings">
               {#each pairings as p}
-                <span class="mz-chip">{p.description}</span>
+                <span class="mz-chip">{p}</span>
               {/each}
             </div>
           </div>

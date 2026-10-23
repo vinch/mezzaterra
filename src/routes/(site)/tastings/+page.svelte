@@ -1,7 +1,7 @@
 <script lang="ts">
   import { daysUntil, formatDayMonth, formatDateLong, formatTime } from "$lib/dates";
   import { isPrivateTasting, tastingTitle } from "$lib/publicData";
-  import { formatEur } from "$lib/wine";
+  import { formatEUR } from "$lib/format";
   import { contactHref } from "$lib/contact";
 
   export let data;
@@ -66,7 +66,7 @@
                     : ""}
                 </p>
                 <p class="meta">
-                  {#if wineCount(t)}{wineCount(t)} vins{/if}{#if t.price}{wineCount(t) ? " · " : ""}{formatEur(t.price)} / pers.{/if}
+                  {#if wineCount(t)}{wineCount(t)} vins{/if}{#if t.price}{wineCount(t) ? " · " : ""}{formatEUR(t.price)} / pers.{/if}
                 </p>
               </div>
               <span class="go" aria-hidden="true">→</span>

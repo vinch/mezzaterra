@@ -29,10 +29,6 @@ export function formatDateLong(iso: string): string {
   return s.charAt(0).toUpperCase() + s.slice(1);
 }
 
-export function formatDateShort(iso: string): string {
-  return parseIsoDate(iso).toLocaleDateString("fr-FR");
-}
-
 export function formatDayMonth(iso: string): { day: string; month: string; year: string } {
   const d = parseIsoDate(iso);
   return {

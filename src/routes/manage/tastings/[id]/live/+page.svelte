@@ -33,7 +33,7 @@
   import { hasColumn, hasTable } from "$lib/features";
   import { qrDataUrl } from "$lib/qr";
   import { formatDateLong } from "$lib/dates";
-  import { formatEur, wineStyle, wineSubtitle, wineTitle } from "$lib/wine";
+  import { wineStyle, wineSubtitle, wineTitle } from "$lib/wine";
   import {
     confirmRegistrationAsGuest,
     createSaleFromWish,

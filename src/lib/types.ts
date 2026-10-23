@@ -1,6 +1,5 @@
 import type { Database } from "./database.types";
 
-export type Pairing = Database["public"]["Tables"]["pairing"]["Row"];
 export type Label = Database["public"]["Tables"]["label"]["Row"] & {
   country?: Country | null;
 };
@@ -22,11 +21,6 @@ export type Wine = Database["public"]["Tables"]["wine"]["Row"] & {
   wine_type?: WineType | null;
 };
 
-export type WinePairing =
-  Database["public"]["Tables"]["wine_pairing"]["Row"] & {
-    wine: Wine;
-    pairing: Pairing;
-  };
 export type WineVintageGrape =
   Database["public"]["Tables"]["wine_vintage_grape"]["Row"] & {
     grape: Grape;

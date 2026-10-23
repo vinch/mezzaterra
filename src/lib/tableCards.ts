@@ -6,12 +6,12 @@ import { tastingTitle } from "./publicData";
 import {
   NOTE_TYPES,
   findNote,
-  formatEur,
   grapesText,
   wineStyle,
   wineSubtitle,
   wineTitle,
 } from "./wine";
+import { formatEUR } from "./format";
 
 /**
  * Fiches de table A5 (une par vin, à poser à côté de la bouteille) + une affiche A4
@@ -191,7 +191,7 @@ export async function downloadTableCardsPdf(tasting: any, wines: any[], origin: 
       doc.setFont(font, "bold");
       doc.setFontSize(24);
       doc.setTextColor(...INK);
-      doc.text(formatEur(v.price).replace(/ /g, " "), M, H - M - 8);
+      doc.text(formatEUR(v.price).replace(/ /g, " "), M, H - M - 8);
       doc.setFont(font, "normal");
       doc.setFontSize(9);
       doc.setTextColor(...MUTED);

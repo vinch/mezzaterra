@@ -10,8 +10,8 @@
     type TastingRoi,
     type VintageStats,
   } from "$lib/analytics";
-  import { formatDateShort } from "$lib/dates";
-  import { formatEur, vintageLabel, wineStyle } from "$lib/wine";
+  import { vintageLabel, wineStyle } from "$lib/wine";
+  import { formatDate, formatEUR } from "$lib/format";
 
   let loading = true;
   let error = "";
@@ -71,8 +71,8 @@
     <div class="error-message">{error}</div>
   {:else}
     <div class="kpis">
-      <div class="kpi"><span class="kpi-value">{formatEur(totals.revenue, true)}</span><span class="kpi-label">CA vins encaissé</span></div>
-      <div class="kpi"><span class="kpi-value">{formatEur(totals.revenue - totals.cost, true)}</span><span class="kpi-label">Marge brute</span></div>
+      <div class="kpi"><span class="kpi-value">{formatEUR(totals.revenue, true)}</span><span class="kpi-label">CA vins encaissé</span></div>
+      <div class="kpi"><span class="kpi-value">{formatEUR(totals.revenue - totals.cost, true)}</span><span class="kpi-label">Marge brute</span></div>
       <div class="kpi"><span class="kpi-value">{pct(totals.revenue ? ((totals.revenue - totals.cost) / totals.revenue) * 100 : null)}</span><span class="kpi-label">Taux de marge</span></div>
       <div class="kpi"><span class="kpi-value">{totals.sold}</span><span class="kpi-label">Bouteilles vendues</span></div>
     </div>
@@ -109,16 +109,16 @@
                   <span class="mz-dot" style="background: {wineStyle(s.vintage.wine?.wine_type).color}"></span>
                   <a href="/manage/wines/{s.vintage.wine_id}/stock/{s.vintage.id}">{vintageLabel(s.vintage)}</a>
                 </td>
-                <td class="num">{formatEur(s.vintage.purchase_price)}</td>
-                <td class="num">{formatEur(s.vintage.price)}</td>
+                <td class="num">{formatEUR(s.vintage.purchase_price)}</td>
+                <td class="num">{formatEUR(s.vintage.price)}</td>
                 <td class="num">
                   {#if s.unitMargin != null}
-                    {formatEur(s.unitMargin)} <span class="tag {marginClass(s.unitMarginPct)}">{pct(s.unitMarginPct)}</span>
+                    {formatEUR(s.unitMargin)} <span class="tag {marginClass(s.unitMarginPct)}">{pct(s.unitMarginPct)}</span>
                   {:else}—{/if}
                 </td>
                 <td class="num">{s.sold || "—"}</td>
-                <td class="num">{s.revenue ? formatEur(s.revenue, true) : "—"}</td>
-                <td class="num"><strong>{s.revenue ? formatEur(s.margin, true) : "—"}</strong></td>
+                <td class="num">{s.revenue ? formatEUR(s.revenue, true) : "—"}</td>
+                <td class="num"><strong>{s.revenue ? formatEUR(s.margin, true) : "—"}</strong></td>
                 <td class="num">{s.stock}</td>
               </tr>
             {/each}
@@ -147,8 +147,8 @@
               <tr>
                 <td>{vintageLabel(r.vintage)}</td>
                 <td class="num">{r.stock}</td>
-                <td class="num">{formatEur(r.value, true)}</td>
-                <td>{r.lastSale ? `${formatDateShort(r.lastSale)} (${r.idleDays} j)` : "Jamais vendu"}</td>
+                <td class="num">{formatEUR(r.value, true)}</td>
+                <td>{r.lastSale ? `${formatDate(r.lastSale)} (${r.idleDays} j)` : "Jamais vendu"}</td>
                 <td class="num">{r.monthsLeft != null ? Math.round(r.monthsLeft) : "—"}</td>
                 <td>
                   {#if r.idleDays == null || r.idleDays >= 180}
@@ -189,20 +189,20 @@
               <tr>
                 <td>
                   <strong>{r.tasting.name || "Dégustation"}</strong>
-                  <small class="muted">{formatDateShort(r.tasting.date)}{r.tasting.location ? ` · ${r.tasting.location}` : ""}</small>
+                  <small class="muted">{formatDate(r.tasting.date)}{r.tasting.location ? ` · ${r.tasting.location}` : ""}</small>
                 </td>
                 <td class="num">{r.participants}</td>
-                <td class="num">{r.winesPoured} <small class="muted">({formatEur(r.pouredCost, true)})</small></td>
-                <td class="num">{formatEur(r.fees, true)}</td>
+                <td class="num">{r.winesPoured} <small class="muted">({formatEUR(r.pouredCost, true)})</small></td>
+                <td class="num">{formatEUR(r.fees, true)}</td>
                 <td class="num">
-                  <a href="/manage/sales?degustation={r.tasting.id}">{formatEur(r.eveningRevenue, true)}</a>
+                  <a href="/manage/sales?degustation={r.tasting.id}">{formatEUR(r.eveningRevenue, true)}</a>
                   <small class="muted">{r.eveningBottles} bt.</small>
                 </td>
                 <td class="num">
                   {r.buyers}{#if r.participants} <small class="muted">({Math.round((r.buyers / r.participants) * 100)} %)</small>{/if}
                 </td>
-                <td class="num">{r.laterRevenue ? formatEur(r.laterRevenue, true) : "—"}</td>
-                <td class="num"><strong class={r.result >= 0 ? "pos" : "neg"}>{formatEur(r.result, true)}</strong></td>
+                <td class="num">{r.laterRevenue ? formatEUR(r.laterRevenue, true) : "—"}</td>
+                <td class="num"><strong class={r.result >= 0 ? "pos" : "neg"}>{formatEUR(r.result, true)}</strong></td>
               </tr>
             {/each}
           </tbody>
