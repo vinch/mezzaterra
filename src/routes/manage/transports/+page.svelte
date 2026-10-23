@@ -1127,22 +1127,22 @@
   }
 
   .status-select.status-pending {
-    background: var(--st-pending-bg);
+    background-color: var(--st-pending-bg);
     color: var(--st-pending-fg);
   }
 
   .status-select.status-in_transit {
-    background: var(--st-delivered-bg);
+    background-color: var(--st-delivered-bg);
     color: var(--st-delivered-fg);
   }
 
   .status-select.status-delivered {
-    background: var(--st-paid-bg);
+    background-color: var(--st-paid-bg);
     color: var(--st-paid-fg);
   }
 
   .status-select.status-cancelled {
-    background: var(--st-cancelled-bg);
+    background-color: var(--st-cancelled-bg);
     color: var(--st-cancelled-fg);
   }
 

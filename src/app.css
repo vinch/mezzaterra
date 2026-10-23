@@ -173,12 +173,79 @@ textarea.ui-control {
   line-height: 20px;
 }
 
-select.ui-control {
-  padding-right: 32px;
+/* Listes déroulantes — un seul style pour le site public et la gestion.
+   Le chevron remplace celui du navigateur ; il est en em pour suivre la taille du texte
+   (champs, filtres, pastilles de statut). Les règles locales ne doivent pas écraser
+   background-image ni padding-right (utiliser background-color). */
+select:not([multiple]):not([size]) {
   appearance: none;
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' fill='none' stroke='%235f6764' stroke-width='1.75' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m4 6 4 4 4-4'/%3E%3C/svg%3E");
+  padding-right: 2.25em;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='none' stroke='%235f6764' stroke-width='1.75' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m4 6 4 4 4-4'/%3E%3C/svg%3E");
   background-repeat: no-repeat;
-  background-position: right 10px center;
+  background-position: right 0.75em center;
+  background-size: 1em;
+  cursor: pointer;
+}
+
+select:disabled {
+  cursor: not-allowed;
+}
+
+/* Navigateurs récents : la liste ouverte reprend le style des menus et du Combobox. */
+@supports (appearance: base-select) {
+  select:not([multiple]):not([size]),
+  select:not([multiple]):not([size])::picker(select) {
+    appearance: base-select;
+  }
+
+  select:not([multiple]):not([size]) {
+    align-items: center; /* centre le texte quand le champ a une hauteur minimale */
+  }
+
+  select::picker-icon {
+    display: none;
+  }
+
+  select::picker(select) {
+    margin-block: 4px;
+    padding: 6px;
+    border: 1px solid var(--border);
+    border-radius: var(--r-md);
+    background: var(--card);
+    box-shadow: var(--shadow-pop);
+    color: var(--ink);
+    font-family: var(--font-sans);
+    font-size: 14px;
+  }
+
+  select option {
+    gap: 10px;
+    min-height: 36px;
+    padding: 6px 10px;
+    border-radius: var(--r-sm);
+  }
+
+  select option:hover,
+  select option:focus-visible {
+    background: var(--mist);
+    outline: none;
+  }
+
+  select option:checked {
+    font-weight: 600;
+  }
+
+  select option::checkmark {
+    order: 1;
+    margin-left: auto;
+    color: var(--teal-600);
+  }
+
+  select option:disabled {
+    background: none;
+    opacity: 0.45;
+    font-style: normal;
+  }
 }
 
 .ui-control::placeholder {
