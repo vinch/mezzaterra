@@ -1,9 +1,17 @@
 <script lang="ts">
   import IconMail from "@lucide/svelte/icons/mail";
+  import { page } from "$app/stores";
+
+  $: onContact = $page.url.pathname === "/contact";
 </script>
 
 <footer class="site-footer">
-  <a href="/contact" class="footer-link">
+  <a
+    href="/contact"
+    class="footer-link"
+    class:active={onContact}
+    aria-current={onContact ? "page" : undefined}
+  >
     <IconMail class="footer-icon" size={20} strokeWidth={1.8} aria-hidden="true" />
     <span>Contact</span>
   </a>
@@ -50,6 +58,10 @@
   .footer-link:hover {
     background-color: var(--mz-teal-wash, rgba(37, 97, 105, 0.08));
     transform: translateY(-1px);
+  }
+
+  .footer-link.active {
+    background-color: var(--mz-teal-wash, rgba(37, 97, 105, 0.08));
   }
 
   svg.footer-icon {
