@@ -7,13 +7,15 @@
   $: path = $page.url.pathname;
   /* Le mode live a son propre habillage plein écran (thème « cave »). */
   $: immersive = path.endsWith("/live");
+  /* Hauteur réelle du header, pour coller les barres sticky juste dessous. */
+  let headerHeight = 0;
 </script>
 
 {#if immersive}
   <slot />
 {:else}
-  <div class="site">
-    <header class="site-header">
+  <div class="site" style={headerHeight ? `--mz-header-h: ${headerHeight}px` : undefined}>
+    <header class="site-header" bind:offsetHeight={headerHeight}>
       <div class="header-inner">
         <a href="/" class="brand" aria-label="Mezzaterra — accueil">
           <img src="/flyer/logo-text.svg" alt="Mezzaterra" />
