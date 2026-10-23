@@ -1,326 +1,50 @@
 <script lang="ts">
-  import { supabase } from "$lib/supabase";
-  import { fetchCountries, fetchRegions } from "$lib/manageData";
   import { onMount } from "svelte";
-  import type { Winery, Country, Region } from "$lib/types";
-  import Modal from "$lib/components/Modal.svelte";
-  import ManagePageShell from "$lib/components/manage/ManagePageShell.svelte";
+  import RefCrudPage from "$lib/components/manage/RefCrudPage.svelte";
+  import { countryLabel, countryOptions, fetchCountries, fetchRegions } from "$lib/manageData";
+  import type { Country, Region } from "$lib/types";
 
-  let wineries: Winery[] = [];
   let countries: Country[] = [];
   let regions: Region[] = [];
-  let loading = true;
-  let error = "";
-  let showModal = false;
-  let editingWinery: Winery | null = null;
-
-  // Form fields
-  let formData = {
-    name: "",
-    city: "",
-    url: "",
-    country_id: "",
-    region_id: "",
-    latitude: "",
-    longitude: "",
-    description: "",
-  };
-
   onMount(async () => {
-    await Promise.all([
-      loadWineries(),
-      fetchCountries().then((c) => (countries = c)),
-      fetchRegions().then((r) => (regions = r)),
-    ]);
+    [countries, regions] = await Promise.all([fetchCountries(), fetchRegions()]);
   });
 
-  async function loadWineries() {
-    loading = true;
-    const { data, error: fetchError } = await supabase
-      .from("winery")
-      .select(
-        `
-        *,
-        country (*),
-        region (*)
-      `
-      )
-      .order("name");
-
-    if (fetchError) {
-      error = fetchError.message;
-    } else {
-      wineries = data || [];
-    }
-    loading = false;
-  }
-
-  function openCreateModal() {
-    editingWinery = null;
-    resetForm();
-    showModal = true;
-  }
-
-  function openEditModal(winery: Winery) {
-    editingWinery = winery;
-    formData = {
-      name: winery.name,
-      city: winery.city || "",
-      url: winery.url || "",
-      country_id: winery.country_id || "",
-      region_id: winery.region_id || "",
-      latitude: winery.latitude?.toString() || "",
-      longitude: winery.longitude?.toString() || "",
-      description: winery.description || "",
-    };
-    showModal = true;
-  }
-
-  function closeModal() {
-    showModal = false;
-    editingWinery = null;
-    resetForm();
-  }
-
-  function resetForm() {
-    formData = {
-      name: "",
-      city: "",
-      url: "",
-      country_id: "",
-      region_id: "",
-      latitude: "",
-      longitude: "",
-      description: "",
-    };
-  }
-
-  async function handleSubmit() {
-    if (!formData.name) {
-      error = "Le nom du vignoble est obligatoire";
-      return;
-    }
-
-    const wineryData = {
-      name: formData.name,
-      city: formData.city || null,
-      url: formData.url || null,
-      country_id: formData.country_id || null,
-      region_id: formData.region_id || null,
-      latitude: formData.latitude ? parseFloat(formData.latitude) : null,
-      longitude: formData.longitude ? parseFloat(formData.longitude) : null,
-      description: formData.description.trim() || null,
-    };
-
-    if (editingWinery) {
-      const { error: updateError } = await supabase
-        .from("winery")
-        .update(wineryData)
-        .eq("id", editingWinery.id);
-
-      if (updateError) {
-        error = updateError.message;
-        return;
-      }
-    } else {
-      const { error: insertError } = await supabase
-        .from("winery")
-        .insert(wineryData);
-
-      if (insertError) {
-        error = insertError.message;
-        return;
-      }
-    }
-
-    closeModal();
-    await loadWineries();
-  }
-
-  async function deleteWinery(id: string) {
-    if (!confirm("Êtes-vous sûr de vouloir supprimer ce vignoble ?")) {
-      return;
-    }
-
-    const { error: deleteError } = await supabase
-      .from("winery")
-      .delete()
-      .eq("id", id);
-
-    if (deleteError) {
-      error = deleteError.message;
-      return;
-    }
-
-    await loadWineries();
-  }
+  $: regionOptions = regions.map((r) => ({ value: r.id, label: [r.name, r.country?.name].filter(Boolean).join(" · ") }));
 </script>
 
 <svelte:head>
   <title>Vignobles - Gestion</title>
 </svelte:head>
 
-<ManagePageShell title="Vignobles">
-  <svelte:fragment slot="actions">
-    <button class="btn-primary" on:click={openCreateModal}>+ Nouveau vignoble</button>
-  </svelte:fragment>
-
-    {#if error}
-      <div class="error-message">{error}</div>
-    {/if}
-
-    {#if loading}
-      <div class="loading">Chargement...</div>
-    {:else if wineries.length === 0}
-      <div class="empty-state">
-        <p>Aucun vignoble trouvé</p>
-        <button class="btn-primary" on:click={openCreateModal}>
-          Créer le premier vignoble
-        </button>
-      </div>
-    {:else}
-      <div class="table-container">
-        <table>
-          <thead>
-            <tr>
-              <th>Nom</th>
-              <th>Ville</th>
-              <th>Région</th>
-              <th>Pays</th>
-              <th>Site web</th>
-              <th>Actions</th>
-            </tr>
-          </thead>
-          <tbody>
-            {#each wineries as winery}
-              <tr>
-                <td><strong>{winery.name}</strong></td>
-                <td>{winery.city || "-"}</td>
-                <td>{winery.region?.name || "-"}</td>
-                <td>
-                  {#if winery.country}
-                    <span>{winery.country.flag} {winery.country.name}</span>
-                  {:else}
-                    -
-                  {/if}
-                </td>
-                <td>
-                  {#if winery.url}
-                    <a
-                      href={winery.url}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      class="external-link"
-                    >
-                      Visiter
-                    </a>
-                  {:else}
-                    -
-                  {/if}
-                </td>
-                <td>
-                  <div class="actions">
-                    <button
-                      class="ui-btn ui-btn--secondary ui-btn--sm"
-                      on:click={() => openEditModal(winery)}
-                    >
-                      Modifier
-                    </button>
-                    <button
-                      class="ui-btn ui-btn--danger ui-btn--sm"
-                      on:click={() => deleteWinery(winery.id)}
-                    >
-                      Supprimer
-                    </button>
-                  </div>
-                </td>
-              </tr>
-            {/each}
-          </tbody>
-        </table>
-      </div>
-    {/if}
-</ManagePageShell>
-
-<Modal
-  show={showModal}
-  title={editingWinery ? "Modifier le vignoble" : "Nouveau vignoble"}
-  on:close={closeModal}
->
-  <form on:submit|preventDefault={handleSubmit}>
-    <div class="form-grid">
-      <div class="form-group full-width">
-        <label for="name">Nom du vignoble *</label>
-        <input type="text" id="name" bind:value={formData.name} required />
-      </div>
-
-      <div class="form-group">
-        <label for="city">Ville</label>
-        <input type="text" id="city" bind:value={formData.city} />
-      </div>
-
-      <div class="form-group">
-        <label for="url">Site web</label>
-        <input type="url" id="url" bind:value={formData.url} />
-      </div>
-
-      <div class="form-group">
-        <label for="country_id">Pays</label>
-        <select id="country_id" bind:value={formData.country_id}>
-          <option value="">Sélectionner un pays</option>
-          {#each countries as country}
-            <option value={country.id}>
-              {country.flag}
-              {country.name}
-            </option>
-          {/each}
-        </select>
-      </div>
-
-      <div class="form-group">
-        <label for="region_id">Région</label>
-        <select id="region_id" bind:value={formData.region_id}>
-          <option value="">Sélectionner une région</option>
-          {#each regions as region}
-            <option value={region.id}>{region.name}</option>
-          {/each}
-        </select>
-      </div>
-
-      <div class="form-group">
-        <label for="latitude">Latitude</label>
-        <input
-          type="number"
-          step="any"
-          id="latitude"
-          bind:value={formData.latitude}
-        />
-      </div>
-
-      <div class="form-group">
-        <label for="longitude">Longitude</label>
-        <input
-          type="number"
-          step="any"
-          id="longitude"
-          bind:value={formData.longitude}
-        />
-      </div>
-
-      <div class="form-group full-width">
-        <label for="description">Présentation (page publique du domaine)</label>
-        <textarea id="description" rows="5" bind:value={formData.description}></textarea>
-      </div>
-    </div>
-
-    <div class="modal-footer">
-      <button type="button" class="btn-secondary" on:click={closeModal}>
-        Annuler
-      </button>
-      <button type="submit" class="btn-primary">
-        {editingWinery ? "Mettre à jour" : "Créer"}
-      </button>
-    </div>
-  </form>
-</Modal>
-
+<RefCrudPage
+  title="Vignobles"
+  table="winery"
+  select="*, country (*), region (*)"
+  newLabel="Nouveau vignoble"
+  editLabel="Modifier le vignoble"
+  thisLabel="ce vignoble"
+  emptyText="Les domaines dont Mezzaterra importe les vins."
+  fields={[
+    { key: "name", label: "Nom du vignoble", required: true },
+    { key: "city", label: "Ville" },
+    { key: "country_id", label: "Pays", type: "select", options: countryOptions(countries) },
+    { key: "region_id", label: "Région", type: "select", options: regionOptions },
+    { key: "latitude", label: "Latitude", type: "number", placeholder: "42.35" },
+    { key: "longitude", label: "Longitude", type: "number", placeholder: "13.99" },
+    { key: "url", label: "Site web", type: "url", full: true, placeholder: "https://" },
+    {
+      key: "description",
+      label: "Présentation (page publique du domaine)",
+      type: "textarea",
+      help: "Affichée sur la page du domaine.",
+    },
+  ]}
+  columns={[
+    { label: "Nom", value: (w) => w.name, strong: true },
+    { label: "Ville", value: (w) => w.city },
+    { label: "Région", value: (w) => w.region?.name },
+    { label: "Pays", value: (w) => countryLabel(w.country) },
+    { label: "Site web", value: (w) => w.url && "Visiter", href: (w) => w.url },
+  ]}
+/>
