@@ -31,6 +31,7 @@
   import { formatEUR } from "$lib/format";
   import { addToNextSupplierOrder } from "$lib/reorder";
   import { isDiscontinued } from "$lib/wine";
+  import { fetchStockMap } from "$lib/manageData";
 
   let wines: Wine[] = [];
   let wineries: Winery[] = [];
@@ -64,12 +65,14 @@
   };
 
   onMount(async () => {
-    void loadStock();
-    await loadWines();
-    await loadWineries();
-    await loadAppellations();
-    await loadWineTypes();
-    await loadAllPairings();
+    await Promise.all([
+      loadStock(),
+      loadWines(),
+      loadWineries(),
+      loadAppellations(),
+      loadWineTypes(),
+      loadAllPairings(),
+    ]);
   });
 
   async function loadAllPairings() {
@@ -84,34 +87,18 @@
     loading = true;
     const { data, error: fetchError } = await supabase
       .from("wine")
-      .select(
-        `
-        *,
-        winery (
-          *,
-          region (
-            *,
-            country (*)
-          ),
-          country (*)
-        ),
-        appelation (
-          *,
-          region (
-            *,
-            country (*)
-          ),
-          label (*)
-        ),
-        wine_type (*),
-        wine_vintage (*)
-      `
-      )
+      .select("*, winery (*), appelation ( *, label (*) ), wine_type (*), wine_vintage (*)")
       .order("created_at", { ascending: false });
 
     if (fetchError) {
       error = fetchError.message;
     } else {
+      /* Millésimes triés une fois ici (du plus ancien au plus récent) plutôt qu'à chaque rendu. */
+      for (const w of data || []) {
+        w.wine_vintage.sort(
+          (a, b) => (a.year ?? a.production_year ?? 0) - (b.year ?? b.production_year ?? 0),
+        );
+      }
       wines = (data || []).sort((a, b) => {
         // First: sort by winery name
         const wineryA = a.winery?.name?.toLowerCase() || "";
@@ -132,36 +119,12 @@
   }
 
   async function loadWineries() {
-    const { data } = await supabase
-      .from("winery")
-      .select(
-        `
-        *,
-        region (
-          *,
-          country (*)
-        ),
-        country (*)
-      `
-      )
-      .order("name");
+    const { data } = await supabase.from("winery").select("*").order("name");
     if (data) wineries = data;
   }
 
   async function loadAppellations() {
-    const { data } = await supabase
-      .from("appelation")
-      .select(
-        `
-        *,
-        label (*),
-        region (
-          *,
-          country (*)
-        )
-      `
-      )
-      .order("name");
+    const { data } = await supabase.from("appelation").select("*, label (*)").order("name");
     if (data) appellations = data;
   }
 
@@ -253,12 +216,8 @@
     await loadWines();
   }
 
-  /** `confirmed` : confirmation déjà donnée via le ConfirmDialog. */
-  async function deleteWine(id: string, confirmed = false) {
-    if (!confirmed && !confirm("Êtes-vous sûr de vouloir supprimer ce vin ?")) {
-      return;
-    }
-
+  /** Appelée après confirmation via le ConfirmDialog. */
+  async function deleteWine(id: string) {
     const { error: deleteError } = await supabase
       .from("wine")
       .delete()
@@ -393,18 +352,16 @@
   /* ——— Interface (refonte) ——— */
   let stock = new Map<string, number>();
   async function loadStock() {
-    const { data } = await supabase.from("inventory").select("wine_vintage_id, quantity_on_hand");
-    stock = new Map((data || []).map((r: any) => [r.wine_vintage_id, r.quantity_on_hand ?? 0]));
+    stock = await fetchStockMap();
   }
 
   let robeFilter: Robe | "" = "";
   let inStockOnly = false;
   const ROBES: Robe[] = ["rouge", "blanc", "rose"];
 
+  /** Millésimes du plus ancien au plus récent (triés au chargement). */
   function vintagesOf(wine: any): any[] {
-    return [...(wine.wine_vintage || [])].sort(
-      (a, b) => (a.year ?? a.production_year ?? 0) - (b.year ?? b.production_year ?? 0),
-    );
+    return wine.wine_vintage || [];
   }
   function totalStock(wine: any): number {
     return vintagesOf(wine).reduce((n, v) => n + Math.max(0, stock.get(v.id) ?? 0), 0);
@@ -510,7 +467,7 @@
   }
   async function confirmDelete() {
     if (!deleteTarget) return;
-    await deleteWine(deleteTarget.id, true);
+    await deleteWine(deleteTarget.id);
     confirmOpen = false;
   }
 </script>

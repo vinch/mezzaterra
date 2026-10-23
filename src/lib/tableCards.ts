@@ -1,5 +1,5 @@
 import jsPDF from "jspdf";
-import { attachRobotoPdf } from "./manageDocumentPdfs";
+import { attachRobotoPdf, svgToPng } from "./manageDocumentPdfs";
 import { qrDataUrl } from "./qr";
 import { formatDateLong } from "./dates";
 import { tastingTitle } from "./publicData";
@@ -28,38 +28,10 @@ function hexToRgb(hex: string): [number, number, number] {
   return [parseInt(h.slice(0, 2), 16), parseInt(h.slice(2, 4), 16), parseInt(h.slice(4, 6), 16)];
 }
 
-async function svgToPng(url: string, widthPx = 1600): Promise<{ dataUrl: string; aspect: number } | null> {
-  try {
-    const res = await fetch(url);
-    if (!res.ok) return null;
-    const blobUrl = URL.createObjectURL(new Blob([await res.text()], { type: "image/svg+xml" }));
-    try {
-      const img = new Image();
-      await new Promise<void>((resolve, reject) => {
-        img.onload = () => resolve();
-        img.onerror = () => reject(new Error("svg"));
-        img.src = blobUrl;
-      });
-      const aspect = (img.naturalHeight || img.height) / (img.naturalWidth || img.width);
-      const canvas = document.createElement("canvas");
-      canvas.width = widthPx;
-      canvas.height = Math.round(widthPx * aspect);
-      const ctx = canvas.getContext("2d");
-      if (!ctx) return null;
-      ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
-      return { dataUrl: canvas.toDataURL("image/png"), aspect };
-    } finally {
-      URL.revokeObjectURL(blobUrl);
-    }
-  } catch {
-    return null;
-  }
-}
-
 export async function downloadTableCardsPdf(tasting: any, wines: any[], origin: string) {
   const doc = new jsPDF({ unit: "mm", format: "a5", orientation: "portrait" });
-  const font = (await attachRobotoPdf(doc)) ? "Roboto" : "helvetica";
-  const logo = await svgToPng("/flyer/logo-text.svg");
+  const [hasRoboto, logo] = await Promise.all([attachRobotoPdf(doc), svgToPng("/flyer/logo-text.svg")]);
+  const font = hasRoboto ? "Roboto" : "helvetica";
   const W = doc.internal.pageSize.getWidth();
   const H = doc.internal.pageSize.getHeight();
   const M = 12;

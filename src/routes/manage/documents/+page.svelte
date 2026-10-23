@@ -7,11 +7,11 @@
   import {
     fetchStockDocVintages,
     sortedStockForDocuments,
-    downloadPricesPdf,
-    downloadNotesPdf,
+    stockVintageLabel as vintageLabel,
     wineTypeLabelFr,
     type StockDocVintage,
-  } from "$lib/manageDocumentPdfs";
+  } from "$lib/stockDocuments";
+  import { todayIso } from "$lib/dates";
 
   let rows: StockDocVintage[] = [];
   let loading = true;
@@ -120,18 +120,12 @@
       return;
     }
     try {
+      /* jsPDF n'est chargé qu'au moment de générer un document. */
+      const { downloadPricesPdf } = await import("$lib/manageDocumentPdfs");
       await downloadPricesPdf(rows, new Set(selectedVintageIds));
     } catch (e) {
       docError = e instanceof Error ? e.message : "Erreur PDF";
     }
-  }
-
-  function todayIsoDate(): string {
-    const d = new Date();
-    const y = d.getFullYear();
-    const m = String(d.getMonth() + 1).padStart(2, "0");
-    const day = String(d.getDate()).padStart(2, "0");
-    return `${y}-${m}-${day}`;
   }
 
   function openNotesModal() {
@@ -144,7 +138,7 @@
       return;
     }
     notesModalRows = [...picked];
-    notesTastingDate = todayIsoDate();
+    notesTastingDate = todayIso();
     showNotesModal = true;
   }
 
@@ -169,8 +163,9 @@
     }
     notesPdfGenerating = true;
     try {
+      const { downloadNotesPdf } = await import("$lib/manageDocumentPdfs");
       await downloadNotesPdf(notesModalRows, {
-        tastingDate: notesTastingDate || todayIsoDate(),
+        tastingDate: notesTastingDate || todayIso(),
       });
       closeNotesModal();
     } catch (e) {
@@ -179,12 +174,6 @@
     }
   }
 
-  function vintageLabel(r: StockDocVintage): string {
-    if (r.year != null && r.year !== r.production_year) {
-      return `${r.year} (${r.production_year})`;
-    }
-    return String(r.production_year);
-  }
 </script>
 
 <svelte:head>

@@ -2,27 +2,16 @@
   import { supabase } from "$lib/supabase";
   import { onMount } from "svelte";
   import ManagePageShell from "$lib/components/manage/ManagePageShell.svelte";
+  import {
+    fetchStockDocVintages,
+    sortedStockForDocuments,
+    stockVintageLabel,
+    type StockDocVintage,
+  } from "$lib/stockDocuments";
 
   let loading = true;
   let error = "";
-  let stockInHandList: {
-    quantity_on_hand: number;
-    wine_vintage: {
-      id: string;
-      production_year: number;
-      year: number | null;
-      wine: {
-        id: string;
-        name: string | null;
-        winery: { name: string } | null;
-        appelation: {
-          name: string | null;
-          label: { name: string | null } | null;
-        } | null;
-        wine_type: { name: string } | null;
-      } | null;
-    };
-  }[] = [];
+  let stockInHandList: StockDocVintage[] = [];
 
   onMount(() => loadStockInHand());
 
@@ -30,98 +19,13 @@
     return n === 1 ? "1 bouteille" : `${n} bouteilles`;
   }
 
-  function vintageDisplayLabel(v: {
-    production_year: number;
-    year: number | null;
-  }): string {
-    if (v.year != null && v.year !== v.production_year) {
-      return `${v.year} (${v.production_year})`;
-    }
-    return String(v.production_year);
-  }
-
+  /** Même lecture que la page Documents : millésimes en stock, triés vignoble → nom → millésime ↓. */
   async function loadStockInHand() {
     loading = true;
     error = "";
-
-    const { data: invRows, error: invErr } = await supabase
-      .from("inventory")
-      .select("wine_vintage_id, quantity_on_hand")
-      .gt("quantity_on_hand", 0);
-
-    if (invErr) {
-      error = invErr.message;
-      loading = false;
-      return;
-    }
-
-    const rows = (invRows || []).filter(
-      (r): r is { wine_vintage_id: string; quantity_on_hand: number } =>
-        r.wine_vintage_id != null && (r.quantity_on_hand ?? 0) > 0,
-    );
-
-    if (rows.length === 0) {
-      stockInHandList = [];
-      loading = false;
-      return;
-    }
-
-    const ids = [...new Set(rows.map((r) => r.wine_vintage_id))];
-    const { data: vintages, error: vErr } = await supabase
-      .from("wine_vintage")
-      .select(
-        `
-        id,
-        production_year,
-        year,
-        wine (
-          id,
-          name,
-          winery (name),
-          appelation (name, label (name)),
-          wine_type (name)
-        )
-      `,
-      )
-      .in("id", ids);
-
-    if (vErr) {
-      error = vErr.message;
-      loading = false;
-      return;
-    }
-
-    const vintageMap = new Map((vintages || []).map((v) => [v.id, v]));
-
-    const merged: typeof stockInHandList = [];
-    for (const r of rows) {
-      const v = vintageMap.get(r.wine_vintage_id);
-      if (!v?.wine) continue;
-      merged.push({
-        quantity_on_hand: r.quantity_on_hand,
-        wine_vintage: {
-          id: v.id,
-          production_year: v.production_year,
-          year: v.year ?? null,
-          wine: v.wine,
-        },
-      });
-    }
-
-    stockInHandList = merged.sort((a, b) => {
-      const wA = a.wine_vintage.wine;
-      const wB = b.wine_vintage.wine;
-      const wineryA = wA?.winery?.name?.toLowerCase() || "";
-      const wineryB = wB?.winery?.name?.toLowerCase() || "";
-      if (wineryA !== wineryB) return wineryA.localeCompare(wineryB);
-      const nameA =
-        wA?.name?.toLowerCase() || wA?.appelation?.name?.toLowerCase() || "";
-      const nameB =
-        wB?.name?.toLowerCase() || wB?.appelation?.name?.toLowerCase() || "";
-      if (nameA !== nameB) return nameA.localeCompare(nameB);
-      return b.wine_vintage.production_year - a.wine_vintage.production_year;
-    });
-
+    const res = await fetchStockDocVintages(supabase);
+    error = res.error ?? "";
+    stockInHandList = sortedStockForDocuments(res.data);
     loading = false;
   }
 </script>
@@ -164,17 +68,16 @@
         </thead>
         <tbody>
           {#each stockInHandList as row}
-            {@const w = row.wine_vintage.wine}
             <tr>
-              <td>{w?.winery?.name || "—"}</td>
-              <td><strong>{w?.name || "—"}</strong></td>
-              <td>{vintageDisplayLabel(row.wine_vintage)}</td>
+              <td>{row.wineryName}</td>
+              <td><strong>{row.wineName}</strong></td>
+              <td>{stockVintageLabel(row)}</td>
               <td class="stock-qty">
                 {bottleLabel(row.quantity_on_hand)}
               </td>
               <td>
                 <a
-                  href="/manage/wines/{w?.id}/stock/{row.wine_vintage.id}"
+                  href="/manage/wines/{row.wine_id}/stock/{row.id}"
                   class="ui-btn ui-btn--secondary ui-btn--sm"
                 >
                   Détail
