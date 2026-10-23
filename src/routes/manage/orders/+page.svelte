@@ -1354,12 +1354,12 @@
   }
 
   .status-select.status-pending {
-    background: var(--st-pending-bg);
+    background-color: var(--st-pending-bg);
     color: var(--st-pending-fg);
   }
 
   .status-select.status-confirmed {
-    background: var(--st-paid-bg);
+    background-color: var(--st-paid-bg);
     color: var(--st-paid-fg);
   }
 

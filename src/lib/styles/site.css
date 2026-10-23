@@ -177,7 +177,7 @@
   padding: 0.7rem 0.85rem;
   border-radius: 10px;
   border: 1px solid var(--mz-line);
-  background: #fff;
+  background-color: #fff;
   color: var(--mz-ink);
   transition:
     border-color 0.15s ease,
