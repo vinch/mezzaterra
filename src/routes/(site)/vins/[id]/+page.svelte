@@ -313,16 +313,16 @@
     line-height: 1.6;
   }
 
-  .stock {
-    color: var(--mz-success) !important;
+  .facts dd.stock {
+    color: var(--mz-success);
   }
 
-  .stock.low {
-    color: var(--mz-warning) !important;
+  .facts dd.stock.low {
+    color: var(--mz-warning);
   }
 
-  .stock.out {
-    color: var(--mz-danger) !important;
+  .facts dd.stock.out {
+    color: var(--mz-danger);
   }
 
   .siblings {
@@ -434,7 +434,7 @@
     }
 
     .bottle-stage :global(.bottle) {
-      --h: 17rem !important;
+      --h: 17rem;
     }
   }
 </style>

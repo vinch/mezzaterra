@@ -635,7 +635,7 @@
   }
 
   .band-link {
-    color: inherit !important;
+    color: inherit;
     text-decoration: none;
   }
 
@@ -904,7 +904,7 @@
     .pilot :global(.page-head .t-page-title),
     .pilot :global(.page-head .back),
     .pilot :global(.page-head .subtitle) {
-      color: #fff !important;
+      color: #fff;
     }
 
     .pilot :global(.page-head .subtitle) {
@@ -912,7 +912,7 @@
     }
 
     .pilot :global(.page-head .btn--ghost) {
-      color: #fff !important;
+      color: #fff;
     }
 
     .band {

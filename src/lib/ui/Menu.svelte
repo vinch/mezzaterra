@@ -186,7 +186,7 @@
     border: none;
     border-radius: var(--r-sm);
     background: none;
-    color: var(--ink) !important;
+    color: var(--ink);
     font: inherit;
     text-align: left;
     text-decoration: none;
@@ -210,7 +210,7 @@
   }
 
   .item.danger {
-    color: var(--danger) !important;
+    color: var(--danger);
   }
 
   .item.danger:hover,

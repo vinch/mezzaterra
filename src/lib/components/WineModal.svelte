@@ -350,7 +350,7 @@
     }
 
     .hero-bottle :global(.bottle) {
-      --h: 11rem !important;
+      --h: 11rem;
     }
 
     .content {

@@ -1,18 +1,20 @@
 /**
  * Design system Mezzaterra — tokens globaux de l'outil de gestion (et éléments partagés).
  * Source : refonte visuelle Claude Design. Les composants vivent dans src/lib/ui/.
+ * Les couleurs de marque, de robe et les polices viennent de lib/styles/tokens.css (--mz-*) :
+ * les noms courts ci-dessous n'en sont que des alias pour l'admin.
  */
 
 :root {
   /* Couleurs */
-  --teal-600: #256169; /* actions, liens, focus */
+  --teal-600: var(--mz-teal); /* actions, liens, focus */
   --teal-700: #1b4a50; /* survol, titres */
   --title: #1f3f43; /* titre de page */
   --night: #1c4449; /* barre latérale */
   --night-active: #2f6a71;
   --night-label: #93b3b5;
   --mist: #e3ecea; /* sélection, fonds d'icônes */
-  --paper: #e8e5de; /* fond de l'app */
+  --paper: var(--mz-paper); /* fond de l'app */
   --card: #faf8f3; /* cartes, tableaux */
   --table-head: #f3f0e8;
   --row-hover: #f4f1ea;
@@ -27,10 +29,10 @@
   --gold: #e8c96a; /* compteur de la barre latérale */
 
   /* Robes — pastilles et barres uniquement, jamais en couleur de texte */
-  --rouge: #7a1f2e;
-  --blanc: #d8bf62;
+  --rouge: var(--mz-wine-red);
+  --blanc: var(--mz-wine-white);
   --blanc-ring: #a88d2e;
-  --rose: #e0879a;
+  --rose: var(--mz-wine-rose);
   --rose-ring: #c0627a;
 
   /* Statuts (badges) */
@@ -46,8 +48,8 @@
   --st-cancelled-fg: #8a2424;
 
   /* Typo */
-  --font-serif: "Fraunces", Georgia, serif;
-  --font-sans: "Inter", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-serif: var(--mz-font-display);
+  --font-sans: var(--mz-font-body);
 
   /* Espacements */
   --s-1: 4px;
@@ -86,11 +88,12 @@
   outline-offset: 1px;
 }
 
-.app a {
+/* Sans spécificité (:where) : la classe d'un composant suffit à changer la couleur d'un lien. */
+:where(.app) a {
   color: var(--teal-600);
 }
 
-.app a:hover {
+:where(.app) a:hover {
   color: var(--teal-700);
 }
 
@@ -308,13 +311,13 @@ select:disabled {
 
 /* Nom d'une ligne qui mène à sa fiche. */
 .ui-table .row-link {
-  color: var(--ink) !important;
+  color: var(--ink);
   font-weight: 600;
   text-decoration: none;
 }
 
 .ui-table .row-link:hover {
-  color: var(--teal-700) !important;
+  color: var(--teal-700);
   text-decoration: underline;
 }
 

@@ -44,7 +44,7 @@
     display: inline-flex;
     align-items: center;
     gap: 0.65rem;
-    color: var(--mz-teal, #256169);
+    color: var(--mz-teal);
     text-decoration: none;
     font-weight: 600;
     padding: 0.75rem 1rem;

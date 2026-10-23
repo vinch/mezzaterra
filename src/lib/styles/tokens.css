@@ -29,7 +29,7 @@
   --mz-danger: #a3352f;
   --mz-warning: #a86b12;
 
-  /* Couleurs de robe */
+  /* Couleurs de robe — mêmes valeurs que STYLES dans lib/wine.ts (utilisées en JS et dans les PDF). */
   --mz-wine-red: #7a1f2e;
   --mz-wine-red-light: #b04456;
   --mz-wine-white: #d8bf62;

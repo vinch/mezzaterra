@@ -1,13 +1,13 @@
 <script lang="ts" context="module">
+  import { wineStyle, type WineStyleKey } from "$lib/wine";
+
   export type Robe = "rouge" | "blanc" | "rose" | "autre";
 
-  /** Robe à partir du type de vin en base (« red », « white », « rosé »…). */
+  const ROBE_OF_STYLE: Partial<Record<WineStyleKey, Robe>> = { red: "rouge", white: "blanc", rose: "rose" };
+
+  /** Robe à partir du type de vin en base (« red », « white », « rosé »…), selon la même règle que wineStyle. */
   export function robeOf(type: { name?: string | null } | null | undefined): Robe {
-    const n = (type?.name || "").toLowerCase();
-    if (n.startsWith("red") || n.startsWith("rouge")) return "rouge";
-    if (n.startsWith("white") || n.startsWith("blanc")) return "blanc";
-    if (n.startsWith("ros")) return "rose";
-    return "autre";
+    return ROBE_OF_STYLE[wineStyle({ name: type?.name }).key] ?? "autre";
   }
 
   export const ROBE_LABEL: Record<Robe, string> = {

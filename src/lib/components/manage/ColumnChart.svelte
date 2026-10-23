@@ -71,7 +71,7 @@
         <rect x={PAD_LEFT + band * i} y={PAD_TOP} width={band} height={base - PAD_TOP} fill="transparent" />
         <path
           d={columnPath(cx - barW / 2, top, barW)}
-          fill="var(--teal-600, #256169)"
+          fill="var(--teal-600)"
           opacity={highlightKey && d.key === highlightKey ? 0.4 : 1}
         />
         <text x={cx} y={H - 6} class="tick" text-anchor="middle">{d.label}</text>
@@ -118,27 +118,28 @@
   }
 
   .grid {
-    stroke: var(--border-soft, #e7e2d6);
+    stroke: var(--border-soft);
     stroke-width: 1;
   }
 
   .tick {
     font-size: 11px;
-    fill: var(--ink-2, #5f6764);
+    fill: var(--ink-2);
   }
 
   .value {
     font-size: 11px;
     font-weight: 600;
-    fill: var(--ink, #1f2a2b);
+    fill: var(--ink);
   }
 
   .col path {
     transition: opacity 0.15s ease;
   }
 
+  /* L'attribut SVG opacity n'a pas de spécificité : la règle CSS l'emporte. */
   .col.dim path {
-    opacity: 0.35 !important;
+    opacity: 0.35;
   }
 
   .tooltip {
@@ -164,7 +165,7 @@
   .table-view {
     margin-top: 0.4rem;
     font-size: 0.8rem;
-    color: var(--teal-600, #256169);
+    color: var(--teal-600);
   }
 
   .table-view summary {

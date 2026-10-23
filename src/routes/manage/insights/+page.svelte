@@ -258,8 +258,8 @@
   }
 
   .tabs button.active {
-    background: var(--mz-teal, #256169);
-    border-color: var(--mz-teal, #256169);
+    background: var(--teal-600);
+    border-color: var(--teal-600);
     color: white;
   }
 
@@ -291,7 +291,7 @@
   }
 
   td a:hover {
-    color: var(--mz-teal, #256169);
+    color: var(--teal-600);
     text-decoration: underline;
   }
 

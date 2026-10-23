@@ -310,7 +310,7 @@
   .count {
     padding: 0.1rem 0.55rem;
     border-radius: 999px;
-    background: var(--mz-teal, #256169);
+    background: var(--teal-600);
     color: white;
     font-size: 0.85rem;
   }
@@ -331,8 +331,8 @@
   }
 
   .templates label.on {
-    background: var(--mz-teal, #256169);
-    border-color: var(--mz-teal, #256169);
+    background: var(--teal-600);
+    border-color: var(--teal-600);
     color: white;
   }
 
@@ -396,7 +396,7 @@
   details summary {
     cursor: pointer;
     font-size: 0.88rem;
-    color: var(--mz-teal, #256169);
+    color: var(--teal-600);
   }
 
   .emails {

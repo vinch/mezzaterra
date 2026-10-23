@@ -849,7 +849,7 @@
     flex-direction: column;
     gap: 6px;
     padding: 12px 8px 12px 14px;
-    color: inherit !important;
+    color: inherit;
     text-decoration: none;
   }
 

@@ -169,8 +169,8 @@
   }
 
   .tabs button.active {
-    background: var(--mz-teal, #256169);
-    border-color: var(--mz-teal, #256169);
+    background: var(--teal-600);
+    border-color: var(--teal-600);
     color: white;
   }
 
@@ -226,7 +226,7 @@
   .source {
     font-size: 0.82rem;
     font-weight: 600;
-    color: var(--mz-teal, #256169);
+    color: var(--teal-600);
   }
 
   .lines {

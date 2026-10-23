@@ -75,7 +75,7 @@
     text-align: center;
     padding: 64px 24px 72px;
     font-family: var(--mz-font-body, system-ui, sans-serif);
-    color: var(--mz-ink, #1d2a2c);
+    color: var(--mz-ink);
   }
 
   .logo-link img {
@@ -100,7 +100,7 @@
 
   .glass-line {
     fill: none;
-    stroke: var(--mz-teal, #256169);
+    stroke: var(--mz-teal);
     stroke-width: 3;
     stroke-linecap: round;
     stroke-linejoin: round;
@@ -108,28 +108,28 @@
 
   .shine {
     fill: none;
-    stroke: var(--mz-teal-soft, #5b7d7f);
+    stroke: var(--mz-teal-soft);
     stroke-width: 2;
     stroke-linecap: round;
     opacity: 0.35;
   }
 
   .drop {
-    fill: var(--mz-wine-red, #7a1f2e);
+    fill: var(--mz-wine-red);
     animation: swirl 3.2s ease-in-out infinite;
     transform-origin: 60px 84px;
   }
 
   .bottle-body {
-    fill: var(--mz-teal, #256169);
+    fill: var(--mz-teal);
   }
 
   .label {
-    fill: var(--mz-paper-raised, #f4f2ed);
+    fill: var(--mz-paper-raised);
   }
 
   .puddle {
-    fill: var(--mz-wine-red, #7a1f2e);
+    fill: var(--mz-wine-red);
     opacity: 0.75;
     transform-origin: 58px 104px;
     animation: spread 2.4s ease-out both;
@@ -164,7 +164,7 @@
     font-weight: 600;
     letter-spacing: 0.16em;
     text-transform: uppercase;
-    color: var(--mz-wine-red, #7a1f2e);
+    color: var(--mz-wine-red);
   }
 
   .title {
@@ -174,7 +174,7 @@
     font-size: clamp(2rem, 4.6vw, 3rem);
     line-height: 1.08;
     letter-spacing: -0.01em;
-    color: var(--mz-teal-deep, #1a474d);
+    color: var(--mz-teal-deep);
   }
 
   .lead {
@@ -182,14 +182,14 @@
     max-width: 30rem;
     font-size: 1.05rem;
     line-height: 1.6;
-    color: var(--mz-ink-soft, #3d4f51);
+    color: var(--mz-ink-soft);
   }
 
   .detail {
     margin: 16px 0 0;
     max-width: 34rem;
     font-size: 0.85rem;
-    color: var(--mz-muted, #66787a);
+    color: var(--mz-muted);
   }
 
   .actions {
@@ -206,23 +206,23 @@
     min-height: 44px;
     padding: 0 20px;
     border-radius: 999px;
-    border: 1px solid var(--mz-teal, #256169);
+    border: 1px solid var(--mz-teal);
     font-weight: 600;
     font-size: 0.95rem;
     text-decoration: none;
   }
 
   .btn--primary {
-    background: var(--mz-teal, #256169);
+    background: var(--mz-teal);
     color: #fff;
   }
 
   .btn--primary:hover {
-    background: var(--mz-teal-deep, #1a474d);
+    background: var(--mz-teal-deep);
   }
 
   .btn--ghost {
-    color: var(--mz-teal, #256169);
+    color: var(--mz-teal);
   }
 
   .btn--ghost:hover {
