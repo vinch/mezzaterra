@@ -53,6 +53,19 @@ export type Dataset = {
   stock: Map<string, number>;
 };
 
+/** Regroupe une liste par clé (les éléments sans clé sont ignorés), en un seul passage. */
+function groupBy<T>(items: T[], key: (item: T) => string | null): Map<string, T[]> {
+  const out = new Map<string, T[]>();
+  for (const item of items) {
+    const k = key(item);
+    if (k == null) continue;
+    const list = out.get(k);
+    if (list) list.push(item);
+    else out.set(k, [item]);
+  }
+  return out;
+}
+
 /** Lecture paginée (PostgREST limite à 1000 lignes par défaut). */
 async function fetchAll<T>(build: (from: number, to: number) => PromiseLike<{ data: any; error: any }>): Promise<T[]> {
   const page = 1000;
@@ -124,12 +137,7 @@ export type RevenueLine = {
 export function revenueLines(ds: Dataset, statuses = REVENUE_STATUSES): RevenueLine[] {
   const salesById = new Map(ds.sales.map((s) => [s.id, s]));
   const vintages = new Map(ds.vintages.map((v) => [v.id, v]));
-  const itemsBySale = new Map<string, SaleItemRow[]>();
-  for (const it of ds.items) {
-    const list = itemsBySale.get(it.sale_id) ?? [];
-    list.push(it);
-    itemsBySale.set(it.sale_id, list);
-  }
+  const itemsBySale = groupBy(ds.items, (it) => it.sale_id);
 
   const out: RevenueLine[] = [];
   for (const [saleId, items] of itemsBySale) {
@@ -172,8 +180,9 @@ export type VintageStats = {
 
 export function vintageStats(ds: Dataset, lines = revenueLines(ds)): VintageStats[] {
   const today = parseIsoDate(todayIso()).getTime();
+  const linesByVintage = groupBy(lines, (l) => l.vintageId);
   return ds.vintages.map((v) => {
-    const own = lines.filter((l) => l.vintageId === v.id);
+    const own = linesByVintage.get(v.id) ?? [];
     const revenue = own.reduce((s, l) => s + l.revenue, 0);
     const cost = own.reduce((s, l) => s + l.cost, 0);
     const lastSale = own.reduce<string | null>((m, l) => (!m || l.date > m ? l.date : m), null);
@@ -245,6 +254,7 @@ export async function tastingRoi(ds: Dataset, lines = revenueLines(ds), windowDa
   if (error) throw new Error(error.message);
 
   const vintages = new Map(ds.vintages.map((v) => [v.id, v]));
+  const linesByTasting = groupBy(lines, (l) => l.tastingId);
   return ((data || []) as any[]).map((t) => {
     const customers = new Set<string>((t.tasting_customer || []).map((r: any) => r.customer_id));
     const wines = (t.tasting_wine_vintage || []) as { wine_vintage_id: string }[];
@@ -252,7 +262,7 @@ export async function tastingRoi(ds: Dataset, lines = revenueLines(ds), windowDa
       (s, w) => s + toNumber(vintages.get(w.wine_vintage_id)?.purchase_price) * BOTTLES_PER_TASTED_WINE,
       0,
     );
-    const evening = lines.filter((l) => l.tastingId === t.id);
+    const evening = linesByTasting.get(t.id) ?? [];
     const fees = evening.filter((l) => l.isTastingFee).reduce((s, l) => s + l.revenue, 0);
     const wineLines = evening.filter((l) => !l.isTastingFee);
     const eveningRevenue = wineLines.reduce((s, l) => s + l.revenue, 0);

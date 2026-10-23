@@ -21,20 +21,28 @@
   });
 
   async function load() {
-    const [wRes, vRes, tRes] = await Promise.all([
-      supabase.from("wish_request").select("*").order("created_at", { ascending: false }),
+    const [, vRes, tRes] = await Promise.all([
+      loadWishes(),
       supabase
         .from("wine_vintage")
         .select("id, year, production_year, price, wine ( name, winery ( name ), appelation ( name, label ( name ) ) )"),
       supabase.from("tasting").select("id, name, date"),
     ]);
-    if (wRes.error) {
-      error = wRes.error.message;
-      return;
-    }
-    wishes = (wRes.data || []) as unknown as WishRequest[];
     vintages = new Map((vRes.data || []).map((v: any) => [v.id, v]));
     tastings = new Map((tRes.data || []).map((t: any) => [t.id, t]));
+  }
+
+  /** Seules les demandes changent après une action : millésimes et dégustations restent en mémoire. */
+  async function loadWishes() {
+    const { data, error: fetchError } = await supabase
+      .from("wish_request")
+      .select("*")
+      .order("created_at", { ascending: false });
+    if (fetchError) {
+      error = fetchError.message;
+      return;
+    }
+    wishes = (data || []) as unknown as WishRequest[];
   }
 
   $: prices = new Map([...vintages.values()].map((v) => [v.id, Number(v.price ?? 0)]));
@@ -57,7 +65,7 @@
     busyId = w.id;
     try {
       await action();
-      await load();
+      await loadWishes();
     } catch (e) {
       error = e instanceof Error ? e.message : String(e);
     } finally {
