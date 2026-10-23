@@ -3,6 +3,7 @@
   import ManagePageShell from "$lib/components/manage/ManagePageShell.svelte";
   import { supabase } from "$lib/supabase";
   import { todayIso } from "$lib/dates";
+  import { isPrivateTasting } from "$lib/publicData";
   import {
     FLYER_WIDTH,
     FLYER_HEIGHT,
@@ -48,9 +49,8 @@
       .from("tasting")
       .select("*")
       .gte("date", todayIso())
-      .order("date", { ascending: true })
-      .limit(1);
-    const next = (data || [])[0] as any;
+      .order("date", { ascending: true });
+    const next = (data || []).find((t) => !isPrivateTasting(t)) as any;
     if (!next) return;
     date = next.date;
     if (next.start_time) time = String(next.start_time).slice(0, 5);

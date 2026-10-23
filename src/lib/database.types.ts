@@ -653,6 +653,7 @@ export type Database = {
           date: string
           description: string | null
           id: string
+          is_private: boolean
           live_position: number | null
           location: string | null
           name: string | null
@@ -666,6 +667,7 @@ export type Database = {
           date: string
           description?: string | null
           id?: string
+          is_private?: boolean
           live_position?: number | null
           location?: string | null
           name?: string | null
@@ -679,6 +681,7 @@ export type Database = {
           date?: string
           description?: string | null
           id?: string
+          is_private?: boolean
           live_position?: number | null
           location?: string | null
           name?: string | null

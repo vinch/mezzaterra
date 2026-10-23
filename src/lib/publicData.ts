@@ -67,3 +67,8 @@ export async function fetchTastingWithWines(tastingId: string, opts: { reveal?: 
 export function tastingTitle(t: { name?: string | null } | null | undefined): string {
   return t?.name?.trim() || "Dégustation Mezzaterra";
 }
+
+/** Dégustation privée (chez un client, en externe) : absente des listes publiques. */
+export function isPrivateTasting(t: { is_private?: boolean | null } | null | undefined): boolean {
+  return t?.is_private === true;
+}

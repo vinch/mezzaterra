@@ -7,7 +7,7 @@
   import ProductVintageAutocomplete from "$lib/components/manage/ProductVintageAutocomplete.svelte";
   import CustomerAutocomplete from "$lib/components/manage/CustomerAutocomplete.svelte";
   import { customerDisplayLabel, sortCustomersByLabel } from "$lib/customerDisplay";
-  import { hasTastingExtras } from "$lib/features";
+  import { hasTastingExtras, hasTastingPrivacy } from "$lib/features";
   import { fetchTastingWithWines } from "$lib/publicData";
   import { downloadTableCardsPdf } from "$lib/tableCards";
 
@@ -40,6 +40,8 @@
   let saving = false;
   /** Colonnes publiques (heure, prix, capacité, description) présentes en base ? */
   let extras = false;
+  /** Colonne `is_private` présente en base ? */
+  let privacy = false;
   let cardsBusyId = "";
 
   let formData = {
@@ -51,16 +53,19 @@
     price: "",
     capacity: "",
     description: "",
+    is_private: false,
   };
 
   onMount(async () => {
-    const [, , , hasExtras] = await Promise.all([
+    const [, , , hasExtras, hasPrivacy] = await Promise.all([
       loadTastings(),
       loadWineVintages(),
       loadCustomers(),
       hasTastingExtras(),
+      hasTastingPrivacy(),
     ]);
     extras = hasExtras;
+    privacy = hasPrivacy;
     loading = false;
   });
 
@@ -278,6 +283,7 @@
       price: "",
       capacity: "",
       description: "",
+      is_private: false,
     };
     modalWines = [];
     modalCustomers = [];
@@ -304,6 +310,7 @@
       price: tasting.price != null ? String(tasting.price) : "",
       capacity: tasting.capacity != null ? String(tasting.capacity) : "",
       description: tasting.description || "",
+      is_private: tasting.is_private === true,
     };
     selectedVintageId = "";
     selectedCustomerId = "";
@@ -438,6 +445,7 @@
       payload.capacity = capacity != null ? Math.max(0, Math.round(capacity)) : null;
       payload.description = formData.description.trim() || null;
     }
+    if (privacy) payload.is_private = formData.is_private;
 
     try {
       if (editingTasting) {
@@ -565,7 +573,10 @@
           {#each tastings as tasting (tasting.id)}
             <tr>
               <td>{formatDateFr(tasting.date)}</td>
-              <td><strong>{tasting.name || "—"}</strong></td>
+              <td>
+                <strong>{tasting.name || "—"}</strong>
+                {#if tasting.is_private}<span class="private-badge" title="Non listée sur le site public">Privée</span>{/if}
+              </td>
               <td>{tasting.location || "—"}</td>
               <td class="num">{wineCount(tasting)}</td>
               <td class="num">{customerCount(tasting)}</td>
@@ -637,6 +648,17 @@
         <label for="tasting-location">Lieu</label>
         <input type="text" id="tasting-location" bind:value={formData.location} />
       </div>
+      {#if privacy}
+        <div class="form-group full-width">
+          <label class="checkbox-label">
+            <input type="checkbox" bind:checked={formData.is_private} />
+            Dégustation privée (chez un client, en externe)
+          </label>
+          <small class="field-hint">
+            Non listée sur le site et sans inscription en ligne. La page et le mode live restent accessibles par lien.
+          </small>
+        </div>
+      {/if}
       {#if extras}
         <div class="form-group">
           <label for="tasting-time">Heure</label>
@@ -807,6 +829,20 @@
 
   .actions {
     flex-wrap: wrap;
+  }
+
+  .private-badge {
+    display: inline-flex;
+    align-items: center;
+    height: 20px;
+    margin-left: 8px;
+    padding: 0 8px;
+    border-radius: var(--r-pill);
+    background: var(--st-closed-bg);
+    color: var(--st-closed-fg);
+    font-size: 11px;
+    font-weight: 500;
+    vertical-align: middle;
   }
 
   .field-hint {

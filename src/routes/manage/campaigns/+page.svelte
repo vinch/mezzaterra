@@ -5,7 +5,7 @@
   import { hasTable } from "$lib/features";
   import { formatDateLong, formatTime, todayIso } from "$lib/dates";
   import { formatEur } from "$lib/wine";
-  import { tastingTitle } from "$lib/publicData";
+  import { isPrivateTasting, tastingTitle } from "$lib/publicData";
   import { FLYER_HEIGHT, FLYER_WIDTH, drawTastingFlyer, loadFlyerAssets } from "$lib/tastingFlyer";
 
   type Recipient = { email: string; unsubscribeId?: string | null; source: string };
@@ -52,7 +52,7 @@
       sendEnabled = Boolean(status?.enabled);
       hasRegistrations = regs;
 
-      const upcoming = tastings.filter((t) => t.date >= todayIso()).sort((a, b) => a.date.localeCompare(b.date));
+      const upcoming = tastings.filter((t) => t.date >= todayIso() && !isPrivateTasting(t)).sort((a, b) => a.date.localeCompare(b.date));
       tastingId = upcoming[0]?.id || tastings[0]?.id || "";
       registrantTastingId = tastingId;
       applyTemplate();

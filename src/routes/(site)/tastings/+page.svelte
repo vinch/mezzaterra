@@ -1,14 +1,19 @@
 <script lang="ts">
   import { daysUntil, formatDayMonth, formatDateLong, formatTime } from "$lib/dates";
-  import { tastingTitle } from "$lib/publicData";
+  import { isPrivateTasting, tastingTitle } from "$lib/publicData";
   import { formatEur } from "$lib/wine";
 
   export let data;
 
-  $: ({ tastings, error } = data);
+  $: ({ error } = data);
+  /* Les dégustations privées (chez un client, en externe) ne sont pas listées. */
+  $: tastings = data.tastings.filter((t: any) => !isPrivateTasting(t));
   /* À venir : la plus proche d'abord. Passées : la plus récente d'abord. */
   $: upcoming = tastings.filter((t: any) => daysUntil(t.date) >= 0).reverse();
   $: past = tastings.filter((t: any) => daysUntil(t.date) < 0);
+
+  /* Message privé Instagram : le seul canal de contact public pour l’instant. */
+  const CONTACT_URL = "https://ig.me/m/wearemztr";
 
   function wineCount(t: any): number {
     return t.tasting_wine_vintage?.length ?? 0;
@@ -95,6 +100,13 @@
       </section>
     {/if}
   {/if}
+
+  <section class="block">
+    <div class="mz-card private-cta">
+      <h2 class="mz-display mz-h3">Envie d’une dégustation privée chez vous ?</h2>
+      <a class="mz-btn" href={CONTACT_URL} target="_blank" rel="noopener noreferrer">Contactez-nous</a>
+    </div>
+  </section>
 </div>
 
 <style>
@@ -141,6 +153,19 @@
   .empty-upcoming p {
     margin: 0;
     color: var(--mz-ink-soft);
+  }
+
+  .private-cta {
+    padding: 1.5rem;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 1rem;
+    align-items: center;
+    justify-content: space-between;
+  }
+
+  .private-cta h2 {
+    margin: 0;
   }
 
   .upcoming {
