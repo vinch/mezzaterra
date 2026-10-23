@@ -2,7 +2,7 @@
   import { onMount } from "svelte";
   import ManagePageShell from "$lib/components/manage/ManagePageShell.svelte";
   import { supabase } from "$lib/supabase";
-  import { todayIso } from "$lib/dates";
+  import { addDaysIso, todayIso } from "$lib/dates";
   import { isPrivateTasting } from "$lib/publicData";
   import {
     FLYER_WIDTH,
@@ -24,12 +24,7 @@
 
   /** Prochain vendredi (aujourd’hui inclus). */
   function nextFridayIsoDate(): string {
-    const d = new Date();
-    d.setDate(d.getDate() + ((5 - d.getDay() + 7) % 7));
-    const y = d.getFullYear();
-    const m = String(d.getMonth() + 1).padStart(2, "0");
-    const day = String(d.getDate()).padStart(2, "0");
-    return `${y}-${m}-${day}`;
+    return addDaysIso(todayIso(), (5 - new Date().getDay() + 7) % 7);
   }
 
   onMount(async () => {

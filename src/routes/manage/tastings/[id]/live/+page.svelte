@@ -25,8 +25,6 @@
   import { formatDate, formatEUR } from "$lib/format";
   import { formatTime, isLiveNow } from "$lib/dates";
   import WineBottle from "$lib/components/site/WineBottle.svelte";
-  import GlassProgress from "$lib/components/site/GlassProgress.svelte";
-  import StarRating from "$lib/components/site/StarRating.svelte";
   import { fetchTastingWithWines, tastingTitle } from "$lib/publicData";
   import { broadcastPosition, joinLiveChannel } from "$lib/live";
   import { qrDataUrl } from "$lib/qr";
