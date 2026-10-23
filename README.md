@@ -5,15 +5,15 @@ A Svelte web application with a distinctive visual identity.
 ## Development
 
 ```sh
-npm install
-npm run dev
+pnpm install
+pnpm dev
 ```
 
 ## Building
 
 ```sh
-npm run build
-npm run preview
+pnpm build
+pnpm preview
 ```
 
 ## Base de données
@@ -26,7 +26,7 @@ le site fonctionne en mode dégradé (ces fonctions sont simplement masquées ou
 ```sh
 supabase link --project-ref wmerreifcpttrhxwmkmn
 supabase db push
-npm run update-types
+pnpm update-types
 ```
 
 ## Pages
