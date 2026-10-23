@@ -30,8 +30,7 @@
     type VintageStats,
   } from "$lib/analytics";
   import { addToNextSupplierOrder } from "$lib/reorder";
-  import { isDiscontinued } from "$lib/wine";
-  import { hasTable } from "$lib/features";
+  import { isDiscontinued, vintageShortLabel } from "$lib/wine";
   import { daysUntil, formatDateLong, todayIso } from "$lib/dates";
   import { formatDate, formatEUR } from "$lib/format";
 
@@ -78,41 +77,30 @@
 
   const today = formatDateLong(todayIso());
 
-  function monthStartIso(): string {
-    const d = new Date();
-    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-01`;
-  }
-
-  /** « Riserva 2019 » */
-  function vintageName(v: any): string {
-    const w = v?.wine;
-    const name = w?.name?.trim() || w?.appelation?.name || "Vin";
-    const year = v?.year ?? v?.production_year;
-    return year ? `${name} ${year}` : name;
-  }
-
   async function loadDashboardStats() {
     statsLoading = true;
     statsError = "";
 
     try {
-      const monthStart = monthStartIso();
-      const [ds, customersRes, winesRes, vintagesRes, tastingsRes, nextRes, lastRes] = await Promise.all([
+      const monthStart = todayIso().slice(0, 8) + "01";
+      const [ds, customersRes, winesRes, tastingsRes, nextRes, lastRes, requestsRes] = await Promise.all([
         loadDataset(),
         supabase.from("customer").select("id", { count: "exact", head: true }),
         supabase.from("wine").select("id", { count: "exact", head: true }),
-        supabase.from("wine_vintage").select("id", { count: "exact", head: true }),
         supabase.from("tasting").select("id", { count: "exact", head: true }),
         supabase
           .from("tasting")
-          .select("*, tasting_wine_vintage ( wine_vintage_id ), tasting_customer ( customer_id )")
+          .select(
+            "*, tasting_wine_vintage ( wine_vintage_id ), tasting_customer ( customer_id ), tasting_registration ( seats, status )",
+          )
           .gte("date", todayIso())
           .order("date", { ascending: true })
           .limit(1),
         supabase.from("tasting").select("id, name, date, location").lt("date", todayIso()).order("date", { ascending: false }).limit(1),
+        supabase.from("wish_request").select("id", { count: "exact", head: true }).eq("status", "new"),
       ]);
 
-      const firstErr = customersRes.error || winesRes.error || vintagesRes.error || tastingsRes.error;
+      const firstErr = customersRes.error || winesRes.error || tastingsRes.error;
       if (firstErr) throw new Error(firstErr.message);
 
       const inStock = [...ds.stock.values()].filter((q) => q > 0);
@@ -132,7 +120,7 @@
         stockValue: ds.vintages.reduce((s, v) => s + Math.max(0, ds.stock.get(v.id) ?? 0) * Number(v.purchase_price || 0), 0),
         lowCount: inStock.filter((q) => q <= LOW_STOCK).length,
         wines: winesRes.count ?? 0,
-        vintages: vintagesRes.count ?? 0,
+        vintages: ds.vintages.length,
         customers: customersRes.count ?? 0,
         tastings: tastingsRes.count ?? 0,
       };
@@ -150,20 +138,12 @@
 
       nextTasting = (nextRes.data || [])[0] ?? null;
       lastTasting = (lastRes.data || [])[0] ?? null;
-      nextTastingSeats = null;
-      if (nextTasting && (await hasTable("tasting_registration"))) {
-        const { data } = await supabase
-          .from("tasting_registration")
-          .select("seats")
-          .eq("tasting_id", nextTasting.id)
-          .eq("status", "confirmed");
-        nextTastingSeats = (data || []).reduce((s, r) => s + r.seats, 0);
-      }
-      newRequests = 0;
-      if (await hasTable("wish_request")) {
-        const { count } = await supabase.from("wish_request").select("id", { count: "exact", head: true }).eq("status", "new");
-        newRequests = count ?? 0;
-      }
+      nextTastingSeats = nextTasting
+        ? (nextTasting.tasting_registration || [])
+            .filter((r: any) => r.status === "confirmed")
+            .reduce((s: number, r: any) => s + r.seats, 0)
+        : null;
+      newRequests = requestsRes.count ?? 0;
     } catch (e) {
       statsError = e instanceof Error ? e.message : "Impossible de charger les statistiques";
     } finally {
@@ -172,7 +152,7 @@
   }
 
   async function reorder(s: VintageStats) {
-    const raw = prompt(`Combien de bouteilles de « ${vintageName(s.vintage)} » ajouter à la commande fournisseur ?`, "12");
+    const raw = prompt(`Combien de bouteilles de « ${vintageShortLabel(s.vintage)} » ajouter à la commande fournisseur ?`, "12");
     if (raw == null) return;
     const qty = parseInt(raw, 10);
     if (!Number.isFinite(qty) || qty < 1) return;
@@ -369,7 +349,7 @@
                 <li>
                   <span class="rank-name">
                     <WineDot robe={robeOf(w.vintage.wine?.wine_type)} />
-                    <span><strong>{vintageName(w.vintage)}</strong><span class="t-muted">&nbsp;· {w.vintage.wine?.winery?.name ?? ""}</span></span>
+                    <span><strong>{vintageShortLabel(w.vintage)}</strong><span class="t-muted">&nbsp;· {w.vintage.wine?.winery?.name ?? ""}</span></span>
                   </span>
                   <span class="rank-value"><strong>{formatEUR(w.revenue)}</strong><span class="t-muted">{w.sold} bt.</span></span>
                   <span class="rank-bar" aria-hidden="true"><span style="width: {(w.revenue / topWines[0].revenue) * 100}%"></span></span>
@@ -390,7 +370,7 @@
                 <li>
                   <WineDot robe={robeOf(s.vintage.wine?.wine_type)} />
                   <span class="list-main">
-                    <span><strong>{vintageName(s.vintage)}</strong><span class="t-muted">&nbsp;· {s.vintage.wine?.winery?.name ?? ""}</span></span>
+                    <span><strong>{vintageShortLabel(s.vintage)}</strong><span class="t-muted">&nbsp;· {s.vintage.wine?.winery?.name ?? ""}</span></span>
                     <span class="t-caption">{s.sold ? `${s.sold} vendue${s.sold > 1 ? "s" : ""}` : "aucune vente"}</span>
                   </span>
                   {#if s.stock <= 0}
@@ -417,7 +397,7 @@
                 <li>
                   <WineDot robe={robeOf(s.vintage.wine?.wine_type)} />
                   <span class="list-main">
-                    <span><strong>{vintageName(s.vintage)}</strong><span class="t-muted">&nbsp;· {s.vintage.wine?.winery?.name ?? ""}</span></span>
+                    <span><strong>{vintageShortLabel(s.vintage)}</strong><span class="t-muted">&nbsp;· {s.vintage.wine?.winery?.name ?? ""}</span></span>
                     <span class="t-caption">
                       {s.stock} bt. · {#if s.lastSale}dernière vente il y a <strong class="t-warn">{s.idleDays} j</strong>{:else}<strong class="t-warn">jamais vendu</strong>{/if}
                     </span>

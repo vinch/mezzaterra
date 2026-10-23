@@ -2,12 +2,10 @@
   import { onMount } from "svelte";
   import { supabase } from "$lib/supabase";
   import ManagePageShell from "$lib/components/manage/ManagePageShell.svelte";
-  import { hasTable } from "$lib/features";
   import { vintageLabel } from "$lib/wine";
   import { formatDate, formatEUR } from "$lib/format";
-  import { createSaleFromWish, setWishStatus, wishItems, type WishRequest } from "$lib/wishes";
+  import { createSaleFromWish, setWishStatus, wishItems, wishTotal, type WishRequest } from "$lib/wishes";
 
-  let available = true;
   let loading = true;
   let error = "";
   let wishes: WishRequest[] = [];
@@ -18,8 +16,7 @@
   let busyId = "";
 
   onMount(async () => {
-    available = await hasTable("wish_request");
-    if (available) await load();
+    await load();
     loading = false;
   });
 
@@ -48,10 +45,6 @@
     dismissed: wishes.filter((w) => w.status === "dismissed").length,
     all: wishes.length,
   };
-
-  function total(w: WishRequest): number {
-    return wishItems(w.items).reduce((s, i) => s + i.quantity * (prices.get(i.wine_vintage_id) ?? 0), 0);
-  }
 
   function tastingName(id: string | null): string {
     if (!id) return "Site";
@@ -87,13 +80,6 @@
 <ManagePageShell title="Demandes">
   {#if loading}
     <div class="loading">Chargement…</div>
-  {:else if !available}
-    <div class="empty-state">
-      <p>
-        Les demandes « J’en veux » envoyées pendant les dégustations live apparaîtront ici une fois la
-        migration <code>20261016120000_public_experience.sql</code> appliquée.
-      </p>
-    </div>
   {:else}
     {#if error}<div class="error-message">{error}</div>{/if}
 
@@ -132,7 +118,7 @@
                 {/each}
               </tbody>
               <tfoot>
-                <tr><td></td><td>Total au prix catalogue</td><td class="num"><strong>{formatEUR(total(w))}</strong></td></tr>
+                <tr><td></td><td>Total au prix catalogue</td><td class="num"><strong>{formatEUR(wishTotal(w, prices))}</strong></td></tr>
               </tfoot>
             </table>
             {#if w.message}<p class="message">« {w.message} »</p>{/if}

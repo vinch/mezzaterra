@@ -7,9 +7,8 @@
   import StarRating from "$lib/components/site/StarRating.svelte";
   import { customerDisplayLabel } from "$lib/customerDisplay";
   import { REVENUE_STATUSES, lineTotal, type SaleItemRow } from "$lib/analytics";
-  import { hasTable } from "$lib/features";
   import { daysUntil } from "$lib/dates";
-  import { vintageLabel } from "$lib/wine";
+  import { vintageLabel, vintageShortLabel } from "$lib/wine";
   import { formatDate, formatEUR } from "$lib/format";
   import Button from "$lib/ui/Button.svelte";
   import IconButton from "$lib/ui/IconButton.svelte";
@@ -63,7 +62,7 @@
       vintages = vRes.data || [];
       stock = new Map((iRes.data || []).map((r: any) => [r.wine_vintage_id, r.quantity_on_hand ?? 0]));
 
-      if (customer?.email && (await hasTable("tasting_feedback"))) {
+      if (customer?.email) {
         const { data } = await supabase
           .from("tasting_feedback")
           .select("*")
@@ -165,13 +164,6 @@
     if (next.has(id)) next.delete(id);
     else next.add(id);
     unchecked = next;
-  }
-
-  function wineName(v: any): string {
-    const w = v?.wine;
-    const name = w?.name?.trim() || w?.appelation?.name || "Vin";
-    const year = v?.year ?? v?.production_year;
-    return year ? `${name} ${year}` : name;
   }
 
   function mailto(): string {
@@ -301,7 +293,7 @@
                   <input type="checkbox" checked={!unchecked.has(sg.vintage.id)} on:change={() => toggleSuggestion(sg.vintage.id)} />
                   <WineDot robe={robeOf(sg.vintage.wine?.wine_type)} />
                   <span class="list-main">
-                    <span><strong>{wineName(sg.vintage)}</strong><span class="t-muted">&nbsp;· {sg.vintage.wine?.winery?.name ?? ""}</span></span>
+                    <span><strong>{vintageShortLabel(sg.vintage)}</strong><span class="t-muted">&nbsp;· {sg.vintage.wine?.winery?.name ?? ""}</span></span>
                     <span class="t-caption" class:t-warn={(stock.get(sg.vintage.id) ?? 0) <= 3}>
                       {sg.reason}{(stock.get(sg.vintage.id) ?? 0) <= 3 ? ` · plus que ${stock.get(sg.vintage.id)} bt.` : ""}
                     </span>
@@ -324,7 +316,7 @@
               <li>
                 <WineDot robe={robeOf(b.vintage.wine?.wine_type)} />
                 <span class="list-main">
-                  <span><strong>{wineName(b.vintage)}</strong><span class="t-muted">&nbsp;· {b.vintage.wine?.winery?.name ?? ""}</span></span>
+                  <span><strong>{vintageShortLabel(b.vintage)}</strong><span class="t-muted">&nbsp;· {b.vintage.wine?.winery?.name ?? ""}</span></span>
                   <span class="t-caption">Dernier achat le {formatDate(b.last)}</span>
                 </span>
                 <strong>{b.qty} bt.</strong>
@@ -357,7 +349,7 @@
             {#each feedback as f}
               <li>
                 <span class="list-main">
-                  <strong>{wineName(vintageById.get(f.wine_vintage_id))}</strong>
+                  <strong>{vintageShortLabel(vintageById.get(f.wine_vintage_id))}</strong>
                   {#if f.comment}<span class="t-caption">« {f.comment} »</span>{/if}
                 </span>
                 {#if f.rating}<StarRating value={f.rating} readonly size="0.9rem" />{/if}
@@ -399,7 +391,7 @@
                       {#if i > 0}<span class="t-muted">&nbsp;· </span>{/if}
                       {#if it.wine_vintage_id}
                         {@const v = vintageById.get(it.wine_vintage_id)}
-                        <span class="item"><WineDot robe={robeOf(v?.wine?.wine_type)} /> {it.quantity} × {wineName(v)}<span class="t-muted">&nbsp;· {v?.wine?.winery?.name ?? ""}</span></span>
+                        <span class="item"><WineDot robe={robeOf(v?.wine?.wine_type)} /> {it.quantity} × {vintageShortLabel(v)}<span class="t-muted">&nbsp;· {v?.wine?.winery?.name ?? ""}</span></span>
                       {:else}
                         <span class="item">{it.quantity} × {it.note || "Dégustation"}</span>
                       {/if}

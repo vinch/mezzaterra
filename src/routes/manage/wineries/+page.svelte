@@ -124,10 +124,7 @@
       region_id: formData.region_id || null,
       latitude: formData.latitude ? parseFloat(formData.latitude) : null,
       longitude: formData.longitude ? parseFloat(formData.longitude) : null,
-      /* Colonne ajoutée par une migration : on ne l'envoie que si elle existe déjà. */
-      ...(wineries.some((w) => "description" in w)
-        ? { description: formData.description.trim() || null }
-        : {}),
+      description: formData.description.trim() || null,
     };
 
     if (editingWinery) {

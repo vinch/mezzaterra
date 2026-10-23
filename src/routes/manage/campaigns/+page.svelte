@@ -2,7 +2,6 @@
   import { onMount } from "svelte";
   import { supabase } from "$lib/supabase";
   import ManagePageShell from "$lib/components/manage/ManagePageShell.svelte";
-  import { hasTable } from "$lib/features";
   import { formatDateLong, formatTime, todayIso } from "$lib/dates";
   import { formatEUR } from "$lib/format";
   import { isPrivateTasting, tastingTitle } from "$lib/publicData";
@@ -17,7 +16,6 @@
   let subscribers: { id: string; email: string }[] = [];
   let customers: { email: string; first_name: string }[] = [];
   let tastings: any[] = [];
-  let hasRegistrations = false;
   let registrations: { email: string; status: string }[] = [];
 
   let useSubscribers = true;
@@ -37,20 +35,18 @@
 
   onMount(async () => {
     try {
-      const [subs, cust, tast, status, regs] = await Promise.all([
+      const [subs, cust, tast, status] = await Promise.all([
         supabase.from("email_subscriber").select("id, email").order("created_at", { ascending: false }),
         supabase.from("customer").select("email, first_name").not("email", "is", null),
         supabase.from("tasting").select("*").order("date", { ascending: false }),
         fetch("/api/campaign")
           .then((r) => (r.ok ? r.json() : { enabled: false }))
           .catch(() => ({ enabled: false })),
-        hasTable("tasting_registration"),
       ]);
       subscribers = subs.data || [];
       customers = (cust.data || []).filter((c) => c.email) as any[];
       tastings = tast.data || [];
       sendEnabled = Boolean(status?.enabled);
-      hasRegistrations = regs;
 
       const upcoming = tastings.filter((t) => t.date >= todayIso() && !isPrivateTasting(t)).sort((a, b) => a.date.localeCompare(b.date));
       tastingId = upcoming[0]?.id || tastings[0]?.id || "";
@@ -63,7 +59,7 @@
     }
   });
 
-  $: if (hasRegistrations && useRegistrants && registrantTastingId) void loadRegistrations(registrantTastingId);
+  $: if (useRegistrants && registrantTastingId) void loadRegistrations(registrantTastingId);
 
   async function loadRegistrations(id: string) {
     const { data } = await supabase.from("tasting_registration").select("email, status").eq("tasting_id", id);
@@ -119,7 +115,7 @@
       ].join("\n\n");
       useSubscribers = false;
       useCustomers = false;
-      useRegistrants = hasRegistrations;
+      useRegistrants = true;
       registrantTastingId = t.id;
       attachFlyer = false;
     } else if (template === "free") {
@@ -237,15 +233,13 @@
         <h2>2. Destinataires <span class="count">{recipients.length}</span></h2>
         <label class="check"><input type="checkbox" bind:checked={useSubscribers} /> Abonnés newsletter <span class="muted">({subscribers.length})</span></label>
         <label class="check"><input type="checkbox" bind:checked={useCustomers} /> Clients avec email <span class="muted">({customers.length})</span></label>
-        {#if hasRegistrations}
-          <label class="check"><input type="checkbox" bind:checked={useRegistrants} /> Inscrits à une dégustation</label>
-          {#if useRegistrants}
-            <select class="indent" bind:value={registrantTastingId}>
-              {#each tastings as t}
-                <option value={t.id}>{tastingTitle(t)} — {formatDateLong(t.date)}</option>
-              {/each}
-            </select>
-          {/if}
+        <label class="check"><input type="checkbox" bind:checked={useRegistrants} /> Inscrits à une dégustation</label>
+        {#if useRegistrants}
+          <select class="indent" bind:value={registrantTastingId}>
+            {#each tastings as t}
+              <option value={t.id}>{tastingTitle(t)} — {formatDateLong(t.date)}</option>
+            {/each}
+          </select>
         {/if}
         <p class="muted small">Doublons fusionnés automatiquement.</p>
 

@@ -88,6 +88,45 @@ export function vintageLabel(v: {
   return parts.join(" — ");
 }
 
+/** « Riserva 2019 » : nom court, sans domaine (listes de l'admin). */
+export function vintageShortLabel(v: {
+  year?: number | null;
+  production_year?: number | null;
+  wine?: WineLike;
+} | null | undefined): string {
+  const name = v?.wine?.name?.trim() || v?.wine?.appelation?.name || "Vin";
+  const year = v?.year ?? v?.production_year;
+  return year ? `${name} ${year}` : name;
+}
+
+/**
+ * « Domaine - Cuvée - 2022 » (ou « Domaine - Cuvée (2021) » sans millésime) : libellé des lignes
+ * de vente, de commande et de transport, factures et bons de commande compris.
+ */
+export function vintageProductLabel(v: {
+  year?: number | null;
+  production_year?: number | null;
+  wine?: WineLike;
+}): string {
+  const winery = v.wine?.winery?.name;
+  const name = v.wine?.name || v.wine?.appelation?.name;
+  const base = name ? `${winery} - ${name}` : `${winery}`;
+  return v.year ? `${base} - ${v.year}` : `${base} (${v.production_year})`;
+}
+
+type SortableVintage = { year?: number | null; production_year?: number | null; wine?: WineLike };
+
+/** Tri des sélecteurs de l'admin : domaine, puis cuvée (ou appellation), puis année décroissante. */
+export function compareVintages(a: SortableVintage, b: SortableVintage): number {
+  const wineryA = a.wine?.winery?.name?.toLowerCase() || "";
+  const wineryB = b.wine?.winery?.name?.toLowerCase() || "";
+  if (wineryA !== wineryB) return wineryA.localeCompare(wineryB);
+  const nameA = a.wine?.name?.toLowerCase() || a.wine?.appelation?.name?.toLowerCase() || "";
+  const nameB = b.wine?.name?.toLowerCase() || b.wine?.appelation?.name?.toLowerCase() || "";
+  if (nameA !== nameB) return nameA.localeCompare(nameB);
+  return (b.year || b.production_year || 0) - (a.year || a.production_year || 0);
+}
+
 export function grapesText(
   grapes: { percentage?: number | null; grape?: { name?: string | null } | null }[] | null | undefined,
   withPercent = false,

@@ -1,11 +1,9 @@
 <script lang="ts">
   import { onMount } from "svelte";
   import { supabase } from "$lib/supabase";
-  import { isMissingSchemaError } from "$lib/features";
   import { fetchSeats, type SeatInfo } from "$lib/publicData";
 
   export let tastingId: string;
-  export let compact = false;
 
   let seats: SeatInfo | null = null;
   let firstName = "";
@@ -16,8 +14,6 @@
   let submitting = false;
   let result: "confirmed" | "waitlist" | "already_registered" | null = null;
   let errorMsg = "";
-  /** La fonction d'inscription n'existe pas encore en base : on retombe sur la newsletter. */
-  let fallback = false;
 
   const ERRORS: Record<string, string> = {
     invalid_email: "Cette adresse email ne semble pas valide.",
@@ -50,20 +46,6 @@
       p_seats: count,
     });
 
-    if (error && isMissingSchemaError(error)) {
-      fallback = true;
-      const { error: subErr } = await supabase
-        .from("email_subscriber")
-        .insert({ email: email.trim().toLowerCase(), source: "homepage" });
-      submitting = false;
-      if (subErr && subErr.code !== "23505") {
-        errorMsg = "Impossible d’enregistrer votre demande pour le moment.";
-        return;
-      }
-      result = "confirmed";
-      return;
-    }
-
     submitting = false;
     if (error) {
       const key = Object.keys(ERRORS).find((k) => error.message?.includes(k));
@@ -76,7 +58,7 @@
   }
 </script>
 
-<div class="registration" class:compact>
+<div class="registration">
   {#if seats?.seats_left != null}
     <p class="seats" class:full>
       {#if full}
@@ -92,9 +74,7 @@
 
   {#if result}
     <div class="done" role="status">
-      {#if fallback}
-        <p><strong>Merci !</strong> Nous vous recontactons très vite pour confirmer votre place.</p>
-      {:else if result === "confirmed"}
+      {#if result === "confirmed"}
         <p><strong>C’est noté, {firstName} !</strong> Votre place est réservée. À très vite 🍷</p>
       {:else if result === "waitlist"}
         <p><strong>Vous êtes sur la liste d’attente.</strong> Nous vous prévenons dès qu’une place se libère.</p>
@@ -182,10 +162,6 @@
     display: grid;
     grid-template-columns: 1fr 1fr;
     gap: 0.9rem 1rem;
-  }
-
-  .compact .form {
-    grid-template-columns: 1fr;
   }
 
   .seats-field {

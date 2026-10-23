@@ -4,10 +4,10 @@ import { supabase } from "./supabase";
 
 /**
  * Mode dégustation live.
- * - La position du vin servi est poussée par l'admin via Realtime Broadcast (aucune table requise)
- *   et, si la colonne existe, persistée dans `tasting.live_position` pour les retardataires.
- * - Les notes et le panier des invités vivent d'abord dans le localStorage (ça marche hors-ligne
- *   et sans migration), puis sont envoyés en base quand c'est possible.
+ * - La position du vin servi est poussée par l'admin via Realtime Broadcast
+ *   et persistée dans `tasting.live_position` pour les retardataires.
+ * - Les notes et le panier des invités vivent d'abord dans le localStorage (ça marche hors-ligne),
+ *   puis sont envoyés en base quand c’est possible.
  */
 
 export type GuestProfile = { firstName: string; lastName: string; email: string; phone: string };

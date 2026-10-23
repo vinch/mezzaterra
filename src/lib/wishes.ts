@@ -31,6 +31,11 @@ export type WishRequest = {
   created_at: string;
 };
 
+/** Montant d'une demande au prix catalogue. */
+export function wishTotal(w: WishRequest, prices: Map<string, number>): number {
+  return wishItems(w.items).reduce((s, i) => s + i.quantity * (prices.get(i.wine_vintage_id) ?? 0), 0);
+}
+
 /** Client existant (même email, sinon même téléphone) ou nouveau client. */
 export async function findOrCreateCustomer(input: ContactInput): Promise<{ id: string; created: boolean }> {
   const email = input.email?.trim().toLowerCase() || null;

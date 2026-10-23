@@ -8,7 +8,6 @@
   import CommandPalette from "$lib/components/manage/CommandPalette.svelte";
   import Sidebar, { type NavSection } from "$lib/ui/Sidebar.svelte";
   import IconButton from "$lib/ui/IconButton.svelte";
-  import { hasTable } from "$lib/features";
   import {
     IconBox,
     IconCastle,
@@ -144,16 +143,11 @@
 
   async function refreshCounts() {
     if (!$userStore || $isAdminStore === false) return;
-    const { count } = await supabase
-      .from("sale")
-      .select("id", { count: "exact", head: true })
-      .eq("status", "pending");
+    const [{ count }, { count: wishes }] = await Promise.all([
+      supabase.from("sale").select("id", { count: "exact", head: true }).eq("status", "pending"),
+      supabase.from("wish_request").select("id", { count: "exact", head: true }).eq("status", "new"),
+    ]);
     pendingSales = count ?? 0;
-    if (!(await hasTable("wish_request"))) return;
-    const { count: wishes } = await supabase
-      .from("wish_request")
-      .select("id", { count: "exact", head: true })
-      .eq("status", "new");
     newRequests = wishes ?? 0;
   }
 
