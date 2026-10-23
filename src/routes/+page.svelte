@@ -137,9 +137,9 @@
     </ol>
 
     <div class="photos mz-rise" style="animation-delay: 300ms">
-      <img src="/flyer/photo-1.jpg" alt="Bouteilles des domaines alignées sur une table" loading="lazy" />
-      <img src="/flyer/photo-2.jpg" alt="Une tablée de dégustation autour du vigneron" loading="lazy" />
-      <img src="/flyer/photo-3.jpg" alt="Plateau de charcuterie et de fromages italiens" loading="lazy" />
+      <img src="/flyer/photo-1.webp" width="826" height="1100" alt="Bouteilles des domaines alignées sur une table" loading="lazy" />
+      <img src="/flyer/photo-2.webp" width="1050" height="1400" alt="Une tablée de dégustation autour du vigneron" loading="lazy" />
+      <img src="/flyer/photo-3.webp" width="826" height="1100" alt="Plateau de charcuterie et de fromages italiens" loading="lazy" />
     </div>
 
     <section id="newsletter" class="cta" aria-labelledby="cta-title">
@@ -337,6 +337,15 @@
     object-fit: cover;
     border-radius: var(--mz-radius);
     box-shadow: var(--mz-shadow-sm);
+  }
+
+  /* Recadrage : le goulot des bouteilles et le vigneron restent dans le cadre */
+  .photos img:nth-child(1) {
+    object-position: 50% 55%;
+  }
+
+  .photos img:nth-child(2) {
+    object-position: 50% 35%;
   }
 
   .cta {
