@@ -10,3 +10,8 @@ if (!supabaseUrl || !supabaseAnonKey) {
 }
 
 export const supabase = createClient<Database>(supabaseUrl, supabaseAnonKey);
+
+/** Valeur littérale pour `.ilike()` (comparaison insensible à la casse, sans jokers `%` ni `_`). */
+export function escapeLike(value: string): string {
+  return value.replace(/[\\%_]/g, "\\$&");
+}

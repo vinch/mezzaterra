@@ -14,6 +14,7 @@
 
 <script lang="ts">
   import { createEventDispatcher, onDestroy, tick } from "svelte";
+  import { portal } from "./portal";
 
   /**
    * Menu déroulant accessible (role=menu), rendu dans <body> pour ne jamais être rogné.
@@ -29,11 +30,6 @@
   const dispatch = createEventDispatcher<{ close: void }>();
   let menuEl: HTMLElement;
   let style = "";
-
-  function portal(node: HTMLElement) {
-    document.body.appendChild(node);
-    return { destroy: () => node.remove() };
-  }
 
   function position() {
     if (!anchor || !menuEl) return;

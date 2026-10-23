@@ -4,6 +4,7 @@ import { env as publicEnv } from "$env/dynamic/public";
 import { env } from "$env/dynamic/private";
 import type { RequestHandler } from "./$types";
 import type { Database } from "$lib/database.types";
+import { escapeHtml, isValidEmail, resendPost } from "$lib/server/email";
 
 /**
  * Envoi de campagnes email via Resend (https://resend.com).
@@ -20,10 +21,6 @@ const BATCH_SIZE = 100;
 
 function enabled(): boolean {
   return Boolean(env.RESEND_API_KEY && env.CAMPAIGN_FROM);
-}
-
-function escapeHtml(s: string): string {
-  return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
 }
 
 /** Texte brut → HTML sobre aux couleurs Mezzaterra (liens cliquables, paragraphes). */
@@ -80,7 +77,7 @@ export const POST: RequestHandler = async ({ request, url }) => {
 
   const subject = body?.subject?.trim();
   const text = body?.text?.trim();
-  const recipients = (body?.recipients || []).filter((r) => /^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(r?.email || ""));
+  const recipients = (body?.recipients || []).filter((r) => isValidEmail(r?.email || ""));
   if (!subject || !text) throw error(400, "Objet et message obligatoires");
   if (!recipients.length) throw error(400, "Aucun destinataire valide");
   if (recipients.length > MAX_RECIPIENTS) throw error(400, `Maximum ${MAX_RECIPIENTS} destinataires par envoi`);
@@ -110,20 +107,12 @@ export const POST: RequestHandler = async ({ request, url }) => {
     /* L'API batch de Resend n'accepte pas les pièces jointes : envoi unitaire dans ce cas. */
     if (attachment) {
       for (const p of payload) {
-        const res = await fetch("https://api.resend.com/emails", {
-          method: "POST",
-          headers: { Authorization: `Bearer ${env.RESEND_API_KEY}`, "Content-Type": "application/json" },
-          body: JSON.stringify(p),
-        });
+        const res = await resendPost("/emails", p);
         if (res.ok) sent += 1;
         else failures.push(`${p.to[0]} : ${res.status}`);
       }
     } else {
-      const res = await fetch("https://api.resend.com/emails/batch", {
-        method: "POST",
-        headers: { Authorization: `Bearer ${env.RESEND_API_KEY}`, "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
-      });
+      const res = await resendPost("/emails/batch", payload);
       if (res.ok) sent += chunk.length;
       else failures.push(`Lot ${i / BATCH_SIZE + 1} : ${res.status} ${(await res.text()).slice(0, 200)}`);
     }

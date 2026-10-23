@@ -1,7 +1,7 @@
 <script lang="ts">
   import { onMount } from "svelte";
   import { page } from "$app/stores";
-  import { supabase } from "$lib/supabase";
+  import { escapeLike, supabase } from "$lib/supabase";
   import { goto } from "$app/navigation";
   import ManagePageShell from "$lib/components/manage/ManagePageShell.svelte";
   import StarRating from "$lib/components/site/StarRating.svelte";
@@ -66,7 +66,7 @@
         const { data } = await supabase
           .from("tasting_feedback")
           .select("*")
-          .ilike("guest_email", customer.email.replace(/[\\%_]/g, "\\$&"))
+          .ilike("guest_email", escapeLike(customer.email))
           .order("created_at", { ascending: true });
         const latest = new Map<string, any>();
         for (const f of data || []) latest.set(`${f.tasting_id}:${f.wine_vintage_id}`, f);

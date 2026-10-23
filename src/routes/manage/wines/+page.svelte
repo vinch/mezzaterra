@@ -29,7 +29,7 @@
   } from "$lib/ui/icons";
   import IconPlate from "@lucide/svelte/icons/utensils-crossed";
   import { formatEUR } from "$lib/format";
-  import { addToNextSupplierOrder } from "$lib/reorder";
+  import { promptReorder } from "$lib/reorder";
   import { isDiscontinued } from "$lib/wine";
   import { fetchStockMap } from "$lib/manageData";
 
@@ -409,12 +409,8 @@
   async function reorder(wine: any) {
     const v = latestVintage(wine);
     if (!v) return;
-    const raw = prompt(`Combien de bouteilles de « ${wineTitle(wine)} ${v.year ?? ""} » commander ?`, "12");
-    const qty = parseInt(raw ?? "", 10);
-    if (!Number.isFinite(qty) || qty < 1) return;
     try {
-      const res = await addToNextSupplierOrder(v.id, qty, Number(v.purchase_price || 0));
-      notice = `${qty} bt. ajoutées à ${res.created ? "une nouvelle commande" : "la commande en attente"} chez ${res.supplierName}.`;
+      notice = (await promptReorder(`${wineTitle(wine)} ${v.year ?? ""}`.trim(), v)) ?? notice;
     } catch (e) {
       error = e instanceof Error ? e.message : String(e);
     }

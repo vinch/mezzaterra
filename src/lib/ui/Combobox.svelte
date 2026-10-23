@@ -14,6 +14,7 @@
 <script lang="ts">
   import { createEventDispatcher, onMount, tick } from "svelte";
   import { IconSearch } from "./icons";
+  import { portal } from "./portal";
   import { fold } from "$lib/format";
 
   /**
@@ -55,11 +56,6 @@
     query = selected ? selected.label : "";
   }
   $: if (selected && !open && query !== selected.label) query = selected.label;
-
-  function portal(node: HTMLElement) {
-    document.body.appendChild(node);
-    return { destroy: () => node.remove() };
-  }
 
   function position() {
     if (!inputEl || !open) return;

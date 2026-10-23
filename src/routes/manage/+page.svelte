@@ -29,7 +29,7 @@
     vintageStats,
     type VintageStats,
   } from "$lib/analytics";
-  import { addToNextSupplierOrder } from "$lib/reorder";
+  import { promptReorder } from "$lib/reorder";
   import { isDiscontinued, vintageShortLabel } from "$lib/wine";
   import { daysUntil, formatDateLong, todayIso } from "$lib/dates";
   import { formatDate, formatEUR } from "$lib/format";
@@ -152,15 +152,9 @@
   }
 
   async function reorder(s: VintageStats) {
-    const raw = prompt(`Combien de bouteilles de « ${vintageShortLabel(s.vintage)} » ajouter à la commande fournisseur ?`, "12");
-    if (raw == null) return;
-    const qty = parseInt(raw, 10);
-    if (!Number.isFinite(qty) || qty < 1) return;
     reorderBusy = s.vintage.id;
-    reorderMsg = "";
     try {
-      const res = await addToNextSupplierOrder(s.vintage.id, qty, Number(s.vintage.purchase_price || 0));
-      reorderMsg = `${qty} bt. ajoutées à ${res.created ? "une nouvelle commande" : "la commande en attente"} chez ${res.supplierName}.`;
+      reorderMsg = (await promptReorder(vintageShortLabel(s.vintage), s.vintage)) ?? reorderMsg;
     } catch (e) {
       reorderMsg = e instanceof Error ? e.message : String(e);
     } finally {

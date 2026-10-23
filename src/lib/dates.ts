@@ -19,13 +19,16 @@ export function addDaysIso(iso: string, days: number): string {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 }
 
+const longDate = new Intl.DateTimeFormat("fr-FR", {
+  weekday: "long",
+  day: "numeric",
+  month: "long",
+  year: "numeric",
+});
+const shortMonth = new Intl.DateTimeFormat("fr-FR", { month: "short" });
+
 export function formatDateLong(iso: string): string {
-  const s = parseIsoDate(iso).toLocaleDateString("fr-FR", {
-    weekday: "long",
-    day: "numeric",
-    month: "long",
-    year: "numeric",
-  });
+  const s = longDate.format(parseIsoDate(iso));
   return s.charAt(0).toUpperCase() + s.slice(1);
 }
 
@@ -33,7 +36,7 @@ export function formatDayMonth(iso: string): { day: string; month: string; year:
   const d = parseIsoDate(iso);
   return {
     day: String(d.getDate()),
-    month: d.toLocaleDateString("fr-FR", { month: "short" }).replace(".", ""),
+    month: shortMonth.format(d).replace(".", ""),
     year: String(d.getFullYear()),
   };
 }

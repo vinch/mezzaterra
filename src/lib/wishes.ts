@@ -1,4 +1,4 @@
-import { supabase } from "./supabase";
+import { escapeLike, supabase } from "./supabase";
 import { todayIso } from "./dates";
 
 /**
@@ -42,7 +42,7 @@ export async function findOrCreateCustomer(input: ContactInput): Promise<{ id: s
   const phone = input.phone?.trim() || null;
 
   if (email) {
-    const { data } = await supabase.from("customer").select("id").ilike("email", email.replace(/[\\%_]/g, "\\$&")).limit(1);
+    const { data } = await supabase.from("customer").select("id").ilike("email", escapeLike(email)).limit(1);
     if (data?.length) return { id: data[0].id, created: false };
   }
   if (phone) {
