@@ -70,7 +70,7 @@
         return;
       }
       /* jsPDF et qrcode ne sont chargés qu'au moment de générer les fiches. */
-      const { downloadTableCardsPdf } = await import("$lib/tableCards");
+      const { downloadTableCardsPdf } = await import("$lib/pdf/tableCardsPdf");
       await downloadTableCardsPdf(res.tasting, res.wineVintages, window.location.origin);
     } catch (e) {
       error = e instanceof Error ? e.message : "Génération des fiches impossible";

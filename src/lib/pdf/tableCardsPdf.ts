@@ -1,8 +1,8 @@
 import jsPDF from "jspdf";
-import { attachRobotoPdf, svgToPng } from "./manageDocumentPdfs";
-import { qrDataUrl } from "./qr";
-import { formatDateLong } from "./dates";
-import { tastingTitle } from "./publicData";
+import { attachRobotoPdf, svgToPng } from "./assets";
+import { qrDataUrl } from "$lib/qr";
+import { formatDateLong } from "$lib/dates";
+import { tastingTitle } from "$lib/publicData";
 import {
   NOTE_TYPES,
   findNote,
@@ -10,8 +10,8 @@ import {
   wineStyle,
   wineSubtitle,
   wineTitle,
-} from "./wine";
-import { formatEUR } from "./format";
+} from "$lib/wine";
+import { formatEUR } from "$lib/format";
 
 /**
  * Fiches de table A5 (une par vin, à poser à côté de la bouteille) + une affiche A4

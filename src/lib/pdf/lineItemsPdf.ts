@@ -6,6 +6,13 @@ import jsPDF from "jspdf";
  * tableau d'articles (description + colonnes chiffrées centrées), totaux, puis mentions.
  */
 
+/** Lignes d'articles (vente ou commande) : de quoi les libeller et les chiffrer. */
+export const LINE_ITEMS_SELECT =
+  "price, quantity, wine_vintage_id, wine_vintage ( year, production_year, purchase_price, wine ( name, winery ( name ), appelation ( name ) ) )";
+
+/** Lignes de vente : remises et note (ligne dégustation) en plus. */
+export const SALE_LINE_ITEMS_SELECT = `${LINE_ITEMS_SELECT}, discount, discount_type, note` as const;
+
 export type PdfLine = { text: string; bold?: boolean; italic?: boolean };
 
 export type LineItemsPdf = {
@@ -15,16 +22,16 @@ export type LineItemsPdf = {
   meta: string[];
   /** Destinataire : nom (peut contenir un retour à la ligne) et coordonnées. */
   party: { name: string; details: string[] };
-  /** En-têtes des colonnes chiffrées, de gauche à droite. */
+  /** En-tête de la colonne description, puis des colonnes chiffrées de gauche à droite. */
+  descriptionLabel: string;
   columns: string[];
-  columnWidth: number;
   rows: { description: string; values: string[] }[];
   /** Lignes alignées à droite avant le trait final (sous-total, ristourne). */
   summary?: string[];
-  /** Totaux après le trait (12 pt gras par défaut). */
-  totals: { text: string; size?: number; bold?: boolean }[];
-  /** Blocs de mentions à gauche (mode de paiement, transport, note), chacun après un écart. */
-  blocks?: { gap: number; lines: PdfLine[]; wrap?: boolean }[];
+  /** Totaux après le trait, en 12 pt gras (`minor` : 10 pt normal). */
+  totals: { text: string; minor?: boolean }[];
+  /** Blocs de mentions à gauche (mode de paiement, transport, note), chacun après un écart en mm. */
+  blocks?: { gap: number; lines: PdfLine[] }[];
   fileName: string;
 };
 
@@ -36,6 +43,7 @@ export function pdfEur(n: number): string {
 export function downloadLineItemsPdf(d: LineItemsPdf): void {
   const doc = new jsPDF();
   const pageWidth = doc.internal.pageSize.getWidth();
+  const pageHeight = doc.internal.pageSize.getHeight();
   const margin = 20;
   const right = pageWidth - margin;
   let yPos = margin;
@@ -43,6 +51,13 @@ export function downloadLineItemsPdf(d: LineItemsPdf): void {
   const font = (size: number, style: "normal" | "bold" | "italic" = "normal") => {
     doc.setFontSize(size);
     doc.setFont("helvetica", style);
+  };
+  /** Nouvelle page si `height` mm ne tiennent plus au-dessus de la marge du bas. */
+  const ensureSpace = (height: number) => {
+    if (yPos + height > pageHeight - margin) {
+      doc.addPage();
+      yPos = margin + 20;
+    }
   };
 
   // Titre et références
@@ -70,21 +85,17 @@ export function downloadLineItemsPdf(d: LineItemsPdf): void {
   }
   yPos = Math.max(yPos, partyY) + 15;
 
-  // Colonnes chiffrées placées de droite à gauche, texte centré
+  // Colonnes chiffrées placées de droite à gauche, texte centré ; plus étroites quand il y en a beaucoup
+  const columnWidth = d.columns.length > 3 ? 18 : 22;
   const colSpacing = 2;
-  const centers: number[] = [];
-  let x = right - d.columnWidth / 2;
-  for (let i = d.columns.length - 1; i >= 0; i--) {
-    centers[i] = x;
-    x -= d.columnWidth + colSpacing;
-  }
+  const centers = d.columns.map((_, i) => right - columnWidth / 2 - (d.columns.length - 1 - i) * (columnWidth + colSpacing));
   const descColStart = margin + 2;
-  const descColWidth = centers[0] - descColStart - d.columnWidth / 2 - 15;
+  const descColWidth = centers[0] - descColStart - columnWidth / 2 - 15;
 
   font(9, "bold");
   doc.line(margin, yPos, right, yPos);
   yPos += 6;
-  doc.text("Description", descColStart, yPos);
+  doc.text(d.descriptionLabel, descColStart, yPos);
   d.columns.forEach((label, i) => doc.text(label, centers[i], yPos, { align: "center" }));
   yPos += 3;
   doc.line(margin, yPos, right, yPos);
@@ -92,17 +103,16 @@ export function downloadLineItemsPdf(d: LineItemsPdf): void {
 
   font(9);
   for (const row of d.rows) {
-    if (yPos > doc.internal.pageSize.getHeight() - 40) {
-      doc.addPage();
-      yPos = margin + 20;
-    }
     const descriptionLines = doc.splitTextToSize(row.description, descColWidth);
+    const rowHeight = Math.max(descriptionLines.length * 4.2, 6) + 2;
+    ensureSpace(rowHeight);
     doc.text(descriptionLines, descColStart, yPos);
     row.values.forEach((value, i) => doc.text(value, centers[i], yPos, { align: "center" }));
-    yPos += Math.max(descriptionLines.length * 4.2, 6) + 2;
+    yPos += rowHeight;
   }
 
   if (d.summary?.length) {
+    ensureSpace(d.summary.length * 5 + 3);
     font(10);
     d.summary.forEach((line, i) => {
       doc.text(line, right, yPos, { align: "right" });
@@ -110,22 +120,24 @@ export function downloadLineItemsPdf(d: LineItemsPdf): void {
     });
   }
 
+  ensureSpace(15 + d.totals.length * 7);
   yPos += 5;
   doc.line(margin, yPos, right, yPos);
   yPos += 10;
 
   d.totals.forEach((t, i) => {
-    font(t.size ?? 12, t.bold === false ? "normal" : "bold");
+    font(t.minor ? 10 : 12, t.minor ? "normal" : "bold");
     doc.text(t.text, right, yPos, { align: "right" });
     if (i < d.totals.length - 1) yPos += 7;
   });
 
   for (const block of d.blocks ?? []) {
     yPos += block.gap;
+    ensureSpace(block.lines.length * 5);
     block.lines.forEach((line, i) => {
       if (i > 0) yPos += 5;
       font(10, line.italic ? "italic" : line.bold ? "bold" : "normal");
-      doc.text(block.wrap ? doc.splitTextToSize(line.text, pageWidth - 2 * margin) : line.text, margin, yPos);
+      doc.text(doc.splitTextToSize(line.text, pageWidth - 2 * margin), margin, yPos);
     });
   }
 

@@ -1,8 +1,8 @@
 import { supabase } from "$lib/supabase";
 import { lineTotal } from "$lib/analytics";
 import { formatDate, toNumber } from "$lib/format";
-import { generateAndSaveInvoiceNumber, paymentMethodLabel, saleItemDescription } from "$lib/sales";
-import { downloadLineItemsPdf, pdfEur, type LineItemsPdf } from "./lineItemsPdf";
+import { ensureInvoiceNumber, itemsSubtotal, paymentMethodLabel, saleItemDescription } from "$lib/sales";
+import { SALE_LINE_ITEMS_SELECT, downloadLineItemsPdf, pdfEur, type LineItemsPdf } from "./lineItemsPdf";
 
 /** TVA belge sur le vin : les prix en base sont TTC, la facture d'un professionnel détaille le HTVA. */
 const VAT_RATE = 0.21;
@@ -13,42 +13,41 @@ export async function downloadInvoicePdf(saleId: string): Promise<void> {
     supabase
       .from("sale")
       .select(
-        "*, customer ( first_name, last_name, company_name, email, address_line_1, address_line_2, city, zip_code, country_id, vat )",
+        "*, customer ( first_name, last_name, company_name, email, address_line_1, address_line_2, city, zip_code, vat )",
       )
       .eq("id", saleId)
       .single(),
     supabase
       .from("sale_item")
-      .select("*, wine_vintage ( *, wine ( *, winery (*), appelation (*) ) )")
+      .select(SALE_LINE_ITEMS_SELECT)
       .eq("sale_id", saleId),
   ]);
 
   if (saleError || !sale) throw new Error(`Erreur lors du chargement de la vente: ${saleError?.message}`);
   if (itemsError || !items) throw new Error(`Erreur lors du chargement des articles: ${itemsError?.message}`);
 
-  const invoiceNumber = sale.invoice_number || (await generateAndSaveInvoiceNumber(sale.id, sale.date));
-  if (!invoiceNumber) throw new Error("Impossible de générer le numéro de facture");
+  const invoiceNumber = await ensureInvoiceNumber(sale);
 
   const c = sale.customer!;
   const isCompany = !!(c.company_name || c.vat);
   const ht = (ttc: number) => (isCompany ? ttc / (1 + VAT_RATE) : ttc);
 
-  let subtotalTTC = 0;
   const rows = items.map((item) => {
     const priceTTC = toNumber(item.price);
     const totalTTC = lineTotal(item as any);
-    subtotalTTC += totalTTC;
     const values = isCompany
       ? [String(item.quantity), pdfEur(ht(priceTTC)), pdfEur(priceTTC), pdfEur(ht(totalTTC)), pdfEur(totalTTC)]
       : [String(item.quantity), pdfEur(priceTTC), pdfEur(totalTTC)];
     return { description: saleItemDescription(item), values };
   });
 
+  const total = toNumber(sale.total_price);
   const summary: string[] = [];
   const gDisc = toNumber(sale.global_discount);
   const gType = String(sale.global_discount_type ?? "").trim().toLowerCase();
   if (gDisc > 0 && (gType === "amount" || gType === "percent")) {
-    const ristEuro = Math.max(0, Math.round((subtotalTTC - toNumber(sale.total_price)) * 100) / 100);
+    const subtotalTTC = itemsSubtotal(items);
+    const ristEuro = Math.max(0, Math.round((subtotalTTC - total) * 100) / 100);
     summary.push(
       `Sous-total TTC: ${pdfEur(subtotalTTC)}`,
       gType === "percent"
@@ -57,11 +56,10 @@ export async function downloadInvoicePdf(saleId: string): Promise<void> {
     );
   }
 
-  const total = toNumber(sale.total_price);
   const totals: LineItemsPdf["totals"] = isCompany
     ? [
-        { text: `Total HTVA: ${pdfEur(total / (1 + VAT_RATE))}` },
-        { text: `TVA (21%): ${pdfEur(total - total / (1 + VAT_RATE))}`, size: 10, bold: false },
+        { text: `Total HTVA: ${pdfEur(ht(total))}` },
+        { text: `TVA (${VAT_RATE * 100}%): ${pdfEur(total - ht(total))}`, minor: true },
         { text: `Total TTC: ${pdfEur(total)}` },
       ]
     : [{ text: `TOTAL: ${pdfEur(total)}` }];
@@ -70,7 +68,7 @@ export async function downloadInvoicePdf(saleId: string): Promise<void> {
   if (sale.payment_method) {
     blocks.push({ gap: 10, lines: [{ text: `Mode de paiement : ${paymentMethodLabel(sale.payment_method)}` }] });
   }
-  if (sale.note) blocks.push({ gap: 15, wrap: true, lines: [{ text: `Note: ${sale.note}`, italic: true }] });
+  if (sale.note) blocks.push({ gap: 15, lines: [{ text: `Note: ${sale.note}`, italic: true }] });
 
   downloadLineItemsPdf({
     title: "FACTURE",
@@ -85,8 +83,8 @@ export async function downloadInvoicePdf(saleId: string): Promise<void> {
         c.vat ? `TVA: ${c.vat}` : "",
       ].filter((l): l is string => !!l),
     },
+    descriptionLabel: "Description",
     columns: isCompany ? ["Qté", "PU HTVA", "PU TTC", "Total HTVA", "Total TTC"] : ["Qté", "PU", "Total"],
-    columnWidth: 18,
     rows,
     summary,
     totals,

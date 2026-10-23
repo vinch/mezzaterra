@@ -1,4 +1,6 @@
 import { fetchAllRows, supabase } from "./supabase";
+import { lineTotal } from "./analytics";
+import { toNumber } from "./format";
 import { vintageProductLabel } from "./wine";
 
 /** Règles des ventes partagées par la page Ventes et la facture PDF. */
@@ -28,11 +30,33 @@ export function saleItemDescription(item: any): string {
   return n || TASTING_LINE_NOTE;
 }
 
+/** Sous-total TTC après remises par ligne (avant ristourne globale), arrondi au centime. */
+export function itemsSubtotal(items: any[]): number {
+  return Math.round(items.reduce((sum, item) => sum + lineTotal(item), 0) * 100) / 100;
+}
+
+/** Total TTC : sous-total moins la ristourne globale (montant ou %). */
+export function saleTotal(items: any[], globalDiscount: unknown, globalDiscountType: string): number {
+  const subtotal = itemsSubtotal(items);
+  const g = toNumber(globalDiscount);
+  if (g <= 0) return subtotal;
+  if (globalDiscountType === "percent") {
+    const pct = Math.min(100, g);
+    return Math.max(0, Math.round(subtotal * (1 - pct / 100) * 100) / 100);
+  }
+  return Math.max(0, Math.round((subtotal - g) * 100) / 100);
+}
+
+/** Numéro de facture de la vente, attribué s'il manque. Lève une erreur lisible en cas d'échec. */
+export async function ensureInvoiceNumber(sale: { id: string; date: string; invoice_number: string | null }): Promise<string> {
+  return sale.invoice_number || generateAndSaveInvoiceNumber(sale.id, sale.date);
+}
+
 /** Attribue et enregistre le prochain numéro « INV-AAAA-NNN » de l'année de la vente. */
-export async function generateAndSaveInvoiceNumber(
+async function generateAndSaveInvoiceNumber(
   saleId: string,
   saleDate: string,
-): Promise<string | null> {
+): Promise<string> {
   // Year of the sale date (read from the string: a date-only value has no timezone)
   const year = Number(saleDate.slice(0, 4));
   const yearStart = `${year}-01-01`;
@@ -40,9 +64,8 @@ export async function generateAndSaveInvoiceNumber(
 
   // All sales of the year, by date then creation (paginated past PostgREST's 1000 rows):
   // their order gives the position, those already invoiced give the max number
-  let allSalesInYear: { id: string; date: string; created_at: string; invoice_number: string | null }[];
-  try {
-    allSalesInYear = await fetchAllRows((from, to) =>
+  const allSalesInYear: { id: string; date: string; created_at: string; invoice_number: string | null }[] =
+    await fetchAllRows((from, to) =>
       supabase
         .from("sale")
         .select("id, date, created_at, invoice_number")
@@ -53,13 +76,6 @@ export async function generateAndSaveInvoiceNumber(
         .order("id", { ascending: true })
         .range(from, to),
     );
-  } catch (err) {
-    console.error(
-      "Erreur lors de la génération du numéro de facture:",
-      err,
-    );
-    return null;
-  }
 
   // Find the position of this sale in the ordered list
   const saleIndex = allSalesInYear.findIndex((s) => s.id === saleId);
@@ -83,13 +99,7 @@ export async function generateAndSaveInvoiceNumber(
     .update({ invoice_number: invoiceNumber })
     .eq("id", saleId);
 
-  if (updateError) {
-    console.error(
-      "Erreur lors de l'enregistrement du numéro de facture:",
-      updateError,
-    );
-    return null;
-  }
+  if (updateError) throw new Error(`Enregistrement du numéro de facture impossible : ${updateError.message}`);
 
   return invoiceNumber;
 }

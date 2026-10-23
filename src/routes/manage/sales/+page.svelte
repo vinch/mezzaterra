@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { fetchAllRows, supabase } from "$lib/supabase";
+  import { supabase } from "$lib/supabase";
   import { getContext, onMount } from "svelte";
   import type { PageData } from "./$types";
   import ManagePageShell from "$lib/components/manage/ManagePageShell.svelte";
@@ -40,9 +40,11 @@
   import {
     PAYMENT_METHOD_OPTIONS,
     TASTING_LINE_NOTE,
-    generateAndSaveInvoiceNumber,
+    ensureInvoiceNumber,
+    itemsSubtotal,
     paymentMethodLabel,
     saleItemDescription,
+    saleTotal,
   } from "$lib/sales";
   import { fetchCustomers, fetchPickerVintages, fetchStockMap } from "$lib/manageData";
   import { invalidateAll } from "$app/navigation";
@@ -264,23 +266,6 @@
     selectedPrice = "";
     selectedDiscount = "";
     selectedDiscountType = "amount";
-  }
-
-  /** Sous-total TTC après remises par ligne (avant ristourne globale). */
-  function itemsSubtotal(items: any[]): number {
-    return Math.round(items.reduce((sum, item) => sum + lineTotal(item), 0) * 100) / 100;
-  }
-
-  /** Total TTC : sous-total moins la ristourne globale (montant ou %). */
-  function saleTotal(items: any[], globalDiscount: unknown, globalDiscountType: string): number {
-    const subtotal = itemsSubtotal(items);
-    const g = toNumber(globalDiscount);
-    if (g <= 0) return subtotal;
-    if (globalDiscountType === "percent") {
-      const pct = Math.min(100, g);
-      return Math.max(0, Math.round(subtotal * (1 - pct / 100) * 100) / 100);
-    }
-    return Math.max(0, Math.round((subtotal - g) * 100) / 100);
   }
 
   $: total = saleTotal(saleItems, formData.global_discount, formData.global_discount_type);
@@ -618,14 +603,8 @@
         .eq("id", saleId)
         .single();
 
-      if (saleForInv && !saleForInv.invoice_number) {
-        const invoiceNumber = await generateAndSaveInvoiceNumber(
-          saleForInv.id,
-          saleForInv.date,
-        );
-        if (!invoiceNumber) {
-          console.error("Impossible de générer le numéro de facture");
-        }
+      if (saleForInv) {
+        await ensureInvoiceNumber(saleForInv).catch((err) => console.error("Numéro de facture :", err));
       }
     }
 

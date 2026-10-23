@@ -333,8 +333,6 @@
     await invalidateAll();
   }
 
-  type Language = OrderPdfLanguage;
-
 
   function openLanguageModal(orderId: string) {
     orderIdForPDF = orderId;
@@ -346,7 +344,7 @@
     orderIdForPDF = null;
   }
 
-  async function downloadOrderPDF(orderId: string, lang: Language = "fr") {
+  async function downloadOrderPDF(orderId: string, lang: OrderPdfLanguage) {
     try {
       /* jsPDF n'est chargé qu'au moment de générer le document. */
       const { downloadOrderPdf } = await import("$lib/pdf/purchaseOrderPdf");
@@ -651,39 +649,19 @@
   <div class="language-selection">
     <p>Sélectionnez la langue dans laquelle vous souhaitez générer le PDF :</p>
     <div class="language-buttons">
-      <button
-        class="btn-language"
-        on:click={async () => {
-          if (orderIdForPDF) {
-            await downloadOrderPDF(orderIdForPDF, "fr");
-            closeLanguageModal();
-          }
-        }}
-      >
-        🇫🇷 Français
-      </button>
-      <button
-        class="btn-language"
-        on:click={async () => {
-          if (orderIdForPDF) {
-            await downloadOrderPDF(orderIdForPDF, "en");
-            closeLanguageModal();
-          }
-        }}
-      >
-        🇬🇧 English
-      </button>
-      <button
-        class="btn-language"
-        on:click={async () => {
-          if (orderIdForPDF) {
-            await downloadOrderPDF(orderIdForPDF, "it");
-            closeLanguageModal();
-          }
-        }}
-      >
-        🇮🇹 Italiano
-      </button>
+      {#each [["fr", "🇫🇷 Français"], ["en", "🇬🇧 English"], ["it", "🇮🇹 Italiano"]] as [lang, label]}
+        <button
+          class="btn-language"
+          on:click={async () => {
+            if (orderIdForPDF) {
+              await downloadOrderPDF(orderIdForPDF, lang as OrderPdfLanguage);
+              closeLanguageModal();
+            }
+          }}
+        >
+          {label}
+        </button>
+      {/each}
     </div>
   </div>
 </Modal>
