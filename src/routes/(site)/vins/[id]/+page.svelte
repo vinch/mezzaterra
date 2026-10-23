@@ -3,6 +3,7 @@
   import { page } from "$app/stores";
   import WineBottle from "$lib/components/site/WineBottle.svelte";
   import WineCard from "$lib/components/site/WineCard.svelte";
+  import { contactHref } from "$lib/contact";
   import { fetchAvailability, type Availability } from "$lib/publicData";
   import {
     NOTE_TYPES,
@@ -62,11 +63,8 @@
     setTimeout(() => (shareFeedback = ""), 2500);
   }
 
-  $: whatsappUrl = `https://wa.me/?text=${encodeURIComponent(`${title} — ${$page.url.href}`)}`;
-  $: mapEmbed =
-    winery?.latitude != null && winery?.longitude != null
-      ? `https://www.openstreetmap.org/export/embed.html?bbox=${winery.longitude - 0.12}%2C${winery.latitude - 0.07}%2C${winery.longitude + 0.12}%2C${winery.latitude + 0.07}&layer=mapnik&marker=${winery.latitude}%2C${winery.longitude}`
-      : null;
+  $: orderHref = contactHref("commande", [title, v?.year].filter(Boolean).join(" "));
+  $: hasAbout = Boolean(wine?.description || notes.length || pairings.length);
 </script>
 
 <svelte:head>
@@ -119,10 +117,11 @@
             {#if v.year}<div><dt>Millésime</dt><dd>{v.year}</dd></div>{/if}
             {#if v.abv}<div><dt>Alcool</dt><dd>{v.abv} % vol.</dd></div>{/if}
             {#if v.price}<div><dt>Prix</dt><dd>{formatEur(v.price)}</dd></div>{/if}
+            {#if grapes}<div><dt>Cépages</dt><dd class="small">{grapes}</dd></div>{/if}
             {#if stock}
               <div>
                 <dt>Disponibilité</dt>
-                <dd class="stock" class:out={!stock.in_stock} class:low={stock.low_stock}>
+                <dd class="small stock" class:out={!stock.in_stock} class:low={stock.low_stock}>
                   {!stock.in_stock ? "Épuisé" : stock.low_stock ? "Dernières bouteilles" : "En stock"}
                 </dd>
               </div>
@@ -138,17 +137,19 @@
             </p>
           {/if}
 
-          <div class="share">
-            <button type="button" class="mz-btn" on:click={share}>Partager</button>
-            <a class="mz-btn mz-btn--ghost" href={whatsappUrl} target="_blank" rel="noopener noreferrer">WhatsApp</a>
+          <div class="actions">
+            {#if !stock || stock.in_stock}
+              <a class="mz-btn" href={orderHref}>Commander ce vin</a>
+            {/if}
+            <button type="button" class="mz-btn mz-btn--ghost" on:click={share}>Partager</button>
             {#if shareFeedback}<span class="share-feedback" role="status">{shareFeedback}</span>{/if}
           </div>
         </div>
       </div>
     </section>
 
-    <section class="mz-container details">
-      <div class="col-main">
+    {#if hasAbout}
+      <section class="mz-container about">
         {#if wine.description}
           <div class="block">
             <h2>Le vin</h2>
@@ -170,17 +171,8 @@
           </div>
         {/if}
 
-        {#if grapes}
-          <div class="block">
-            <h2>Cépages</h2>
-            <p>{grapes}</p>
-          </div>
-        {/if}
-      </div>
-
-      <aside class="col-side">
         {#if pairings.length}
-          <div class="block mz-card side-card">
+          <div class="block">
             <h2>À table avec</h2>
             <div class="pairings">
               {#each pairings as p}
@@ -189,35 +181,21 @@
             </div>
           </div>
         {/if}
-
-        {#if winery}
-          <div class="block mz-card side-card">
-            <h2>Le domaine</h2>
-            <p class="winery-name">{winery.name}</p>
-            {#if region}<p class="mz-muted">{flag} {region}</p>{/if}
-            {#if mapEmbed}
-              <iframe class="map" title="Carte du domaine {winery.name}" src={mapEmbed} loading="lazy"></iframe>
-            {/if}
-            <div class="winery-links">
-              {#if winery.id}
-                <a class="mz-link" href="/domaines/{winery.id}">Découvrir le domaine →</a>
-              {/if}
-              {#if winery.url}
-                <a class="mz-link" href={winery.url} target="_blank" rel="noopener noreferrer">Site du domaine ↗</a>
-              {/if}
-            </div>
-          </div>
-        {/if}
-      </aside>
-    </section>
+      </section>
+    {/if}
 
     {#if data.fromWinery.length}
       <section class="mz-container mz-section">
         <div class="more-head">
           <h2 class="mz-display mz-h2">Du même domaine</h2>
-          {#if winery?.id}
-            <a class="mz-link" href="/domaines/{winery.id}">Tout {winery.name} →</a>
-          {/if}
+          <div class="more-links">
+            {#if winery?.id}
+              <a class="mz-link" href="/domaines/{winery.id}">Découvrir {winery.name} →</a>
+            {/if}
+            {#if winery?.url}
+              <a class="mz-link" href={winery.url} target="_blank" rel="noopener noreferrer">Site du domaine ↗</a>
+            {/if}
+          </div>
         </div>
         <div class="grid">
           {#each data.fromWinery as other (other.id)}
@@ -324,9 +302,14 @@
     color: var(--mz-ink);
   }
 
+  /* Valeurs textuelles (cépages, disponibilité) : plus petites que les chiffres. */
+  .facts dd.small {
+    font-size: 1.15rem;
+    line-height: 1.6;
+  }
+
   .stock {
     color: var(--mz-success) !important;
-    font-size: 1.15rem !important;
   }
 
   .stock.low {
@@ -341,7 +324,7 @@
     margin: 0;
   }
 
-  .share {
+  .actions {
     display: flex;
     flex-wrap: wrap;
     align-items: center;
@@ -355,16 +338,12 @@
     font-size: 0.9rem;
   }
 
-  .details {
-    display: grid;
-    grid-template-columns: minmax(0, 1.6fr) minmax(0, 1fr);
+  .about {
+    display: flex;
+    flex-direction: column;
     gap: 2.5rem;
-    padding-top: 2.5rem;
+    padding-top: 3rem;
     padding-bottom: 1rem;
-  }
-
-  .block {
-    margin-bottom: 2rem;
   }
 
   .block h2 {
@@ -382,14 +361,15 @@
   }
 
   .prose {
+    max-width: 44rem;
     white-space: pre-line;
     font-size: 1.05rem;
   }
 
   .notes {
-    display: flex;
-    flex-direction: column;
-    gap: 1.1rem;
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(min(100%, 15rem), 1fr));
+    gap: 1.25rem 2rem;
   }
 
   .note {
@@ -403,29 +383,10 @@
     color: var(--mz-teal);
   }
 
-  .side-card {
-    padding: 1.25rem 1.4rem;
-  }
-
   .pairings {
     display: flex;
     flex-wrap: wrap;
     gap: 0.5rem;
-  }
-
-  .winery-name {
-    font-family: var(--mz-font-display);
-    font-size: 1.3rem;
-    color: var(--mz-teal);
-  }
-
-  .map {
-    width: 100%;
-    height: 12rem;
-    border: none;
-    border-radius: var(--mz-radius-sm);
-    margin: 0.85rem 0;
-    filter: saturate(0.7) sepia(0.15);
   }
 
   .more-head {
@@ -441,10 +402,10 @@
     margin: 0;
   }
 
-  .winery-links {
+  .more-links {
     display: flex;
-    flex-direction: column;
-    gap: 0.4rem;
+    flex-wrap: wrap;
+    gap: 0.5rem 1.5rem;
   }
 
   .grid {
@@ -458,8 +419,7 @@
   }
 
   @media (max-width: 820px) {
-    .hero-grid,
-    .details {
+    .hero-grid {
       grid-template-columns: 1fr;
       gap: 1.5rem;
     }
