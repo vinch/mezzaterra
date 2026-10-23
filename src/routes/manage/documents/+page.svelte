@@ -9,10 +9,10 @@
     fetchStockDocVintages,
     sortedStockForDocuments,
     stockVintageLabel as vintageLabel,
-    wineTypeLabelFr,
     type StockDocVintage,
   } from "$lib/stockDocuments";
   import { todayIso } from "$lib/dates";
+  import { wineTypeLabel } from "$lib/wine";
 
   let rows: StockDocVintage[] = [];
   let loading = true;
@@ -288,7 +288,7 @@
                 </td>
                 <td>{r.wineryName}</td>
                 <td><strong>{r.wineName}</strong></td>
-                <td>{wineTypeLabelFr(r.wineTypeName)}</td>
+                <td>{wineTypeLabel({ name: r.wineTypeName, category: r.wineTypeCategory })}</td>
                 <td>{vintageLabel(r)}</td>
                 <td class="num">
                   {r.price != null ? `${r.price.toFixed(2)}` : "—"}
@@ -331,7 +331,7 @@
             <strong>{row.wineryName}</strong>
             <span class="notes-order-wine">{row.wineName}</span>
             <span class="notes-order-meta"
-              >{wineTypeLabelFr(row.wineTypeName)} · {vintageLabel(row)}</span
+              >{wineTypeLabel({ name: row.wineTypeName, category: row.wineTypeCategory })} · {vintageLabel(row)}</span
             >
           </div>
           <div class="notes-order-actions">

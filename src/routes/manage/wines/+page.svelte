@@ -14,7 +14,8 @@
   import EmptyState from "$lib/ui/EmptyState.svelte";
   import Field from "$lib/ui/Field.svelte";
   import StockBadge from "$lib/ui/StockBadge.svelte";
-  import WineDot, { robeOf, ROBE_LABEL, type Robe } from "$lib/ui/WineDot.svelte";
+  import WineDot from "$lib/ui/WineDot.svelte";
+  import { styleByKey, wineStyle, wineTypeLabel, type WineStyleKey } from "$lib/wine";
   import {
     IconArchive,
     IconArchiveRestore,
@@ -355,9 +356,9 @@
     stock = await fetchStockMap();
   }
 
-  let robeFilter: Robe | "" = "";
+  let robeFilter: WineStyleKey | "" = "";
   let inStockOnly = false;
-  const ROBES: Robe[] = ["rouge", "blanc", "rose"];
+  const ROBES: WineStyleKey[] = ["red", "white", "rose"];
 
   /** Millésimes du plus ancien au plus récent (triés au chargement). */
   function vintagesOf(wine: any): any[] {
@@ -391,7 +392,7 @@
 
   /* Vins retirés en fin de liste : visibles, mais hors du chemin. */
   $: shownWines = filteredWines
-    .filter((w: any) => !robeFilter || robeOf(w.wine_type) === robeFilter)
+    .filter((w: any) => !robeFilter || wineStyle(w.wine_type).key === robeFilter)
     .filter((w: any) => !inStockOnly || totalStock(w) > 0)
     .sort((a: any, b: any) => Number(isRetired(a)) - Number(isRetired(b)));
   $: vintageCount = wines.reduce((n, w: any) => n + (w.wine_vintage?.length ?? 0), 0);
@@ -503,7 +504,7 @@
         <button type="button" class="ui-chip" aria-pressed={!robeFilter} on:click={() => (robeFilter = "")}>Toutes</button>
         {#each ROBES as r}
           <button type="button" class="ui-chip" aria-pressed={robeFilter === r} on:click={() => (robeFilter = robeFilter === r ? "" : r)}>
-            <WineDot robe={r} />{ROBE_LABEL[r]}
+            <WineDot robe={r} />{styleByKey(r).label}
           </button>
         {/each}
       </div>
@@ -550,7 +551,7 @@
           <tbody>
             {#each shownWines as wine (wine.id)}
               {@const total = totalStock(wine)}
-              {@const robe = robeOf(wine.wine_type)}
+              {@const robe = wineStyle(wine.wine_type).key}
               {@const retired = isRetired(wine)}
               <tr class="is-clickable" class:retired on:click={(e) => openRow(wine, e)}>
                 <td>
@@ -562,7 +563,7 @@
                     </span>
                   </span>
                 </td>
-                <td>{ROBE_LABEL[robe]}</td>
+                <td>{wineTypeLabel(wine.wine_type)}</td>
                 <td>
                   <span class="vintages">
                     {#each vintagesOf(wine) as v (v.id)}
@@ -606,7 +607,7 @@
           <li class="wine-card" class:retired={isRetired(wine)}>
             <a class="wine-card-main" href="/manage/wines/{wine.id}">
               <span class="wc-top">
-                <span class="wine-cell"><WineDot robe={robeOf(wine.wine_type)} /><strong>{wineTitle(wine)}</strong></span>
+                <span class="wine-cell"><WineDot robe={wineStyle(wine.wine_type).key} /><strong>{wineTitle(wine)}</strong></span>
                 <strong>{total} bt.</strong>
               </span>
               <span class="wc-bottom">
@@ -649,7 +650,7 @@
         <select id="wine-type" class="ui-control" bind:value={formData.wine_type_id} required>
           <option value="">Sélectionner une robe</option>
           {#each wineTypes as wineType}
-            <option value={wineType.id}>{ROBE_LABEL[robeOf(wineType)] === "Autre" ? wineType.name : ROBE_LABEL[robeOf(wineType)]}</option>
+            <option value={wineType.id}>{wineTypeLabel(wineType)}</option>
           {/each}
         </select>
       </Field>

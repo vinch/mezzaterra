@@ -17,7 +17,7 @@
   import Select from "$lib/ui/Select.svelte";
   import AmountTypeInput from "$lib/ui/AmountTypeInput.svelte";
   import Stepper from "$lib/ui/Stepper.svelte";
-  import WineDot, { robeOf, ROBE_LABEL } from "$lib/ui/WineDot.svelte";
+  import WineDot from "$lib/ui/WineDot.svelte";
   import {
     IconCheck,
     IconClock,
@@ -36,7 +36,7 @@
   import { fold, formatDate, formatEUR, initials, toNumber } from "$lib/format";
   import { todayIso } from "$lib/dates";
   import { lineTotal } from "$lib/analytics";
-  import { vintageProductLabel, vintageShortLabel } from "$lib/wine";
+  import { styleByKey, vintageProductLabel, vintageShortLabel, wineStyle, type WineStyleKey } from "$lib/wine";
   import {
     PAYMENT_METHOD_OPTIONS,
     TASTING_LINE_NOTE,
@@ -813,15 +813,15 @@
       .from("sale_item")
       .select("quantity, sale_id, wine_vintage ( wine ( wine_type ( name ) ) )")
       .in("sale_id", own.map((s) => s.id).slice(0, 100));
-    const byRobe = new Map<string, number>();
+    const byRobe = new Map<WineStyleKey, number>();
     for (const it of (data || []) as any[]) {
-      const r = robeOf(it.wine_vintage?.wine?.wine_type);
-      if (r !== "autre") byRobe.set(r, (byRobe.get(r) ?? 0) + (it.quantity || 0));
+      const r = wineStyle(it.wine_vintage?.wine?.wine_type).key;
+      if (r !== "other") byRobe.set(r, (byRobe.get(r) ?? 0) + (it.quantity || 0));
     }
-    const fav = [...byRobe.entries()].sort((a, b) => b[1] - a[1])[0]?.[0] as keyof typeof ROBE_LABEL | undefined;
+    const fav = [...byRobe.entries()].sort((a, b) => b[1] - a[1])[0]?.[0];
     if (hintFor !== id) return;
     customerHint = [
-      fav ? `Aime les ${ROBE_LABEL[fav].toLowerCase()}s` : "",
+      fav ? `Aime les ${styleByKey(fav).label.toLowerCase()}s` : "",
       last ? `dernier achat le ${formatDate(last)}` : "premier achat",
     ]
       .filter(Boolean)
@@ -1068,7 +1068,7 @@
                     <td>
                       <span class="wine-cell">
                         {#if item.wine_vintage_id}
-                          <WineDot robe={robeOf(v?.wine?.wine_type)} />
+                          <WineDot robe={wineStyle(v?.wine?.wine_type).key} />
                         {/if}
                         <span class="wine-name">
                           {#if item.wine_vintage_id && v?.wine}

@@ -11,12 +11,14 @@ export type WineStyle = {
   color: string;
   /** Variante claire (fonds, reflets). */
   light: string;
+  /** Liseré des pastilles claires (blanc, rosé), pour qu'elles se détachent du fond. */
+  ring?: string;
 };
 
 const STYLES: Record<WineStyleKey, WineStyle> = {
   red: { key: "red", label: "Rouge", color: "#7a1f2e", light: "#b04456" },
-  white: { key: "white", label: "Blanc", color: "#d8bf62", light: "#efe2a6" },
-  rose: { key: "rose", label: "Rosé", color: "#e0879a", light: "#f3c3cb" },
+  white: { key: "white", label: "Blanc", color: "#d8bf62", light: "#efe2a6", ring: "#a88d2e" },
+  rose: { key: "rose", label: "Rosé", color: "#e0879a", light: "#f3c3cb", ring: "#c0627a" },
   orange: { key: "orange", label: "Orange", color: "#d07b2c", light: "#ecb57f" },
   sparkling: { key: "sparkling", label: "Pétillant", color: "#e2cf7f", light: "#f4ebc4" },
   other: { key: "other", label: "Vin", color: "#5b7d7f", light: "#a9bfc0" },
@@ -38,6 +40,17 @@ export function wineStyle(type: TypeLike): WineStyle {
   if (name.startsWith("ros")) return STYLES.rose;
   if (name.startsWith("orange")) return STYLES.orange;
   return STYLES.other;
+}
+
+/** Style par clé (filtres et légendes qui manipulent des clés). */
+export function styleByKey(key: WineStyleKey): WineStyle {
+  return STYLES[key];
+}
+
+/** « Rouge », « Blanc »… ; un type hors de ces styles garde son nom en base. */
+export function wineTypeLabel(type: TypeLike): string {
+  const style = wineStyle(type);
+  return style.key === "other" ? type?.name ?? "" : style.label;
 }
 
 export function allWineStyles(): WineStyle[] {

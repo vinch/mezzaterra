@@ -63,7 +63,7 @@
     line-height: 1;
     transition:
       opacity 0.15s ease,
-      transform 0.2s var(--mz-ease, ease);
+      transform 0.2s var(--mz-ease);
   }
 
   button.star {

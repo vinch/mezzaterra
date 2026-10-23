@@ -259,7 +259,7 @@
   .message {
     margin: 0;
     font-style: italic;
-    color: #3d4f51;
+    color: var(--mz-ink-soft);
   }
 
   footer {

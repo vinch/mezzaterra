@@ -430,11 +430,9 @@
     }
 
     .bottle-stage {
+      --h: 17rem;
       min-height: 0;
     }
 
-    .bottle-stage :global(.bottle) {
-      --h: 17rem;
-    }
   }
 </style>

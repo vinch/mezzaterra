@@ -2,7 +2,8 @@
   import { createEventDispatcher } from "svelte";
   import Combobox, { type ComboOption } from "$lib/ui/Combobox.svelte";
   import { fold } from "$lib/format";
-  import WineDot, { robeOf } from "$lib/ui/WineDot.svelte";
+  import WineDot from "$lib/ui/WineDot.svelte";
+  import { wineStyle } from "$lib/wine";
   import { formatEUR } from "$lib/format";
 
   export let value = "";
@@ -42,7 +43,7 @@
         searchText: vintageSearchText(v),
         disabled: (disableWhenNoStock && stock === 0) || isVintageAlreadyAdded(v.id),
         kind: "wine",
-        robe: robeOf(v.wine?.wine_type),
+        robe: wineStyle(v.wine?.wine_type).key,
         name: `${wineName(v)}${v.year ? ` ${v.year}` : ""}`,
         winery: v.wine?.winery?.name || "",
         stock,

@@ -25,7 +25,7 @@
     IconX,
   } from "$lib/ui/icons";
   import { formatEUR } from "$lib/format";
-  import { appellationText, isDiscontinued, vintageYearLabel, wineStyle, wineTitle } from "$lib/wine";
+  import { appellationText, isDiscontinued, vintageYearLabel, wineTitle, wineTypeLabel } from "$lib/wine";
 
   export let data: PageData;
 
@@ -55,13 +55,6 @@
     /* Lien « Ajouter un millésime » depuis la liste des vins. */
     if (new URLSearchParams(window.location.search).has("nouveau")) openCreateModal();
   });
-
-  /** « Rouge », « Blanc »… ; un type hors de ces styles garde son nom. */
-  function typeLabel(t: { name?: string | null; category?: string | null } | null | undefined): string {
-    if (!t) return "";
-    const style = wineStyle(t);
-    return style.key === "other" ? t.name ?? "" : style.label;
-  }
 
   function sortVintages(list: WineVintage[]): WineVintage[] {
     return [...list].sort((a, b) => b.production_year - a.production_year);
@@ -182,7 +175,7 @@
     ];
   }
 
-  $: subtitle = [wine.winery?.name, appellationText(wine.appelation), typeLabel(wine.wine_type)].filter(Boolean).join(" · ");
+  $: subtitle = [wine.winery?.name, appellationText(wine.appelation), wineTypeLabel(wine.wine_type)].filter(Boolean).join(" · ");
 
   // Grapes modal functions
   async function openGrapesModal(vintage: any) {

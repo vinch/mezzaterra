@@ -56,12 +56,12 @@
   }
 
   .footer-link:hover {
-    background-color: var(--mz-teal-wash, rgba(37, 97, 105, 0.08));
+    background-color: var(--mz-teal-wash);
     transform: translateY(-1px);
   }
 
   .footer-link.active {
-    background-color: var(--mz-teal-wash, rgba(37, 97, 105, 0.08));
+    background-color: var(--mz-teal-wash);
   }
 
   svg.footer-icon {

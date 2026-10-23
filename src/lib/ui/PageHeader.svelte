@@ -35,13 +35,19 @@
 {/if}
 
 <style>
+  /* Teintes réglables par la page (ex. en-tête sombre du pilotage live sur mobile). */
   .page-head {
     display: flex;
     align-items: flex-end;
     justify-content: space-between;
     gap: 16px;
     padding: 24px 32px 20px;
-    border-bottom: 1px solid var(--border);
+    border-bottom: var(--page-head-border, 1px solid var(--border));
+    background: var(--page-head-bg, transparent);
+  }
+
+  .page-head h1 {
+    color: var(--page-head-fg, var(--title));
   }
 
   .page-head-main {
@@ -56,6 +62,7 @@
     font-size: 12px;
     font-weight: 500;
     text-decoration: none;
+    color: var(--page-head-fg, var(--teal-600));
   }
 
   .title-row {
@@ -69,7 +76,7 @@
     margin: 4px 0 0;
     font-size: 12px;
     line-height: 16px;
-    color: var(--ink-2);
+    color: var(--page-head-muted, var(--ink-2));
   }
 
   .page-head-actions {

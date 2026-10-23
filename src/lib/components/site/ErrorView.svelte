@@ -74,7 +74,7 @@
     align-items: center;
     text-align: center;
     padding: 64px 24px 72px;
-    font-family: var(--mz-font-body, system-ui, sans-serif);
+    font-family: var(--mz-font-body);
     color: var(--mz-ink);
   }
 
@@ -169,7 +169,7 @@
 
   .title {
     margin: 10px 0 12px;
-    font-family: var(--mz-font-display, Georgia, serif);
+    font-family: var(--mz-font-display);
     font-weight: 600;
     font-size: clamp(2rem, 4.6vw, 3rem);
     line-height: 1.08;
@@ -226,7 +226,7 @@
   }
 
   .btn--ghost:hover {
-    background: var(--mz-teal-wash, rgba(37, 97, 105, 0.08));
+    background: var(--mz-teal-wash);
   }
 
   @media (prefers-reduced-motion: reduce) {

@@ -346,12 +346,10 @@
     }
 
     .hero-bottle {
+      --h: 11rem;
       height: 11rem;
     }
 
-    .hero-bottle :global(.bottle) {
-      --h: 11rem;
-    }
 
     .content {
       padding: 1.25rem;

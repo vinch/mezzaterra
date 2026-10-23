@@ -8,7 +8,7 @@
 :root {
   /* Couleurs */
   --teal-600: var(--mz-teal); /* actions, liens, focus */
-  --teal-700: #1b4a50; /* survol, titres */
+  --teal-700: var(--mz-teal-deep); /* survol, titres */
   --title: #1f3f43; /* titre de page */
   --night: #1c4449; /* barre latérale */
   --night-active: #2f6a71;
@@ -22,18 +22,11 @@
   --border-soft: #e7e2d6;
   --input-border: #c9c2b2;
   --btn-border: #cfc9bb;
-  --ink: #1f2a2b; /* texte principal */
+  --ink: var(--mz-ink); /* texte principal */
   --ink-2: #5f6764; /* texte secondaire (≥ 4,5:1 sur carte et papier) */
   --danger: #9b2c2c; /* destructif, rupture */
   --warn: #8a5a00; /* stock bas (texte) */
   --gold: #e8c96a; /* compteur de la barre latérale */
-
-  /* Robes — pastilles et barres uniquement, jamais en couleur de texte */
-  --rouge: var(--mz-wine-red);
-  --blanc: var(--mz-wine-white);
-  --blanc-ring: #a88d2e;
-  --rose: var(--mz-wine-rose);
-  --rose-ring: #c0627a;
 
   /* Statuts (badges) */
   --st-pending-bg: #f5e6bf;
@@ -50,15 +43,6 @@
   /* Typo */
   --font-serif: var(--mz-font-display);
   --font-sans: var(--mz-font-body);
-
-  /* Espacements */
-  --s-1: 4px;
-  --s-2: 8px;
-  --s-3: 12px;
-  --s-4: 16px;
-  --s-5: 24px;
-  --s-6: 32px;
-  --s-7: 48px;
 
   /* Formes */
   --r-sm: 6px; /* champs, boutons */

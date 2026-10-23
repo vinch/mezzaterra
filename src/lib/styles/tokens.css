@@ -29,15 +29,8 @@
   --mz-danger: #a3352f;
   --mz-warning: #a86b12;
 
-  /* Couleurs de robe — mêmes valeurs que STYLES dans lib/wine.ts (utilisées en JS et dans les PDF). */
+  /* Rouge de marque (accents du site). Les couleurs de robe vivent dans STYLES (lib/wine.ts). */
   --mz-wine-red: #7a1f2e;
-  --mz-wine-red-light: #b04456;
-  --mz-wine-white: #d8bf62;
-  --mz-wine-white-light: #efe2a6;
-  --mz-wine-rose: #e0879a;
-  --mz-wine-rose-light: #f3c3cb;
-  --mz-wine-orange: #d07b2c;
-  --mz-wine-sparkling: #e2cf7f;
 
   /* Mode « cave » (live) */
   --mz-cave-bg: #0e1819;

@@ -148,7 +148,7 @@
     pointer-events: none;
     padding: 0.35rem 0.6rem;
     border-radius: 6px;
-    background: #1d2a2c;
+    background: var(--ink);
     color: white;
     font-size: 0.8rem;
     white-space: nowrap;
