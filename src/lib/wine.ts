@@ -143,3 +143,26 @@ export const VINTAGE_PUBLIC_SELECT = `
   wine_vintage_grape ( percentage, grape ( name ) ),
   note ( * )
 `;
+
+type WineryLike = {
+  city?: string | null;
+  latitude?: number | null;
+  longitude?: number | null;
+  region?: { name?: string | null; country?: { flag?: string | null } | null } | null;
+  country?: { flag?: string | null } | null;
+} | null | undefined;
+
+/** « Ville, Région » d'un domaine. */
+export function wineryPlace(w: WineryLike): string {
+  return [w?.city, w?.region?.name].filter(Boolean).join(", ");
+}
+
+export function wineryFlag(w: WineryLike): string {
+  return w?.region?.country?.flag || w?.country?.flag || "";
+}
+
+/** Lien OpenStreetMap centré sur le domaine. */
+export function wineryMapUrl(w: WineryLike): string | null {
+  if (w?.latitude == null || w?.longitude == null) return null;
+  return `https://www.openstreetmap.org/?mlat=${w.latitude}&mlon=${w.longitude}#map=12/${w.latitude}/${w.longitude}`;
+}

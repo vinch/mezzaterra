@@ -22,6 +22,7 @@
     region_id: "",
     latitude: "",
     longitude: "",
+    description: "",
   };
 
   onMount(async () => {
@@ -85,6 +86,7 @@
       region_id: winery.region_id || "",
       latitude: winery.latitude?.toString() || "",
       longitude: winery.longitude?.toString() || "",
+      description: winery.description || "",
     };
     showModal = true;
   }
@@ -104,6 +106,7 @@
       region_id: "",
       latitude: "",
       longitude: "",
+      description: "",
     };
   }
 
@@ -121,6 +124,10 @@
       region_id: formData.region_id || null,
       latitude: formData.latitude ? parseFloat(formData.latitude) : null,
       longitude: formData.longitude ? parseFloat(formData.longitude) : null,
+      /* Colonne ajoutée par une migration : on ne l'envoie que si elle existe déjà. */
+      ...(wineries.some((w) => "description" in w)
+        ? { description: formData.description.trim() || null }
+        : {}),
     };
 
     if (editingWinery) {
@@ -316,6 +323,11 @@
           id="longitude"
           bind:value={formData.longitude}
         />
+      </div>
+
+      <div class="form-group full-width">
+        <label for="description">Présentation (page publique du domaine)</label>
+        <textarea id="description" rows="5" bind:value={formData.description}></textarea>
       </div>
     </div>
 

@@ -41,6 +41,7 @@ pnpm update-types
 | `/tastings`, `/tastings/[id]` | Dégustations à venir / passées, réservation, ajout à l'agenda |
 | `/tastings/[id]/live` | Mode live (thème sombre) : vin servi en direct, notes, « J'en veux » |
 | `/vins`, `/vins/[id]` | Catalogue et fiches vin partageables (Open Graph) |
+| `/domaines/[id]` | Page d'un domaine : présentation, carte, cépages, tous ses vins |
 | `/accords` | « Qu'est-ce qu'on boit ce soir ? » |
 | `/carnet` | Carnet client (notes locales + achats via lien magique) |
 
