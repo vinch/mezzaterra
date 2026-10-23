@@ -1,18 +1,25 @@
 <script lang="ts">
   import { supabase } from "$lib/supabase";
   import { onMount } from "svelte";
+  import { invalidateAll } from "$app/navigation";
   import type { PageData } from "./$types";
   import Modal from "$lib/components/Modal.svelte";
   import ManagePageShell from "$lib/components/manage/ManagePageShell.svelte";
+  import { withOrderTotals } from "$lib/manageData";
+  import { todayIso } from "$lib/dates";
+  import { formatDate, formatEUR } from "$lib/format";
+  import { vintageProductLabel } from "$lib/wine";
 
   export let data: PageData;
 
-  let transports: any[] = data.transports;
+  let transports: any[];
+  /* Rechargé par invalidateAll() après une création, une modification ou une suppression. */
+  $: transports = data.transports;
   let transporters: any[] = [];
   let loading = true;
   let error = "";
-  let showModal = false;
-  let showEditModal = false;
+  /** Modale unique création / édition (`editingTransport` les distingue). */
+  let formOpen = false;
   let showOrdersModal = false;
   let showDetailsModal = false;
   let editingTransport: any = null;
@@ -49,7 +56,7 @@
   function openCreateModal() {
     editingTransport = null;
     resetForm();
-    showModal = true;
+    formOpen = true;
   }
 
   function openEditModal(transport: any) {
@@ -69,17 +76,11 @@
       price: transport.price ? String(transport.price) : "",
       note: transport.note || "",
     };
-    showEditModal = true;
+    formOpen = true;
   }
 
-  function closeModal() {
-    showModal = false;
-    editingTransport = null;
-    resetForm();
-  }
-
-  function closeEditModal() {
-    showEditModal = false;
+  function closeForm() {
+    formOpen = false;
     editingTransport = null;
     resetForm();
   }
@@ -96,7 +97,8 @@
     };
   }
 
-  async function handleSubmit() {
+  /** Création (toujours « En attente ») ou modification ; le statut se change dans le tableau. */
+  async function submitForm() {
     if (!formData.transporter_id) {
       error = "Le transporteur est obligatoire";
       return;
@@ -106,7 +108,6 @@
       transporter_id: formData.transporter_id,
       departure_date: formData.departure_date || null,
       arrival_date: formData.arrival_date || null,
-      status: "pending", // Always set to pending on creation
       pallets_number: formData.pallets_number
         ? parseInt(formData.pallets_number)
         : null,
@@ -114,49 +115,17 @@
       note: formData.note || null,
     };
 
-    const { error: insertError } = await supabase
-      .from("transport")
-      .insert(transportData);
+    const { error: saveError } = editingTransport
+      ? await supabase.from("transport").update(transportData).eq("id", editingTransport.id)
+      : await supabase.from("transport").insert({ ...transportData, status: "pending" });
 
-    if (insertError) {
-      error = insertError.message;
+    if (saveError) {
+      error = saveError.message;
       return;
     }
 
-    closeModal();
-    window.location.reload();
-  }
-
-  async function handleUpdate() {
-    if (!formData.transporter_id) {
-      error = "Le transporteur est obligatoire";
-      return;
-    }
-
-    const transportData = {
-      transporter_id: formData.transporter_id,
-      departure_date: formData.departure_date || null,
-      arrival_date: formData.arrival_date || null,
-      // Status is managed in the table, not in the edit modal
-      pallets_number: formData.pallets_number
-        ? parseInt(formData.pallets_number)
-        : null,
-      price: formData.price ? parseFloat(formData.price) : null,
-      note: formData.note || null,
-    };
-
-    const { error: updateError } = await supabase
-      .from("transport")
-      .update(transportData)
-      .eq("id", editingTransport.id);
-
-    if (updateError) {
-      error = updateError.message;
-      return;
-    }
-
-    closeEditModal();
-    window.location.reload();
+    closeForm();
+    await invalidateAll();
   }
 
   async function deleteTransport(id: string) {
@@ -174,7 +143,7 @@
       return;
     }
 
-    window.location.reload();
+    await invalidateAll();
   }
 
   async function updateTransportStatus(
@@ -229,23 +198,21 @@
           return false;
         }
 
-        // Create stock_move for each item
-        if (orderItems) {
-          for (const item of orderItems) {
-            const { error: stockMoveError } = await supabase
-              .from("stock_move")
-              .insert({
-                wine_vintage_id: item.wine_vintage_id,
-                reason: "purchase_in",
-                quantity: Math.abs(item.quantity), // Positive for in
-                date: new Date().toISOString().split("T")[0],
-                note: "Réception transport",
-              });
+        // One stock_move per item, inserted together
+        if (orderItems?.length) {
+          const { error: stockMoveError } = await supabase.from("stock_move").insert(
+            orderItems.map((item) => ({
+              wine_vintage_id: item.wine_vintage_id,
+              reason: "purchase_in",
+              quantity: Math.abs(item.quantity), // Positive for in
+              date: todayIso(),
+              note: "Réception transport",
+            })),
+          );
 
-            if (stockMoveError) {
-              error = `Erreur lors de la création du mouvement de stock: ${stockMoveError.message}`;
-              return false;
-            }
+          if (stockMoveError) {
+            error = `Erreur lors de la création du mouvement de stock: ${stockMoveError.message}`;
+            return false;
           }
         }
       }
@@ -264,8 +231,7 @@
   async function openOrdersModal(transport: any) {
     selectedTransport = transport;
     selectedOrderIds = [];
-    await loadAvailableOrders();
-    await loadAssociatedOrders(transport.id);
+    await Promise.all([loadAvailableOrders(), loadAssociatedOrders(transport.id)]);
     showOrdersModal = true;
   }
 
@@ -289,13 +255,29 @@
     detailsOrders = [];
   }
 
+  /** Prix d'une ligne : celui de la commande, sinon le prix d'achat du millésime. */
+  function itemPrice(item: any): number {
+    return item.price || item.wine_vintage?.purchase_price || 0;
+  }
+
   async function loadDetailsOrders(transportId: string) {
     const { data: orders, error: ordersError } = await supabase
       .from("order")
       .select(
         `
         *,
-        supplier (*)
+        supplier (*),
+        order_item (
+          *,
+          wine_vintage (
+            *,
+            wine (
+              *,
+              winery (*),
+              appelation (*)
+            )
+          )
+        )
       `
       )
       .eq("transport_id", transportId)
@@ -306,79 +288,13 @@
       return;
     }
 
-    // Load order items for each order
-    if (orders) {
-      detailsOrders = await Promise.all(
-        orders.map(async (order) => {
-          const { data: orderItems, error: itemsError } = await supabase
-            .from("order_item")
-            .select(
-              `
-              *,
-              wine_vintage (
-                *,
-                wine (
-                  *,
-                  winery (*),
-                  appelation (*)
-                )
-              )
-            `
-            )
-            .eq("order_id", order.id);
-
-          if (itemsError) {
-            console.error("Error loading order items:", itemsError);
-            return {
-              ...order,
-              items: [],
-              total_price: order.total_price || 0,
-            };
-          }
-
-          // Calculate total if missing
-          let totalPrice = order.total_price || 0;
-          if (!totalPrice && orderItems) {
-            totalPrice = orderItems.reduce((sum, item) => {
-              const price =
-                item.price || item.wine_vintage?.purchase_price || 0;
-              return sum + price * item.quantity;
-            }, 0);
-          }
-
-          return {
-            ...order,
-            items: orderItems || [],
-            total_price: totalPrice,
-          };
-        })
-      );
-    } else {
-      detailsOrders = [];
-    }
-  }
-
-  function getProductDisplayName(vintage: any) {
-    const winery = vintage.wine.winery.name;
-    const wineName = vintage.wine.name;
-    const appelation = vintage.wine.appelation?.name;
-
-    if (wineName) {
-      return `${winery} - ${wineName}`;
-    } else if (appelation) {
-      return `${winery} - ${appelation}`;
-    } else {
-      return winery;
-    }
-  }
-
-  function getProductDisplayNameWithYear(vintage: any) {
-    const baseName = getProductDisplayName(vintage);
-    if (vintage.year) {
-      return `${baseName} - ${vintage.year}`;
-    } else {
-      return `${baseName} (${vintage.production_year})`;
-    }
+    detailsOrders = (orders || []).map(({ order_item: items, ...order }) => ({
+      ...order,
+      items,
+      // Calculate total if missing
+      total_price:
+        order.total_price || items.reduce((sum, item) => sum + itemPrice(item) * item.quantity, 0),
+    }));
   }
 
   async function loadAvailableOrders() {
@@ -399,47 +315,7 @@
       return;
     }
 
-    // Calculate total_price for each order if it's missing or 0
-    if (data) {
-      availableOrders = await Promise.all(
-        data.map(async (order) => {
-          // If total_price exists and is not 0, use it
-          if (order.total_price != null && order.total_price !== 0) {
-            return order;
-          }
-
-          // Otherwise, calculate it from order items
-          const { data: orderItems } = await supabase
-            .from("order_item")
-            .select(
-              `
-              *,
-              wine_vintage (
-                purchase_price
-              )
-            `
-            )
-            .eq("order_id", order.id);
-
-          let totalPrice = 0;
-          if (orderItems) {
-            totalPrice = orderItems.reduce((sum, item) => {
-              // Use price from order_item if it exists, otherwise use purchase_price from wine_vintage
-              const price =
-                item.price || item.wine_vintage?.purchase_price || 0;
-              return sum + price * item.quantity;
-            }, 0);
-          }
-
-          return {
-            ...order,
-            total_price: totalPrice,
-          };
-        })
-      );
-    } else {
-      availableOrders = [];
-    }
+    availableOrders = await withOrderTotals(data || []);
   }
 
   async function loadAssociatedOrders(transportId: string) {
@@ -459,47 +335,7 @@
       return;
     }
 
-    // Calculate total_price for each order if it's missing or 0
-    if (data) {
-      associatedOrders = await Promise.all(
-        data.map(async (order) => {
-          // If total_price exists and is not 0, use it
-          if (order.total_price != null && order.total_price !== 0) {
-            return order;
-          }
-
-          // Otherwise, calculate it from order items
-          const { data: orderItems } = await supabase
-            .from("order_item")
-            .select(
-              `
-              *,
-              wine_vintage (
-                purchase_price
-              )
-            `
-            )
-            .eq("order_id", order.id);
-
-          let totalPrice = 0;
-          if (orderItems) {
-            totalPrice = orderItems.reduce((sum, item) => {
-              // Use price from order_item if it exists, otherwise use purchase_price from wine_vintage
-              const price =
-                item.price || item.wine_vintage?.purchase_price || 0;
-              return sum + price * item.quantity;
-            }, 0);
-          }
-
-          return {
-            ...order,
-            total_price: totalPrice,
-          };
-        })
-      );
-    } else {
-      associatedOrders = [];
-    }
+    associatedOrders = await withOrderTotals(data || []);
   }
 
   function toggleOrderSelection(orderId: string) {
@@ -517,40 +353,35 @@
     }
 
     // Verify that all selected orders are confirmed
-    for (const orderId of selectedOrderIds) {
-      const { data: order, error: fetchError } = await supabase
-        .from("order")
-        .select("status")
-        .eq("id", orderId)
-        .single();
+    const { data: selected, error: fetchError } = await supabase
+      .from("order")
+      .select("id, status")
+      .in("id", selectedOrderIds);
 
-      if (fetchError || !order) {
-        error = `Erreur lors de la vérification de la commande: ${fetchError?.message || "Commande introuvable"}`;
-        return;
-      }
+    if (fetchError || !selected || selected.length !== selectedOrderIds.length) {
+      error = `Erreur lors de la vérification de la commande: ${fetchError?.message || "Commande introuvable"}`;
+      return;
+    }
 
-      if (order.status !== "confirmed") {
-        error =
-          "Seules les commandes confirmées peuvent être associées à un transport";
-        return;
-      }
+    if (selected.some((order) => order.status !== "confirmed")) {
+      error =
+        "Seules les commandes confirmées peuvent être associées à un transport";
+      return;
     }
 
     // Associate orders to transport
-    for (const orderId of selectedOrderIds) {
-      const { error: updateError } = await supabase
-        .from("order")
-        .update({ transport_id: selectedTransport.id })
-        .eq("id", orderId);
+    const { error: updateError } = await supabase
+      .from("order")
+      .update({ transport_id: selectedTransport.id })
+      .in("id", selectedOrderIds);
 
-      if (updateError) {
-        error = `Erreur lors de l'association de la commande: ${updateError.message}`;
-        return;
-      }
+    if (updateError) {
+      error = `Erreur lors de l'association de la commande: ${updateError.message}`;
+      return;
     }
 
     closeOrdersModal();
-    window.location.reload();
+    await invalidateAll();
   }
 </script>
 
@@ -597,18 +428,14 @@
                 <td><strong>{transport.transporter.name}</strong></td>
                 <td>
                   {#if transport.departure_date}
-                    {new Date(transport.departure_date).toLocaleDateString(
-                      "fr-FR"
-                    )}
+                    {formatDate(transport.departure_date)}
                   {:else}
                     -
                   {/if}
                 </td>
                 <td>
                   {#if transport.arrival_date}
-                    {new Date(transport.arrival_date).toLocaleDateString(
-                      "fr-FR"
-                    )}
+                    {formatDate(transport.arrival_date)}
                   {:else}
                     -
                   {/if}
@@ -650,7 +477,7 @@
                 <td>{transport.pallets_number || "-"}</td>
                 <td>
                   {#if transport.price}
-                    €{transport.price.toFixed(2)}
+                    {formatEUR(transport.price)}
                   {:else}
                     -
                   {/if}
@@ -694,14 +521,14 @@
     {/if}
 </ManagePageShell>
 
-<!-- Modal de création -->
+<!-- Modal de création / édition -->
 <Modal
-  show={showModal}
-  title="Nouveau transport"
-  modalId="modal-title-create"
-  on:close={closeModal}
+  show={formOpen}
+  title={editingTransport ? "Modifier le transport" : "Nouveau transport"}
+  modalId="modal-title-transport"
+  on:close={closeForm}
 >
-  <form on:submit|preventDefault={handleSubmit}>
+  <form on:submit|preventDefault={submitForm}>
     <div class="form-grid">
       <div class="form-group">
         <label for="transporter_id">Transporteur *</label>
@@ -761,85 +588,10 @@
     </div>
 
     <div class="modal-footer">
-      <button type="button" class="btn-secondary" on:click={closeModal}
+      <button type="button" class="btn-secondary" on:click={closeForm}
         >Annuler</button
       >
-      <button type="submit" class="btn-primary">Créer le transport</button>
-    </div>
-  </form>
-</Modal>
-
-<!-- Modal d'édition -->
-<Modal
-  show={showEditModal}
-  title="Modifier le transport"
-  modalId="modal-title-edit"
-  on:close={closeEditModal}
->
-  <form on:submit|preventDefault={handleUpdate}>
-    <div class="form-grid">
-      <div class="form-group">
-        <label for="transporter_id_edit">Transporteur *</label>
-        <select
-          id="transporter_id_edit"
-          bind:value={formData.transporter_id}
-          required
-        >
-          <option value="">Sélectionner un transporteur</option>
-          {#each transporters as transporter}
-            <option value={transporter.id}>{transporter.name}</option>
-          {/each}
-        </select>
-      </div>
-
-      <div class="form-group">
-        <label for="departure_date_edit">Date de départ</label>
-        <input
-          type="date"
-          id="departure_date_edit"
-          bind:value={formData.departure_date}
-        />
-      </div>
-
-      <div class="form-group">
-        <label for="arrival_date_edit">Date d'arrivée</label>
-        <input
-          type="date"
-          id="arrival_date_edit"
-          bind:value={formData.arrival_date}
-        />
-      </div>
-
-      <div class="form-group">
-        <label for="pallets_number_edit">Nombre de palettes</label>
-        <input
-          type="number"
-          id="pallets_number_edit"
-          bind:value={formData.pallets_number}
-        />
-      </div>
-
-      <div class="form-group">
-        <label for="price_edit">Prix</label>
-        <input
-          type="number"
-          step="0.01"
-          id="price_edit"
-          bind:value={formData.price}
-        />
-      </div>
-
-      <div class="form-group full-width">
-        <label for="note_edit">Note</label>
-        <textarea id="note_edit" bind:value={formData.note} rows="3"></textarea>
-      </div>
-    </div>
-
-    <div class="modal-footer">
-      <button type="button" class="btn-secondary" on:click={closeEditModal}
-        >Annuler</button
-      >
-      <button type="submit" class="btn-primary">Enregistrer</button>
+      <button type="submit" class="btn-primary">{editingTransport ? "Enregistrer" : "Créer le transport"}</button>
     </div>
   </form>
 </Modal>
@@ -867,7 +619,7 @@
                 <div class="order-header">
                   <div>
                     <strong>
-                      {new Date(order.date).toLocaleDateString("fr-FR")} - {order
+                      {formatDate(order.date)} - {order
                         .supplier.name}
                     </strong>
                     <span
@@ -880,7 +632,7 @@
                     </span>
                   </div>
                   <span class="order-total">
-                    €{order.total_price?.toFixed(2) || "0.00"}
+                    {formatEUR(order.total_price ?? 0)}
                   </span>
                 </div>
                 {#if order.note}
@@ -920,7 +672,7 @@
                 <div class="order-header">
                   <div>
                     <strong>
-                      {new Date(order.date).toLocaleDateString("fr-FR")} - {order
+                      {formatDate(order.date)} - {order
                         .supplier.name}
                     </strong>
                     <span
@@ -933,7 +685,7 @@
                     </span>
                   </div>
                   <span class="order-total">
-                    €{order.total_price?.toFixed(2) || "0.00"}
+                    {formatEUR(order.total_price ?? 0)}
                   </span>
                 </div>
                 {#if order.note}
@@ -998,9 +750,7 @@
           <div class="details-label">Date de départ</div>
           <div>
             {#if detailsTransport.departure_date}
-              {new Date(detailsTransport.departure_date).toLocaleDateString(
-                "fr-FR"
-              )}
+              {formatDate(detailsTransport.departure_date)}
             {:else}
               -
             {/if}
@@ -1011,9 +761,7 @@
           <div class="details-label">Date d'arrivée</div>
           <div>
             {#if detailsTransport.arrival_date}
-              {new Date(detailsTransport.arrival_date).toLocaleDateString(
-                "fr-FR"
-              )}
+              {formatDate(detailsTransport.arrival_date)}
             {:else}
               -
             {/if}
@@ -1029,7 +777,7 @@
           <div class="details-label">Prix</div>
           <div>
             {#if detailsTransport.price}
-              <strong>€{detailsTransport.price.toFixed(2)}</strong>
+              <strong>{formatEUR(detailsTransport.price)}</strong>
             {:else}
               -
             {/if}
@@ -1055,11 +803,11 @@
                 <div class="details-order-header">
                   <div class="details-order-info">
                     <strong>
-                      {new Date(order.date).toLocaleDateString("fr-FR")} - {order
+                      {formatDate(order.date)} - {order
                         .supplier.name}
                     </strong>
                     <span class="details-order-total">
-                      Total: €{order.total_price?.toFixed(2) || "0.00"}
+                      Total : {formatEUR(order.total_price ?? 0)}
                     </span>
                   </div>
                 </div>
@@ -1071,28 +819,13 @@
                     {#each order.items as item}
                       <div class="details-order-item">
                         <div class="details-order-item-name">
-                          {getProductDisplayNameWithYear(item.wine_vintage)}
+                          {vintageProductLabel(item.wine_vintage)}
                         </div>
                         <div class="details-order-item-details">
                           <span>x{item.quantity}</span>
-                          {#if item.price}
-                            <span>@ €{item.price.toFixed(2)}</span>
-                            <strong
-                              >= €{(item.price * item.quantity).toFixed(
-                                2
-                              )}</strong
-                            >
-                          {:else if item.wine_vintage?.purchase_price}
-                            <span
-                              >@ €{item.wine_vintage.purchase_price.toFixed(
-                                2
-                              )}</span
-                            >
-                            <strong
-                              >= €{(
-                                item.wine_vintage.purchase_price * item.quantity
-                              ).toFixed(2)}</strong
-                            >
+                          {#if itemPrice(item)}
+                            <span>@ {formatEUR(itemPrice(item))}</span>
+                            <strong>= {formatEUR(itemPrice(item) * item.quantity)}</strong>
                           {/if}
                         </div>
                       </div>
