@@ -22,50 +22,26 @@ export const load: PageLoad = async () => {
     );
   }
 
-  // Use total_price from database if it exists, otherwise calculate it from order items
-  if (orders) {
-    const ordersWithTotal = await Promise.all(
-      orders.map(async (order) => {
-        // If total_price already exists in the database and is not 0, use it
-        if (order.total_price != null && order.total_price !== 0) {
-          return order;
-        }
-
-        // Otherwise, calculate it from order items
-        const { data: orderItems } = await supabase
-          .from("order_item")
-          .select(
-            `
-            *,
-            wine_vintage (
-              purchase_price
-            )
-          `
-          )
-          .eq("order_id", order.id);
-
-        let totalPrice = 0;
-        if (orderItems) {
-          totalPrice = orderItems.reduce((sum, item) => {
-            // Use price from order_item if it exists, otherwise use purchase_price from wine_vintage
-            const price = item.price || item.wine_vintage?.purchase_price || 0;
-            return sum + price * item.quantity;
-          }, 0);
-        }
-
-        return {
-          ...order,
-          total_price: totalPrice,
-        };
-      })
-    );
-
-    return {
-      orders: ordersWithTotal || [],
-    };
-  }
-
-  return {
-    orders: orders || [],
-  };
+  return { orders: await withTotals(orders || []) };
 };
+
+/**
+ * Commandes sans total_price en base (ou à 0) : total recalculé depuis leurs lignes,
+ * lues en une seule requête (prix de la ligne, sinon prix d'achat du millésime).
+ */
+async function withTotals<T extends { id: string; total_price: number | null }>(orders: T[]): Promise<T[]> {
+  const missing = orders.filter((o) => o.total_price == null || o.total_price === 0).map((o) => o.id);
+  if (!missing.length) return orders;
+
+  const { data: items } = await supabase
+    .from("order_item")
+    .select("order_id, quantity, price, wine_vintage ( purchase_price )")
+    .in("order_id", missing);
+
+  const totals = new Map<string, number>(missing.map((id) => [id, 0]));
+  for (const item of items || []) {
+    const price = item.price || item.wine_vintage?.purchase_price || 0;
+    totals.set(item.order_id, (totals.get(item.order_id) ?? 0) + price * item.quantity);
+  }
+  return orders.map((o) => (totals.has(o.id) ? { ...o, total_price: totals.get(o.id)! } : o));
+}
