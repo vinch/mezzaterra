@@ -2,6 +2,7 @@
   import "$lib/styles/site.css";
   import { page } from "$app/stores";
   import SiteFooter from "$lib/components/SiteFooter.svelte";
+  import SiteNav from "$lib/components/site/SiteNav.svelte";
   import AbruzzoMap from "$lib/components/site/AbruzzoMap.svelte";
   import { supabase } from "$lib/supabase";
 
@@ -86,6 +87,10 @@
 </svelte:head>
 
 <div class="page">
+  <header class="mz-container home-top">
+    <SiteNav />
+  </header>
+
   <main class="mz-container home">
     <section class="hero" aria-labelledby="concept-title">
       <div class="hero-text mz-rise">
@@ -184,10 +189,19 @@
     color: var(--mz-ink);
   }
 
+  .home-top {
+    position: relative;
+    z-index: 1;
+    width: 100%;
+    display: flex;
+    justify-content: flex-end;
+    padding-top: 20px;
+  }
+
   .home {
     flex: 1;
     width: 100%;
-    padding-top: 48px;
+    padding-top: 28px;
     padding-bottom: 32px;
   }
 
@@ -498,8 +512,13 @@
   }
 
   @media (max-width: 640px) {
+    .home-top {
+      justify-content: center;
+      padding-top: 14px;
+    }
+
     .home {
-      padding-top: 24px;
+      padding-top: 16px;
     }
 
     .logo-home {

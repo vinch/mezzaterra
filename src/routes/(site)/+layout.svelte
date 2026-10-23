@@ -2,12 +2,7 @@
   import "$lib/styles/site.css";
   import { page } from "$app/stores";
   import SiteFooter from "$lib/components/SiteFooter.svelte";
-
-  const links: { href: string; label: string; also?: string[] }[] = [
-    { href: "/", label: "Accueil" },
-    { href: "/tastings", label: "Dégustations" },
-    { href: "/vins", label: "Nos vins", also: ["/domaines"] },
-  ];
+  import SiteNav from "$lib/components/site/SiteNav.svelte";
 
   $: path = $page.url.pathname;
   /* Le mode live a son propre habillage plein écran (thème « cave »). */
@@ -23,16 +18,7 @@
         <a href="/" class="brand" aria-label="Mezzaterra — accueil">
           <img src="/flyer/logo-text.svg" alt="Mezzaterra" />
         </a>
-        <nav class="site-nav" aria-label="Navigation principale">
-          {#each links as link}
-            <a
-              href={link.href}
-              class="nav-link"
-              class:active={[link.href, ...(link.also || [])].some((h) => path === h || path.startsWith(h + "/"))}
-              aria-current={path === link.href ? "page" : undefined}>{link.label}</a
-            >
-          {/each}
-        </nav>
+        <SiteNav />
       </div>
     </header>
 
@@ -80,35 +66,6 @@
     width: auto;
   }
 
-  .site-nav {
-    display: flex;
-    gap: 0.25rem;
-  }
-
-  .nav-link {
-    position: relative;
-    padding: 0.5rem 0.85rem;
-    border-radius: 999px;
-    color: var(--mz-ink-soft);
-    text-decoration: none;
-    font-weight: 500;
-    font-size: 0.95rem;
-    white-space: nowrap;
-    transition:
-      background-color 0.2s ease,
-      color 0.2s ease;
-  }
-
-  .nav-link:hover {
-    background: var(--mz-teal-wash);
-    color: var(--mz-teal);
-  }
-
-  .nav-link.active {
-    color: var(--mz-teal);
-    background: var(--mz-teal-wash);
-  }
-
   .site-main {
     flex: 1;
   }
@@ -127,23 +84,6 @@
 
     .brand img {
       height: 2.1rem;
-    }
-
-    .site-nav {
-      overflow-x: auto;
-      justify-content: center;
-      scrollbar-width: none;
-      margin: 0 -1rem;
-      padding: 0 1rem;
-    }
-
-    .site-nav::-webkit-scrollbar {
-      display: none;
-    }
-
-    .nav-link {
-      font-size: 0.9rem;
-      padding: 0.45rem 0.75rem;
     }
   }
 </style>
