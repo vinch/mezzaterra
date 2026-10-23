@@ -12,7 +12,7 @@
 
   /** Domaines à épingler (coordonnées GPS de la table winery). */
   export let wineries: { id: string; name: string; latitude: number | null; longitude: number | null }[] = [];
-  /** Domaine mis en avant (page domaine) : les autres épingles passent au second plan et les points deviennent des liens. */
+  /** Domaine mis en avant (page domaine) : les autres épingles passent au second plan. */
   export let current: string | null = null;
 
   const W = MAIN.width;
@@ -150,23 +150,20 @@
       {/each}
 
       {#each pins as w (w.id)}
-        <!-- Points cliquables seulement sur une page domaine ; sur l'accueil, simples repères. -->
-        <svelte:element
-          this={current ? "a" : "g"}
-          xmlns="http://www.w3.org/2000/svg"
-          href={current ? `/domaines/${w.id}` : undefined}
+        <a
+          href="/domaines/{w.id}"
           class="pin"
           class:current={current === w.id}
           class:dim={current != null && current !== w.id}
           style="--delay: {w.delay}ms"
-          aria-label={current ? `${w.name} — voir le domaine` : undefined}
+          aria-label="{w.name} — voir le domaine"
           aria-current={current === w.id ? "page" : undefined}
         >
           <circle class="pin-halo" cx={w.x} cy={w.y} r="9" />
           <circle class="pin-dot" cx={w.x} cy={w.y} r="5.5" />
           <line class="leader" x1={w.leader.x1} y1={w.leader.y1} x2={w.leader.x2} y2={w.leader.y2} />
           <text class="pin-label" x={w.text.x} y={w.text.y} text-anchor={w.text.anchor}>{w.name}</text>
-        </svelte:element>
+        </a>
       {/each}
 
       <!-- Médaillon : l'Italie -->
@@ -344,7 +341,8 @@
     cursor: pointer;
   }
 
-  a.pin:hover .pin-label {
+  a.pin:hover .pin-label,
+  a.pin:focus-visible .pin-label {
     fill: var(--mz-wine-red);
   }
 
