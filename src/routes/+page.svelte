@@ -195,7 +195,11 @@
     width: 100%;
     display: flex;
     justify-content: flex-end;
-    padding-top: 20px;
+    /* Même géométrie que le header des autres pages (padding 0.9rem, logo de
+       2.6rem) : la nav tombe exactement au même endroit. */
+    align-items: center;
+    min-height: calc(0.9rem + 2.6rem);
+    padding-top: 0.9rem;
   }
 
   .home {
@@ -514,7 +518,8 @@
   @media (max-width: 640px) {
     .home-top {
       justify-content: center;
-      padding-top: 14px;
+      min-height: 0;
+      padding: 14px 1rem 0;
     }
 
     .home {
