@@ -5,6 +5,7 @@
   import { page } from "$app/stores";
   import WineCard from "$lib/components/site/WineCard.svelte";
   import { fetchAvailability, type Availability } from "$lib/publicData";
+  import { fold } from "$lib/format";
   import {
     STYLE_ORDER,
     allWineStyles,
@@ -31,16 +32,12 @@
     vintages.some((v) => wineStyle(v.wine?.wine_type).key === s.key),
   );
 
-  function normalize(s: string): string {
-    return s.normalize("NFD").replace(/\p{Diacritic}/gu, "").toLowerCase();
-  }
-
   $: filtered = vintages
     .filter((v) => !styleFilter || wineStyle(v.wine?.wine_type).key === styleFilter)
     .filter((v) => !inStockOnly || !availability || availability.get(v.id)?.in_stock)
     .filter((v) => {
       if (!query.trim()) return true;
-      const blob = normalize(
+      const blob = fold(
         [
           wineTitle(v.wine),
           v.wine?.appelation?.name,
@@ -51,7 +48,7 @@
           .filter(Boolean)
           .join(" "),
       );
-      return normalize(query)
+      return fold(query)
         .split(/\s+/)
         .every((w) => blob.includes(w));
     })

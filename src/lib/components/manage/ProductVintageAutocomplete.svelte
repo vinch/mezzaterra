@@ -1,6 +1,7 @@
 <script lang="ts">
   import { createEventDispatcher } from "svelte";
-  import Combobox, { fold, type ComboOption } from "$lib/ui/Combobox.svelte";
+  import Combobox, { type ComboOption } from "$lib/ui/Combobox.svelte";
+  import { fold } from "$lib/format";
   import WineDot, { robeOf } from "$lib/ui/WineDot.svelte";
   import { formatEUR } from "$lib/format";
 

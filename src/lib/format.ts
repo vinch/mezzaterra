@@ -17,6 +17,18 @@ export function formatDate(iso: string | null | undefined): string {
   return d && m && y ? `${d}/${m}/${y}` : iso;
 }
 
+/** Montant saisi ou renvoyé par PostgREST (number ou string, virgule décimale FR) ; 0 si invalide. */
+export function toNumber(value: unknown): number {
+  if (value == null || value === "") return 0;
+  const n = typeof value === "number" ? value : parseFloat(String(value).trim().replace(",", "."));
+  return Number.isFinite(n) ? n : 0;
+}
+
+/** Texte de recherche : sans accents, en minuscules. */
+export function fold(s: string): string {
+  return s.normalize("NFD").replace(/\p{Diacritic}/gu, "").toLowerCase();
+}
+
 /** Initiales pour les pastilles client (« AC »). */
 export function initials(first?: string | null, last?: string | null): string {
   return `${(first || "").trim().charAt(0)}${(last || "").trim().charAt(0)}`.toUpperCase() || "?";

@@ -32,12 +32,14 @@
     IconTruck,
     IconX,
   } from "$lib/ui/icons";
-  import { formatDate, formatEUR, initials } from "$lib/format";
-  import { sortCustomersByLabel } from "$lib/customerDisplay";
+  import { fold, formatDate, formatEUR, initials, toNumber } from "$lib/format";
+  import { todayIso } from "$lib/dates";
+  import { lineTotal } from "$lib/analytics";
+  import { vintageProductLabel, vintageShortLabel } from "$lib/wine";
+  import { fetchCustomers, fetchPickerVintages, fetchStockMap } from "$lib/manageData";
+  import { invalidateAll } from "$app/navigation";
   import ProductVintageAutocomplete from "$lib/components/manage/ProductVintageAutocomplete.svelte";
   import CustomerAutocomplete from "$lib/components/manage/CustomerAutocomplete.svelte";
-  // @ts-ignore - jsPDF will be available after npm install
-  import jsPDF from "jspdf";
 
   export let data: PageData;
 
@@ -58,14 +60,15 @@
     return o ? o.label : String(value);
   }
 
-  let sales: any[] = data.sales;
+  let sales: any[];
+  /* Rechargé par invalidateAll() après une création, une modification ou une suppression. */
+  $: sales = data.sales;
   let customers: any[] = [];
-  $: sortedCustomers = sortCustomersByLabel(customers);
   let wineVintages: any[] = [];
   let loading = true;
   let error = "";
-  let showModal = false;
-  let showEditModal = false;
+  /** Modale unique création / édition (`editingSale` les distingue). */
+  let formOpen = false;
   let showDetailsModal = false;
   let editingSale: any = null;
   let detailsSale: any = null;
@@ -73,10 +76,9 @@
 
   // Form fields
   let formData = {
-    date: new Date().toISOString().split("T")[0],
+    date: todayIso(),
     customer_id: "",
     status: "pending",
-    total_price: 0,
     note: "",
     global_discount: "",
     global_discount_type: "amount" as "amount" | "percent",
@@ -93,26 +95,14 @@
   /** Par défaut « montant » : sinon une remise saisie sans type était ignorée (discount_type null). */
   let selectedDiscountType: "amount" | "percent" = "amount";
 
-  /** Prix / remises : number ou string (numeric PostgREST), virgule décimale FR. */
-  function toNumber(value: unknown): number {
-    if (value == null || value === "") return 0;
-    if (typeof value === "number") {
-      return Number.isFinite(value) ? value : 0;
-    }
-    const s = String(value).trim().replace(",", ".");
-    const n = parseFloat(s);
-    return Number.isFinite(n) ? n : 0;
-  }
-
   onMount(async () => {
     /* Liens profonds depuis le tableau de bord : ?statut=pending, ?nouvelle=1 */
     const params = new URLSearchParams(window.location.search);
     const st = params.get("statut");
     if (st && ["pending", "paid", "delivered", "closed", "cancelled"].includes(st)) tab = st as Tab;
-    await Promise.all([loadCustomers(), loadTastings()]);
     const t = params.get("degustation");
     if (t) tastingFilter = t;
-    await loadWineVintages();
+    await Promise.all([fetchCustomers().then((c) => (customers = c)), loadTastings(), loadWineVintages()]);
     loading = false;
     if (params.has("nouvelle")) {
       openCreateModal();
@@ -128,58 +118,23 @@
     if (telecharger) void downloadInvoice(telecharger);
   });
 
-  function getProductDisplayName(vintage: any) {
-    const winery = vintage.wine.winery.name;
-    const wineName = vintage.wine.name;
-    const appelation = vintage.wine.appelation?.name;
-
-    if (wineName) {
-      return `${winery} - ${wineName}`;
-    } else if (appelation) {
-      return `${winery} - ${appelation}`;
-    } else {
-      return winery;
-    }
-  }
-
-  function getProductDisplayNameWithYear(vintage: any) {
-    const baseName = getProductDisplayName(vintage);
-    if (vintage.year) {
-      return `${baseName} - ${vintage.year}`;
-    } else {
-      return `${baseName} (${vintage.production_year})`;
-    }
-  }
-
   function saleItemDescription(item: any): string {
     if (item.wine_vintage_id && item.wine_vintage) {
-      return getProductDisplayNameWithYear(item.wine_vintage);
+      return vintageProductLabel(item.wine_vintage);
     }
     const n = item.note != null ? String(item.note).trim() : "";
     return n || TASTING_LINE_NOTE;
   }
 
-  function sumDetailsItemsTTC(): number {
-    let s = 0;
-    for (const item of detailsSaleItems) {
-      s += calculateItemTotal(item);
-    }
-    return Math.round(s * 100) / 100;
-  }
-
-  function getProductDisplayNameWithStock(
-    vintage: any,
-    availableStock: number,
-  ) {
-    const baseNameWithYear = getProductDisplayNameWithYear(vintage);
-    return `${baseNameWithYear} - Stock : ${availableStock}`;
+  function getProductDisplayNameWithStock(vintage: any, availableStock: number) {
+    return `${vintageProductLabel(vintage)} - Stock : ${availableStock}`;
   }
 
   function getAvailableStock(vintageId: string): number {
     if (vintageId === TASTING_SELECT_VALUE) {
       return 999999;
     }
-    const vintage = wineVintages.find((v) => v.id === vintageId);
+    const vintage = vintageById.get(vintageId);
     if (!vintage) return 0;
 
     const stock = vintage.stock || 0;
@@ -198,79 +153,16 @@
     return saleItems.some((item) => item.wine_vintage_id === vintageId);
   }
 
-  async function loadCustomers() {
-    const { data } = await supabase.from("customer").select("*");
-    if (data) customers = sortCustomersByLabel(data);
-  }
-
+  /** Millésimes du sélecteur, avec leur stock (relu à chaque ouverture du formulaire d'édition). */
   async function loadWineVintages() {
-    const { data } = await supabase
-      .from("wine_vintage")
-      .select(
-        `
-        *,
-        wine (
-          *,
-          winery (*),
-          appelation (*),
-          wine_type (*)
-        )
-      `,
-      )
-      .order("production_year", { ascending: false });
-    if (data) {
-      // Load stock for each vintage
-      const vintagesWithStock = await Promise.all(
-        data.map(async (vintage) => {
-          const { data: inventory } = await supabase
-            .from("inventory")
-            .select("quantity_on_hand")
-            .eq("wine_vintage_id", vintage.id)
-            .maybeSingle();
-
-          return {
-            ...vintage,
-            stock: inventory?.quantity_on_hand || 0,
-          };
-        }),
-      );
-
-      wineVintages = vintagesWithStock;
-      // Sort by winery, then wine name/appellation, then year
-      wineVintages.sort((a, b) => {
-        // First: sort by winery name
-        const wineryA = a.wine.winery.name.toLowerCase();
-        const wineryB = b.wine.winery.name.toLowerCase();
-        if (wineryA !== wineryB) {
-          return wineryA.localeCompare(wineryB);
-        }
-
-        // Second: sort by wine name or appellation
-        const wineNameA =
-          a.wine.name?.toLowerCase() ||
-          a.wine.appelation?.name?.toLowerCase() ||
-          "";
-        const wineNameB =
-          b.wine.name?.toLowerCase() ||
-          b.wine.appelation?.name?.toLowerCase() ||
-          "";
-        if (wineNameA !== wineNameB) {
-          return wineNameA.localeCompare(wineNameB);
-        }
-
-        // Third: sort by year (year if exists, else production_year)
-        const yearA = a.year || a.production_year;
-        const yearB = b.year || b.production_year;
-        return yearB - yearA; // Descending order (newest first)
-      });
-    }
+    const [list, stock] = await Promise.all([fetchPickerVintages(), fetchStockMap()]);
+    wineVintages = list.map((v) => ({ ...v, stock: stock.get(v.id) ?? 0 }));
   }
 
   function openCreateModal() {
     editingSale = null;
     resetForm();
-    saleItems = [];
-    showModal = true;
+    formOpen = true;
   }
 
   async function openEditModal(sale: any) {
@@ -284,7 +176,6 @@
       date: sale.date.split("T")[0],
       customer_id: sale.customer_id || "",
       status: sale.status || "pending",
-      total_price: sale.total_price || 0,
       note: sale.note || "",
       global_discount:
         sale.global_discount != null && toNumber(sale.global_discount) > 0
@@ -295,52 +186,29 @@
       payment_method: sale.payment_method ?? "",
       tasting_id: sale.tasting_id ?? "",
     };
-    await loadWineVintages(); // Reload vintages with stock
-    await loadSaleItems(sale.id);
-    // Update saleItems format to match what the form expects and load stock
-    saleItems = await Promise.all(
-      saleItems.map(async (item: any) => {
-        if (!item.wine_vintage_id) {
-          return {
-            wine_vintage: null,
-            wine_vintage_id: null,
-            quantity: item.quantity,
-            price: toNumber(item.price),
-            discount: toNumber(item.discount),
-            discount_type: item.discount_type || null,
-            note: item.note || TASTING_LINE_NOTE,
-          };
-        }
-
-        const { data: inventory } = await supabase
-          .from("inventory")
-          .select("quantity_on_hand")
-          .eq("wine_vintage_id", item.wine_vintage_id)
-          .maybeSingle();
-
-        return {
-          wine_vintage: {
-            ...item.wine_vintage,
-            stock: inventory?.quantity_on_hand || 0,
-          },
-          wine_vintage_id: item.wine_vintage_id,
-          quantity: item.quantity,
-          price: toNumber(item.price),
-          discount: toNumber(item.discount),
-          discount_type: item.discount_type || null,
-          note: item.note || "",
-        };
-      }),
-    );
+    /* Stock relu : il a pu bouger depuis l'ouverture de la page. */
+    const [, items] = await Promise.all([loadWineVintages(), loadSaleItems(sale.id)]);
+    const stock = new Map(wineVintages.map((v) => [v.id, v.stock]));
+    saleItems = items.map((item: any) => ({
+      wine_vintage: item.wine_vintage_id
+        ? { ...item.wine_vintage, stock: stock.get(item.wine_vintage_id) ?? 0 }
+        : null,
+      wine_vintage_id: item.wine_vintage_id ?? null,
+      quantity: item.quantity,
+      price: toNumber(item.price),
+      discount: toNumber(item.discount),
+      discount_type: item.discount_type || null,
+      note: item.note || (item.wine_vintage_id ? "" : TASTING_LINE_NOTE),
+    }));
     selectedVintageId = "";
     selectedQuantity = "";
     selectedPrice = "";
     selectedDiscount = "";
     selectedDiscountType = "amount";
-    showEditModal = true;
+    formOpen = true;
   }
 
-  async function loadSaleItems(saleId: string) {
+  async function loadSaleItems(saleId: string): Promise<any[]> {
     const { data } = await supabase
       .from("sale_item")
       .select(
@@ -358,27 +226,18 @@
       )
       .eq("sale_id", saleId);
 
-    saleItems = data || [];
+    return data || [];
   }
 
-  function closeModal() {
-    showModal = false;
+  function closeForm() {
+    formOpen = false;
     editingSale = null;
     resetForm();
-    saleItems = [];
-  }
-
-  function closeEditModal() {
-    showEditModal = false;
-    editingSale = null;
-    resetForm();
-    saleItems = [];
   }
 
   async function openDetailsModal(sale: any) {
     detailsSale = sale;
-    await loadSaleItems(sale.id);
-    detailsSaleItems = saleItems;
+    detailsSaleItems = await loadSaleItems(sale.id);
     showDetailsModal = true;
   }
 
@@ -397,32 +256,19 @@
     const yearStart = `${year}-01-01`;
     const yearEnd = `${year}-12-31`;
 
-    // Get all sales in the same year that already have an invoice_number
-    const { data: salesInYear, error } = await supabase
+    // All sales of the year: their order gives the position, those already invoiced give the max number
+    const { data: allSalesInYear, error } = await supabase
       .from("sale")
       .select("id, date, created_at, invoice_number")
       .gte("date", yearStart)
       .lte("date", yearEnd)
-      .not("invoice_number", "is", null)
       .order("date", { ascending: true });
 
-    if (error) {
+    if (error || !allSalesInYear) {
       console.error(
         "Erreur lors de la génération du numéro de facture:",
         error,
       );
-      return null;
-    }
-
-    // Get all sales in the year (including those without invoice_number) for sorting
-    const { data: allSalesInYear } = await supabase
-      .from("sale")
-      .select("id, date, created_at, invoice_number")
-      .gte("date", yearStart)
-      .lte("date", yearEnd)
-      .order("date", { ascending: true });
-
-    if (!allSalesInYear) {
       return null;
     }
 
@@ -441,18 +287,9 @@
 
     // Find the highest invoice number for this year
     let maxInvoiceNumber = 0;
-    if (salesInYear && salesInYear.length > 0) {
-      for (const sale of salesInYear) {
-        if (sale.invoice_number) {
-          const match = sale.invoice_number.match(/INV-\d+-(\d+)/);
-          if (match) {
-            const num = parseInt(match[1], 10);
-            if (num > maxInvoiceNumber) {
-              maxInvoiceNumber = num;
-            }
-          }
-        }
-      }
+    for (const sale of allSalesInYear) {
+      const match = sale.invoice_number?.match(/INV-\d+-(\d+)/);
+      if (match) maxInvoiceNumber = Math.max(maxInvoiceNumber, parseInt(match[1], 10));
     }
 
     // Generate the next invoice number
@@ -479,8 +316,9 @@
   }
 
   async function downloadInvoice(saleId: string) {
-    // @ts-ignore - jsPDF types will be available after npm install
     try {
+      /* jsPDF n'est chargé qu'au moment de générer une facture. */
+      const { default: jsPDF } = await import("jspdf");
       // Load sale with customer info
       const { data: sale, error: saleError } = await supabase
         .from("sale")
@@ -561,7 +399,7 @@
       });
       yPos += 6;
       doc.text(
-        `Date: ${new Date(sale.date).toLocaleDateString("fr-FR")}`,
+        `Date: ${formatDate(sale.date)}`,
         pageWidth - margin,
         yPos,
         { align: "right" },
@@ -704,7 +542,7 @@
         const quantity = item.quantity;
         const priceTTC = toNumber(item.price); // Price in DB is TTC
         const priceHTVA = isCompany ? priceTTC / (1 + VAT_RATE) : priceTTC;
-        const itemTotalTTC = calculateItemTotal(item);
+        const itemTotalTTC = lineTotal(item);
         subtotalTTC += itemTotalTTC;
 
         // Calculate HTVA from TTC: HTVA = TTC / (1 + VAT_RATE)
@@ -720,7 +558,6 @@
         const itemHeight = Math.max(descriptionLines.length * 4.2, 6);
 
         // Quantity - centered in column
-        // @ts-ignore - jsPDF types will be available after npm install
         doc.text(quantity.toString(), qtyColX, startY, { align: "center" });
 
         // Unit price HTVA if company - centered in column
@@ -857,15 +694,14 @@
 
   function resetForm() {
     formData = {
-      date: new Date().toISOString().split("T")[0],
+      date: todayIso(),
       customer_id: "",
       status: "pending",
-      total_price: 0,
       note: "",
       global_discount: "",
       global_discount_type: "amount",
       payment_method: "",
-      tasting_id: tastingOnDate(new Date().toISOString().split("T")[0]),
+      tasting_id: tastingOnDate(todayIso()),
     };
     saleItems = [];
     selectedVintageId = "";
@@ -875,59 +711,24 @@
     selectedDiscountType = "amount";
   }
 
-  function calculateItemTotal(item: any) {
-    const price = toNumber(item.price);
-    const quantity = parseInt(String(item.quantity ?? 0), 10) || 0;
-    const discount = toNumber(item.discount);
-    const discountKind = String(item.discount_type ?? "")
-      .trim()
-      .toLowerCase();
-
-    let itemTotal = price * quantity;
-
-    if (discount > 0) {
-      if (discountKind === "percent") {
-        itemTotal = itemTotal * (1 - discount / 100);
-      } else if (discountKind === "amount") {
-        itemTotal = itemTotal - discount;
-      }
-    }
-
-    return Math.round(itemTotal * 100) / 100;
-  }
-
   /** Sous-total TTC après remises par ligne (avant ristourne globale). */
-  function calculateSubtotal() {
-    let total = 0;
-    for (const item of saleItems) {
-      total += calculateItemTotal(item);
-    }
-    return Math.round(total * 100) / 100;
+  function itemsSubtotal(items: any[]): number {
+    return Math.round(items.reduce((sum, item) => sum + lineTotal(item), 0) * 100) / 100;
   }
 
-  function calculateTotal() {
-    const subtotal = calculateSubtotal();
-    const g = toNumber(formData.global_discount);
+  /** Total TTC : sous-total moins la ristourne globale (montant ou %). */
+  function saleTotal(items: any[], globalDiscount: unknown, globalDiscountType: string): number {
+    const subtotal = itemsSubtotal(items);
+    const g = toNumber(globalDiscount);
     if (g <= 0) return subtotal;
-
-    const typ = formData.global_discount_type;
-    if (typ === "percent") {
+    if (globalDiscountType === "percent") {
       const pct = Math.min(100, g);
       return Math.max(0, Math.round(subtotal * (1 - pct / 100) * 100) / 100);
     }
     return Math.max(0, Math.round((subtotal - g) * 100) / 100);
   }
 
-  /* Dépendances explicites : Svelte 5 ne suit pas saleItems via calculateTotal() → calculateSubtotal(). */
-  $: {
-    const _items = saleItems;
-    const _g = formData.global_discount;
-    const _gt = formData.global_discount_type;
-    void _items;
-    void _g;
-    void _gt;
-    formData.total_price = calculateTotal();
-  }
+  $: total = saleTotal(saleItems, formData.global_discount, formData.global_discount_type);
 
   function handleVintageChange() {
     if (selectedVintageId === TASTING_SELECT_VALUE) {
@@ -1017,79 +818,14 @@
     selectedVintageId = "";
   }
 
-  async function handleSubmit() {
+  /** Création ou modification (selon `editingSale`) de la vente et de ses lignes. */
+  async function submitForm() {
     if (!formData.customer_id || saleItems.length === 0) {
       error = "Le client et au moins un article sont obligatoires";
       return;
     }
 
-    const gGlobal = toNumber(formData.global_discount);
-    if (
-      gGlobal > 0 &&
-      formData.global_discount_type === "percent" &&
-      gGlobal > 100
-    ) {
-      error = "La ristourne globale en pourcentage ne peut pas dépasser 100 %.";
-      return;
-    }
-
-    const calculatedTotal = calculateTotal();
-    const saleData = {
-      date: formData.date,
-      customer_id: formData.customer_id,
-      status: "pending",
-      total_price: calculatedTotal,
-      note: formData.note || null,
-      global_discount: gGlobal > 0 ? gGlobal : null,
-      global_discount_type: gGlobal > 0 ? formData.global_discount_type : null,
-      payment_method: formData.payment_method?.trim()
-        ? formData.payment_method.trim()
-        : null,
-      tasting_id: formData.tasting_id || null,
-    };
-
-    const { data: newSale, error: insertError } = await supabase
-      .from("sale")
-      .insert(saleData)
-      .select()
-      .single();
-
-    if (insertError) {
-      error = insertError.message;
-      return;
-    }
-
-    // Insert sale items
-    for (const item of saleItems) {
-      const { error: itemError } = await supabase.from("sale_item").insert({
-        sale_id: newSale.id,
-        wine_vintage_id: item.wine_vintage_id ?? null,
-        quantity: item.quantity,
-        price: toNumber(item.price),
-        discount: toNumber(item.discount) > 0 ? toNumber(item.discount) : null,
-        discount_type: item.discount_type || null,
-        note: item.note || null,
-      });
-
-      if (itemError) {
-        error = itemError.message;
-        return;
-      }
-    }
-
-    closeModal();
-    window.location.reload();
-  }
-
-  async function handleUpdate() {
-    if (!formData.customer_id || saleItems.length === 0) {
-      error = "Le client et au moins un article sont obligatoires";
-      return;
-    }
-
-    if (!editingSale) return;
-
-    if (editingSale.status === "closed" || editingSale.status === "cancelled") {
+    if (editingSale?.status === "closed" || editingSale?.status === "cancelled") {
       error = "Impossible de modifier une vente clôturée ou annulée";
       return;
     }
@@ -1104,12 +840,11 @@
       return;
     }
 
-    const calculatedTotal = calculateTotal();
     const saleData = {
       date: formData.date,
       customer_id: formData.customer_id,
-      status: editingSale.status, // Keep the original status
-      total_price: calculatedTotal,
+      status: editingSale ? editingSale.status : "pending", // Keep the original status
+      total_price: total,
       note: formData.note || null,
       global_discount: gGlobal > 0 ? gGlobal : null,
       global_discount_type: gGlobal > 0 ? formData.global_discount_type : null,
@@ -1119,47 +854,62 @@
       tasting_id: formData.tasting_id || null,
     };
 
-    const { error: updateError } = await supabase
-      .from("sale")
-      .update(saleData)
-      .eq("id", editingSale.id);
+    let saleId: string;
+    if (editingSale) {
+      saleId = editingSale.id;
+      const { error: updateError } = await supabase
+        .from("sale")
+        .update(saleData)
+        .eq("id", saleId);
 
-    if (updateError) {
-      error = updateError.message;
-      return;
+      if (updateError) {
+        error = updateError.message;
+        return;
+      }
+
+      // Delete existing sale items
+      const { error: deleteError } = await supabase
+        .from("sale_item")
+        .delete()
+        .eq("sale_id", saleId);
+
+      if (deleteError) {
+        error = deleteError.message;
+        return;
+      }
+    } else {
+      const { data: newSale, error: insertError } = await supabase
+        .from("sale")
+        .insert(saleData)
+        .select("id")
+        .single();
+
+      if (insertError) {
+        error = insertError.message;
+        return;
+      }
+      saleId = newSale.id;
     }
 
-    // Delete existing sale items
-    const { error: deleteError } = await supabase
-      .from("sale_item")
-      .delete()
-      .eq("sale_id", editingSale.id);
-
-    if (deleteError) {
-      error = deleteError.message;
-      return;
-    }
-
-    // Insert updated sale items
-    for (const item of saleItems) {
-      const { error: itemError } = await supabase.from("sale_item").insert({
-        sale_id: editingSale.id,
+    const { error: itemError } = await supabase.from("sale_item").insert(
+      saleItems.map((item) => ({
+        sale_id: saleId,
         wine_vintage_id: item.wine_vintage_id ?? null,
         quantity: item.quantity,
         price: toNumber(item.price),
         discount: toNumber(item.discount) > 0 ? toNumber(item.discount) : null,
         discount_type: item.discount_type || null,
         note: item.note || null,
-      });
+      })),
+    );
 
-      if (itemError) {
-        error = itemError.message;
-        return;
-      }
+    if (itemError) {
+      error = itemError.message;
+      return;
     }
 
-    closeEditModal();
-    window.location.reload();
+    closeForm();
+    await invalidateAll();
   }
 
   async function updateSaleStatus(
@@ -1259,29 +1009,15 @@
       (newStatus === "paid" || newStatus === "delivered");
 
     if (shouldApplyStockOut) {
-      const { data: sale, error: saleError } = await supabase
-        .from("sale")
-        .select(
-          `
-          *,
-          customer (
-            first_name,
-            last_name
-          )
-        `,
-        )
-        .eq("id", saleId)
-        .single();
+      const [{ data: sale, error: saleError }, { data: items, error: itemsError }] = await Promise.all([
+        supabase.from("sale").select("customer ( first_name, last_name )").eq("id", saleId).single(),
+        supabase.from("sale_item").select("wine_vintage_id, quantity").eq("sale_id", saleId),
+      ]);
 
       if (saleError) {
         error = `Erreur lors du chargement de la vente: ${saleError.message}`;
         return false;
       }
-
-      const { data: items, error: itemsError } = await supabase
-        .from("sale_item")
-        .select("*")
-        .eq("sale_id", saleId);
 
       if (itemsError) {
         error = `Erreur lors du chargement des articles: ${itemsError.message}`;
@@ -1293,18 +1029,17 @@
         : "Client inconnu";
       const note = `Vente à ${customerName}`;
 
-      for (const item of items || []) {
-        if (!item.wine_vintage_id) continue;
-        const { error: stockMoveError } = await supabase
-          .from("stock_move")
-          .insert({
-            wine_vintage_id: item.wine_vintage_id,
-            reason: "sale_out",
-            quantity: -Math.abs(item.quantity),
-            date: new Date().toISOString().split("T")[0],
-            note: note,
-          });
-
+      const moves = (items || [])
+        .filter((item) => item.wine_vintage_id)
+        .map((item) => ({
+          wine_vintage_id: item.wine_vintage_id!,
+          reason: "sale_out",
+          quantity: -Math.abs(item.quantity),
+          date: todayIso(),
+          note: note,
+        }));
+      if (moves.length) {
+        const { error: stockMoveError } = await supabase.from("stock_move").insert(moves);
         if (stockMoveError) {
           error = `Erreur lors de la création du mouvement de stock: ${stockMoveError.message}`;
           return false;
@@ -1312,25 +1047,8 @@
       }
     }
 
-    if (newStatus === "paid" && currentStatus !== "paid") {
-      const { data: saleForInv } = await supabase
-        .from("sale")
-        .select("id, date")
-        .eq("id", saleId)
-        .single();
-
-      if (saleForInv) {
-        const invoiceNumber = await generateAndSaveInvoiceNumber(
-          saleForInv.id,
-          saleForInv.date,
-        );
-        if (!invoiceNumber) {
-          console.error("Impossible de générer le numéro de facture");
-        }
-      }
-    }
-
-    if (newStatus === "closed") {
+    /* Numéro de facture attribué au passage en « Payée » ou à la clôture, s'il n'en a pas déjà un. */
+    if ((newStatus === "paid" && currentStatus !== "paid") || newStatus === "closed") {
       const { data: saleForInv } = await supabase
         .from("sale")
         .select("id, date, invoice_number")
@@ -1358,15 +1076,11 @@
     return true;
   }
 
-  /** `confirmed` : la confirmation a déjà été donnée via le ConfirmDialog. */
-  async function deleteSale(id: string, confirmed = false) {
+  /** Appelée après confirmation via le ConfirmDialog. */
+  async function deleteSale(id: string) {
     const sale = sales.find((s) => s.id === id);
     if (sale && sale.status !== "pending") {
       error = "Seules les ventes en attente peuvent être supprimées.";
-      return;
-    }
-
-    if (!confirmed && !confirm("Êtes-vous sûr de vouloir supprimer cette vente ?")) {
       return;
     }
 
@@ -1380,7 +1094,7 @@
       return;
     }
 
-    window.location.reload();
+    await invalidateAll();
   }
 
   /* ——— Dégustations (lien vente ↔ dégustation) ——— */
@@ -1389,23 +1103,24 @@
     const { data } = await supabase.from("tasting").select("id, name, date").order("date", { ascending: false });
     tastings = data || [];
   }
+  $: tastingById = new Map(tastings.map((t) => [t.id, t]));
   /** Dégustation unique ayant lieu à cette date (sinon chaîne vide). */
   function tastingOnDate(date: string): string {
     const same = tastings.filter((t) => t.date === date);
     return same.length === 1 ? same[0].id : "";
   }
   function tastingLabel(id: string | null | undefined): string {
-    const t = tastings.find((x) => x.id === id);
+    const t = id ? tastingById.get(id) : undefined;
     return t ? `${t.name || "Dégustation"} · ${formatDate(t.date)}` : "";
   }
   /* Nouvelle vente : la dégustation suit la date tant qu'on ne l'a pas choisie à la main. */
   let tastingTouched = false;
   let lastDate = "";
-  $: if (showModal && formData.date !== lastDate) {
+  $: if (formOpen && !editingSale && formData.date !== lastDate) {
     lastDate = formData.date;
     if (!tastingTouched) formData.tasting_id = tastingOnDate(formData.date);
   }
-  $: if (!showModal) tastingTouched = false;
+  $: if (!formOpen) tastingTouched = false;
   let tastingFilter = "";
 
   /* ——— Interface (refonte) : filtres, menus, confirmation ——— */
@@ -1430,9 +1145,6 @@
     (acc, t) => ({ ...acc, [t.key]: t.key === "all" ? periodSales.length : periodSales.filter((s) => s.status === t.key).length }),
     {} as Record<Tab, number>,
   );
-  function fold(v: string): string {
-    return v.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
-  }
   $: visibleSales = periodSales
     .filter((s) => tab === "all" || s.status === tab)
     .filter((s) => {
@@ -1520,31 +1232,22 @@
   async function confirmDelete() {
     if (!deleteTarget) return;
     deleting = true;
-    await deleteSale(deleteTarget.id, true);
+    await deleteSale(deleteTarget.id);
     deleting = false;
     confirmOpen = false;
   }
 
-  /* Modale unique création / édition. */
-  $: formOpen = showModal || showEditModal;
-  function closeForm() {
-    if (showEditModal) closeEditModal();
-    else closeModal();
-  }
-  function submitForm() {
-    if (editingSale) void handleUpdate();
-    else void handleSubmit();
-  }
   $: grossTotal = Math.round(
     saleItems.reduce((sum, it) => sum + toNumber(it.price) * (parseInt(String(it.quantity ?? 0), 10) || 0), 0) * 100,
   ) / 100;
-  $: discountsTotal = Math.max(0, Math.round((grossTotal - (formData.total_price || 0)) * 100) / 100);
+  $: discountsTotal = Math.max(0, Math.round((grossTotal - total) * 100) / 100);
   $: bottleCount = saleItems.reduce((n, it) => n + (it.wine_vintage_id ? parseInt(String(it.quantity), 10) || 0 : 0), 0);
 
+  $: vintageById = new Map(wineVintages.map((v) => [v.id, v]));
   /** Stock connu pour une ligne (millésime) ; null pour une ligne dégustation. */
   function lineStock(item: any): number | null {
     if (!item.wine_vintage_id) return null;
-    const v = wineVintages.find((w) => w.id === item.wine_vintage_id) ?? item.wine_vintage;
+    const v = vintageById.get(item.wine_vintage_id) ?? item.wine_vintage;
     return v?.stock ?? null;
   }
   function setItemQuantity(index: number, q: number) {
@@ -1675,7 +1378,7 @@
               <td>
                 <button type="button" class="link-cell" on:click={() => openDetailsModal(sale)}>{customerName(sale)}</button>
                 {#if sale.customer?.company_name}<span class="t-muted">&nbsp;· {sale.customer.company_name}</span>{/if}
-                {#if sale.tasting_id}<span class="tasting-tag" title={tastingLabel(sale.tasting_id)}><IconGlasses size={12} strokeWidth={1.75} aria-hidden="true" />{tastings.find((t) => t.id === sale.tasting_id)?.name || "Dégustation"}</span>{/if}
+                {#if sale.tasting_id}<span class="tasting-tag" title={tastingLabel(sale.tasting_id)}><IconGlasses size={12} strokeWidth={1.75} aria-hidden="true" />{tastingById.get(sale.tasting_id)?.name || "Dégustation"}</span>{/if}
               </td>
               <td>
                 {#if EDITABLE_STATUSES.includes(sale.status)}
@@ -1783,7 +1486,7 @@
             {customerHint}{customerHint ? " · " : ""}<a href="/manage/customers/{selectedCustomer.id}" target="_blank" rel="noopener noreferrer">voir la fiche</a>
           </p>
         {:else}
-          <CustomerAutocomplete id="sale-customer" bind:value={formData.customer_id} customers={sortedCustomers} placeholder="Rechercher un client…" />
+          <CustomerAutocomplete id="sale-customer" bind:value={formData.customer_id} customers={customers} placeholder="Rechercher un client…" />
         {/if}
       </Field>
     </div>
@@ -1815,7 +1518,7 @@
               <tbody>
                 {#each saleItems as item, index}
                   {@const stock = lineStock(item)}
-                  {@const v = wineVintages.find((w) => w.id === item.wine_vintage_id) ?? item.wine_vintage}
+                  {@const v = vintageById.get(item.wine_vintage_id) ?? item.wine_vintage}
                   <tr>
                     <td>
                       <span class="wine-cell">
@@ -1824,7 +1527,7 @@
                         {/if}
                         <span class="wine-name">
                           {#if item.wine_vintage_id && v?.wine}
-                            <strong>{v.wine.name?.trim() || v.wine.appelation?.name || "Vin"} {v.year ?? v.production_year ?? ""}</strong>
+                            <strong>{vintageShortLabel(v)}</strong>
                             <span class="t-caption">{v.wine.winery?.name ?? ""}</span>
                           {:else}
                             <strong>{saleItemDescription(item)}</strong>
@@ -1850,7 +1553,7 @@
                         {item.discount_type === "percent" ? `−${toNumber(item.discount)} %` : `−${formatEUR(toNumber(item.discount))}`}
                       {:else}—{/if}
                     </td>
-                    <td class="num"><strong>{formatEUR(calculateItemTotal(item))}</strong></td>
+                    <td class="num"><strong>{formatEUR(lineTotal(item))}</strong></td>
                     <td class="col-actions">
                       <IconButton label="Retirer {saleItemDescription(item)}" on:click={() => removeSaleItem(index)}>
                         <IconTrash size={18} strokeWidth={1.75} />
@@ -1937,7 +1640,7 @@
     <div class="totals" aria-live="polite">
       <span>Sous-total <strong>{formatEUR(grossTotal)}</strong></span>
       <span>Remises <strong>{formatEUR(discountsTotal)}</strong></span>
-      <span class="grand">Total TTC <strong>{formatEUR(formData.total_price)}</strong></span>
+      <span class="grand">Total TTC <strong>{formatEUR(total)}</strong></span>
     </div>
     <Button variant="ghost" on:click={closeForm}>Annuler</Button>
     <Button variant="primary" type="submit" on:click={submitForm}>Enregistrer la vente</Button>
@@ -1992,17 +1695,17 @@
                   {item.discount_type === "percent" ? `−${toNumber(item.discount)} %` : `−${formatEUR(toNumber(item.discount))}`}
                 {:else}—{/if}
               </td>
-              <td class="num"><strong>{formatEUR(calculateItemTotal(item))}</strong></td>
+              <td class="num"><strong>{formatEUR(lineTotal(item))}</strong></td>
             </tr>
           {/each}
         </tbody>
       </DataTable>
       <div class="detail-totals">
         {#if toNumber(detailsSale.global_discount) > 0}
-          <p><span>Sous-total articles (TTC)</span><span>{formatEUR(sumDetailsItemsTTC())}</span></p>
+          <p><span>Sous-total articles (TTC)</span><span>{formatEUR(itemsSubtotal(detailsSaleItems))}</span></p>
           <p>
             <span>Ristourne globale {detailsSale.global_discount_type === "percent" ? `(${toNumber(detailsSale.global_discount)} %)` : "(montant)"}</span>
-            <span>−{formatEUR(Math.max(0, sumDetailsItemsTTC() - toNumber(detailsSale.total_price)))}</span>
+            <span>−{formatEUR(Math.max(0, itemsSubtotal(detailsSaleItems) - toNumber(detailsSale.total_price)))}</span>
           </p>
         {/if}
         <p class="grand"><span>Total TTC</span><span>{formatEUR(detailsSale.total_price)}</span></p>

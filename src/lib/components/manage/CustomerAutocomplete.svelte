@@ -2,7 +2,8 @@
   import { createEventDispatcher } from "svelte";
   import type { Customer } from "$lib/types";
   import { customerDisplayLabel, sortCustomersByLabel } from "$lib/customerDisplay";
-  import Combobox, { fold, type ComboOption } from "$lib/ui/Combobox.svelte";
+  import Combobox, { type ComboOption } from "$lib/ui/Combobox.svelte";
+  import { fold } from "$lib/format";
   import { initials } from "$lib/format";
 
   export let value = "";

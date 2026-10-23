@@ -1,5 +1,6 @@
 import { supabase } from "./supabase";
 import { addDaysIso, parseIsoDate, todayIso } from "./dates";
+import { toNumber } from "./format";
 
 /**
  * Calculs de pilotage (marges, rotation du stock, rentabilité des dégustations).
@@ -52,12 +53,6 @@ export type Dataset = {
   stock: Map<string, number>;
 };
 
-function num(v: unknown): number {
-  if (v == null || v === "") return 0;
-  const n = typeof v === "number" ? v : parseFloat(String(v).replace(",", "."));
-  return Number.isFinite(n) ? n : 0;
-}
-
 /** Lecture paginée (PostgREST limite à 1000 lignes par défaut). */
 async function fetchAll<T>(build: (from: number, to: number) => PromiseLike<{ data: any; error: any }>): Promise<T[]> {
   const page = 1000;
@@ -102,8 +97,8 @@ export async function loadDataset(): Promise<Dataset> {
 
 /** Total d'une ligne après remise (même règle que /manage/sales). */
 export function lineTotal(item: SaleItemRow): number {
-  let t = num(item.price) * (Number(item.quantity) || 0);
-  const d = num(item.discount);
+  let t = toNumber(item.price) * (Number(item.quantity) || 0);
+  const d = toNumber(item.discount);
   const kind = String(item.discount_type ?? "").toLowerCase();
   if (d > 0) {
     if (kind === "percent") t *= 1 - d / 100;
@@ -141,7 +136,7 @@ export function revenueLines(ds: Dataset, statuses = REVENUE_STATUSES): RevenueL
     const sale = salesById.get(saleId);
     if (!sale || !statuses.includes(sale.status)) continue;
     const gross = items.reduce((s, it) => s + lineTotal(it), 0);
-    const factor = gross > 0 ? num(sale.total_price) / gross : 1;
+    const factor = gross > 0 ? toNumber(sale.total_price) / gross : 1;
     for (const it of items) {
       const v = it.wine_vintage_id ? vintages.get(it.wine_vintage_id) : null;
       out.push({
@@ -153,7 +148,7 @@ export function revenueLines(ds: Dataset, statuses = REVENUE_STATUSES): RevenueL
         isTastingFee: !it.wine_vintage_id,
         quantity: Number(it.quantity) || 0,
         revenue: lineTotal(it) * factor,
-        cost: v ? num(v.purchase_price) * (Number(it.quantity) || 0) : 0,
+        cost: v ? toNumber(v.purchase_price) * (Number(it.quantity) || 0) : 0,
       });
     }
   }
@@ -182,8 +177,8 @@ export function vintageStats(ds: Dataset, lines = revenueLines(ds)): VintageStat
     const revenue = own.reduce((s, l) => s + l.revenue, 0);
     const cost = own.reduce((s, l) => s + l.cost, 0);
     const lastSale = own.reduce<string | null>((m, l) => (!m || l.date > m ? l.date : m), null);
-    const price = v.price != null ? num(v.price) : null;
-    const buy = num(v.purchase_price);
+    const price = v.price != null ? toNumber(v.price) : null;
+    const buy = toNumber(v.purchase_price);
     const unitMargin = price != null && buy > 0 ? price - buy : null;
     return {
       vintage: v,
@@ -217,7 +212,7 @@ export function monthlyRevenue(ds: Dataset, months = 12): { key: string; label: 
   for (const s of ds.sales) {
     if (!REVENUE_STATUSES.includes(s.status)) continue;
     const i = index.get(s.date.slice(0, 7));
-    if (i != null) buckets[i].value += num(s.total_price);
+    if (i != null) buckets[i].value += toNumber(s.total_price);
   }
   return buckets;
 }
@@ -254,7 +249,7 @@ export async function tastingRoi(ds: Dataset, lines = revenueLines(ds), windowDa
     const customers = new Set<string>((t.tasting_customer || []).map((r: any) => r.customer_id));
     const wines = (t.tasting_wine_vintage || []) as { wine_vintage_id: string }[];
     const pouredCost = wines.reduce(
-      (s, w) => s + num(vintages.get(w.wine_vintage_id)?.purchase_price) * BOTTLES_PER_TASTED_WINE,
+      (s, w) => s + toNumber(vintages.get(w.wine_vintage_id)?.purchase_price) * BOTTLES_PER_TASTED_WINE,
       0,
     );
     const evening = lines.filter((l) => l.tastingId === t.id);

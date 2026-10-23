@@ -9,14 +9,12 @@
     [key: string]: any;
   };
 
-  export function fold(s: string): string {
-    return s.normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase();
-  }
 </script>
 
 <script lang="ts">
   import { createEventDispatcher, onMount, tick } from "svelte";
   import { IconSearch } from "./icons";
+  import { fold } from "$lib/format";
 
   /**
    * Autocomplétion accessible (role=combobox) : taper, ↑ ↓ puis Entrée pour choisir, Échap ferme.
