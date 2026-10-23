@@ -40,6 +40,8 @@
     font-family: var(--mz-font-body);
     color: var(--mz-ink);
     background: var(--mz-paper);
+    /* Évite un défilement horizontal dû aux fonds pleine largeur (100vw). */
+    overflow-x: clip;
   }
 
   .site-header {

@@ -194,10 +194,23 @@
     align-items: center;
     justify-content: space-between;
     padding: 0.75rem 0;
-    background: var(--mz-paper);
-    /* Fond prolongé sur toute la largeur : les cartes ne dépassent pas sur les côtés. */
-    box-shadow: 0 0 0 100vmax var(--mz-paper);
-    clip-path: inset(0 -100vmax);
+  }
+
+  /* Fond flouté façon header, prolongé sur toute la largeur de la fenêtre.
+     Porté par un pseudo-élément : backdrop-filter ne s'applique qu'à la boîte
+     de l'élément, pas à une box-shadow. */
+  .toolbar::before {
+    content: "";
+    position: absolute;
+    inset: 0 auto;
+    left: 50%;
+    width: 100vw;
+    transform: translateX(-50%);
+    z-index: -1;
+    background: color-mix(in srgb, var(--mz-paper) 88%, transparent);
+    backdrop-filter: saturate(1.2) blur(10px);
+    -webkit-backdrop-filter: saturate(1.2) blur(10px);
+    border-bottom: 1px solid var(--mz-line-soft);
   }
 
   .chips {
