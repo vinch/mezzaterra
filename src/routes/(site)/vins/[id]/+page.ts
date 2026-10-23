@@ -1,6 +1,6 @@
 import { error } from "@sveltejs/kit";
 import { supabase } from "$lib/supabase";
-import { VINTAGE_PUBLIC_SELECT } from "$lib/wine";
+import { isDiscontinued, publicVintages, VINTAGE_PUBLIC_SELECT } from "$lib/wine";
 import type { PageLoad } from "./$types";
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -14,7 +14,7 @@ export const load: PageLoad = async ({ params }) => {
     .maybeSingle();
 
   if (fetchError) throw error(500, "Impossible de charger ce vin");
-  if (!vintage) throw error(404, "Vin introuvable");
+  if (!vintage || isDiscontinued(vintage as any)) throw error(404, "Vin introuvable");
 
   const v = vintage as any;
   const wineryId = v.wine?.winery_id ?? v.wine?.winery?.id;
@@ -23,7 +23,7 @@ export const load: PageLoad = async ({ params }) => {
   const [siblingsRes, wineryRes] = await Promise.all([
     supabase
       .from("wine_vintage")
-      .select("id, year, production_year, price, image_url")
+      .select("*")
       .eq("wine_id", v.wine_id)
       .neq("id", v.id)
       .order("year", { ascending: false }),
@@ -39,7 +39,7 @@ export const load: PageLoad = async ({ params }) => {
 
   /* Un seul millésime (le plus récent) par vin du domaine. */
   const byWine = new Map<string, any>();
-  for (const row of (wineryRes.data || []) as any[]) {
+  for (const row of publicVintages((wineryRes.data || []) as any[])) {
     if (!row.wine) continue;
     const prev = byWine.get(row.wine_id);
     if (!prev || (row.year ?? 0) > (prev.year ?? 0)) byWine.set(row.wine_id, row);
@@ -47,7 +47,7 @@ export const load: PageLoad = async ({ params }) => {
 
   return {
     vintage: v,
-    siblings: (siblingsRes.data || []) as any[],
+    siblings: publicVintages((siblingsRes.data || []) as any[]),
     fromWinery: [...byWine.values()].slice(0, 6),
   };
 };

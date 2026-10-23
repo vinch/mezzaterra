@@ -4,6 +4,9 @@
   import type { PageData } from "./$types";
   import type { WineVintage } from "$lib/types";
   import Modal from "$lib/components/Modal.svelte";
+  import StockBadge from "$lib/ui/StockBadge.svelte";
+  import { IconArchive, IconArchiveRestore } from "$lib/ui/icons";
+  import { isDiscontinued } from "$lib/wine";
 
   export let data: PageData;
 
@@ -174,6 +177,21 @@
     await loadVintages();
   }
 
+  /** « Plus jamais disponible » : masqué du site, exclu du réassort. Réversible. */
+  async function toggleDiscontinued(vintage: WineVintage) {
+    const { error: updateError } = await supabase
+      .from("wine_vintage")
+      .update({ discontinued_at: isDiscontinued(vintage) ? null : new Date().toISOString() })
+      .eq("id", vintage.id);
+
+    if (updateError) {
+      error = updateError.message;
+      return;
+    }
+
+    await loadVintages();
+  }
+
   async function deleteVintage(id: string) {
     if (!confirm("Êtes-vous sûr de vouloir supprimer ce millésime ?")) {
       return;
@@ -333,7 +351,8 @@
     {:else}
       <div class="vintages-grid">
         {#each vintages as vintage}
-          <div class="vintage-card">
+          {@const gone = isDiscontinued(vintage)}
+          <div class="vintage-card" class:gone>
             <div class="vintage-body">
               {#if vintage.image_url}
                 <div class="vintage-image">
@@ -358,6 +377,9 @@
                   {/if}
                   {#if vintage.organic}
                     <span class="vintage-detail organic">Bio</span>
+                  {/if}
+                  {#if gone}
+                    <StockBadge kind="gone" />
                   {/if}
                 </div>
                 <div class="vintage-actions">
@@ -435,6 +457,14 @@
                         fill="currentColor"
                       />
                     </svg>
+                  </button>
+                  <button
+                    class="ui-btn ui-btn--secondary ui-btn--sm icon-btn"
+                    on:click={() => toggleDiscontinued(vintage)}
+                    aria-label={gone ? "Remettre au catalogue" : "Plus jamais disponible"}
+                    title={gone ? "Remettre au catalogue" : "Plus jamais disponible (masqué du site)"}
+                  >
+                    <svelte:component this={gone ? IconArchiveRestore : IconArchive} size={16} strokeWidth={1.75} aria-hidden="true" />
                   </button>
                   <button
                     class="ui-btn ui-btn--danger ui-btn--sm icon-btn"
@@ -823,6 +853,23 @@
     background: white;
     border-radius: 8px;
     box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  }
+
+  /* Millésime retiré : carte en retrait, actions toujours utilisables. */
+  .vintage-card.gone {
+    background: transparent;
+    box-shadow: none;
+    outline: 1px dashed var(--border);
+  }
+
+  .vintage-card.gone .vintage-image,
+  .vintage-card.gone .vintage-year,
+  .vintage-card.gone .vintage-detail {
+    opacity: 0.5;
+  }
+
+  .vintage-card.gone .vintage-image {
+    filter: grayscale(1);
   }
 
   .vintage-header {

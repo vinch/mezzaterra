@@ -27,6 +27,10 @@ le site fonctionne en mode dégradé (ces fonctions sont simplement masquées ou
 client, en externe) n'apparaît pas dans les listes publiques et refuse les inscriptions en ligne ; sa
 page et son mode live restent accessibles par lien.
 
+`20261024120000_wine_vintage_discontinued.sql` ajoute `wine_vintage.discontinued_at` : un millésime
+« plus jamais disponible » disparaît du site public (catalogue, domaine, fiche en 404), est grisé dans
+la gestion et n'est plus proposé au réassort ni dans les commandes fournisseur et dégustations.
+
 ```sh
 supabase link --project-ref wmerreifcpttrhxwmkmn
 supabase db push

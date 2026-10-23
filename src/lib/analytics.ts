@@ -41,6 +41,7 @@ export type VintageRow = {
   price: number | null;
   purchase_price: number;
   image_url: string | null;
+  discontinued_at?: string | null;
   wine: any;
 };
 
@@ -85,7 +86,7 @@ export async function loadDataset(): Promise<Dataset> {
       supabase
         .from("wine_vintage")
         .select(
-          "id, wine_id, year, production_year, price, purchase_price, image_url, wine ( id, name, winery ( id, name ), appelation ( name, label ( name ) ), wine_type ( name, category ) )",
+          "*, wine ( id, name, winery ( id, name ), appelation ( name, label ( name ) ), wine_type ( name, category ) )",
         )
         .range(a, b),
     ),

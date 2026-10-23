@@ -16,6 +16,8 @@
   import StockBadge from "$lib/ui/StockBadge.svelte";
   import WineDot, { robeOf, ROBE_LABEL, type Robe } from "$lib/ui/WineDot.svelte";
   import {
+    IconArchive,
+    IconArchiveRestore,
     IconClipboard,
     IconEye,
     IconPencil,
@@ -28,6 +30,7 @@
   import IconPlate from "@lucide/svelte/icons/utensils-crossed";
   import { formatEUR } from "$lib/format";
   import { addToNextSupplierOrder } from "$lib/reorder";
+  import { isDiscontinued } from "$lib/wine";
 
   let wines: Wine[] = [];
   let wineries: Winery[] = [];
@@ -406,9 +409,15 @@
   function totalStock(wine: any): number {
     return vintagesOf(wine).reduce((n, v) => n + Math.max(0, stock.get(v.id) ?? 0), 0);
   }
+  /** Dernier millésime qu'on peut encore recommander au fournisseur. */
   function latestVintage(wine: any): any | null {
-    const list = vintagesOf(wine);
+    const list = vintagesOf(wine).filter((v) => !isDiscontinued(v));
     return list.length ? list[list.length - 1] : null;
+  }
+  /** Tous les millésimes sont « plus jamais disponibles » : le vin est retiré. */
+  function isRetired(wine: any): boolean {
+    const list = vintagesOf(wine);
+    return list.length > 0 && list.every(isDiscontinued);
   }
   function priceText(wine: any): string {
     const prices = vintagesOf(wine)
@@ -423,9 +432,11 @@
     return wine.name?.trim() || wine.appelation?.name || "Vin sans nom";
   }
 
+  /* Vins retirés en fin de liste : visibles, mais hors du chemin. */
   $: shownWines = filteredWines
     .filter((w: any) => !robeFilter || robeOf(w.wine_type) === robeFilter)
-    .filter((w: any) => !inStockOnly || totalStock(w) > 0);
+    .filter((w: any) => !inStockOnly || totalStock(w) > 0)
+    .sort((a: any, b: any) => Number(isRetired(a)) - Number(isRetired(b)));
   $: vintageCount = wines.reduce((n, w: any) => n + (w.wine_vintage?.length ?? 0), 0);
   $: bottleCount = [...stock.values()].reduce((n, q) => n + Math.max(0, q), 0);
   $: subtitle = `${wines.length} vin${wines.length > 1 ? "s" : ""} · ${vintageCount} millésime${vintageCount > 1 ? "s" : ""} · ${bottleCount} bouteille${bottleCount > 1 ? "s" : ""} en stock`;
@@ -452,6 +463,23 @@
     }
   }
 
+  async function setRetired(wine: any, retired: boolean) {
+    const ids = vintagesOf(wine).map((v) => v.id);
+    if (!ids.length) return;
+    const { error: updateError } = await supabase
+      .from("wine_vintage")
+      .update({ discontinued_at: retired ? new Date().toISOString() : null })
+      .in("id", ids);
+    if (updateError) {
+      error = updateError.message;
+      return;
+    }
+    notice = retired
+      ? `« ${wineTitle(wine)} » est marqué plus jamais disponible : il n’apparaît plus sur le site.`
+      : `« ${wineTitle(wine)} » est de nouveau au catalogue.`;
+    await loadWines();
+  }
+
   function rowItems(wine: any): MenuItem[] {
     const items: MenuItem[] = [
       { label: "Ouvrir la fiche", icon: IconEye, href: `/manage/wines/${wine.id}` },
@@ -460,6 +488,11 @@
       { label: "Accords mets & vins", icon: IconPlate, onSelect: () => openPairingsModal(wine) },
     ];
     if (latestVintage(wine)) items.push({ label: "Commander (réassort)", icon: IconClipboard, onSelect: () => reorder(wine) });
+    if (isRetired(wine)) {
+      items.push({ label: "Remettre au catalogue", icon: IconArchiveRestore, onSelect: () => setRetired(wine, false) });
+    } else if (vintagesOf(wine).length) {
+      items.push({ label: "Plus jamais disponible", icon: IconArchive, onSelect: () => setRetired(wine, true) });
+    }
     items.push({ label: "Supprimer…", icon: IconTrash, danger: true, separator: true, onSelect: () => askDelete(wine) });
     return items;
   }
@@ -565,7 +598,8 @@
             {#each shownWines as wine (wine.id)}
               {@const total = totalStock(wine)}
               {@const robe = robeOf(wine.wine_type)}
-              <tr class="is-clickable" on:click={(e) => openRow(wine, e)}>
+              {@const retired = isRetired(wine)}
+              <tr class="is-clickable" class:retired on:click={(e) => openRow(wine, e)}>
                 <td>
                   <span class="wine-cell">
                     <WineDot {robe} />
@@ -580,9 +614,13 @@
                   <span class="vintages">
                     {#each vintagesOf(wine) as v (v.id)}
                       {@const q = stock.get(v.id) ?? 0}
-                      <span class="vintage-chip" class:out={q <= 0}>
-                        {v.year ?? v.production_year} · {q <= 0 ? "rupture" : q}
-                      </span>
+                      {#if isDiscontinued(v)}
+                        <span class="vintage-chip gone" title="Plus jamais disponible">{v.year ?? v.production_year}</span>
+                      {:else}
+                        <span class="vintage-chip" class:out={q <= 0}>
+                          {v.year ?? v.production_year} · {q <= 0 ? "rupture" : q}
+                        </span>
+                      {/if}
                     {:else}
                       <span class="t-muted">Aucun millésime</span>
                     {/each}
@@ -590,7 +628,9 @@
                 </td>
                 <td class="num">
                   <span class="stock-cell">
-                    {#if vintagesOf(wine).length && total <= 0}
+                    {#if retired}
+                      <StockBadge kind="gone" />
+                    {:else if vintagesOf(wine).length && total <= 0}
                       <StockBadge kind="out" />
                     {:else if total > 0 && total <= 3}
                       <StockBadge kind="low" />
@@ -610,7 +650,7 @@
       <ul class="cards mobile-only">
         {#each shownWines as wine (wine.id)}
           {@const total = totalStock(wine)}
-          <li class="wine-card">
+          <li class="wine-card" class:retired={isRetired(wine)}>
             <a class="wine-card-main" href="/manage/wines/{wine.id}">
               <span class="wc-top">
                 <span class="wine-cell"><WineDot robe={robeOf(wine.wine_type)} /><strong>{wineTitle(wine)}</strong></span>
@@ -618,7 +658,7 @@
               </span>
               <span class="wc-bottom">
                 <span class="t-muted">{wine.winery?.name ?? ""}</span>
-                {#if vintagesOf(wine).length && total <= 0}<StockBadge kind="out" />{:else if total > 0 && total <= 3}<StockBadge kind="low" />{/if}
+                {#if isRetired(wine)}<StockBadge kind="gone" />{:else if vintagesOf(wine).length && total <= 0}<StockBadge kind="out" />{:else if total > 0 && total <= 3}<StockBadge kind="low" />{/if}
               </span>
             </a>
             <RowMenu items={rowItems(wine)} label="Actions pour {wineTitle(wine)}" />
@@ -810,6 +850,20 @@
     background: var(--st-cancelled-bg);
     border-color: #ecc9c9;
     color: var(--danger);
+  }
+
+  /* Millésime retiré : barré, en pointillés. */
+  .vintage-chip.gone {
+    background: transparent;
+    border-style: dashed;
+    color: var(--ink-2);
+    text-decoration: line-through;
+  }
+
+  /* Vin retiré : présent mais en retrait. */
+  tr.retired > td:not(.col-actions),
+  .wine-card.retired .wine-card-main {
+    opacity: 0.55;
   }
 
   .stock-cell {

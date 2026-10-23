@@ -1063,6 +1063,7 @@ export type Database = {
         Row: {
           abv: number | null
           created_at: string
+          discontinued_at: string | null
           id: string
           image_url: string | null
           organic: boolean | null
@@ -1075,6 +1076,7 @@ export type Database = {
         Insert: {
           abv?: number | null
           created_at?: string
+          discontinued_at?: string | null
           id?: string
           image_url?: string | null
           organic?: boolean | null
@@ -1087,6 +1089,7 @@ export type Database = {
         Update: {
           abv?: number | null
           created_at?: string
+          discontinued_at?: string | null
           id?: string
           image_url?: string | null
           organic?: boolean | null
