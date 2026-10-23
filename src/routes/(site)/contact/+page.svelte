@@ -160,7 +160,6 @@
 
 <div class="mz-container layout">
   <section class="intro mz-rise">
-    <span class="mz-eyebrow">Contact</span>
     <h1 class="mz-display mz-h1">Écrivez-nous</h1>
     <p class="mz-lead">
       Une dégustation privée chez vous, quelques bouteilles à commander ou simplement une question :
@@ -259,7 +258,7 @@
   }
 
   .intro h1 {
-    margin: 0.5rem 0 0.75rem;
+    margin: 0 0 0.75rem;
   }
 
   .direct {
