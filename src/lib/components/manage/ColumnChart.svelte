@@ -6,10 +6,8 @@
    */
   export let data: { key: string; label: string; value: number }[] = [];
   export let format: (n: number) => string = (n) => String(Math.round(n));
-  export let title = "";
-  /** Description complète pour les lecteurs d'écran (sinon : titre). */
+  /** Description complète pour les lecteurs d'écran. */
   export let ariaLabel = "";
-  export let color = "var(--teal-600, #256169)";
   /** Clé en cours (ex. mois courant, non terminé) : affichée plus claire. */
   export let highlightKey: string | null = null;
   /** Format des graduations de l'axe. */
@@ -54,8 +52,7 @@
 </script>
 
 <figure class="chart" bind:clientWidth={width}>
-  {#if title}<figcaption>{title}</figcaption>{/if}
-  <svg viewBox="0 0 {width} {H}" width="100%" height={H} role="img" aria-label={ariaLabel || title}>
+  <svg viewBox="0 0 {width} {H}" width="100%" height={H} role="img" aria-label={ariaLabel}>
     {#each ticks as t}
       <line x1={PAD_LEFT} x2={width - 8} y1={y(t)} y2={y(t)} class="grid" />
       <text x={PAD_LEFT - 8} y={y(t) + 4} class="tick" text-anchor="end">{tickFormat ? tickFormat(t) : compact(t)}</text>
@@ -74,7 +71,7 @@
         <rect x={PAD_LEFT + band * i} y={PAD_TOP} width={band} height={base - PAD_TOP} fill="transparent" />
         <path
           d={columnPath(cx - barW / 2, top, barW)}
-          fill={color}
+          fill="var(--teal-600, #256169)"
           opacity={highlightKey && d.key === highlightKey ? 0.4 : 1}
         />
         <text x={cx} y={H - 6} class="tick" text-anchor="middle">{d.label}</text>
@@ -113,13 +110,6 @@
   .chart {
     position: relative;
     margin: 0;
-  }
-
-  figcaption {
-    font-size: 0.95rem;
-    font-weight: 600;
-    color: #2c3e50;
-    margin-bottom: 0.5rem;
   }
 
   svg {

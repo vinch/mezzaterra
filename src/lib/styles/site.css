@@ -198,10 +198,6 @@
   font-size: 0.92rem;
 }
 
-.mz-feedback--success {
-  color: var(--mz-success);
-}
-
 .mz-feedback--error {
   color: var(--mz-danger);
 }

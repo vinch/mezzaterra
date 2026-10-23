@@ -16,9 +16,6 @@
   export let includeTastingOption = true;
   /** Désactiver les millésimes sans stock disponible. */
   export let disableWhenNoStock = true;
-  export let id: string | undefined = undefined;
-  /** Afficher le stock dans les options (masqué quand il n'a pas de sens, ex. dégustations). */
-  export let showStock = true;
 
   const dispatch = createEventDispatcher<{ change: void }>();
 
@@ -61,7 +58,7 @@
   }
 </script>
 
-<Combobox bind:value {options} {placeholder} {id} emptyText="Aucun produit trouvé" on:change={() => dispatch("change")}>
+<Combobox bind:value {options} {placeholder} emptyText="Aucun produit trouvé" on:change={() => dispatch("change")}>
   <svelte:fragment slot="option" let:option>
     {#if option.kind === "tasting"}
       <span class="opt-main"><strong>Dégustation</strong><small>Ligne sans millésime (entrée, participation…)</small></span>
@@ -71,9 +68,7 @@
         <strong>{option.name}</strong>
         <small>{option.winery}{option.added ? " · déjà ajouté" : ""}</small>
       </span>
-      {#if showStock}
-        <span class="opt-stock" class:low={option.stock <= 3}>{option.stock} bt.</span>
-      {/if}
+      <span class="opt-stock" class:low={option.stock <= 3}>{option.stock} bt.</span>
       <span class="opt-price">{option.price != null ? formatEUR(option.price) : ""}</span>
     {/if}
   </svelte:fragment>

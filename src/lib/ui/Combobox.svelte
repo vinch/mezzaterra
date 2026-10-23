@@ -150,19 +150,6 @@
       query = selected ? selected.label : value ? query : "";
     }, 120);
   }
-
-  /** Vide le champ (utilisé par les puces « ✕ »). */
-  export function clear() {
-    value = "";
-    prevValue = "";
-    query = "";
-    dispatch("change");
-    inputEl?.focus();
-  }
-
-  export function focus() {
-    inputEl?.focus();
-  }
 </script>
 
 <div class="combo">

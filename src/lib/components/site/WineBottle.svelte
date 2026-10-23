@@ -7,7 +7,6 @@
   export let wine: WineStyle;
   /** Hauteur CSS de la bouteille. */
   export let height = "12rem";
-  export let glow = true;
 
   let failed = false;
   $: if (src) failed = false;
@@ -15,7 +14,7 @@
   $: gid = `mz-bottle-${wine.key}`;
 </script>
 
-<div class="bottle" class:glow style="--h: {height}; --robe: {wine.color}; --robe-light: {wine.light};">
+<div class="bottle" style="--h: {height}; --robe: {wine.color}; --robe-light: {wine.light};">
   {#if src && !failed}
     <img {src} {alt} loading="lazy" on:error={() => (failed = true)} />
   {:else}
@@ -63,7 +62,7 @@
     flex-shrink: 0;
   }
 
-  .bottle.glow::before {
+  .bottle::before {
     content: "";
     position: absolute;
     left: 50%;

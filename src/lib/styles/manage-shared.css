@@ -211,16 +211,6 @@
   color: var(--teal-700);
 }
 
-.app .ui-btn--ghost {
-  background: transparent;
-  color: var(--teal-600);
-  padding: 0 10px;
-}
-
-.app .ui-btn--ghost:hover:not(:disabled) {
-  background: var(--mist);
-}
-
 .app .ui-btn--danger {
   background: #fff;
   border-color: var(--danger);
@@ -231,7 +221,6 @@
   background: #fbefef;
 }
 
-.app .btn-sm,
 .app .ui-btn--sm {
   height: 32px;
   padding: 0 12px;
@@ -299,7 +288,6 @@
 }
 
 /* ——— Formulaires (modales des pages non migrées) ——— */
-.app form.legacy-form,
 .app .modal-content form {
   padding: 20px 24px 24px;
 }
@@ -348,9 +336,7 @@
 .app .form-group textarea:not(.ui-control),
 .app .filter-group input:not([type="checkbox"]):not(.ui-control),
 .app .filter-group select:not(.ui-control),
-.app .filter-group textarea:not(.ui-control),
-.app .add-item-row input:not(.ui-control),
-.app .add-item-row select:not(.ui-control) {
+.app .filter-group textarea:not(.ui-control) {
   min-height: var(--control-h);
   padding: 0 12px;
   border: 1px solid var(--input-border);
@@ -378,9 +364,7 @@
 .app .form-group select:focus,
 .app .form-group textarea:focus,
 .app .filter-group input:focus,
-.app .filter-group select:focus,
-.app .add-item-row input:focus,
-.app .add-item-row select:focus {
+.app .filter-group select:focus {
   outline: none;
   border-color: var(--teal-600);
   box-shadow: 0 0 0 2px rgba(37, 97, 105, 0.18);
