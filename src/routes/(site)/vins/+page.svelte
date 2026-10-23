@@ -185,7 +185,8 @@
 
   .toolbar {
     position: sticky;
-    top: 4.6rem;
+    /* 1px sous le header (au-dessus) pour ne laisser aucun jour entre les deux. */
+    top: calc(var(--mz-header-h, 4.5rem) - 1px);
     z-index: 5;
     display: flex;
     flex-wrap: wrap;
@@ -194,6 +195,9 @@
     justify-content: space-between;
     padding: 0.75rem 0;
     background: var(--mz-paper);
+    /* Fond prolongé sur toute la largeur : les cartes ne dépassent pas sur les côtés. */
+    box-shadow: 0 0 0 100vmax var(--mz-paper);
+    clip-path: inset(0 -100vmax);
   }
 
   .chips {
@@ -325,10 +329,6 @@
   }
 
   @media (max-width: 720px) {
-    .toolbar {
-      top: 6.2rem;
-    }
-
     .search {
       flex: 1 1 100%;
     }
