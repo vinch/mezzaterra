@@ -1,7 +1,7 @@
 import { base } from "$app/paths";
 import jsPDF from "jspdf";
 import { attachRobotoPdf, svgToPng } from "./assets";
-import { wineStyle, wineTypeLabel } from "$lib/wine";
+import { wineRobe, wineTypeLabel } from "$lib/wine";
 import {
   sortedStockForDocuments,
   stockVintageLabel,
@@ -11,9 +11,9 @@ import {
 const YELLOW: [number, number, number] = [255, 235, 120];
 
 
-/** Groupe du tarif selon la robe (wineStyle) ; pétillants, orange et autres vont avec les blancs. */
+/** Groupe du tarif selon la couleur de la robe ; orange et autres vont avec les blancs. */
 function priceGroupKey(v: StockDocVintage): "blancs" | "roses" | "rouges" {
-  const key = wineStyle({ name: v.wineTypeName, category: v.wineTypeCategory }).key;
+  const key = wineRobe({ name: v.wineTypeName }).key;
   return key === "red" ? "rouges" : key === "rose" ? "roses" : "blancs";
 }
 

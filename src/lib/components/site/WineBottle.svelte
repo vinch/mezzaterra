@@ -14,7 +14,7 @@
   $: gid = `mz-bottle-${wine.key}`;
 </script>
 
-<div class="bottle" style="--h-default: {height}; --robe: {wine.color}; --robe-light: {wine.light};">
+<div class="bottle" style="--bottle-h-default: {height}; --robe: {wine.color}; --robe-light: {wine.light};">
   {#if src && !failed}
     <img {src} {alt} loading="lazy" on:error={() => (failed = true)} />
   {:else}
@@ -54,8 +54,8 @@
 <style>
   .bottle {
     position: relative;
-    /* --h (posé par le parent, ex. en media query) l'emporte sur la prop height. */
-    height: var(--h, var(--h-default));
+    /* --bottle-h (posé par le parent, ex. en media query) l'emporte sur la prop height. */
+    height: var(--bottle-h, var(--bottle-h-default));
     aspect-ratio: 71 / 200;
     display: flex;
     align-items: flex-end;

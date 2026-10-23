@@ -65,6 +65,10 @@
     color: var(--page-head-fg, var(--teal-600));
   }
 
+  .back:hover {
+    color: var(--page-head-fg, var(--teal-700));
+  }
+
   .title-row {
     display: flex;
     align-items: center;

@@ -15,7 +15,7 @@
   import Field from "$lib/ui/Field.svelte";
   import StockBadge from "$lib/ui/StockBadge.svelte";
   import WineDot from "$lib/ui/WineDot.svelte";
-  import { styleByKey, wineStyle, wineTypeLabel, type WineStyleKey } from "$lib/wine";
+  import { styleByKey, wineRobe, type WineStyleKey, wineTypeLabel } from "$lib/wine";
   import {
     IconArchive,
     IconArchiveRestore,
@@ -392,7 +392,7 @@
 
   /* Vins retirés en fin de liste : visibles, mais hors du chemin. */
   $: shownWines = filteredWines
-    .filter((w: any) => !robeFilter || wineStyle(w.wine_type).key === robeFilter)
+    .filter((w: any) => !robeFilter || wineRobe(w.wine_type).key === robeFilter)
     .filter((w: any) => !inStockOnly || totalStock(w) > 0)
     .sort((a: any, b: any) => Number(isRetired(a)) - Number(isRetired(b)));
   $: vintageCount = wines.reduce((n, w: any) => n + (w.wine_vintage?.length ?? 0), 0);
@@ -551,7 +551,7 @@
           <tbody>
             {#each shownWines as wine (wine.id)}
               {@const total = totalStock(wine)}
-              {@const robe = wineStyle(wine.wine_type).key}
+              {@const robe = wineRobe(wine.wine_type).key}
               {@const retired = isRetired(wine)}
               <tr class="is-clickable" class:retired on:click={(e) => openRow(wine, e)}>
                 <td>
@@ -607,7 +607,7 @@
           <li class="wine-card" class:retired={isRetired(wine)}>
             <a class="wine-card-main" href="/manage/wines/{wine.id}">
               <span class="wc-top">
-                <span class="wine-cell"><WineDot robe={wineStyle(wine.wine_type).key} /><strong>{wineTitle(wine)}</strong></span>
+                <span class="wine-cell"><WineDot type={wine.wine_type} /><strong>{wineTitle(wine)}</strong></span>
                 <strong>{total} bt.</strong>
               </span>
               <span class="wc-bottom">

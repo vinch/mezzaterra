@@ -28,7 +28,7 @@
   import { fetchTastingWithWines, tastingTitle } from "$lib/publicData";
   import { broadcastPosition, joinLiveChannel } from "$lib/live";
   import { qrDataUrl } from "$lib/qr";
-  import { vintageShortLabel, wineStyle, wineSubtitle, wineTitle } from "$lib/wine";
+  import { swatchStyle, vintageShortLabel, wineRobe, wineStyle, wineSubtitle, wineTitle, wineTypeLabel } from "$lib/wine";
   import {
     confirmRegistrationAsGuest,
     createSaleFromWish,
@@ -385,7 +385,7 @@
                 <li>
                   <button type="button" class="step" class:current={i === position} aria-current={i === position ? "step" : undefined} on:click={() => setPosition(i)}>
                     <span class="step-num">{i + 1}</span>
-                    <WineDot robe={wineStyle(w.wine?.wine_type).key} />
+                    <WineDot type={w.wine?.wine_type} />
                     <span class="step-main">
                       <strong>{vintageShortLabel(w)}</strong>
                       <span class="t-caption">
@@ -419,9 +419,9 @@
 
         <div class="main">
           <section class="now" aria-labelledby="now-title" aria-live="polite">
-            <span class="bottle" style="background: {style.color};{style.ring ? ` box-shadow: inset 0 0 0 1px ${style.ring};` : ''}" aria-hidden="true"></span>
+            <span class="bottle" style={swatchStyle(wineRobe(current?.wine?.wine_type))} aria-hidden="true"></span>
             <div class="now-text">
-              <span class="now-eyebrow">Vin {position + 1} · {style.label}</span>
+              <span class="now-eyebrow">Vin {position + 1} · {wineTypeLabel(current?.wine?.wine_type)}</span>
               <h2 id="now-title" class="now-title">{vintageShortLabel(current)}</h2>
               <p>{current.wine?.winery?.name ?? ""}{current.price ? " · " : ""}{#if current.price}<strong>{formatEUR(current.price)}</strong> la bouteille{/if}</p>
               <p class="t-caption">
@@ -782,9 +782,6 @@
     background: #9aa29e;
     box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.12);
   }
-
-
-
 
   .now-eyebrow {
     font-size: 12px;

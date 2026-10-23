@@ -430,7 +430,7 @@
     }
 
     .bottle-stage {
-      --h: 17rem;
+      --bottle-h: 17rem;
       min-height: 0;
     }
 

@@ -30,7 +30,7 @@
     type VintageStats,
   } from "$lib/analytics";
   import { promptReorder } from "$lib/reorder";
-  import { isDiscontinued, vintageShortLabel, wineStyle } from "$lib/wine";
+  import { isDiscontinued, vintageShortLabel } from "$lib/wine";
   import { daysUntil, formatDateLong, todayIso } from "$lib/dates";
   import { formatDate, formatEUR } from "$lib/format";
 
@@ -342,7 +342,7 @@
               {#each topWines as w}
                 <li>
                   <span class="rank-name">
-                    <WineDot robe={wineStyle(w.vintage.wine?.wine_type).key} />
+                    <WineDot type={w.vintage.wine?.wine_type} />
                     <span><strong>{vintageShortLabel(w.vintage)}</strong><span class="t-muted">&nbsp;· {w.vintage.wine?.winery?.name ?? ""}</span></span>
                   </span>
                   <span class="rank-value"><strong>{formatEUR(w.revenue)}</strong><span class="t-muted">{w.sold} bt.</span></span>
@@ -362,7 +362,7 @@
             <ul class="list">
               {#each stockAlerts.slice(0, 8) as s}
                 <li>
-                  <WineDot robe={wineStyle(s.vintage.wine?.wine_type).key} />
+                  <WineDot type={s.vintage.wine?.wine_type} />
                   <span class="list-main">
                     <span><strong>{vintageShortLabel(s.vintage)}</strong><span class="t-muted">&nbsp;· {s.vintage.wine?.winery?.name ?? ""}</span></span>
                     <span class="t-caption">{s.sold ? `${s.sold} vendue${s.sold > 1 ? "s" : ""}` : "aucune vente"}</span>
@@ -389,7 +389,7 @@
             <ul class="list">
               {#each dormant.slice(0, 6) as s}
                 <li>
-                  <WineDot robe={wineStyle(s.vintage.wine?.wine_type).key} />
+                  <WineDot type={s.vintage.wine?.wine_type} />
                   <span class="list-main">
                     <span><strong>{vintageShortLabel(s.vintage)}</strong><span class="t-muted">&nbsp;· {s.vintage.wine?.winery?.name ?? ""}</span></span>
                     <span class="t-caption">

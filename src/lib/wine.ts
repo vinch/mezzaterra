@@ -42,14 +42,27 @@ export function wineStyle(type: TypeLike): WineStyle {
   return STYLES.other;
 }
 
+/**
+ * Couleur de la robe (rouge, blanc, rosé, orange) d'après le nom du type, sans le caractère pétillant :
+ * pastilles, filtres, répartitions et tarifs classent par couleur, un crémant blanc reste blanc.
+ */
+export function wineRobe(type: TypeLike): WineStyle {
+  return wineStyle({ name: type?.name });
+}
+
+/** Style CSS d'une pastille ou d'une silhouette à la couleur de la robe (liseré pour les teintes claires). */
+export function swatchStyle(style: WineStyle): string {
+  return `background: ${style.color};${style.ring ? ` box-shadow: inset 0 0 0 1px ${style.ring};` : ""}`;
+}
+
 /** Style par clé (filtres et légendes qui manipulent des clés). */
 export function styleByKey(key: WineStyleKey): WineStyle {
   return STYLES[key];
 }
 
-/** « Rouge », « Blanc »… ; un type hors de ces styles garde son nom en base. */
+/** « Rouge », « Blanc »… ; un type hors de ces couleurs garde son nom en base. */
 export function wineTypeLabel(type: TypeLike): string {
-  const style = wineStyle(type);
+  const style = wineRobe(type);
   return style.key === "other" ? type?.name ?? "" : style.label;
 }
 

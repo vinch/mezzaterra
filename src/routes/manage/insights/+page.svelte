@@ -10,7 +10,7 @@
     type TastingRoi,
     type VintageStats,
   } from "$lib/analytics";
-  import { vintageLabel, wineStyle } from "$lib/wine";
+  import { vintageLabel } from "$lib/wine";
   import WineDot from "$lib/ui/WineDot.svelte";
   import { formatDate, formatEUR } from "$lib/format";
 
@@ -107,8 +107,8 @@
             {#each sorted as s (s.vintage.id)}
               <tr>
                 <td>
-                  <WineDot robe={wineStyle(s.vintage.wine?.wine_type).key} />
-                  <a href="/manage/wines/{s.vintage.wine_id}/stock/{s.vintage.id}">{vintageLabel(s.vintage)}</a>
+                  <span class="wine-cell"><WineDot type={s.vintage.wine?.wine_type} />
+                  <a href="/manage/wines/{s.vintage.wine_id}/stock/{s.vintage.id}">{vintageLabel(s.vintage)}</a></span>
                 </td>
                 <td class="num">{formatEUR(s.vintage.purchase_price)}</td>
                 <td class="num">{formatEUR(s.vintage.price)}</td>
@@ -214,6 +214,12 @@
 </ManagePageShell>
 
 <style>
+  .wine-cell {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+  }
+
   .kpis {
     display: grid;
     grid-template-columns: repeat(4, minmax(0, 1fr));
@@ -307,7 +313,6 @@
   .muted {
     color: var(--ink-2);
   }
-
 
   .tag {
     display: inline-block;

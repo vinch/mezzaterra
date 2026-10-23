@@ -346,7 +346,7 @@
     }
 
     .hero-bottle {
-      --h: 11rem;
+      --bottle-h: 11rem;
       height: 11rem;
     }
 

@@ -1,21 +1,18 @@
 <script lang="ts">
-  import { styleByKey, type WineStyleKey } from "$lib/wine";
+  import { styleByKey, swatchStyle, wineRobe, type WineStyleKey } from "$lib/wine";
 
   /**
-   * Pastille de 10 px à la couleur de la robe (clé de wineStyle).
+   * Pastille de 10 px à la couleur de la robe : d'après le type de vin, ou une clé (filtres, légendes).
    * Toujours accompagnée du nom du vin à côté : elle est décorative (aria-hidden).
    */
-  export let robe: WineStyleKey = "other";
+  export let type: { name?: string | null } | null | undefined = null;
+  export let robe: WineStyleKey | null = null;
   export let size = 10;
 
-  $: style = styleByKey(robe);
+  $: style = robe ? styleByKey(robe) : wineRobe(type);
 </script>
 
-<span
-  class="dot"
-  style="--size: {size}px; background: {style.color};{style.ring ? ` box-shadow: inset 0 0 0 1px ${style.ring};` : ''}"
-  aria-hidden="true"
-></span>
+<span class="dot" style="--size: {size}px; {swatchStyle(style)}" aria-hidden="true"></span>
 
 <style>
   .dot {

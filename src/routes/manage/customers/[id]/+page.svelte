@@ -9,7 +9,7 @@
   import { customerDisplayLabel } from "$lib/customerDisplay";
   import { REVENUE_STATUSES, lineTotal, type SaleItemRow } from "$lib/analytics";
   import { daysUntil } from "$lib/dates";
-  import { styleByKey, vintageLabel, vintageShortLabel, wineStyle, type WineStyleKey } from "$lib/wine";
+  import { styleByKey, vintageLabel, vintageShortLabel, wineRobe, type WineStyleKey } from "$lib/wine";
   import { formatDate, formatEUR } from "$lib/format";
   import Button from "$lib/ui/Button.svelte";
   import IconButton from "$lib/ui/IconButton.svelte";
@@ -111,7 +111,7 @@
   const ROBES: WineStyleKey[] = ["white", "red", "rose"];
   $: robeQty = (() => {
     const map: Record<WineStyleKey, number> = { red: 0, white: 0, rose: 0, orange: 0, sparkling: 0, other: 0 };
-    for (const b of bought) map[wineStyle(b.vintage.wine?.wine_type).key] += b.qty;
+    for (const b of bought) map[wineRobe(b.vintage.wine?.wine_type).key] += b.qty;
     return map;
   })();
   $: robeOrder = [...ROBES].sort((a, b) => robeQty[b] - robeQty[a]);
@@ -151,7 +151,7 @@
     if (favRobe) {
       for (const v of vintages) {
         if (out.length >= 6) break;
-        if (wineStyle(v.wine?.wine_type).key === favRobe) push(v, `Dans ses goûts (${styleByKey(favRobe).label.toLowerCase()})`);
+        if (wineRobe(v.wine?.wine_type).key === favRobe) push(v, `Dans ses goûts (${styleByKey(favRobe).label.toLowerCase()})`);
       }
     }
     return out.slice(0, 6);
@@ -292,7 +292,7 @@
               <li>
                 <label class="suggest">
                   <input type="checkbox" checked={!unchecked.has(sg.vintage.id)} on:change={() => toggleSuggestion(sg.vintage.id)} />
-                  <WineDot robe={wineStyle(sg.vintage.wine?.wine_type).key} />
+                  <WineDot type={sg.vintage.wine?.wine_type} />
                   <span class="list-main">
                     <span><strong>{vintageShortLabel(sg.vintage)}</strong><span class="t-muted">&nbsp;· {sg.vintage.wine?.winery?.name ?? ""}</span></span>
                     <span class="t-caption" class:t-warn={(stock.get(sg.vintage.id) ?? 0) <= 3}>
@@ -315,7 +315,7 @@
           <ul class="list">
             {#each bought as b}
               <li>
-                <WineDot robe={wineStyle(b.vintage.wine?.wine_type).key} />
+                <WineDot type={b.vintage.wine?.wine_type} />
                 <span class="list-main">
                   <span><strong>{vintageShortLabel(b.vintage)}</strong><span class="t-muted">&nbsp;· {b.vintage.wine?.winery?.name ?? ""}</span></span>
                   <span class="t-caption">Dernier achat le {formatDate(b.last)}</span>
@@ -392,7 +392,7 @@
                       {#if i > 0}<span class="t-muted">&nbsp;· </span>{/if}
                       {#if it.wine_vintage_id}
                         {@const v = vintageById.get(it.wine_vintage_id)}
-                        <span class="item"><WineDot robe={wineStyle(v?.wine?.wine_type).key} /> {it.quantity} × {vintageShortLabel(v)}<span class="t-muted">&nbsp;· {v?.wine?.winery?.name ?? ""}</span></span>
+                        <span class="item"><WineDot type={v?.wine?.wine_type} /> {it.quantity} × {vintageShortLabel(v)}<span class="t-muted">&nbsp;· {v?.wine?.winery?.name ?? ""}</span></span>
                       {:else}
                         <span class="item">{it.quantity} × {it.note || "Dégustation"}</span>
                       {/if}
@@ -499,9 +499,6 @@
     overflow: hidden;
     background: var(--border-soft);
   }
-
-
-
 
   .legend {
     list-style: none;

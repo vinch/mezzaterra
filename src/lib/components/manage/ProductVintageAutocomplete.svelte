@@ -3,7 +3,7 @@
   import Combobox, { type ComboOption } from "$lib/ui/Combobox.svelte";
   import { fold } from "$lib/format";
   import WineDot from "$lib/ui/WineDot.svelte";
-  import { wineStyle } from "$lib/wine";
+  import { wineRobe } from "$lib/wine";
   import { formatEUR } from "$lib/format";
 
   export let value = "";
@@ -43,7 +43,7 @@
         searchText: vintageSearchText(v),
         disabled: (disableWhenNoStock && stock === 0) || isVintageAlreadyAdded(v.id),
         kind: "wine",
-        robe: wineStyle(v.wine?.wine_type).key,
+        robe: wineRobe(v.wine?.wine_type).key,
         name: `${wineName(v)}${v.year ? ` ${v.year}` : ""}`,
         winery: v.wine?.winery?.name || "",
         stock,
