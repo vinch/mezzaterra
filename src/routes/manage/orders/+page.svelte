@@ -5,6 +5,7 @@
   import type { PageData } from "./$types";
   import Modal from "$lib/ui/Modal.svelte";
   import Button from "$lib/ui/Button.svelte";
+  import StatusBadge from "$lib/ui/StatusBadge.svelte";
   import ManagePageShell from "$lib/components/manage/ManagePageShell.svelte";
   import { fetchPickerVintages, orderItemPrice } from "$lib/manageData";
   import { parseIsoDate, todayIso } from "$lib/dates";
@@ -888,11 +889,7 @@
           <div class="details-section">
             <strong>Statut:</strong>
             <p>
-              <span
-                class="status-badge status-{detailsOrder.status || 'pending'}"
-              >
-                {detailsOrder.status === "pending" ? "En attente" : "Confirmée"}
-              </span>
+              <StatusBadge kind="order" status={detailsOrder.status} />
             </p>
           </div>
           {#if detailsOrder.transport}
@@ -1123,24 +1120,6 @@
 
   .status-select.status-confirmed {
     background-color: var(--st-paid-bg);
-    color: var(--st-paid-fg);
-  }
-
-  .status-badge {
-    display: inline-block;
-    padding: 0.25rem 0.5rem;
-    border-radius: 4px;
-    font-size: 0.85rem;
-    font-weight: 500;
-  }
-
-  .status-badge.status-pending {
-    background: var(--st-pending-bg);
-    color: var(--st-pending-fg);
-  }
-
-  .status-badge.status-confirmed {
-    background: var(--st-paid-bg);
     color: var(--st-paid-fg);
   }
 

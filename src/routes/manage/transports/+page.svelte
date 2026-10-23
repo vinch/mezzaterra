@@ -5,6 +5,7 @@
   import type { PageData } from "./$types";
   import Modal from "$lib/ui/Modal.svelte";
   import Button from "$lib/ui/Button.svelte";
+  import StatusBadge from "$lib/ui/StatusBadge.svelte";
   import ManagePageShell from "$lib/components/manage/ManagePageShell.svelte";
   import { orderItemPrice as itemPrice, withOrderTotals } from "$lib/manageData";
   import { todayIso } from "$lib/dates";
@@ -620,14 +621,7 @@
                       {formatDate(order.date)} - {order
                         .supplier.name}
                     </strong>
-                    <span
-                      class="order-status-badge status-{order.status ||
-                        'pending'}"
-                    >
-                      {order.status === "confirmed"
-                        ? "Confirmée"
-                        : "En attente"}
-                    </span>
+                    <StatusBadge kind="order" status={order.status} />
                   </div>
                   <span class="order-total">
                     {formatEUR(order.total_price ?? 0)}
@@ -673,14 +667,7 @@
                       {formatDate(order.date)} - {order
                         .supplier.name}
                     </strong>
-                    <span
-                      class="order-status-badge status-{order.status ||
-                        'pending'}"
-                    >
-                      {order.status === "confirmed"
-                        ? "Confirmée"
-                        : "En attente"}
-                    </span>
+                    <StatusBadge kind="order" status={order.status} />
                   </div>
                   <span class="order-total">
                     {formatEUR(order.total_price ?? 0)}
@@ -715,15 +702,7 @@
         <div class="details-group">
           <div class="details-label">Statut</div>
           <div>
-            <span class="status-badge status-{detailsTransport.status}">
-              {detailsTransport.status === "pending"
-                ? "En attente"
-                : detailsTransport.status === "in_transit"
-                  ? "En transit"
-                  : detailsTransport.status === "delivered"
-                    ? "Livré"
-                    : "Annulé"}
-            </span>
+            <StatusBadge kind="transport" status={detailsTransport.status} />
           </div>
         </div>
 
@@ -823,13 +802,6 @@
 </Modal>
 
 <style>
-  .status-badge {
-    padding: 0.25rem 0.5rem;
-    border-radius: 4px;
-    font-size: 0.85rem;
-    font-weight: 500;
-  }
-
   .status-select {
     padding: 0.25rem 0.5rem;
     border-radius: 4px;
@@ -947,25 +919,6 @@
   .order-header strong {
     color: var(--ink);
     font-size: 0.95rem;
-  }
-
-  .order-status-badge {
-    display: inline-block;
-    padding: 0.15rem 0.4rem;
-    border-radius: 3px;
-    font-size: 0.75rem;
-    font-weight: 500;
-    margin-top: 0.25rem;
-  }
-
-  .order-status-badge.status-pending {
-    background: var(--st-pending-bg);
-    color: var(--st-pending-fg);
-  }
-
-  .order-status-badge.status-confirmed {
-    background: var(--st-paid-bg);
-    color: var(--st-paid-fg);
   }
 
   .order-total {

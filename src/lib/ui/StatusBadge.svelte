@@ -1,36 +1,53 @@
 <script lang="ts" context="module">
+  import { IconCheck, IconChevronDown, IconClock, IconLock, IconTruck, IconX } from "./icons";
+
   /** Statuts de vente (valeurs en base) → libellé, icône, couleurs. */
   export type SaleStatus = "pending" | "paid" | "delivered" | "closed" | "cancelled";
+  export type StatusKind = "sale" | "order" | "transport";
+  type Tone = "pending" | "paid" | "delivered" | "closed" | "cancelled";
+  type Meta = { label: string; plural: string; tone: Tone; icon: any };
 
-  export const STATUS_META: Record<SaleStatus, { label: string; plural: string; tone: string }> = {
-    pending: { label: "En attente", plural: "En attente", tone: "pending" },
-    paid: { label: "Payée", plural: "Payées", tone: "paid" },
-    delivered: { label: "Livrée", plural: "Livrées", tone: "delivered" },
-    closed: { label: "Clôturée", plural: "Clôturées", tone: "closed" },
-    cancelled: { label: "Annulée", plural: "Annulées", tone: "cancelled" },
+  export const STATUS_META: Record<SaleStatus, Meta> = {
+    pending: { label: "En attente", plural: "En attente", tone: "pending", icon: IconClock },
+    paid: { label: "Payée", plural: "Payées", tone: "paid", icon: IconCheck },
+    delivered: { label: "Livrée", plural: "Livrées", tone: "delivered", icon: IconTruck },
+    closed: { label: "Clôturée", plural: "Clôturées", tone: "closed", icon: IconLock },
+    cancelled: { label: "Annulée", plural: "Annulées", tone: "cancelled", icon: IconX },
   };
+
+  /** Statuts des commandes fournisseur et des transports, mêmes tons que les ventes. */
+  const KIND_META: Record<StatusKind, Record<string, Meta>> = {
+    sale: STATUS_META,
+    order: {
+      pending: { label: "En attente", plural: "En attente", tone: "pending", icon: IconClock },
+      confirmed: { label: "Confirmée", plural: "Confirmées", tone: "paid", icon: IconCheck },
+    },
+    transport: {
+      pending: { label: "En attente", plural: "En attente", tone: "pending", icon: IconClock },
+      in_transit: { label: "En transit", plural: "En transit", tone: "delivered", icon: IconTruck },
+      delivered: { label: "Livré", plural: "Livrés", tone: "paid", icon: IconCheck },
+      cancelled: { label: "Annulé", plural: "Annulés", tone: "cancelled", icon: IconX },
+    },
+  };
+
+  export function statusMeta(kind: StatusKind, status: string | null | undefined): Meta {
+    return KIND_META[kind][status ?? "pending"] ?? { label: status ?? "", plural: status ?? "", tone: "closed", icon: IconLock };
+  }
 
   /** Statuts encore modifiables : le badge devient un bouton. */
   export const EDITABLE_STATUSES: SaleStatus[] = ["pending", "paid", "delivered"];
 </script>
 
 <script lang="ts">
-  import { IconCheck, IconChevronDown, IconClock, IconLock, IconTruck, IconX } from "./icons";
-
-  export let status: string;
+  export let status: string | null | undefined;
+  export let kind: StatusKind = "sale";
   /** Affiche un chevron et rend le badge cliquable (changement de statut). */
   export let interactive = false;
   export let expanded: boolean | undefined = undefined;
   export let el: HTMLElement | null = null;
 
-  $: meta = STATUS_META[status as SaleStatus] ?? { label: status, plural: status, tone: "closed" };
-  $: icon = {
-    pending: IconClock,
-    paid: IconCheck,
-    delivered: IconTruck,
-    closed: IconLock,
-    cancelled: IconX,
-  }[status as SaleStatus] ?? IconLock;
+  $: meta = statusMeta(kind, status);
+  $: icon = meta.icon;
 </script>
 
 {#if interactive}
