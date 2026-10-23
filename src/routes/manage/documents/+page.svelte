@@ -455,9 +455,6 @@
     flex: 0 0 auto;
   }
 
-  .notes-modal-body {
-    padding: 1.25rem 1.5rem 0.5rem;
-  }
 
   .notes-modal-hint {
     margin: 0 0 1.25rem;

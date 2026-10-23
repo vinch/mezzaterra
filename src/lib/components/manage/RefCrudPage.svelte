@@ -1,39 +1,8 @@
-<script lang="ts" context="module">
-  export type RefOption = { value: string; label: string };
-
-  /** Champ du formulaire. Les valeurs vides des champs facultatifs sont enregistrées à `null`. */
-  export type RefField = {
-    key: string;
-    label: string;
-    type?: "text" | "textarea" | "email" | "tel" | "url" | "number" | "select";
-    required?: boolean;
-    /** Options d'un `select` (souvent issues d'un autre référentiel, donc réactives). */
-    options?: RefOption[];
-    /** Libellé de l'option vide d'un `select`. */
-    emptyOption?: string;
-    /** Occupe toute la largeur (sinon deux champs par ligne). */
-    full?: boolean;
-    placeholder?: string;
-    help?: string;
-    step?: string;
-  };
-
-  /** Colonne du tableau. */
-  export type RefColumn = {
-    label: string;
-    value: (row: any) => string | null | undefined;
-    /** Lien externe ouvert dans un nouvel onglet. */
-    href?: (row: any) => string | null | undefined;
-    strong?: boolean;
-    /** Coupe le texte au-delà de N caractères (texte complet en infobulle). */
-    truncate?: number;
-  };
-</script>
-
 <script lang="ts">
   import { onMount } from "svelte";
   import { supabase } from "$lib/supabase";
   import ManagePageShell from "./ManagePageShell.svelte";
+  import type { RefColumn, RefField } from "./refCrud";
   import Modal from "$lib/ui/Modal.svelte";
   import Button from "$lib/ui/Button.svelte";
   import ConfirmDialog from "$lib/ui/ConfirmDialog.svelte";
@@ -41,33 +10,34 @@
   import EmptyState from "$lib/ui/EmptyState.svelte";
   import Field from "$lib/ui/Field.svelte";
   import RowMenu from "$lib/ui/RowMenu.svelte";
+  import Select from "$lib/ui/Select.svelte";
   import type { MenuItem } from "$lib/ui/Menu.svelte";
   import { IconEye, IconPencil, IconPlus, IconTrash } from "$lib/ui/icons";
 
   /**
-   * Page de référentiel (pays, régions, cépages, fournisseurs…) : liste, création, édition et
-   * suppression d'une table Supabase, décrites par des colonnes et des champs.
+   * Page de référentiel (pays, régions, cépages, clients, fournisseurs…) : liste, création, édition et
+   * suppression d'une table Supabase, décrites par des colonnes et des champs (refCrud.ts).
    */
   export let title: string;
   export let table: string;
   /** Sélection PostgREST (jointures pour l'affichage). */
   export let select = "*";
+  /** Colonne de tri ; `sortRows` la remplace quand le tri dépend de plusieurs colonnes. */
   export let orderBy = "name";
+  export let sortRows: ((rows: any[]) => any[]) | null = null;
   /** « Nouveau cépage », « Nouvelle région »… */
   export let newLabel: string;
   /** Titre de la modale d'édition : « Modifier le cépage ». */
   export let editLabel: string;
-  /** Pour « Aucun … enregistré » et la confirmation de suppression : « ce cépage », « cette région ». */
+  /** Pour la confirmation de suppression : « ce cépage », « cette région ». */
   export let thisLabel: string;
   export let emptyText: string;
   export let fields: RefField[];
   export let columns: RefColumn[];
   /** Nom affiché d'une ligne (menu d'actions, confirmation). */
   export let rowLabel: (row: any) => string = (row) => row.name;
-  /** Fiche détaillée d'une ligne : la première colonne devient un lien, et le menu propose « Ouvrir la fiche ». */
+  /** Fiche détaillée : la première colonne devient un lien et le menu propose « Ouvrir la fiche ». */
   export let rowHref: ((row: any) => string) | null = null;
-  /** Tri côté client, quand `orderBy` ne suffit pas. */
-  export let sortRows: ((rows: any[]) => any[]) | null = null;
   /** Ouvre directement l'édition de cette ligne après le chargement (lien « Modifier » d'une autre page). */
   export let editId: string | null = null;
 
@@ -79,20 +49,24 @@
   let form: Record<string, string> = {};
   let saving = false;
   let deleteTarget: any = null;
-  let confirmOpen = false;
-  let deleting = false;
+
+  const formId = `ref-form-${table}`;
+  const query = () => supabase.from(table as any) as any;
 
   onMount(async () => {
-    await load();
+    const { data, error: fetchError } = sortRows
+      ? await query().select(select)
+      : await query().select(select).order(orderBy);
+    if (fetchError) error = fetchError.message;
+    else rows = sorted(data || []);
+    loading = false;
     const toEdit = editId ? rows.find((r) => r.id === editId) : null;
     if (toEdit) openForm(toEdit);
   });
 
-  async function load() {
-    const { data, error: fetchError } = await (supabase.from(table as any) as any).select(select).order(orderBy);
-    if (fetchError) error = fetchError.message;
-    else rows = sortRows ? sortRows(data || []) : data || [];
-    loading = false;
+  function sorted(list: any[]): any[] {
+    if (sortRows) return sortRows(list);
+    return [...list].sort((a, b) => String(a[orderBy] ?? "").localeCompare(String(b[orderBy] ?? ""), "fr"));
   }
 
   function openForm(row: any = null) {
@@ -115,7 +89,7 @@
           const n = parseFloat(raw.replace(",", "."));
           return [f.key, Number.isFinite(n) ? n : null];
         }
-        return [f.key, raw || (f.required ? raw : null)];
+        return [f.key, raw || null];
       }),
     );
   }
@@ -128,45 +102,36 @@
       return;
     }
     saving = true;
-    const query = supabase.from(table as any) as any;
-    const { error: saveError } = editing
-      ? await query.update(toPayload()).eq("id", editing.id)
-      : await query.insert(toPayload());
+    /* La ligne enregistrée revient avec ses jointures : la liste se met à jour sans tout relire. */
+    const { data: saved, error: saveError } = editing
+      ? await query().update(toPayload()).eq("id", editing.id).select(select).single()
+      : await query().insert(toPayload()).select(select).single();
     saving = false;
     if (saveError) {
       error = saveError.message;
       return;
     }
+    rows = sorted([...rows.filter((r) => r.id !== saved.id), saved]);
     error = "";
     closeForm();
-    await load();
   }
 
-  function askDelete(row: any) {
-    deleteTarget = row;
-    confirmOpen = true;
-  }
-
-  async function confirmDelete() {
-    if (!deleteTarget) return;
-    deleting = true;
-    const { error: deleteError } = await (supabase.from(table as any) as any).delete().eq("id", deleteTarget.id);
-    deleting = false;
-    confirmOpen = false;
+  async function remove(row: any) {
+    const { error: deleteError } = await query().delete().eq("id", row.id);
+    /* Le plus souvent : la ligne est encore utilisée ailleurs (clé étrangère). */
     if (deleteError) {
-      /* Le plus souvent : la ligne est encore utilisée ailleurs (clé étrangère). */
       error = deleteError.message;
       return;
     }
+    rows = rows.filter((r) => r.id !== row.id);
     error = "";
-    await load();
   }
 
   function rowItems(row: any): MenuItem[] {
     return [
       ...(rowHref ? [{ label: "Ouvrir la fiche", icon: IconEye, href: rowHref(row) }] : []),
       { label: "Modifier", icon: IconPencil, onSelect: () => openForm(row) },
-      { label: "Supprimer…", icon: IconTrash, danger: true, separator: true, onSelect: () => askDelete(row) },
+      { label: "Supprimer…", icon: IconTrash, danger: true, separator: true, onSelect: () => (deleteTarget = row) },
     ];
   }
 
@@ -206,17 +171,17 @@
         {#each rows as row (row.id)}
           <tr>
             {#each columns as col, i}
+              {@const text = cell(col, row)}
               {@const href = col.href?.(row)}
-              {@const ownHref = i === 0 && rowHref ? rowHref(row) : null}
               <td title={col.truncate ? col.value(row) ?? "" : undefined}>
-                {#if ownHref}
-                  <a class="row-link" href={ownHref}>{cell(col, row)}</a>
+                {#if i === 0 && rowHref}
+                  <a class="row-link" href={rowHref(row)}>{text}</a>
+                {:else if i === 0}
+                  <strong>{text}</strong>
                 {:else if href}
-                  <a {href} target="_blank" rel="noopener noreferrer">{cell(col, row)}</a>
-                {:else if col.strong}
-                  <strong>{cell(col, row)}</strong>
+                  <a {href} target="_blank" rel="noopener noreferrer">{text}</a>
                 {:else}
-                  {cell(col, row)}
+                  {text}
                 {/if}
               </td>
             {/each}
@@ -228,24 +193,24 @@
   {/if}
 </ManagePageShell>
 
-<Modal open={formOpen} title={editing ? editLabel : newLabel} maxWidth={640} on:close={closeForm}>
+<Modal open={formOpen} title={editing ? editLabel : newLabel} on:close={closeForm}>
   {#if error}
     <div class="error-message" role="alert">{error}</div>
   {/if}
-  <form id="ref-form-{table}" class="ref-form" on:submit|preventDefault={submit}>
+  <form id={formId} class="form-grid" on:submit|preventDefault={submit}>
     {#each fields as f (f.key)}
       {@const id = `${table}-${f.key}`}
-      <div class:full={f.full || f.type === "textarea"}>
-        <Field {id} label={f.label} required={f.required} help={f.help ?? ""}>
+      <div class="form-group" class:full-width={f.full || f.type === "textarea"}>
+        <Field {id} label={f.label} required={f.required} help={f.help ?? ""} let:describedby>
           {#if f.type === "select"}
-            <select {id} class="ui-control" bind:value={form[f.key]} required={f.required}>
-              <option value="">{f.emptyOption ?? "Aucun"}</option>
+            <Select {id} bind:value={form[f.key]} required={f.required} {describedby}>
+              <option value="">Aucun</option>
               {#each f.options ?? [] as o (o.value)}
                 <option value={o.value}>{o.label}</option>
               {/each}
-            </select>
+            </Select>
           {:else if f.type === "textarea"}
-            <textarea {id} class="ui-control" rows="3" bind:value={form[f.key]} placeholder={f.placeholder ?? ""}></textarea>
+            <textarea {id} class="ui-control" rows="3" bind:value={form[f.key]} placeholder={f.placeholder ?? ""} aria-describedby={describedby}></textarea>
           {:else}
             <input
               {id}
@@ -255,6 +220,7 @@
               bind:value={form[f.key]}
               required={f.required}
               placeholder={f.placeholder ?? ""}
+              aria-describedby={describedby}
             />
           {/if}
         </Field>
@@ -263,41 +229,14 @@
   </form>
   <svelte:fragment slot="footer">
     <Button variant="ghost" on:click={closeForm}>Annuler</Button>
-    <Button variant="primary" type="submit" form="ref-form-{table}" disabled={saving}>{editing ? "Enregistrer" : "Créer"}</Button>
+    <Button variant="primary" type="submit" form={formId} disabled={saving}>{editing ? "Enregistrer" : "Créer"}</Button>
   </svelte:fragment>
 </Modal>
 
 <ConfirmDialog
-  bind:open={confirmOpen}
+  open={!!deleteTarget}
   title="Supprimer {thisLabel} ?"
   message={deleteTarget ? `« ${rowLabel(deleteTarget)} » sera définitivement supprimé. Impossible s’il est encore utilisé ailleurs.` : ""}
-  busy={deleting}
-  on:confirm={confirmDelete}
+  onConfirm={() => remove(deleteTarget)}
+  on:cancel={() => (deleteTarget = null)}
 />
-
-<style>
-  .ref-form {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 16px;
-  }
-
-  .row-link {
-    font-weight: 600;
-    text-decoration: none;
-  }
-
-  .row-link:hover {
-    text-decoration: underline;
-  }
-
-  .ref-form .full {
-    grid-column: 1 / -1;
-  }
-
-  @media (max-width: 767px) {
-    .ref-form {
-      grid-template-columns: 1fr;
-    }
-  }
-</style>

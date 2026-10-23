@@ -18,7 +18,7 @@
     { key: "description", label: "Description", type: "textarea" },
   ]}
   columns={[
-    { label: "Nom", value: (g) => g.name, strong: true },
+    { label: "Nom", value: (g) => g.name },
     { label: "Description", value: (g) => g.description, truncate: 50 },
   ]}
 />

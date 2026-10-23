@@ -25,31 +25,22 @@
     IconX,
   } from "$lib/ui/icons";
   import { formatEUR } from "$lib/format";
-  import { appellationText, isDiscontinued, wineStyle, wineTitle } from "$lib/wine";
+  import { appellationText, isDiscontinued, vintageYearLabel, wineStyle, wineTitle } from "$lib/wine";
 
   export let data: PageData;
 
   let wine = data.wine;
   /* Millésimes déjà chargés par +page.ts ; relus seulement après une modification. */
-  let vintages: WineVintage[] = [...(wine.wine_vintage || [])].sort(
-    (a, b) => b.production_year - a.production_year,
-  );
-  let loading = false;
+  let vintages: WineVintage[] = sortVintages(wine.wine_vintage || []);
   let error = "";
   /** Modale unique création / édition (`editingVintage` les distingue). */
   let formOpen = false;
   let editingVintage: any = null;
 
-  // Vintage form fields
-  let vintageFormData = {
-    production_year: "",
-    year: "",
-    abv: "",
-    purchase_price: "",
-    price: "",
-    image_url: "",
-    organic: false,
-  };
+  function emptyForm() {
+    return { production_year: "", year: "", abv: "", purchase_price: "", price: "", image_url: "", organic: false };
+  }
+  let vintageFormData = emptyForm();
 
   // Grapes modal state
   let showGrapesModal = false;
@@ -59,36 +50,18 @@
   let selectedGrapeId = "";
   let grapePercentage = "";
 
-  onMount(async () => {
+  onMount(() => {
     /* Lien « Ajouter un millésime » depuis la liste des vins. */
     if (new URLSearchParams(window.location.search).has("nouveau")) openCreateModal();
-    await loadAllGrapes();
   });
 
-  async function loadAllGrapes() {
-    const { data } = await supabase.from("grape").select("*").order("name");
-    if (data) allGrapes = data;
-  }
-
-  async function loadVintages() {
-    loading = true;
-    const { data: vintagesData, error: fetchError } = await supabase
-      .from("wine_vintage")
-      .select("*")
-      .eq("wine_id", wine.id)
-      .order("production_year", { ascending: false });
-
-    if (fetchError) {
-      error = fetchError.message;
-    } else {
-      vintages = vintagesData || [];
-    }
-    loading = false;
+  function sortVintages(list: WineVintage[]): WineVintage[] {
+    return [...list].sort((a, b) => b.production_year - a.production_year);
   }
 
   function openCreateModal() {
     editingVintage = null;
-    resetForm();
+    vintageFormData = emptyForm();
     formOpen = true;
   }
 
@@ -113,19 +86,6 @@
   function closeForm() {
     formOpen = false;
     editingVintage = null;
-    resetForm();
-  }
-
-  function resetForm() {
-    vintageFormData = {
-      production_year: "",
-      year: "",
-      abv: "",
-      purchase_price: "",
-      price: "",
-      image_url: "",
-      organic: false,
-    };
   }
 
   /** Création ou modification (selon `editingVintage`) du millésime. */
@@ -147,64 +107,48 @@
       organic: vintageFormData.organic,
     };
 
-    const { error: saveError } = editingVintage
-      ? await supabase.from("wine_vintage").update(vintageData).eq("id", editingVintage.id)
-      : await supabase.from("wine_vintage").insert({ ...vintageData, wine_id: wine.id });
+    /* La ligne enregistrée revient de la base : la liste se met à jour sans tout relire. */
+    const { data: saved, error: saveError } = editingVintage
+      ? await supabase.from("wine_vintage").update(vintageData).eq("id", editingVintage.id).select().single()
+      : await supabase.from("wine_vintage").insert({ ...vintageData, wine_id: wine.id }).select().single();
 
     if (saveError) {
       error = saveError.message;
       return;
     }
 
+    vintages = sortVintages([...vintages.filter((v) => v.id !== saved.id), saved]);
+    error = "";
     closeForm();
-    await loadVintages();
   }
 
   let deleteTarget: WineVintage | null = null;
-  let confirmOpen = false;
-  let deleting = false;
 
-  function askDelete(vintage: WineVintage) {
-    deleteTarget = vintage;
-    confirmOpen = true;
-  }
-
-  async function confirmDelete() {
-    if (!deleteTarget) return;
-    deleting = true;
-    const { error: deleteError } = await supabase
-      .from("wine_vintage")
-      .delete()
-      .eq("id", deleteTarget.id);
-    deleting = false;
-    confirmOpen = false;
-
+  async function deleteVintage(vintage: WineVintage) {
+    const { error: deleteError } = await supabase.from("wine_vintage").delete().eq("id", vintage.id);
     if (deleteError) {
       error = deleteError.message;
       return;
     }
-
+    vintages = vintages.filter((v) => v.id !== vintage.id);
     error = "";
-    await loadVintages();
-  }
-
-  function vintageName(v: WineVintage): string {
-    return v.year ? String(v.year) : `Non millésimé (${v.production_year})`;
   }
 
   /** « Plus jamais disponible » : masqué du site, exclu du réassort. Réversible. */
   async function toggleDiscontinued(vintage: WineVintage) {
-    const { error: updateError } = await supabase
+    const { data: saved, error: updateError } = await supabase
       .from("wine_vintage")
       .update({ discontinued_at: isDiscontinued(vintage) ? null : new Date().toISOString() })
-      .eq("id", vintage.id);
+      .eq("id", vintage.id)
+      .select()
+      .single();
 
     if (updateError) {
       error = updateError.message;
       return;
     }
 
-    await loadVintages();
+    vintages = vintages.map((v) => (v.id === saved.id ? saved : v));
   }
 
   function rowItems(v: WineVintage): MenuItem[] {
@@ -218,7 +162,7 @@
         icon: gone ? IconArchiveRestore : IconArchive,
         onSelect: () => toggleDiscontinued(v),
       },
-      { label: "Supprimer…", icon: IconTrash, danger: true, separator: true, onSelect: () => askDelete(v) },
+      { label: "Supprimer…", icon: IconTrash, danger: true, separator: true, onSelect: () => (deleteTarget = v) },
     ];
   }
 
@@ -227,7 +171,13 @@
   // Grapes modal functions
   async function openGrapesModal(vintage: any) {
     selectedVintage = vintage;
-    await loadVintageGrapes();
+    /* La liste des cépages n'est lue qu'à la première ouverture. */
+    await Promise.all([
+      loadVintageGrapes(),
+      allGrapes.length
+        ? null
+        : supabase.from("grape").select("*").order("name").then(({ data }) => (allGrapes = data || [])),
+    ]);
     showGrapesModal = true;
   }
 
@@ -271,10 +221,6 @@
 
   async function removeGrape(grapeId: string) {
     if (!selectedVintage) return;
-
-    if (!confirm("Êtes-vous sûr de vouloir supprimer ce cépage ?")) {
-      return;
-    }
 
     const { error: deleteError } = await supabase
       .from("wine_vintage_grape")
@@ -320,9 +266,7 @@
     <div class="error-message" role="alert">{error}</div>
   {/if}
 
-  {#if loading}
-    <div class="loading">Chargement…</div>
-  {:else if vintages.length === 0}
+  {#if vintages.length === 0}
     <EmptyState icon={IconWine} title="Aucun millésime pour ce vin" text="Ajoutez un millésime pour le vendre, le stocker et le servir en dégustation.">
       <Button on:click={openCreateModal}><IconPlus size={16} strokeWidth={1.75} /> Nouveau millésime</Button>
     </EmptyState>
@@ -344,7 +288,7 @@
             <td>
               <span class="vintage-cell">
                 {#if vintage.image_url}<img src={vintage.image_url} alt="" class="thumb" />{/if}
-                <a class="vintage-link" href="/manage/wines/{wine.id}/stock/{vintage.id}">{vintageName(vintage)}</a>
+                <a class="row-link" href="/manage/wines/{wine.id}/stock/{vintage.id}">{vintageYearLabel(vintage)}</a>
                 {#if vintage.organic}<span class="ui-chip organic">Bio</span>{/if}
                 {#if isDiscontinued(vintage)}<StockBadge kind="gone" />{/if}
               </span>
@@ -353,7 +297,7 @@
             <td class="num">{vintage.abv != null ? `${vintage.abv} %` : "—"}</td>
             <td class="num">{formatEUR(vintage.purchase_price)}</td>
             <td class="num">{formatEUR(vintage.price)}</td>
-            <td class="col-actions"><RowMenu items={rowItems(vintage)} label="Actions pour {vintageName(vintage)}" /></td>
+            <td class="col-actions"><RowMenu items={rowItems(vintage)} label="Actions pour {vintageYearLabel(vintage)}" /></td>
           </tr>
         {/each}
       </tbody>
@@ -362,7 +306,7 @@
 </ManagePageShell>
 
 <!-- Modal de création / édition -->
-<Modal open={formOpen} title="{editingVintage ? 'Modifier le millésime' : 'Nouveau millésime'} - {wine.name}" maxWidth={640} on:close={closeForm}>
+<Modal open={formOpen} title="{editingVintage ? 'Modifier le millésime' : 'Nouveau millésime'} - {wine.name}" on:close={closeForm}>
   <form id="vintage-form" on:submit|preventDefault={submitForm}>
     <div class="form-grid">
       <div class="form-group">
@@ -450,7 +394,7 @@
 
 <!-- Cépages d'un millésime -->
 <Modal open={showGrapesModal} title="Cépages" maxWidth={520} on:close={closeGrapesModal}>
-  {#if selectedVintage}<p class="t-muted grapes-intro">{wineTitle(wine)} · {vintageName(selectedVintage)}</p>{/if}
+  {#if selectedVintage}<p class="t-muted grapes-intro">{wineTitle(wine)} · {vintageYearLabel(selectedVintage)}</p>{/if}
   {#if vintageGrapes.length === 0}
     <EmptyState icon={IconGrape} title="Aucun cépage pour ce millésime" compact />
   {:else}
@@ -493,11 +437,11 @@
 </Modal>
 
 <ConfirmDialog
-  bind:open={confirmOpen}
+  open={!!deleteTarget}
   title="Supprimer ce millésime ?"
-  message={deleteTarget ? `Le millésime ${vintageName(deleteTarget)} sera supprimé, avec ses cépages et notes, si aucune vente ni aucun mouvement de stock ne l’utilise.` : ""}
-  busy={deleting}
-  on:confirm={confirmDelete}
+  message={deleteTarget ? `Le millésime ${vintageYearLabel(deleteTarget)} sera supprimé, avec ses cépages et notes, si aucune vente ni aucun mouvement de stock ne l’utilise.` : ""}
+  onConfirm={() => deleteVintage(deleteTarget!)}
+  on:cancel={() => (deleteTarget = null)}
 />
 
 <style>
@@ -525,14 +469,7 @@
     object-fit: contain;
   }
 
-  .vintage-link {
-    font-weight: 600;
-    text-decoration: none;
-  }
 
-  .vintage-link:hover {
-    text-decoration: underline;
-  }
 
   .organic {
     padding: 0 8px;

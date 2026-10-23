@@ -2,7 +2,6 @@ import { fetchAllRows, supabase } from "./supabase";
 import { sortCustomersByLabel } from "./customerDisplay";
 import { compareVintages } from "./wine";
 import type { Country, Customer, Region } from "./types";
-import type { RefField, RefOption } from "./components/manage/RefCrudPage.svelte";
 
 /** Chargements partagés par les pages de l'admin. */
 
@@ -16,30 +15,6 @@ export async function fetchCustomers(): Promise<Customer[]> {
 export async function fetchCountries(): Promise<Country[]> {
   const { data } = await supabase.from("country").select("*").order("name");
   return data || [];
-}
-
-/** « 🇮🇹 Italie » (vide sans pays). */
-export function countryLabel(c: { flag?: string | null; name?: string | null } | null | undefined): string {
-  return [c?.flag, c?.name].filter(Boolean).join(" ");
-}
-
-export function countryOptions(countries: Country[]): RefOption[] {
-  return countries.map((c) => ({ value: c.id, label: countryLabel(c) }));
-}
-
-/** Champs d'un contact professionnel (fournisseurs, transporteurs). */
-export function contactFields(countries: RefOption[]): RefField[] {
-  return [
-    { key: "name", label: "Nom", required: true, full: true },
-    { key: "email", label: "Email", type: "email" },
-    { key: "phone_number", label: "Téléphone", type: "tel" },
-    { key: "address_line_1", label: "Adresse ligne 1", full: true },
-    { key: "address_line_2", label: "Adresse ligne 2", full: true },
-    { key: "zip_code", label: "Code postal" },
-    { key: "city", label: "Ville" },
-    { key: "country_id", label: "Pays", type: "select", options: countries },
-    { key: "vat", label: "Numéro de TVA" },
-  ];
 }
 
 /** Régions (avec leur pays) triées par nom. */

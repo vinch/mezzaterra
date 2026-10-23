@@ -306,6 +306,18 @@ select:disabled {
   border-bottom: none;
 }
 
+/* Nom d'une ligne qui mène à sa fiche. */
+.ui-table .row-link {
+  color: var(--ink) !important;
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.ui-table .row-link:hover {
+  color: var(--teal-700) !important;
+  text-decoration: underline;
+}
+
 .ui-table tbody tr.is-clickable {
   cursor: pointer;
 }

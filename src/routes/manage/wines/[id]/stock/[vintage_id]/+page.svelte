@@ -13,7 +13,7 @@
   import RowMenu from "$lib/ui/RowMenu.svelte";
   import type { MenuItem } from "$lib/ui/Menu.svelte";
   import { IconBox, IconPencil, IconPlus, IconTrash } from "$lib/ui/icons";
-  import { wineTitle } from "$lib/wine";
+  import { vintageYearLabel, wineTitle } from "$lib/wine";
 
   export let data: PageData;
 
@@ -26,13 +26,10 @@
   let formOpen = false;
   let editingMove: any = null;
 
-  // Form fields
-  let formData = {
-    reason: "",
-    quantity: "",
-    date: "",
-    note: "",
-  };
+  function emptyForm() {
+    return { reason: "", quantity: "", date: todayIso(), note: "" };
+  }
+  let formData = emptyForm();
 
   // Raisons de mouvement de stock (triées par ordre alphabétique)
   const stockReasons = [
@@ -84,7 +81,7 @@
 
   function openCreateModal() {
     editingMove = null;
-    resetForm();
+    formData = emptyForm();
     formOpen = true;
   }
 
@@ -102,17 +99,8 @@
   function closeForm() {
     formOpen = false;
     editingMove = null;
-    resetForm();
   }
 
-  function resetForm() {
-    formData = {
-      reason: "",
-      quantity: "",
-      date: todayIso(),
-      note: "",
-    };
-  }
 
   /** Création ou modification (selon `editingMove`) du mouvement. */
   async function submitForm() {
@@ -156,29 +144,13 @@
   }
 
   let deleteTarget: StockMove | null = null;
-  let confirmOpen = false;
-  let deleting = false;
 
-  function askDelete(move: StockMove) {
-    deleteTarget = move;
-    confirmOpen = true;
-  }
-
-  async function confirmDelete() {
-    if (!deleteTarget) return;
-    deleting = true;
-    const { error: deleteError } = await supabase
-      .from("stock_move")
-      .delete()
-      .eq("id", deleteTarget.id);
-    deleting = false;
-    confirmOpen = false;
-
+  async function deleteMove(move: StockMove) {
+    const { error: deleteError } = await supabase.from("stock_move").delete().eq("id", move.id);
     if (deleteError) {
       error = deleteError.message;
       return;
     }
-
     error = "";
     await loadStockMoves();
   }
@@ -186,11 +158,11 @@
   function rowItems(move: StockMove): MenuItem[] {
     return [
       { label: "Modifier", icon: IconPencil, onSelect: () => openEditModal(move) },
-      { label: "Supprimer…", icon: IconTrash, danger: true, separator: true, onSelect: () => askDelete(move) },
+      { label: "Supprimer…", icon: IconTrash, danger: true, separator: true, onSelect: () => (deleteTarget = move) },
     ];
   }
 
-  $: title = `${wineTitle(vintage.wine)} ${vintage.year ?? `(${vintage.production_year})`}`;
+  $: title = `${wineTitle(vintage.wine)} ${vintageYearLabel(vintage)}`;
   $: subtitle = `${currentStock} bouteille${Math.abs(currentStock) > 1 ? "s" : ""} en stock`;
 
   function getReasonLabel(reason: string) {
@@ -262,7 +234,7 @@
 </ManagePageShell>
 
 <!-- Modal de création / édition -->
-<Modal open={formOpen} title={editingMove ? "Modifier le mouvement de stock" : "Nouveau mouvement de stock"} maxWidth={640} on:close={closeForm}>
+<Modal open={formOpen} title={editingMove ? "Modifier le mouvement de stock" : "Nouveau mouvement de stock"} on:close={closeForm}>
   <form id="move-form" on:submit|preventDefault={submitForm}>
     <div class="form-grid">
       <div class="form-group">
@@ -310,11 +282,11 @@
 </Modal>
 
 <ConfirmDialog
-  bind:open={confirmOpen}
+  open={!!deleteTarget}
   title="Supprimer ce mouvement ?"
   message={deleteTarget ? `Le mouvement du ${formatDate(deleteTarget.date)} (${getReasonLabel(deleteTarget.reason)}, ${Math.abs(deleteTarget.quantity)} bt.) sera supprimé et le stock recalculé.` : ""}
-  busy={deleting}
-  on:confirm={confirmDelete}
+  onConfirm={() => deleteMove(deleteTarget!)}
+  on:cancel={() => (deleteTarget = null)}
 />
 
 <style>

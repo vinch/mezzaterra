@@ -6,6 +6,7 @@
   import Modal from "$lib/ui/Modal.svelte";
   import Button from "$lib/ui/Button.svelte";
   import StatusBadge from "$lib/ui/StatusBadge.svelte";
+  import { KIND_META, statusMeta } from "$lib/status";
   import ManagePageShell from "$lib/components/manage/ManagePageShell.svelte";
   import { orderItemPrice as itemPrice, withOrderTotals } from "$lib/manageData";
   import { todayIso } from "$lib/dates";
@@ -454,7 +455,7 @@
                 </td>
                 <td>
                   <select
-                    class="status-select status-{transport.status}"
+                    class="status-select tone-{statusMeta("transport", transport.status).tone}"
                     value={transport.status}
                     on:change={async (e) => {
                       const target = e.target as HTMLSelectElement;
@@ -477,10 +478,7 @@
                       }
                     }}
                   >
-                    <option value="pending">En attente</option>
-                    <option value="in_transit">En transit</option>
-                    <option value="delivered">Livré</option>
-                    <option value="cancelled">Annulé</option>
+                    {#each Object.entries(KIND_META.transport) as [value, meta]}<option {value}>{meta.label}</option>{/each}
                   </select>
                 </td>
                 <td>
@@ -534,7 +532,7 @@
 </ManagePageShell>
 
 <!-- Modal de création / édition -->
-<Modal open={formOpen} title={editingTransport ? "Modifier le transport" : "Nouveau transport"} maxWidth={640} on:close={closeForm}>
+<Modal open={formOpen} title={editingTransport ? "Modifier le transport" : "Nouveau transport"} on:close={closeForm}>
   <form id="transport-form" on:submit|preventDefault={submitForm}>
     <div class="form-grid">
       <div class="form-group">
@@ -601,7 +599,7 @@
 </Modal>
 
 <!-- Modal d'association de commandes -->
-<Modal open={showOrdersModal} title="Associer des commandes au transport" maxWidth={640} on:close={closeOrdersModal}>
+<Modal open={showOrdersModal} title="Associer des commandes au transport" on:close={closeOrdersModal}>
   {#if selectedTransport}
     <div class="orders-modal-content">
       <p class="modal-description">
@@ -690,7 +688,7 @@
 </Modal>
 
 <!-- Modal de détails -->
-<Modal open={showDetailsModal} title="Détails du transport" maxWidth={640} on:close={closeDetailsModal}>
+<Modal open={showDetailsModal} title="Détails du transport" on:close={closeDetailsModal}>
   {#if detailsTransport}
     <div class="details-content">
       <div class="details-grid">
@@ -802,60 +800,16 @@
 </Modal>
 
 <style>
-  .status-select {
-    padding: 0.25rem 0.5rem;
-    border-radius: 4px;
-    font-size: 0.85rem;
-    font-weight: 500;
-    border: 1px solid rgba(0, 0, 0, 0.1);
-    cursor: pointer;
-    min-width: 120px;
-  }
 
-  .status-select.status-pending {
-    background-color: var(--st-pending-bg);
-    color: var(--st-pending-fg);
-  }
 
-  .status-select.status-in_transit {
-    background-color: var(--st-delivered-bg);
-    color: var(--st-delivered-fg);
-  }
 
-  .status-select.status-delivered {
-    background-color: var(--st-paid-bg);
-    color: var(--st-paid-fg);
-  }
 
-  .status-select.status-cancelled {
-    background-color: var(--st-cancelled-bg);
-    color: var(--st-cancelled-fg);
-  }
 
-  .status-pending {
-    background: var(--st-pending-bg);
-    color: var(--st-pending-fg);
-  }
 
-  .status-in_transit {
-    background: var(--st-delivered-bg);
-    color: var(--st-delivered-fg);
-  }
 
-  .status-delivered {
-    background: var(--st-paid-bg);
-    color: var(--st-paid-fg);
-  }
 
-  .status-cancelled {
-    background: var(--st-cancelled-bg);
-    color: var(--st-cancelled-fg);
-  }
 
   /* Orders modal styles */
-  .orders-modal-content {
-    padding: 1.5rem;
-  }
 
   .modal-description {
     margin-bottom: 1.5rem;
@@ -980,9 +934,6 @@
   }
 
   /* Details modal styles */
-  .details-content {
-    padding: 1.5rem;
-  }
 
   .details-grid {
     display: grid;

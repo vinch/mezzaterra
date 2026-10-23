@@ -1,7 +1,8 @@
 <script lang="ts">
   import { onMount } from "svelte";
   import RefCrudPage from "$lib/components/manage/RefCrudPage.svelte";
-  import { countryLabel, countryOptions, fetchCountries, fetchRegions } from "$lib/manageData";
+  import { countryLabel, countryOptions, regionOptions } from "$lib/components/manage/refCrud";
+  import { fetchCountries, fetchRegions } from "$lib/manageData";
   import type { Country, Region } from "$lib/types";
 
   let countries: Country[] = [];
@@ -9,8 +10,6 @@
   onMount(async () => {
     [countries, regions] = await Promise.all([fetchCountries(), fetchRegions()]);
   });
-
-  $: regionOptions = regions.map((r) => ({ value: r.id, label: [r.name, r.country?.name].filter(Boolean).join(" · ") }));
 </script>
 
 <svelte:head>
@@ -29,7 +28,7 @@
     { key: "name", label: "Nom du vignoble", required: true },
     { key: "city", label: "Ville" },
     { key: "country_id", label: "Pays", type: "select", options: countryOptions(countries) },
-    { key: "region_id", label: "Région", type: "select", options: regionOptions },
+    { key: "region_id", label: "Région", type: "select", options: regionOptions(regions) },
     { key: "latitude", label: "Latitude", type: "number", placeholder: "42.35" },
     { key: "longitude", label: "Longitude", type: "number", placeholder: "13.99" },
     { key: "url", label: "Site web", type: "url", full: true, placeholder: "https://" },
@@ -41,7 +40,7 @@
     },
   ]}
   columns={[
-    { label: "Nom", value: (w) => w.name, strong: true },
+    { label: "Nom", value: (w) => w.name },
     { label: "Ville", value: (w) => w.city },
     { label: "Région", value: (w) => w.region?.name },
     { label: "Pays", value: (w) => countryLabel(w.country) },

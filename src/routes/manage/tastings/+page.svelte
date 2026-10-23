@@ -529,7 +529,7 @@
   {/if}
 </ManagePageShell>
 
-<Modal open={showModal} title={editingTasting ? "Modifier la dégustation" : "Nouvelle dégustation"} maxWidth={640} on:close={closeModal}>
+<Modal open={showModal} title={editingTasting ? "Modifier la dégustation" : "Nouvelle dégustation"} on:close={closeModal}>
   <form id="tasting-form" on:submit|preventDefault={handleSubmit}>
     {#if error && showModal}
       <div class="error-message">{error}</div>
