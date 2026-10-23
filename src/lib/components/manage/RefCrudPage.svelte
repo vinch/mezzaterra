@@ -42,7 +42,7 @@
   import Field from "$lib/ui/Field.svelte";
   import RowMenu from "$lib/ui/RowMenu.svelte";
   import type { MenuItem } from "$lib/ui/Menu.svelte";
-  import { IconPencil, IconPlus, IconTrash } from "$lib/ui/icons";
+  import { IconEye, IconPencil, IconPlus, IconTrash } from "$lib/ui/icons";
 
   /**
    * Page de référentiel (pays, régions, cépages, fournisseurs…) : liste, création, édition et
@@ -64,6 +64,12 @@
   export let columns: RefColumn[];
   /** Nom affiché d'une ligne (menu d'actions, confirmation). */
   export let rowLabel: (row: any) => string = (row) => row.name;
+  /** Fiche détaillée d'une ligne : la première colonne devient un lien, et le menu propose « Ouvrir la fiche ». */
+  export let rowHref: ((row: any) => string) | null = null;
+  /** Tri côté client, quand `orderBy` ne suffit pas. */
+  export let sortRows: ((rows: any[]) => any[]) | null = null;
+  /** Ouvre directement l'édition de cette ligne après le chargement (lien « Modifier » d'une autre page). */
+  export let editId: string | null = null;
 
   let rows: any[] = [];
   let loading = true;
@@ -76,12 +82,16 @@
   let confirmOpen = false;
   let deleting = false;
 
-  onMount(load);
+  onMount(async () => {
+    await load();
+    const toEdit = editId ? rows.find((r) => r.id === editId) : null;
+    if (toEdit) openForm(toEdit);
+  });
 
   async function load() {
     const { data, error: fetchError } = await (supabase.from(table as any) as any).select(select).order(orderBy);
     if (fetchError) error = fetchError.message;
-    else rows = data || [];
+    else rows = sortRows ? sortRows(data || []) : data || [];
     loading = false;
   }
 
@@ -154,6 +164,7 @@
 
   function rowItems(row: any): MenuItem[] {
     return [
+      ...(rowHref ? [{ label: "Ouvrir la fiche", icon: IconEye, href: rowHref(row) }] : []),
       { label: "Modifier", icon: IconPencil, onSelect: () => openForm(row) },
       { label: "Supprimer…", icon: IconTrash, danger: true, separator: true, onSelect: () => askDelete(row) },
     ];
@@ -194,10 +205,13 @@
       <tbody>
         {#each rows as row (row.id)}
           <tr>
-            {#each columns as col}
+            {#each columns as col, i}
               {@const href = col.href?.(row)}
+              {@const ownHref = i === 0 && rowHref ? rowHref(row) : null}
               <td title={col.truncate ? col.value(row) ?? "" : undefined}>
-                {#if href}
+                {#if ownHref}
+                  <a class="row-link" href={ownHref}>{cell(col, row)}</a>
+                {:else if href}
                   <a {href} target="_blank" rel="noopener noreferrer">{cell(col, row)}</a>
                 {:else if col.strong}
                   <strong>{cell(col, row)}</strong>
@@ -218,7 +232,7 @@
   {#if error}
     <div class="error-message" role="alert">{error}</div>
   {/if}
-  <form class="ref-form" on:submit|preventDefault={submit}>
+  <form id="ref-form-{table}" class="ref-form" on:submit|preventDefault={submit}>
     {#each fields as f (f.key)}
       {@const id = `${table}-${f.key}`}
       <div class:full={f.full || f.type === "textarea"}>
@@ -249,7 +263,7 @@
   </form>
   <svelte:fragment slot="footer">
     <Button variant="ghost" on:click={closeForm}>Annuler</Button>
-    <Button variant="primary" disabled={saving} on:click={submit}>{editing ? "Enregistrer" : "Créer"}</Button>
+    <Button variant="primary" type="submit" form="ref-form-{table}" disabled={saving}>{editing ? "Enregistrer" : "Créer"}</Button>
   </svelte:fragment>
 </Modal>
 
@@ -266,6 +280,15 @@
     display: grid;
     grid-template-columns: 1fr 1fr;
     gap: 16px;
+  }
+
+  .row-link {
+    font-weight: 600;
+    text-decoration: none;
+  }
+
+  .row-link:hover {
+    text-decoration: underline;
   }
 
   .ref-form .full {

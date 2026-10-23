@@ -287,11 +287,7 @@
   background: var(--mist);
 }
 
-/* ——— Formulaires (modales des pages non migrées) ——— */
-.app .modal-content form {
-  padding: 20px 24px 24px;
-}
-
+/* ——— Formulaires des modales (grille .form-grid / .form-group) ——— */
 .app .form-grid {
   display: grid;
   grid-template-columns: 1fr 1fr;
@@ -309,8 +305,7 @@
   grid-column: 1 / -1;
 }
 
-.app .form-group > label,
-.app .modal-footer label {
+.app .form-group > label {
   font-weight: 500;
   font-size: 13px;
   line-height: 18px;
@@ -367,14 +362,6 @@
   outline: none;
   border-color: var(--teal-600);
   box-shadow: 0 0 0 2px rgba(37, 97, 105, 0.18);
-}
-
-.app .modal-footer {
-  display: flex;
-  justify-content: flex-end;
-  gap: 12px;
-  padding-top: 16px;
-  border-top: 1px solid var(--border-soft);
 }
 
 .app .section-title {

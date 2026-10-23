@@ -3,7 +3,8 @@
   import { onMount } from "svelte";
   import { invalidateAll } from "$app/navigation";
   import type { PageData } from "./$types";
-  import Modal from "$lib/components/Modal.svelte";
+  import Modal from "$lib/ui/Modal.svelte";
+  import Button from "$lib/ui/Button.svelte";
   import ManagePageShell from "$lib/components/manage/ManagePageShell.svelte";
   import { fetchPickerVintages, orderItemPrice } from "$lib/manageData";
   import { parseIsoDate, todayIso } from "$lib/dates";
@@ -778,13 +779,8 @@
 </ManagePageShell>
 
 <!-- Modal de création / édition -->
-<Modal
-  show={formOpen}
-  title={editingOrder ? "Modifier la commande" : "Nouvelle commande"}
-  modalId="modal-title-order"
-  on:close={closeForm}
->
-  <form on:submit|preventDefault={submitForm}>
+<Modal open={formOpen} title={editingOrder ? "Modifier la commande" : "Nouvelle commande"} maxWidth={640} on:close={closeForm}>
+  <form id="order-form" on:submit|preventDefault={submitForm}>
     <div class="form-grid">
       <div class="form-group">
         <label for="date">Date *</label>
@@ -868,23 +864,15 @@
         </div>
       </div>
     </div>
-
-    <div class="modal-footer">
-      <button type="button" class="btn-secondary" on:click={closeForm}>
-        Annuler
-      </button>
-      <button type="submit" class="btn-primary" disabled={saving}>{editingOrder ? "Enregistrer" : "Créer la commande"}</button>
-    </div>
   </form>
+  <svelte:fragment slot="footer">
+    <Button variant="ghost" on:click={closeForm}>Annuler</Button>
+    <Button variant="primary" type="submit" form="order-form" disabled={saving}>{editingOrder ? "Enregistrer" : "Créer la commande"}</Button>
+  </svelte:fragment>
 </Modal>
 
 <!-- Modal de détails -->
-<Modal
-  show={showDetailsModal}
-  title="Détails de la commande"
-  modalId="modal-title-details"
-  on:close={closeDetailsModal}
->
+<Modal open={showDetailsModal} title="Détails de la commande" maxWidth={640} on:close={closeDetailsModal}>
   {#if detailsOrder}
     <div class="details-content">
       <div class="details-grid">
@@ -947,12 +935,7 @@
 </Modal>
 
 <!-- Modal de sélection de langue pour PDF -->
-<Modal
-  show={showLanguageModal}
-  title="Choisir la langue pour l'export PDF"
-  modalId="modal-title-language"
-  on:close={closeLanguageModal}
->
+<Modal open={showLanguageModal} title="Choisir la langue pour l'export PDF" maxWidth={640} on:close={closeLanguageModal}>
   <div class="language-selection">
     <p>Sélectionnez la langue dans laquelle vous souhaitez générer le PDF :</p>
     <div class="language-buttons">

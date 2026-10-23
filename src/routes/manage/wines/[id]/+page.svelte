@@ -3,7 +3,8 @@
   import { onMount } from "svelte";
   import type { PageData } from "./$types";
   import type { WineVintage } from "$lib/types";
-  import Modal from "$lib/components/Modal.svelte";
+  import Modal from "$lib/ui/Modal.svelte";
+  import Button from "$lib/ui/Button.svelte";
   import StockBadge from "$lib/ui/StockBadge.svelte";
   import { IconArchive, IconArchiveRestore } from "$lib/ui/icons";
   import { isDiscontinued } from "$lib/wine";
@@ -459,13 +460,8 @@
 </div>
 
 <!-- Modal de création / édition -->
-<Modal
-  show={formOpen}
-  title="{editingVintage ? 'Modifier le millésime' : 'Nouveau millésime'} - {wine.name}"
-  modalId="modal-title-vintage"
-  on:close={closeForm}
->
-  <form on:submit|preventDefault={submitForm}>
+<Modal open={formOpen} title="{editingVintage ? 'Modifier le millésime' : 'Nouveau millésime'} - {wine.name}" maxWidth={640} on:close={closeForm}>
+  <form id="vintage-form" on:submit|preventDefault={submitForm}>
     <div class="form-grid">
       <div class="form-group">
         <label for="production_year">Année de mise en bouteille *</label>
@@ -543,22 +539,15 @@
         </label>
       </div>
     </div>
-
-    <div class="modal-footer">
-      <button type="button" class="btn-secondary" on:click={closeForm}>
-        Annuler
-      </button>
-      <button type="submit" class="btn-primary">{editingVintage ? "Mettre à jour" : "Créer le millésime"}</button>
-    </div>
   </form>
+  <svelte:fragment slot="footer">
+    <Button variant="ghost" on:click={closeForm}>Annuler</Button>
+    <Button variant="primary" type="submit" form="vintage-form">{editingVintage ? "Mettre à jour" : "Créer le millésime"}</Button>
+  </svelte:fragment>
 </Modal>
 
 <!-- Grapes Modal -->
-<Modal
-  show={showGrapesModal}
-  title="Gérer les cépages"
-  on:close={closeGrapesModal}
->
+<Modal open={showGrapesModal} title="Gérer les cépages" maxWidth={640} on:close={closeGrapesModal}>
   <div class="pairings-content">
     <div class="pairings-section">
       <h3>Cépages actuels</h3>
@@ -888,13 +877,6 @@
     border-color: var(--teal-600);
   }
 
-  .modal-footer {
-    display: flex;
-    justify-content: flex-end;
-    gap: 1rem;
-    padding-top: 1rem;
-    border-top: 1px solid var(--border-soft);
-  }
 
   /* Grapes modal styles */
   .pairings-content {

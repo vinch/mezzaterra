@@ -4,7 +4,8 @@
   import { todayIso } from "$lib/dates";
   import { formatDate } from "$lib/format";
   import type { StockMove } from "$lib/types";
-  import Modal from "$lib/components/Modal.svelte";
+  import Modal from "$lib/ui/Modal.svelte";
+  import Button from "$lib/ui/Button.svelte";
 
   export let data: PageData;
 
@@ -294,13 +295,8 @@
 </div>
 
 <!-- Modal de création / édition -->
-<Modal
-  show={formOpen}
-  title={editingMove ? "Modifier le mouvement de stock" : "Nouveau mouvement de stock"}
-  modalId="modal-title-move"
-  on:close={closeForm}
->
-  <form on:submit|preventDefault={submitForm}>
+<Modal open={formOpen} title={editingMove ? "Modifier le mouvement de stock" : "Nouveau mouvement de stock"} maxWidth={640} on:close={closeForm}>
+  <form id="move-form" on:submit|preventDefault={submitForm}>
     <div class="form-grid">
       <div class="form-group">
         <label for="reason">Raison *</label>
@@ -339,14 +335,11 @@
         ></textarea>
       </div>
     </div>
-
-    <div class="modal-footer">
-      <button type="button" class="btn-secondary" on:click={closeForm}>
-        Annuler
-      </button>
-      <button type="submit" class="btn-primary">{editingMove ? "Mettre à jour" : "Créer le mouvement"}</button>
-    </div>
   </form>
+  <svelte:fragment slot="footer">
+    <Button variant="ghost" on:click={closeForm}>Annuler</Button>
+    <Button variant="primary" type="submit" form="move-form">{editingMove ? "Mettre à jour" : "Créer le mouvement"}</Button>
+  </svelte:fragment>
 </Modal>
 
 <style>
@@ -572,11 +565,4 @@
     border-color: var(--teal-600);
   }
 
-  .modal-footer {
-    display: flex;
-    justify-content: flex-end;
-    gap: 1rem;
-    padding-top: 1rem;
-    border-top: 1px solid var(--border-soft);
-  }
 </style>

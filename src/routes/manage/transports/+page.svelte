@@ -3,7 +3,8 @@
   import { onMount } from "svelte";
   import { invalidateAll } from "$app/navigation";
   import type { PageData } from "./$types";
-  import Modal from "$lib/components/Modal.svelte";
+  import Modal from "$lib/ui/Modal.svelte";
+  import Button from "$lib/ui/Button.svelte";
   import ManagePageShell from "$lib/components/manage/ManagePageShell.svelte";
   import { orderItemPrice as itemPrice, withOrderTotals } from "$lib/manageData";
   import { todayIso } from "$lib/dates";
@@ -532,13 +533,8 @@
 </ManagePageShell>
 
 <!-- Modal de création / édition -->
-<Modal
-  show={formOpen}
-  title={editingTransport ? "Modifier le transport" : "Nouveau transport"}
-  modalId="modal-title-transport"
-  on:close={closeForm}
->
-  <form on:submit|preventDefault={submitForm}>
+<Modal open={formOpen} title={editingTransport ? "Modifier le transport" : "Nouveau transport"} maxWidth={640} on:close={closeForm}>
+  <form id="transport-form" on:submit|preventDefault={submitForm}>
     <div class="form-grid">
       <div class="form-group">
         <label for="transporter_id">Transporteur *</label>
@@ -596,23 +592,15 @@
         <textarea id="note" bind:value={formData.note} rows="3"></textarea>
       </div>
     </div>
-
-    <div class="modal-footer">
-      <button type="button" class="btn-secondary" on:click={closeForm}
-        >Annuler</button
-      >
-      <button type="submit" class="btn-primary" disabled={saving}>{editingTransport ? "Enregistrer" : "Créer le transport"}</button>
-    </div>
   </form>
+  <svelte:fragment slot="footer">
+    <Button variant="ghost" on:click={closeForm}>Annuler</Button>
+    <Button variant="primary" type="submit" form="transport-form" disabled={saving}>{editingTransport ? "Enregistrer" : "Créer le transport"}</Button>
+  </svelte:fragment>
 </Modal>
 
 <!-- Modal d'association de commandes -->
-<Modal
-  show={showOrdersModal}
-  title="Associer des commandes au transport"
-  modalId="modal-title-orders"
-  on:close={closeOrdersModal}
->
+<Modal open={showOrdersModal} title="Associer des commandes au transport" maxWidth={640} on:close={closeOrdersModal}>
   {#if selectedTransport}
     <div class="orders-modal-content">
       <p class="modal-description">
@@ -706,33 +694,16 @@
           {/each}
         </div>
       {/if}
-
-      <div class="modal-footer">
-        <button type="button" class="btn-secondary" on:click={closeOrdersModal}>
-          Annuler
-        </button>
-        <button
-          type="button"
-          class="btn-primary"
-          on:click={associateOrders}
-          disabled={selectedOrderIds.length === 0}
-        >
-          Associer {selectedOrderIds.length > 0
-            ? `(${selectedOrderIds.length})`
-            : ""}
-        </button>
-      </div>
     </div>
   {/if}
+  <svelte:fragment slot="footer">
+    <Button variant="ghost" on:click={closeOrdersModal}>Annuler</Button>
+    <Button variant="primary" on:click={associateOrders} disabled={selectedOrderIds.length === 0}>Associer {selectedOrderIds.length > 0 ? `(${selectedOrderIds.length})` : ""}</Button>
+  </svelte:fragment>
 </Modal>
 
 <!-- Modal de détails -->
-<Modal
-  show={showDetailsModal}
-  title="Détails du transport"
-  modalId="modal-title-details"
-  on:close={closeDetailsModal}
->
+<Modal open={showDetailsModal} title="Détails du transport" maxWidth={640} on:close={closeDetailsModal}>
   {#if detailsTransport}
     <div class="details-content">
       <div class="details-grid">
