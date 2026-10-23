@@ -436,7 +436,7 @@
       </p>
       <form on:submit|preventDefault={saveWelcome} class="sheet-form">
         <label>Prénom<input bind:value={profile.firstName} autocomplete="given-name" /></label>
-        <label>Email <span class="opt">(pour retrouver vos notes dans votre carnet)</span>
+        <label>Email <span class="opt">(facultatif)</span>
           <input type="email" bind:value={profile.email} autocomplete="email" />
         </label>
         <button type="submit" class="solid-btn">C’est parti</button>
@@ -522,12 +522,11 @@
           </li>
         {/each}
       </ol>
-      <div class="recap-actions">
-        {#if cartCount > 0}
+      {#if cartCount > 0}
+        <div class="recap-actions">
           <button type="button" class="solid-btn" on:click={() => { showRecap = false; showCart = true; }}>Commander mes coups de cœur</button>
-        {/if}
-        <a href="/carnet" class="ghost-btn">Mon carnet de dégustation</a>
-      </div>
+        </div>
+      {/if}
     </div>
   </div>
 {/if}

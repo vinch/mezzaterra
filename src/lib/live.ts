@@ -13,7 +13,7 @@ import { supabase } from "./supabase";
 export type GuestProfile = { firstName: string; lastName: string; email: string; phone: string };
 export type LocalRating = { rating: number | null; comment: string; updatedAt: string };
 
-/** Entrée du carnet local (affiché dans /carnet même sans compte). */
+/** Entrée du carnet local (notes conservées dans le navigateur). */
 export type NotebookEntry = {
   tastingId: string;
   tastingName: string;
