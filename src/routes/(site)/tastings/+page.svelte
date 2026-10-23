@@ -2,6 +2,7 @@
   import { daysUntil, formatDayMonth, formatDateLong, formatTime } from "$lib/dates";
   import { isPrivateTasting, tastingTitle } from "$lib/publicData";
   import { formatEur } from "$lib/wine";
+  import { contactHref } from "$lib/contact";
 
   export let data;
 
@@ -11,9 +12,6 @@
   /* À venir : la plus proche d'abord. Passées : la plus récente d'abord. */
   $: upcoming = tastings.filter((t: any) => daysUntil(t.date) >= 0).reverse();
   $: past = tastings.filter((t: any) => daysUntil(t.date) < 0);
-
-  /* Message privé Instagram : le seul canal de contact public pour l’instant. */
-  const CONTACT_URL = "https://ig.me/m/wearemztr";
 
   function wineCount(t: any): number {
     return t.tasting_wine_vintage?.length ?? 0;
@@ -104,7 +102,7 @@
   <section class="block">
     <div class="mz-card private-cta">
       <h2 class="mz-display mz-h3">Envie d’une dégustation privée chez vous ?</h2>
-      <a class="mz-btn" href={CONTACT_URL} target="_blank" rel="noopener noreferrer">Contactez-nous</a>
+      <a class="mz-btn" href={contactHref("prive")}>Contactez-nous</a>
     </div>
   </section>
 </div>

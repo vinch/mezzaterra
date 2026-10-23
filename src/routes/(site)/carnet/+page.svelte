@@ -8,6 +8,7 @@
   import { isMissingSchemaError } from "$lib/features";
   import { formatDateLong, formatDateShort } from "$lib/dates";
   import { VINTAGE_PUBLIC_SELECT, formatEur, wineStyle, wineTitle } from "$lib/wine";
+  import { contactHref } from "$lib/contact";
 
   type Notebook = {
     email: string;
@@ -173,7 +174,7 @@
     });
     reorderSending = false;
     if (error) {
-      reorderError = "Impossible d’envoyer la demande pour le moment. Écrivez-nous et on s’en occupe !";
+      reorderError = "Impossible d’envoyer la demande pour le moment.";
       return;
     }
     if (contactEmail) saveProfile({ ...profile, email: contactEmail });
@@ -274,7 +275,11 @@
                 {reorderSending ? "Envoi…" : "Envoyer ma demande"}
               </button>
             </div>
-            {#if reorderError}<p class="mz-feedback mz-feedback--error">{reorderError}</p>{/if}
+            {#if reorderError}
+              <p class="mz-feedback mz-feedback--error">
+                {reorderError} <a class="mz-link" href={contactHref("commande")}>Écrivez-nous</a> et on s’en occupe !
+              </p>
+            {/if}
           {/if}
         {/if}
       </section>
