@@ -42,8 +42,6 @@ pnpm update-types
 | `/tastings/[id]/live` | Mode live (thème sombre) : vin servi en direct, notes, « J'en veux » |
 | `/vins`, `/vins/[id]` | Catalogue et fiches vin partageables (Open Graph) |
 | `/domaines/[id]` | Page d'un domaine : présentation, carte, cépages, tous ses vins |
-| `/accords` | « Qu'est-ce qu'on boit ce soir ? » |
-| `/carnet` | Carnet client (notes locales + achats via lien magique) |
 | `/contact` | Formulaire de contact → email à gianni@mezzaterra.be (Resend), raison préremplie via `?raison=prive\|commande\|degustation\|pro\|autre` (+ `&sujet=…`), CAPTCHA Turnstile |
 
 | Gestion | |

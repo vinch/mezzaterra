@@ -4,10 +4,9 @@
   import SiteFooter from "$lib/components/SiteFooter.svelte";
 
   const links: { href: string; label: string; also?: string[] }[] = [
+    { href: "/", label: "Accueil" },
     { href: "/tastings", label: "Dégustations" },
     { href: "/vins", label: "Nos vins", also: ["/domaines"] },
-    { href: "/accords", label: "Accords" },
-    { href: "/carnet", label: "Mon carnet" },
   ];
 
   $: path = $page.url.pathname;

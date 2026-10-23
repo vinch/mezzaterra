@@ -205,7 +205,6 @@
   <div class="app loading-container denied">
     <h1 class="t-page-title">Accès réservé</h1>
     <p>Le compte <strong>{$userStore.email}</strong> n’a pas accès à la gestion.</p>
-    <p><a href="/carnet">Voir mon carnet de dégustation</a></p>
     <button class="denied-logout" on:click={handleLogout}>Se déconnecter</button>
   </div>
 {:else if $userStore}
