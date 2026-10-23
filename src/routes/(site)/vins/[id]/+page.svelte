@@ -184,7 +184,7 @@
             <h2>À table avec</h2>
             <div class="pairings">
               {#each pairings as p}
-                <a class="mz-chip" href="/accords?plat={p.id}">{p.description}</a>
+                <span class="mz-chip">{p.description}</span>
               {/each}
             </div>
           </div>
@@ -411,15 +411,6 @@
     display: flex;
     flex-wrap: wrap;
     gap: 0.5rem;
-  }
-
-  .pairings .mz-chip {
-    text-decoration: none;
-  }
-
-  .pairings .mz-chip:hover {
-    background: var(--mz-teal);
-    color: #fff;
   }
 
   .winery-name {
