@@ -244,7 +244,7 @@
       const { downloadInvoicePdf } = await import("$lib/pdf/invoicePdf");
       await downloadInvoicePdf(saleId);
     } catch (err) {
-      error = err instanceof Error ? err.message : `Erreur lors de la génération de la facture: ${err}`;
+      error = `Erreur lors de la génération de la facture : ${err instanceof Error ? err.message : err}`;
       console.error(err);
     }
   }

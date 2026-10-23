@@ -6,13 +6,6 @@ import jsPDF from "jspdf";
  * tableau d'articles (description + colonnes chiffrées centrées), totaux, puis mentions.
  */
 
-/** Lignes d'articles (vente ou commande) : de quoi les libeller et les chiffrer. */
-export const LINE_ITEMS_SELECT =
-  "price, quantity, wine_vintage_id, wine_vintage ( year, production_year, purchase_price, wine ( name, winery ( name ), appelation ( name ) ) )";
-
-/** Lignes de vente : remises et note (ligne dégustation) en plus. */
-export const SALE_LINE_ITEMS_SELECT = `${LINE_ITEMS_SELECT}, discount, discount_type, note` as const;
-
 export type PdfLine = { text: string; bold?: boolean; italic?: boolean };
 
 export type LineItemsPdf = {
@@ -25,6 +18,8 @@ export type LineItemsPdf = {
   /** En-tête de la colonne description, puis des colonnes chiffrées de gauche à droite. */
   descriptionLabel: string;
   columns: string[];
+  /** Largeur des colonnes chiffrées en mm (plus étroites quand il y en a beaucoup). */
+  columnWidth?: number;
   rows: { description: string; values: string[] }[];
   /** Lignes alignées à droite avant le trait final (sous-total, ristourne). */
   summary?: string[];
@@ -85,8 +80,8 @@ export function downloadLineItemsPdf(d: LineItemsPdf): void {
   }
   yPos = Math.max(yPos, partyY) + 15;
 
-  // Colonnes chiffrées placées de droite à gauche, texte centré ; plus étroites quand il y en a beaucoup
-  const columnWidth = d.columns.length > 3 ? 18 : 22;
+  // Colonnes chiffrées placées de droite à gauche, texte centré
+  const columnWidth = d.columnWidth ?? 22;
   const colSpacing = 2;
   const centers = d.columns.map((_, i) => right - columnWidth / 2 - (d.columns.length - 1 - i) * (columnWidth + colSpacing));
   const descColStart = margin + 2;
@@ -133,11 +128,13 @@ export function downloadLineItemsPdf(d: LineItemsPdf): void {
 
   for (const block of d.blocks ?? []) {
     yPos += block.gap;
-    ensureSpace(block.lines.length * 5);
     block.lines.forEach((line, i) => {
-      if (i > 0) yPos += 5;
       font(10, line.italic ? "italic" : line.bold ? "bold" : "normal");
-      doc.text(doc.splitTextToSize(line.text, pageWidth - 2 * margin), margin, yPos);
+      const wrapped: string[] = doc.splitTextToSize(line.text, pageWidth - 2 * margin);
+      if (i > 0) yPos += 5;
+      ensureSpace(wrapped.length * 5);
+      doc.text(wrapped, margin, yPos);
+      yPos += (wrapped.length - 1) * 5;
     });
   }
 

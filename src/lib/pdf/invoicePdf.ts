@@ -1,8 +1,14 @@
 import { supabase } from "$lib/supabase";
 import { lineTotal } from "$lib/analytics";
 import { formatDate, toNumber } from "$lib/format";
-import { ensureInvoiceNumber, itemsSubtotal, paymentMethodLabel, saleItemDescription } from "$lib/sales";
-import { SALE_LINE_ITEMS_SELECT, downloadLineItemsPdf, pdfEur, type LineItemsPdf } from "./lineItemsPdf";
+import {
+  SALE_LINE_ITEMS_SELECT,
+  ensureInvoiceNumber,
+  itemsSubtotal,
+  paymentMethodLabel,
+  saleItemDescription,
+} from "$lib/sales";
+import { downloadLineItemsPdf, pdfEur, type LineItemsPdf } from "./lineItemsPdf";
 
 /** TVA belge sur le vin : les prix en base sont TTC, la facture d'un professionnel détaille le HTVA. */
 const VAT_RATE = 0.21;
@@ -34,7 +40,7 @@ export async function downloadInvoicePdf(saleId: string): Promise<void> {
 
   const rows = items.map((item) => {
     const priceTTC = toNumber(item.price);
-    const totalTTC = lineTotal(item as any);
+    const totalTTC = lineTotal(item);
     const values = isCompany
       ? [String(item.quantity), pdfEur(ht(priceTTC)), pdfEur(priceTTC), pdfEur(ht(totalTTC)), pdfEur(totalTTC)]
       : [String(item.quantity), pdfEur(priceTTC), pdfEur(totalTTC)];
@@ -51,8 +57,8 @@ export async function downloadInvoicePdf(saleId: string): Promise<void> {
     summary.push(
       `Sous-total TTC: ${pdfEur(subtotalTTC)}`,
       gType === "percent"
-        ? `Ristourne globale (${gDisc} %) : –${pdfEur(ristEuro)}`
-        : `Ristourne globale : –${pdfEur(gDisc)}`,
+        ? `Ristourne globale (${Math.min(100, gDisc)} %) : –${pdfEur(ristEuro)}`
+        : `Ristourne globale : –${pdfEur(ristEuro)}`,
     );
   }
 
@@ -85,6 +91,7 @@ export async function downloadInvoicePdf(saleId: string): Promise<void> {
     },
     descriptionLabel: "Description",
     columns: isCompany ? ["Qté", "PU HTVA", "PU TTC", "Total HTVA", "Total TTC"] : ["Qté", "PU", "Total"],
+    columnWidth: 18,
     rows,
     summary,
     totals,

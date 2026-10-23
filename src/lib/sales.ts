@@ -1,4 +1,5 @@
 import { fetchAllRows, supabase } from "./supabase";
+import { LINE_ITEMS_SELECT } from "./manageData";
 import { lineTotal } from "./analytics";
 import { toNumber } from "./format";
 import { vintageProductLabel } from "./wine";
@@ -29,6 +30,9 @@ export function saleItemDescription(item: any): string {
   const n = item.note != null ? String(item.note).trim() : "";
   return n || TASTING_LINE_NOTE;
 }
+
+/** Lignes de vente : remises et note (ligne dégustation) en plus des lignes d'articles. */
+export const SALE_LINE_ITEMS_SELECT = `${LINE_ITEMS_SELECT}, discount, discount_type, note` as const;
 
 /** Sous-total TTC après remises par ligne (avant ristourne globale), arrondi au centime. */
 export function itemsSubtotal(items: any[]): number {
