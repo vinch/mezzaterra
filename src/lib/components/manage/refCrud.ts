@@ -16,6 +16,7 @@ export type RefField = {
   full?: boolean;
   placeholder?: string;
   help?: string;
+  maxlength?: number;
 };
 
 /** Colonne du tableau (la première est en gras, ou lien vers la fiche). */

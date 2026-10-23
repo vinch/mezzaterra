@@ -801,14 +801,6 @@
 
 <style>
 
-
-
-
-
-
-
-
-
   /* Orders modal styles */
 
   .modal-description {

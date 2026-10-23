@@ -15,7 +15,7 @@
   emptyText="Ajoutez les pays des domaines, fournisseurs et clients."
   fields={[
     { key: "name", label: "Nom du pays", required: true },
-    { key: "iso_code", label: "Code ISO", required: true, placeholder: "IT" },
+    { key: "iso_code", label: "Code ISO", required: true, placeholder: "IT", maxlength: 3 },
     { key: "flag", label: "Drapeau (emoji)", required: true, placeholder: "🇮🇹" },
   ]}
   columns={[

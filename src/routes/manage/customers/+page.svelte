@@ -22,6 +22,7 @@
   newLabel="Nouveau client"
   editLabel="Modifier le client"
   thisLabel="ce client"
+  deleteNote="Ses participations aux dégustations sont supprimées avec lui."
   emptyText="Les clients se créent aussi depuis une vente, une inscription ou une demande « J’en veux »."
   rowLabel={customerDisplayLabel}
   rowHref={(c) => `/manage/customers/${c.id}`}

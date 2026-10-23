@@ -248,10 +248,6 @@
   background: #fbefef;
 }
 
-.app .language-selection {
-  padding: 24px;
-}
-
 .app .language-selection p {
   margin: 0 0 16px 0;
   color: var(--ink);

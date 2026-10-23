@@ -22,7 +22,7 @@
   export let table: string;
   /** Sélection PostgREST (jointures pour l'affichage). */
   export let select = "*";
-  /** Colonne de tri ; `sortRows` la remplace quand le tri dépend de plusieurs colonnes. */
+  /** Colonne de tri (côté client) ; `sortRows` la remplace quand le tri dépend de plusieurs colonnes. */
   export let orderBy = "name";
   export let sortRows: ((rows: any[]) => any[]) | null = null;
   /** « Nouveau cépage », « Nouvelle région »… */
@@ -31,6 +31,8 @@
   export let editLabel: string;
   /** Pour la confirmation de suppression : « ce cépage », « cette région ». */
   export let thisLabel: string;
+  /** Conséquences particulières d'une suppression (données liées supprimées avec la ligne…). */
+  export let deleteNote = "";
   export let emptyText: string;
   export let fields: RefField[];
   export let columns: RefColumn[];
@@ -52,13 +54,13 @@
 
   const formId = `ref-form-${table}`;
   const query = () => supabase.from(table as any) as any;
+  const NUMBER = /^-?\d+([.,]\d+)?$/;
 
   onMount(async () => {
-    const { data, error: fetchError } = sortRows
-      ? await query().select(select)
-      : await query().select(select).order(orderBy);
+    const { data, error: fetchError } = await query().select(select);
     if (fetchError) error = fetchError.message;
-    else rows = sorted(data || []);
+    /* Une ligne créée pendant le chargement est gardée. */
+    else rows = sorted([...(data || []).filter((d: any) => !rows.some((r) => r.id === d.id)), ...rows]);
     loading = false;
     const toEdit = editId ? rows.find((r) => r.id === editId) : null;
     if (toEdit) openForm(toEdit);
@@ -79,16 +81,14 @@
   function closeForm() {
     formOpen = false;
     editing = null;
+    error = "";
   }
 
   function toPayload(): Record<string, unknown> {
     return Object.fromEntries(
       fields.map((f) => {
         const raw = (form[f.key] ?? "").trim();
-        if (f.type === "number") {
-          const n = parseFloat(raw.replace(",", "."));
-          return [f.key, Number.isFinite(n) ? n : null];
-        }
+        if (f.type === "number") return [f.key, raw ? Number(raw.replace(",", ".")) : null];
         return [f.key, raw || null];
       }),
     );
@@ -101,6 +101,14 @@
       error = `« ${missing.label} » est obligatoire.`;
       return;
     }
+    const notNumber = fields.find(
+      (f) => f.type === "number" && (form[f.key] ?? "").trim() && !NUMBER.test(form[f.key].trim()),
+    );
+    if (notNumber) {
+      error = `« ${notNumber.label} » doit être un nombre (ex. 42.35).`;
+      return;
+    }
+    const target = editing;
     saving = true;
     /* La ligne enregistrée revient avec ses jointures : la liste se met à jour sans tout relire. */
     const { data: saved, error: saveError } = editing
@@ -112,8 +120,8 @@
       return;
     }
     rows = sorted([...rows.filter((r) => r.id !== saved.id), saved]);
-    error = "";
-    closeForm();
+    /* Ne ferme que le formulaire de cet enregistrement (l'utilisateur a pu en ouvrir un autre). */
+    if (formOpen && editing === target) closeForm();
   }
 
   async function remove(row: any) {
@@ -220,6 +228,7 @@
               bind:value={form[f.key]}
               required={f.required}
               placeholder={f.placeholder ?? ""}
+              maxlength={f.maxlength}
               aria-describedby={describedby}
             />
           {/if}
@@ -236,7 +245,8 @@
 <ConfirmDialog
   open={!!deleteTarget}
   title="Supprimer {thisLabel} ?"
-  message={deleteTarget ? `« ${rowLabel(deleteTarget)} » sera définitivement supprimé. Impossible s’il est encore utilisé ailleurs.` : ""}
+  message={deleteTarget ? `« ${rowLabel(deleteTarget)} » sera définitivement supprimé. ${deleteNote}` : ""}
   onConfirm={() => remove(deleteTarget)}
   on:cancel={() => (deleteTarget = null)}
+  on:done={() => (deleteTarget = null)}
 />

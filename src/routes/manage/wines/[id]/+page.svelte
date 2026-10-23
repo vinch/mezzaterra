@@ -35,6 +35,7 @@
   let error = "";
   /** Modale unique création / édition (`editingVintage` les distingue). */
   let formOpen = false;
+  let saving = false;
   let editingVintage: any = null;
 
   function emptyForm() {
@@ -54,6 +55,13 @@
     /* Lien « Ajouter un millésime » depuis la liste des vins. */
     if (new URLSearchParams(window.location.search).has("nouveau")) openCreateModal();
   });
+
+  /** « Rouge », « Blanc »… ; un type hors de ces styles garde son nom. */
+  function typeLabel(t: { name?: string | null; category?: string | null } | null | undefined): string {
+    if (!t) return "";
+    const style = wineStyle(t);
+    return style.key === "other" ? t.name ?? "" : style.label;
+  }
 
   function sortVintages(list: WineVintage[]): WineVintage[] {
     return [...list].sort((a, b) => b.production_year - a.production_year);
@@ -86,31 +94,39 @@
   function closeForm() {
     formOpen = false;
     editingVintage = null;
+    error = "";
   }
 
   /** Création ou modification (selon `editingVintage`) du millésime. */
+  /** Valeur d'un champ numérique (bind:value donne un nombre, ou "" / null s'il est vide). */
+  function num(v: unknown): number | null {
+    return v === "" || v == null ? null : Number(v);
+  }
+
   async function submitForm() {
+    if (saving) return;
     if (!vintageFormData.production_year) {
       error = "L'année de mise en bouteille est obligatoire";
       return;
     }
 
     const vintageData = {
-      production_year: parseInt(vintageFormData.production_year),
-      year: vintageFormData.year ? parseInt(vintageFormData.year) : null,
-      abv: vintageFormData.abv ? parseFloat(vintageFormData.abv) : null,
-      purchase_price: vintageFormData.purchase_price
-        ? parseFloat(vintageFormData.purchase_price)
-        : undefined,
-      price: vintageFormData.price ? parseFloat(vintageFormData.price) : null,
+      production_year: Number(vintageFormData.production_year),
+      year: num(vintageFormData.year),
+      abv: num(vintageFormData.abv),
+      /* Prix d'achat obligatoire en base : vide, on garde l'actuel (ou le défaut à la création). */
+      purchase_price: num(vintageFormData.purchase_price) ?? undefined,
+      price: num(vintageFormData.price),
       image_url: vintageFormData.image_url || null,
       organic: vintageFormData.organic,
     };
 
     /* La ligne enregistrée revient de la base : la liste se met à jour sans tout relire. */
+    saving = true;
     const { data: saved, error: saveError } = editingVintage
       ? await supabase.from("wine_vintage").update(vintageData).eq("id", editingVintage.id).select().single()
       : await supabase.from("wine_vintage").insert({ ...vintageData, wine_id: wine.id }).select().single();
+    saving = false;
 
     if (saveError) {
       error = saveError.message;
@@ -166,7 +182,7 @@
     ];
   }
 
-  $: subtitle = [wine.winery?.name, appellationText(wine.appelation), wine.wine_type && wineStyle(wine.wine_type).label].filter(Boolean).join(" · ");
+  $: subtitle = [wine.winery?.name, appellationText(wine.appelation), typeLabel(wine.wine_type)].filter(Boolean).join(" · ");
 
   // Grapes modal functions
   async function openGrapesModal(vintage: any) {
@@ -222,6 +238,10 @@
   async function removeGrape(grapeId: string) {
     if (!selectedVintage) return;
 
+    if (!confirm("Retirer ce cépage du millésime ?")) {
+      return;
+    }
+
     const { error: deleteError } = await supabase
       .from("wine_vintage_grape")
       .delete()
@@ -238,6 +258,7 @@
 
   function closeGrapesModal() {
     showGrapesModal = false;
+    error = "";
     selectedVintage = null;
     vintageGrapes = [];
     selectedGrapeId = "";
@@ -262,7 +283,7 @@
     <p class="wine-description">{wine.description}</p>
   {/if}
 
-  {#if error}
+  {#if error && !formOpen && !showGrapesModal}
     <div class="error-message" role="alert">{error}</div>
   {/if}
 
@@ -307,6 +328,7 @@
 
 <!-- Modal de création / édition -->
 <Modal open={formOpen} title="{editingVintage ? 'Modifier le millésime' : 'Nouveau millésime'} - {wine.name}" on:close={closeForm}>
+  {#if error}<div class="error-message" role="alert">{error}</div>{/if}
   <form id="vintage-form" on:submit|preventDefault={submitForm}>
     <div class="form-grid">
       <div class="form-group">
@@ -388,12 +410,13 @@
   </form>
   <svelte:fragment slot="footer">
     <Button variant="ghost" on:click={closeForm}>Annuler</Button>
-    <Button variant="primary" type="submit" form="vintage-form">{editingVintage ? "Mettre à jour" : "Créer le millésime"}</Button>
+    <Button variant="primary" type="submit" form="vintage-form" disabled={saving}>{editingVintage ? "Mettre à jour" : "Créer le millésime"}</Button>
   </svelte:fragment>
 </Modal>
 
 <!-- Cépages d'un millésime -->
 <Modal open={showGrapesModal} title="Cépages" maxWidth={520} on:close={closeGrapesModal}>
+  {#if error}<div class="error-message" role="alert">{error}</div>{/if}
   {#if selectedVintage}<p class="t-muted grapes-intro">{wineTitle(wine)} · {vintageYearLabel(selectedVintage)}</p>{/if}
   {#if vintageGrapes.length === 0}
     <EmptyState icon={IconGrape} title="Aucun cépage pour ce millésime" compact />
@@ -442,6 +465,7 @@
   message={deleteTarget ? `Le millésime ${vintageYearLabel(deleteTarget)} sera supprimé, avec ses cépages et notes, si aucune vente ni aucun mouvement de stock ne l’utilise.` : ""}
   onConfirm={() => deleteVintage(deleteTarget!)}
   on:cancel={() => (deleteTarget = null)}
+  on:done={() => (deleteTarget = null)}
 />
 
 <style>

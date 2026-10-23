@@ -1031,7 +1031,6 @@
     font-size: 1.1rem;
   }
 
-
   .details-grid {
     display: grid;
     grid-template-columns: 1fr 1fr;
@@ -1090,15 +1089,5 @@
     font-size: 1.2rem;
     margin-top: 1rem;
   }
-
-
-
-
-
-
-
-
-
-
 
 </style>

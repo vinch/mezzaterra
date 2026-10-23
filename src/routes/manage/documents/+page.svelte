@@ -455,7 +455,6 @@
     flex: 0 0 auto;
   }
 
-
   .notes-modal-hint {
     margin: 0 0 1.25rem;
     color: #555;

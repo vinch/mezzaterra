@@ -10,6 +10,7 @@
   import ConfirmDialog from "$lib/ui/ConfirmDialog.svelte";
   import DataTable from "$lib/ui/DataTable.svelte";
   import EmptyState from "$lib/ui/EmptyState.svelte";
+  import StockBadge from "$lib/ui/StockBadge.svelte";
   import RowMenu from "$lib/ui/RowMenu.svelte";
   import type { MenuItem } from "$lib/ui/Menu.svelte";
   import { IconBox, IconPencil, IconPlus, IconTrash } from "$lib/ui/icons";
@@ -24,6 +25,7 @@
   let error = "";
   /** Modale unique création / édition (`editingMove` les distingue). */
   let formOpen = false;
+  let saving = false;
   let editingMove: any = null;
 
   function emptyForm() {
@@ -99,11 +101,13 @@
   function closeForm() {
     formOpen = false;
     editingMove = null;
+    error = "";
   }
 
 
   /** Création ou modification (selon `editingMove`) du mouvement. */
   async function submitForm() {
+    if (saving) return;
     if (!formData.reason || !formData.quantity || !formData.date) {
       error = "Raison, quantité et date sont obligatoires";
       return;
@@ -130,9 +134,11 @@
       note: formData.note || null,
     };
 
+    saving = true;
     const { error: saveError } = editingMove
       ? await supabase.from("stock_move").update(moveData).eq("id", editingMove.id)
       : await supabase.from("stock_move").insert({ ...moveData, wine_vintage_id: vintage.id });
+    saving = false;
 
     if (saveError) {
       error = saveError.message;
@@ -192,11 +198,14 @@
 </svelte:head>
 
 <ManagePageShell {title} {subtitle} back={{ href: `/manage/wines/${vintage.wine.id}`, label: wineTitle(vintage.wine) }}>
+  <svelte:fragment slot="badge">
+    {#if currentStock < 0}<StockBadge kind="out" label="Stock négatif" />{/if}
+  </svelte:fragment>
   <svelte:fragment slot="actions">
     <Button variant="primary" on:click={openCreateModal}><IconPlus size={16} strokeWidth={1.75} /> Nouveau mouvement</Button>
   </svelte:fragment>
 
-  {#if error}
+  {#if error && !formOpen}
     <div class="error-message" role="alert">{error}</div>
   {/if}
 
@@ -235,6 +244,7 @@
 
 <!-- Modal de création / édition -->
 <Modal open={formOpen} title={editingMove ? "Modifier le mouvement de stock" : "Nouveau mouvement de stock"} on:close={closeForm}>
+  {#if error}<div class="error-message" role="alert">{error}</div>{/if}
   <form id="move-form" on:submit|preventDefault={submitForm}>
     <div class="form-grid">
       <div class="form-group">
@@ -277,7 +287,7 @@
   </form>
   <svelte:fragment slot="footer">
     <Button variant="ghost" on:click={closeForm}>Annuler</Button>
-    <Button variant="primary" type="submit" form="move-form">{editingMove ? "Mettre à jour" : "Créer le mouvement"}</Button>
+    <Button variant="primary" type="submit" form="move-form" disabled={saving}>{editingMove ? "Mettre à jour" : "Créer le mouvement"}</Button>
   </svelte:fragment>
 </Modal>
 
@@ -287,6 +297,7 @@
   message={deleteTarget ? `Le mouvement du ${formatDate(deleteTarget.date)} (${getReasonLabel(deleteTarget.reason)}, ${Math.abs(deleteTarget.quantity)} bt.) sera supprimé et le stock recalculé.` : ""}
   onConfirm={() => deleteMove(deleteTarget!)}
   on:cancel={() => (deleteTarget = null)}
+  on:done={() => (deleteTarget = null)}
 />
 
 <style>
