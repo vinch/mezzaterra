@@ -1,7 +1,7 @@
 import { supabase } from "./supabase";
 import { sortCustomersByLabel } from "./customerDisplay";
 import { compareVintages } from "./wine";
-import type { Customer } from "./types";
+import type { Country, Customer, Region } from "./types";
 
 /** Chargements partagés par les pages de l'admin. */
 
@@ -9,6 +9,18 @@ import type { Customer } from "./types";
 export async function fetchCustomers(): Promise<Customer[]> {
   const { data } = await supabase.from("customer").select("*");
   return sortCustomersByLabel((data || []) as Customer[]);
+}
+
+/** Pays triés par nom (sélecteurs des référentiels). */
+export async function fetchCountries(): Promise<Country[]> {
+  const { data } = await supabase.from("country").select("*").order("name");
+  return data || [];
+}
+
+/** Régions (avec leur pays) triées par nom. */
+export async function fetchRegions(): Promise<Region[]> {
+  const { data } = await supabase.from("region").select("*, country (*)").order("name");
+  return data || [];
 }
 
 /** Millésimes des sélecteurs de produit, triés domaine → cuvée → année décroissante. */

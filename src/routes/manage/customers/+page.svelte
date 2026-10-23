@@ -1,5 +1,6 @@
 <script lang="ts">
   import { supabase } from "$lib/supabase";
+  import { fetchCountries } from "$lib/manageData";
   import { sortCustomersByLabel } from "$lib/customerDisplay";
   import { onMount } from "svelte";
   import type { Customer, Country } from "$lib/types";
@@ -31,8 +32,7 @@
   let isCompany = false;
 
   onMount(async () => {
-    await loadCustomers();
-    await loadCountries();
+    await Promise.all([loadCustomers(), fetchCountries().then((c) => (countries = c))]);
     /* Lien « Modifier » depuis la fiche client. */
     const editId = new URLSearchParams(window.location.search).get("modifier");
     const toEdit = editId ? customers.find((c) => c.id === editId) : null;
@@ -51,14 +51,6 @@
       customers = sortCustomersByLabel(data || []);
     }
     loading = false;
-  }
-
-  async function loadCountries() {
-    const { data } = await supabase.from("country").select("*").order("name");
-
-    if (data) {
-      countries = data;
-    }
   }
 
   function openCreateModal() {

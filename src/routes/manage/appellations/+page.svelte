@@ -1,5 +1,6 @@
 <script lang="ts">
   import { supabase } from "$lib/supabase";
+  import { fetchRegions } from "$lib/manageData";
   import { onMount } from "svelte";
   import type { Appelation, Region, Label } from "$lib/types";
   import Modal from "$lib/components/Modal.svelte";
@@ -22,9 +23,7 @@
   };
 
   onMount(async () => {
-    await loadAppellations();
-    await loadRegions();
-    await loadLabels();
+    await Promise.all([loadAppellations(), fetchRegions().then((r) => (regions = r)), loadLabels()]);
   });
 
   async function loadAppellations() {
@@ -49,19 +48,6 @@
       appellations = data || [];
     }
     loading = false;
-  }
-
-  async function loadRegions() {
-    const { data } = await supabase
-      .from("region")
-      .select(
-        `
-        *,
-        country (*)
-      `
-      )
-      .order("name");
-    if (data) regions = data;
   }
 
   async function loadLabels() {

@@ -1,5 +1,6 @@
 <script lang="ts">
   import { supabase } from "$lib/supabase";
+  import { fetchCountries } from "$lib/manageData";
   import { onMount } from "svelte";
   import type { Label, Country } from "$lib/types";
   import Modal from "$lib/components/Modal.svelte";
@@ -19,8 +20,7 @@
   };
 
   onMount(async () => {
-    await loadLabels();
-    await loadCountries();
+    await Promise.all([loadLabels(), fetchCountries().then((c) => (countries = c))]);
   });
 
   async function loadLabels() {
@@ -41,11 +41,6 @@
       labels = data || [];
     }
     loading = false;
-  }
-
-  async function loadCountries() {
-    const { data } = await supabase.from("country").select("*").order("name");
-    if (data) countries = data;
   }
 
   function openCreateModal() {
