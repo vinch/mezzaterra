@@ -148,12 +148,12 @@
       {/each}
 
       {#each pins as w (w.id)}
-        <a href="/vins#domaine-{w.id}" class="pin" style="--delay: {w.delay}ms" aria-label="{w.name} — voir les vins">
+        <g class="pin" style="--delay: {w.delay}ms">
           <circle class="pin-halo" cx={w.x} cy={w.y} r="9" />
           <circle class="pin-dot" cx={w.x} cy={w.y} r="5.5" />
           <line class="leader" x1={w.leader.x1} y1={w.leader.y1} x2={w.leader.x2} y2={w.leader.y2} />
           <text class="pin-label" x={w.text.x} y={w.text.y} text-anchor={w.text.anchor}>{w.name}</text>
-        </a>
+        </g>
       {/each}
 
       <!-- Médaillon : l'Italie -->
@@ -178,7 +178,7 @@
 
     <rect class="frame" width={W} height={H} rx="18" />
   </svg>
-  <figcaption>Fond de carte : openpolis / ISTAT (CC BY 4.0)</figcaption>
+  <figcaption>openpolis / ISTAT (CC BY 4.0)</figcaption>
 </figure>
 
 <style>
@@ -289,7 +289,6 @@
   }
 
   .pin {
-    cursor: pointer;
     opacity: 0;
   }
 
@@ -309,12 +308,6 @@
     fill: var(--mz-wine-red);
     stroke: #f6f4ef;
     stroke-width: 2.5;
-    transition: r 0.2s ease;
-  }
-
-  .pin:hover .pin-dot,
-  .pin:focus-visible .pin-dot {
-    r: 7.5;
   }
 
   .leader {
@@ -332,10 +325,6 @@
     stroke: #f6f4ef;
     stroke-width: 4px;
     stroke-linejoin: round;
-  }
-
-  .pin:hover .pin-label {
-    fill: var(--mz-wine-red);
   }
 
   .inset rect {

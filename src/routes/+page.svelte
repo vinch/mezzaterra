@@ -49,7 +49,7 @@
 
   let emailInput: HTMLInputElement;
 
-  /** « Sur invitation ↓ » : défilement doux jusqu'au formulaire, puis focus dans le champ email. */
+  /** « Je veux en être ↓ » : défilement doux jusqu'au formulaire, puis focus dans le champ email. */
   function goToSignup(e: MouseEvent) {
     const target = document.getElementById("newsletter");
     if (!target || !emailInput) return;
@@ -90,14 +90,13 @@
     <section class="hero" aria-labelledby="concept-title">
       <div class="hero-text mz-rise">
         <img src="/logo.png" alt="Mezzaterra" class="logo-home" />
-        <span class="eyebrow">Le concept</span>
         <h1 id="concept-title" class="hero-title">Les Abruzzes,<br />un verre à la fois.</h1>
         <p class="hero-lead">
           Mezzaterra fait venir en direct les vins de quelques domaines familiaux des Abruzzes, entre la
           mer Adriatique et le massif du Gran Sasso. Des vins de vignerons, encore confidentiels de ce
           côté des Alpes, que l’on prend le temps de faire découvrir.
         </p>
-        <a class="hero-link" href="#newsletter" on:click={goToSignup}>Sur invitation <span aria-hidden="true">↓</span></a>
+        <a class="hero-link" href="#newsletter" on:click={goToSignup}>Je veux en être <span aria-hidden="true">↓</span></a>
       </div>
       <div class="hero-map mz-rise" style="animation-delay: 120ms">
         <AbruzzoMap wineries={data.wineries} />
@@ -214,27 +213,8 @@
     margin: -78px 0 -64px -44px;
   }
 
-  .eyebrow {
-    display: inline-flex;
-    align-items: center;
-    gap: 12px;
-    margin-top: 36px;
-    font-size: 12px;
-    font-weight: 600;
-    letter-spacing: 0.14em;
-    text-transform: uppercase;
-    color: var(--mz-teal-soft);
-  }
-
-  .eyebrow::before {
-    content: "";
-    width: 28px;
-    height: 1px;
-    background: currentColor;
-  }
-
   .hero-title {
-    margin: 14px 0 20px;
+    margin: 36px 0 20px;
     font-family: var(--mz-font-display);
     font-weight: 600;
     font-size: clamp(2.4rem, 4.4vw, 3.4rem);
@@ -527,7 +507,7 @@
       margin: -62px 0 -52px -36px;
     }
 
-    .eyebrow {
+    .hero-title {
       margin-top: 28px;
     }
 
