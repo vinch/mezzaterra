@@ -4,7 +4,7 @@
   import WineModal from "$lib/components/WineModal.svelte";
   import WineCard from "$lib/components/site/WineCard.svelte";
   import RegistrationForm from "$lib/components/site/RegistrationForm.svelte";
-  import { fetchAvailability, tastingTitle, type Availability } from "$lib/publicData";
+  import { fetchAvailability, isPrivateTasting, tastingTitle, type Availability } from "$lib/publicData";
   import { buildIcs, daysUntil, downloadTextFile, formatDateLong, formatTime, isLiveNow } from "$lib/dates";
   import { formatEur, wineStyle, wineTitle } from "$lib/wine";
   import type { WineVintage } from "$lib/types";
@@ -17,6 +17,8 @@
   $: delta = t ? daysUntil(t.date) : 0;
   $: isUpcoming = delta > 0;
   $: isLive = t ? isLiveNow(t.date) : false;
+  /* Privée : accessible par lien (mode live, fiches de table) mais sans inscription en ligne. */
+  $: isPrivate = isPrivateTasting(t);
   $: styles = wineVintages.map((v: any) => wineStyle(v.wine?.wine_type));
 
   let selected: WineVintage | null = null;
@@ -45,6 +47,9 @@
 
 <svelte:head>
   <title>{t ? tastingTitle(t) : "Dégustation"} — Mezzaterra</title>
+  {#if isPrivate}
+    <meta name="robots" content="noindex" />
+  {/if}
   {#if t}
     <meta property="og:title" content="{tastingTitle(t)} — Mezzaterra" />
     <meta
@@ -71,6 +76,7 @@
       <h1 class="mz-display mz-h1">{tastingTitle(t)}</h1>
       <ul class="facts">
         <li>{formatDateLong(t.date)}{t.start_time ? ` · ${formatTime(t.start_time)}` : ""}</li>
+        {#if isPrivate}<li>Dégustation privée</li>{/if}
         {#if t.location}<li>{t.location}</li>{/if}
         {#if t.price}<li>{formatEur(t.price)} / personne</li>{/if}
         {#if wineVintages.length || hiddenCount}<li>{wineVintages.length || hiddenCount} vins</li>{/if}
@@ -84,7 +90,7 @@
           <a class="mz-btn" href="/tastings/{t.id}/live">Suivre la dégustation en direct →</a>
         {/if}
         {#if isUpcoming}
-          <a class="mz-btn" href="#reserver">Réserver ma place</a>
+          {#if !isPrivate}<a class="mz-btn" href="#reserver">Réserver ma place</a>{/if}
           <button type="button" class="mz-btn mz-btn--ghost" on:click={addToCalendar}>Ajouter à mon agenda</button>
         {/if}
       </div>
@@ -142,7 +148,7 @@
     {/if}
   </section>
 
-  {#if isUpcoming}
+  {#if isUpcoming && !isPrivate}
     <section id="reserver" class="mz-container mz-section">
       <div class="mz-card booking">
         <div>

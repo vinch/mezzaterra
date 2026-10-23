@@ -62,3 +62,8 @@ export function hasTable(table: string): Promise<boolean> {
 export function hasTastingExtras(): Promise<boolean> {
   return hasColumn("tasting", "capacity");
 }
+
+/** La colonne `tasting.is_private` (dégustations privées) est-elle déployée ? */
+export function hasTastingPrivacy(): Promise<boolean> {
+  return hasColumn("tasting", "is_private");
+}

@@ -23,6 +23,10 @@ purement additive et active : inscriptions en ligne, notes et demandes « J'en v
 disponibilité publique des vins, carnet client et désinscription. Tant qu'elle n'est pas appliquée,
 le site fonctionne en mode dégradé (ces fonctions sont simplement masquées ou remplacées).
 
+`20261023120000_tasting_private.sql` ajoute `tasting.is_private` : une dégustation privée (chez un
+client, en externe) n'apparaît pas dans les listes publiques et refuse les inscriptions en ligne ; sa
+page et son mode live restent accessibles par lien.
+
 ```sh
 supabase link --project-ref wmerreifcpttrhxwmkmn
 supabase db push
