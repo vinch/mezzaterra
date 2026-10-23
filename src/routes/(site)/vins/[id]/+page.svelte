@@ -110,7 +110,9 @@
             <p class="appellation">{wineSubtitle(wine)}</p>
           {/if}
           {#if winery?.name}
-            <p class="winery">{winery.name}{region ? ` — ${flag} ${region}` : ""}</p>
+            <p class="winery">
+              {#if winery.id}<a href="/domaines/{winery.id}">{winery.name}</a>{:else}{winery.name}{/if}{region ? ` — ${flag} ${region}` : ""}
+            </p>
           {/if}
 
           <dl class="facts">
@@ -196,9 +198,14 @@
             {#if mapEmbed}
               <iframe class="map" title="Carte du domaine {winery.name}" src={mapEmbed} loading="lazy"></iframe>
             {/if}
-            {#if winery.url}
-              <a class="mz-link" href={winery.url} target="_blank" rel="noopener noreferrer">Site du domaine ↗</a>
-            {/if}
+            <div class="winery-links">
+              {#if winery.id}
+                <a class="mz-link" href="/domaines/{winery.id}">Découvrir le domaine →</a>
+              {/if}
+              {#if winery.url}
+                <a class="mz-link" href={winery.url} target="_blank" rel="noopener noreferrer">Site du domaine ↗</a>
+              {/if}
+            </div>
           </div>
         {/if}
       </aside>
@@ -206,7 +213,12 @@
 
     {#if data.fromWinery.length}
       <section class="mz-container mz-section">
-        <h2 class="more-title mz-display mz-h2">Du même domaine</h2>
+        <div class="more-head">
+          <h2 class="mz-display mz-h2">Du même domaine</h2>
+          {#if winery?.id}
+            <a class="mz-link" href="/domaines/{winery.id}">Tout {winery.name} →</a>
+          {/if}
+        </div>
         <div class="grid">
           {#each data.fromWinery as other (other.id)}
             <div><WineCard vintage={other} href="/vins/{other.id}" availability={availability?.get(other.id) ?? null} /></div>
@@ -268,6 +280,18 @@
     margin: 0;
     font-weight: 600;
     color: var(--mz-ink-soft);
+  }
+
+  .winery a {
+    color: inherit;
+    text-decoration: underline;
+    text-decoration-color: var(--mz-line);
+    text-underline-offset: 3px;
+  }
+
+  .winery a:hover {
+    color: var(--mz-teal);
+    text-decoration-color: currentColor;
   }
 
   .facts {
@@ -413,8 +437,23 @@
     filter: saturate(0.7) sepia(0.15);
   }
 
-  .more-title {
+  .more-head {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 0.5rem 1rem;
     margin-bottom: 1.25rem;
+  }
+
+  .more-head h2 {
+    margin: 0;
+  }
+
+  .winery-links {
+    display: flex;
+    flex-direction: column;
+    gap: 0.4rem;
   }
 
   .grid {

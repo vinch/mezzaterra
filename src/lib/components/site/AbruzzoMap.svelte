@@ -12,6 +12,8 @@
 
   /** Domaines à épingler (coordonnées GPS de la table winery). */
   export let wineries: { id: string; name: string; latitude: number | null; longitude: number | null }[] = [];
+  /** Domaine mis en avant (page domaine) : les autres épingles passent au second plan et les points deviennent des liens. */
+  export let current: string | null = null;
 
   const W = MAIN.width;
   const H = MAIN.height;
@@ -148,12 +150,23 @@
       {/each}
 
       {#each pins as w (w.id)}
-        <g class="pin" style="--delay: {w.delay}ms">
+        <!-- Points cliquables seulement sur une page domaine ; sur l'accueil, simples repères. -->
+        <svelte:element
+          this={current ? "a" : "g"}
+          xmlns="http://www.w3.org/2000/svg"
+          href={current ? `/domaines/${w.id}` : undefined}
+          class="pin"
+          class:current={current === w.id}
+          class:dim={current != null && current !== w.id}
+          style="--delay: {w.delay}ms"
+          aria-label={current ? `${w.name} — voir le domaine` : undefined}
+          aria-current={current === w.id ? "page" : undefined}
+        >
           <circle class="pin-halo" cx={w.x} cy={w.y} r="9" />
           <circle class="pin-dot" cx={w.x} cy={w.y} r="5.5" />
           <line class="leader" x1={w.leader.x1} y1={w.leader.y1} x2={w.leader.x2} y2={w.leader.y2} />
           <text class="pin-label" x={w.text.x} y={w.text.y} text-anchor={w.text.anchor}>{w.name}</text>
-        </g>
+        </svelte:element>
       {/each}
 
       <!-- Médaillon : l'Italie -->
@@ -327,6 +340,36 @@
     stroke-linejoin: round;
   }
 
+  a.pin {
+    cursor: pointer;
+  }
+
+  a.pin:hover .pin-label {
+    fill: var(--mz-wine-red);
+  }
+
+  .pin.dim .pin-halo {
+    display: none;
+  }
+
+  .pin.dim .pin-dot {
+    fill: var(--mz-teal-soft);
+  }
+
+  .pin.dim .pin-label {
+    font-size: 13px;
+    fill: var(--mz-ink-soft);
+  }
+
+  .pin.dim:hover .pin-dot,
+  .pin.dim:focus-visible .pin-dot {
+    fill: var(--mz-wine-red);
+  }
+
+  .pin.current .pin-label {
+    font-weight: 600;
+  }
+
   .inset rect {
     fill: rgba(246, 244, 239, 0.85);
     stroke: #cfcabf;
@@ -390,6 +433,10 @@
     .pin-label {
       font-size: 24px;
       stroke-width: 6px;
+    }
+
+    .pin.dim .pin-label {
+      font-size: 20px;
     }
 
     .city text,

@@ -3,9 +3,9 @@
   import { page } from "$app/stores";
   import SiteFooter from "$lib/components/SiteFooter.svelte";
 
-  const links = [
+  const links: { href: string; label: string; also?: string[] }[] = [
     { href: "/tastings", label: "Dégustations" },
-    { href: "/vins", label: "Nos vins" },
+    { href: "/vins", label: "Nos vins", also: ["/domaines"] },
     { href: "/accords", label: "Accords" },
     { href: "/carnet", label: "Mon carnet" },
   ];
@@ -29,7 +29,7 @@
             <a
               href={link.href}
               class="nav-link"
-              class:active={path === link.href || path.startsWith(link.href + "/")}
+              class:active={[link.href, ...(link.also || [])].some((h) => path === h || path.startsWith(h + "/"))}
               aria-current={path === link.href ? "page" : undefined}>{link.label}</a
             >
           {/each}
