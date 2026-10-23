@@ -77,7 +77,6 @@
   <div class="mz-container hero-grid" class:no-map={!onMainMap(winery) && !mapEmbed}>
     <div class="hero-text mz-rise">
       <a href="/vins" class="back">← Toute la cave</a>
-      <span class="mz-eyebrow">Le domaine</span>
       <h1 class="mz-display mz-h1">{winery.name}</h1>
       {#if place}
         <p class="place">{flag} {place}</p>
@@ -202,7 +201,7 @@
   }
 
   .hero-text h1 {
-    margin: 0.25rem 0 0;
+    margin: 0;
   }
 
   .place {

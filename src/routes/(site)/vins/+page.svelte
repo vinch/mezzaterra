@@ -92,7 +92,6 @@
 
 <section class="intro">
   <div class="mz-container mz-rise">
-    <span class="mz-eyebrow">La cave</span>
     <h1 class="mz-display mz-h1">Nos vins</h1>
     <p class="mz-lead">
       Des domaines familiaux des Abruzzes, entre mer Adriatique et massif du Gran Sasso.
@@ -181,7 +180,7 @@
   }
 
   .intro h1 {
-    margin: 0.5rem 0 0.75rem;
+    margin: 0 0 0.75rem;
   }
 
   .toolbar {

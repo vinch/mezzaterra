@@ -26,7 +26,6 @@
 
 <section class="intro">
   <div class="mz-container mz-rise">
-    <span class="mz-eyebrow">Mezzaterra</span>
     <h1 class="mz-display mz-h1">Dégustations</h1>
     <p class="mz-lead">
       Des soirées en petit comité pour découvrir les vins des Abruzzes — un vigneron, une histoire et
@@ -113,7 +112,7 @@
   }
 
   .intro h1 {
-    margin: 0.5rem 0 0.75rem;
+    margin: 0 0 0.75rem;
   }
 
   .block {

@@ -93,7 +93,6 @@
 
 <section class="intro">
   <div class="mz-container mz-rise">
-    <span class="mz-eyebrow">Accords mets & vins</span>
     <h1 class="mz-display mz-h1">Qu’est-ce qu’on boit ce soir ?</h1>
     <p class="mz-lead">Dites-nous ce qu’il y a dans l’assiette, on s’occupe du verre.</p>
   </div>
@@ -146,7 +145,7 @@
   }
 
   .intro h1 {
-    margin: 0.5rem 0 0.75rem;
+    margin: 0 0 0.75rem;
   }
 
   .dishes {

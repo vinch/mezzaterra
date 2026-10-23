@@ -190,7 +190,6 @@
 
 <section class="intro">
   <div class="mz-container mz-rise">
-    <span class="mz-eyebrow">Mon carnet</span>
     <h1 class="mz-display mz-h1">{firstName ? `Bonjour ${firstName}` : "Mon carnet de dégustation"}</h1>
     <p class="mz-lead">Vos notes de dégustation, vos coups de cœur et vos achats, au même endroit.</p>
   </div>
@@ -342,7 +341,7 @@
   }
 
   .intro h1 {
-    margin: 0.5rem 0 0.75rem;
+    margin: 0 0 0.75rem;
   }
 
   .layout {
