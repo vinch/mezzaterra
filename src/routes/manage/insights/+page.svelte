@@ -10,7 +10,8 @@
     type TastingRoi,
     type VintageStats,
   } from "$lib/analytics";
-  import { vintageLabel, wineStyle } from "$lib/wine";
+  import { vintageLabel } from "$lib/wine";
+  import WineDot from "$lib/ui/WineDot.svelte";
   import { formatDate, formatEUR } from "$lib/format";
 
   let loading = true;
@@ -106,8 +107,8 @@
             {#each sorted as s (s.vintage.id)}
               <tr>
                 <td>
-                  <span class="mz-dot" style="background: {wineStyle(s.vintage.wine?.wine_type).color}"></span>
-                  <a href="/manage/wines/{s.vintage.wine_id}/stock/{s.vintage.id}">{vintageLabel(s.vintage)}</a>
+                  <span class="wine-cell"><WineDot type={s.vintage.wine?.wine_type} />
+                  <a href="/manage/wines/{s.vintage.wine_id}/stock/{s.vintage.id}">{vintageLabel(s.vintage)}</a></span>
                 </td>
                 <td class="num">{formatEUR(s.vintage.purchase_price)}</td>
                 <td class="num">{formatEUR(s.vintage.price)}</td>
@@ -213,6 +214,12 @@
 </ManagePageShell>
 
 <style>
+  .wine-cell {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+  }
+
   .kpis {
     display: grid;
     grid-template-columns: repeat(4, minmax(0, 1fr));
@@ -232,7 +239,7 @@
   .kpi-value {
     font-size: 1.7rem;
     font-weight: 700;
-    color: #1d2a2c;
+    color: var(--ink);
   }
 
   .kpi-label {
@@ -258,8 +265,8 @@
   }
 
   .tabs button.active {
-    background: var(--mz-teal, #256169);
-    border-color: var(--mz-teal, #256169);
+    background: var(--teal-600);
+    border-color: var(--teal-600);
     color: white;
   }
 
@@ -291,7 +298,7 @@
   }
 
   td a:hover {
-    color: var(--mz-teal, #256169);
+    color: var(--teal-600);
     text-decoration: underline;
   }
 
@@ -307,14 +314,6 @@
     color: var(--ink-2);
   }
 
-  .mz-dot {
-    display: inline-block;
-    width: 0.55rem;
-    height: 0.55rem;
-    border-radius: 50%;
-    margin-right: 0.4rem;
-  }
-
   .tag {
     display: inline-block;
     padding: 0.1rem 0.45rem;
@@ -325,25 +324,25 @@
 
   .tag.good {
     background: #e3f2e8;
-    color: #2f7a4b;
+    color: var(--mz-success);
   }
 
   .tag.mid {
     background: #fff3d6;
-    color: #8a5a00;
+    color: var(--warn);
   }
 
   .tag.bad {
     background: #fbe3e1;
-    color: #a3352f;
+    color: var(--mz-danger);
   }
 
   .pos {
-    color: #2f7a4b;
+    color: var(--mz-success);
   }
 
   .neg {
-    color: #a3352f;
+    color: var(--mz-danger);
   }
 
   @media (max-width: 900px) {

@@ -267,7 +267,7 @@
     border-radius: 14px;
     box-shadow: 0 30px 70px -20px rgba(0, 0, 0, 0.45);
     overflow: hidden;
-    font-family: var(--mz-font-body, system-ui);
+    font-family: var(--font-sans);
   }
 
   .search {
@@ -276,7 +276,7 @@
     gap: 0.75rem;
     padding: 0.9rem 1rem;
     border-bottom: 1px solid #eee;
-    color: #66787a;
+    color: var(--mz-muted);
   }
 
   .search input {
@@ -285,7 +285,7 @@
     outline: none;
     font: inherit;
     font-size: 1.05rem;
-    color: #1d2a2c;
+    color: var(--ink);
   }
 
   kbd {
@@ -296,7 +296,7 @@
     background: #f8f9fa;
     font-family: inherit;
     font-size: 0.72rem;
-    color: #66787a;
+    color: var(--mz-muted);
   }
 
   .results {
@@ -322,7 +322,7 @@
     border: none;
     border-radius: 8px;
     background: none;
-    color: #1d2a2c;
+    color: var(--ink);
     font: inherit;
     text-align: left;
     cursor: pointer;

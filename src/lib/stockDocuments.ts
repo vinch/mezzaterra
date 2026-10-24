@@ -200,17 +200,6 @@ export function sortedStockForDocuments(rows: StockDocVintage[]): StockDocVintag
   return [...rows].sort(sortDocVintages);
 }
 
-/** Libellé type de vin en français pour les PDF / UI documents. */
-export function wineTypeLabelFr(name: string): string {
-  const n = name.trim().toLowerCase();
-  if (n === "white") return "Blanc";
-  if (n === "red") return "Rouge";
-  if (n === "rose" || n === "rosé") return "Rosé";
-  if (n === "blanc") return "Blanc";
-  if (n === "rouge") return "Rouge";
-  return name;
-}
-
 export function stockVintageLabel(v: StockDocVintage): string {
   if (v.year != null && v.year !== v.production_year) {
     return `${v.year} (${v.production_year})`;

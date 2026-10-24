@@ -1,28 +1,20 @@
 import { base } from "$app/paths";
 import jsPDF from "jspdf";
 import { attachRobotoPdf, svgToPng } from "./assets";
+import { wineRobe, wineTypeLabel } from "$lib/wine";
 import {
   sortedStockForDocuments,
   stockVintageLabel,
-  wineTypeLabelFr,
   type StockDocVintage,
 } from "$lib/stockDocuments";
 
 const YELLOW: [number, number, number] = [255, 235, 120];
 
 
+/** Groupe du tarif selon la couleur de la robe ; orange et autres vont avec les blancs. */
 function priceGroupKey(v: StockDocVintage): "blancs" | "roses" | "rouges" {
-  const n = `${v.wineTypeName} ${v.wineTypeCategory || ""}`.toLowerCase();
-  if (n.includes("rosé") || n.includes("rose")) return "roses";
-  if (
-    n.includes("rouge") ||
-    n.includes("red") ||
-    n.includes("rosso") ||
-    n.includes("tinto")
-  ) {
-    return "rouges";
-  }
-  return "blancs";
+  const key = wineRobe({ name: v.wineTypeName }).key;
+  return key === "red" ? "rouges" : key === "rose" ? "roses" : "blancs";
 }
 
 const GROUP_ORDER: ("blancs" | "roses" | "rouges")[] = [
@@ -398,7 +390,7 @@ export async function downloadNotesPdf(
     const title = `${noteEntryNumber(idx)} ${v.wineryName} ${v.wineName}`;
     const grapes = v.grapeNames.length ? v.grapeNames.join(", ") : "—";
     const abvStr = v.abv != null ? `${v.abv}%` : "—";
-    const detail = `${wineTypeLabelFr(v.wineTypeName)} / ${stockVintageLabel(v)} / ${abvStr} / Cépages : ${grapes} / ${v.appellationLine || "—"}`;
+    const detail = `${wineTypeLabel({ name: v.wineTypeName, category: v.wineTypeCategory })} / ${stockVintageLabel(v)} / ${abvStr} / Cépages : ${grapes} / ${v.appellationLine || "—"}`;
 
     const titleLines = fitLine(doc, title, textW - 2, 10.5);
     const detailLines = fitLine(doc, detail, textW, 9);

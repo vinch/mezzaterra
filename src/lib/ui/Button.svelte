@@ -87,7 +87,7 @@
 
   .btn--primary {
     background: var(--teal-600);
-    color: #fff !important;
+    color: #fff;
   }
 
   .btn--primary:hover:not(:disabled) {
@@ -97,30 +97,30 @@
   .btn--secondary {
     background: #fff;
     border-color: var(--btn-border);
-    color: var(--ink) !important;
+    color: var(--ink);
   }
 
   .btn--secondary:hover:not(:disabled) {
     border-color: var(--teal-600);
-    color: var(--teal-700) !important;
+    color: var(--teal-700);
   }
 
   .btn--ghost {
     background: transparent;
-    color: var(--teal-600) !important;
+    color: var(--teal-600);
     padding-left: 10px;
     padding-right: 10px;
   }
 
   .btn--ghost:hover:not(:disabled) {
     background: var(--mist);
-    color: var(--teal-700) !important;
+    color: var(--teal-700);
   }
 
   .btn--danger {
     background: #fff;
     border-color: var(--danger);
-    color: var(--danger) !important;
+    color: var(--danger);
   }
 
   .btn--danger:hover:not(:disabled) {
@@ -129,7 +129,7 @@
 
   .btn--danger-solid {
     background: var(--danger);
-    color: #fff !important;
+    color: #fff;
   }
 
   .btn--danger-solid:hover:not(:disabled) {

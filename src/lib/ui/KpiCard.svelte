@@ -26,7 +26,7 @@
     background: var(--card);
     border: 1px solid var(--border);
     border-radius: var(--r-md);
-    color: inherit !important;
+    color: inherit;
     text-decoration: none;
     min-width: 0;
   }
