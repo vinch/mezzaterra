@@ -115,7 +115,7 @@
 
   /** Changement de millésime repris (ou aucun) : l'image suit, sauf si on en a mis une autre. */
   function pickSource(id: string) {
-    if (imageReused) vintageFormData.image_url = vintages.find((v) => v.id === id)?.image_url ?? "";
+    if (imageReused || !vintageFormData.image_url) vintageFormData.image_url = vintages.find((v) => v.id === id)?.image_url ?? "";
     sourceId = id;
   }
 
