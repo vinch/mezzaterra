@@ -4,7 +4,7 @@
   import { fade } from "svelte/transition";
   import { page } from "$app/stores";
   import WineCard from "$lib/components/site/WineCard.svelte";
-  import { fetchAvailability, type Availability } from "$lib/publicData";
+  import { fetchAvailability, type AvailabilityOf } from "$lib/publicData";
   import { fold } from "$lib/format";
   import {
     STYLE_ORDER,
@@ -18,7 +18,7 @@
 
   export let data;
 
-  let availability: Map<string, Availability> | null = null;
+  let availability: AvailabilityOf | null = null;
   let styleFilter: WineStyleKey | "" = "";
   let inStockOnly = false;
   let query = "";
@@ -34,7 +34,7 @@
 
   $: filtered = vintages
     .filter((v) => !styleFilter || wineStyle(v.wine?.wine_type).key === styleFilter)
-    .filter((v) => !inStockOnly || !availability || availability.get(v.id)?.in_stock)
+    .filter((v) => !inStockOnly || !availability || availability(v.id).in_stock)
     .filter((v) => {
       if (!query.trim()) return true;
       const blob = fold(
@@ -162,7 +162,7 @@
         <div class="grid">
           {#each group.items as v (v.id)}
             <div animate:flip={{ duration: 250 }}>
-              <WineCard vintage={v} href="/vins/{v.id}" availability={availability?.get(v.id) ?? null} />
+              <WineCard vintage={v} href="/vins/{v.id}" availability={availability?.(v.id) ?? null} />
             </div>
           {/each}
         </div>

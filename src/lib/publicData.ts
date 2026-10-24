@@ -1,4 +1,4 @@
-import { supabase } from "./supabase";
+import { fetchAllRows, supabase } from "./supabase";
 import { VINTAGE_PUBLIC_SELECT } from "./wine";
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -9,15 +9,24 @@ export function isUuid(id: string): boolean {
 }
 
 export type Availability = { in_stock: boolean; low_stock: boolean };
+/** Disponibilité d'un millésime d'après son identifiant. */
+export type AvailabilityOf = (vintageId: string) => Availability;
 
-/** Disponibilité publique par millésime ; `null` si la fonction SQL n'est pas (encore) déployée. */
-export async function fetchAvailability(): Promise<Map<string, Availability> | null> {
+const SOLD_OUT: Availability = { in_stock: false, low_stock: false };
+
+/**
+ * Disponibilité publique par millésime ; `null` si la fonction SQL n'est pas (encore) déployée.
+ * Un millésime absent de la vue `inventory` (aucun mouvement de stock) est épuisé, comme
+ * dans la liste des vins de l'admin.
+ */
+export async function fetchAvailability(): Promise<AvailabilityOf | null> {
   try {
-    const { data, error } = await supabase.rpc("public_wine_availability");
-    if (error || !data) return null;
-    return new Map(
-      data.map((r) => [r.wine_vintage_id, { in_stock: r.in_stock, low_stock: r.low_stock }]),
+    /* Paginé : une ligne tronquée par la limite PostgREST passerait pour épuisée. */
+    const rows = await fetchAllRows<{ wine_vintage_id: string; in_stock: boolean; low_stock: boolean }>((a, b) =>
+      supabase.rpc("public_wine_availability").order("wine_vintage_id").range(a, b),
     );
+    const byVintage = new Map(rows.map((r) => [r.wine_vintage_id, { in_stock: r.in_stock, low_stock: r.low_stock }]));
+    return (vintageId) => byVintage.get(vintageId) ?? SOLD_OUT;
   } catch {
     return null;
   }

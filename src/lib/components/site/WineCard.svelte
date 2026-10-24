@@ -4,13 +4,14 @@
   import WineBottle from "./WineBottle.svelte";
   import { grapesText, wineStyle, wineSubtitle, wineTitle } from "$lib/wine";
   import { formatEUR } from "$lib/format";
+  import type { Availability } from "$lib/publicData";
 
   export let vintage: any;
   /** Numéro de passage (1-based) dans une dégustation. */
   export let position: number | null = null;
   /** Lien vers la fiche ; sinon la carte émet `open`. */
   export let href: string | null = null;
-  export let availability: { in_stock: boolean; low_stock: boolean } | null = null;
+  export let availability: Availability | null = null;
 
   const dispatch = createEventDispatcher<{ open: any }>();
 
