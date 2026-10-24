@@ -265,9 +265,7 @@
     grapePercentage = "";
   }
 
-  function isGrapeLinked(grapeId: string): boolean {
-    return vintageGrapes.some((vg) => vg.grape_id === grapeId);
-  }
+  $: linkedGrapeIds = new Set(vintageGrapes.map((vg) => vg.grape_id));
 </script>
 
 <svelte:head>
@@ -436,8 +434,8 @@
     <select class="ui-control" bind:value={selectedGrapeId} aria-label="Cépage à ajouter">
       <option value="">Choisir un cépage…</option>
       {#each allGrapes as grape (grape.id)}
-        <option value={grape.id} disabled={isGrapeLinked(grape.id)}>
-          {grape.name}{isGrapeLinked(grape.id) ? " (déjà ajouté)" : ""}
+        <option value={grape.id} disabled={linkedGrapeIds.has(grape.id)}>
+          {grape.name}{linkedGrapeIds.has(grape.id) ? " (déjà ajouté)" : ""}
         </option>
       {/each}
     </select>
