@@ -3,7 +3,7 @@
   import { page } from "$app/stores";
   import AbruzzoMap from "$lib/components/site/AbruzzoMap.svelte";
   import WineCard from "$lib/components/site/WineCard.svelte";
-  import { fetchAvailability, type Availability } from "$lib/publicData";
+  import { fetchAvailability, type AvailabilityOf } from "$lib/publicData";
   import { MAIN, project } from "$lib/geo/abruzzo";
   import {
     STYLE_ORDER,
@@ -18,7 +18,7 @@
 
   export let data;
 
-  let availability: Map<string, Availability> | null = null;
+  let availability: AvailabilityOf | null = null;
 
   onMount(async () => {
     availability = await fetchAvailability();
@@ -138,7 +138,7 @@
   {#if vintages.length}
     <div class="grid">
       {#each vintages as v (v.id)}
-        <div><WineCard vintage={v} href="/vins/{v.id}" availability={availability?.get(v.id) ?? null} /></div>
+        <div><WineCard vintage={v} href="/vins/{v.id}" availability={availability?.(v.id) ?? null} /></div>
       {/each}
     </div>
   {:else}

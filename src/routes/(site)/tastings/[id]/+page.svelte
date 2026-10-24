@@ -4,7 +4,7 @@
   import WineModal from "$lib/components/WineModal.svelte";
   import WineCard from "$lib/components/site/WineCard.svelte";
   import RegistrationForm from "$lib/components/site/RegistrationForm.svelte";
-  import { fetchAvailability, isPrivateTasting, tastingTitle, type Availability } from "$lib/publicData";
+  import { fetchAvailability, isPrivateTasting, tastingTitle, type AvailabilityOf } from "$lib/publicData";
   import { buildIcs, daysUntil, downloadTextFile, formatDateLong, formatTime, isLiveNow } from "$lib/dates";
   import { wineStyle, wineTitle } from "$lib/wine";
   import { formatEUR } from "$lib/format";
@@ -23,7 +23,7 @@
   $: styles = wineVintages.map((v: any) => wineStyle(v.wine?.wine_type));
 
   let selected: WineVintage | null = null;
-  let availability: Map<string, Availability> | null = null;
+  let availability: AvailabilityOf | null = null;
 
   onMount(async () => {
     if (isUpcoming || isLive) availability = await fetchAvailability();
@@ -125,7 +125,7 @@
             <WineCard
               vintage={v}
               position={i + 1}
-              availability={availability?.get(v.id) ?? null}
+              availability={availability?.(v.id) ?? null}
               on:open={(e) => (selected = e.detail)}
             />
           </div>

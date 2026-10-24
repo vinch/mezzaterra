@@ -5,7 +5,7 @@
   import WineBottle from "$lib/components/site/WineBottle.svelte";
   import WineCard from "$lib/components/site/WineCard.svelte";
   import { contactHref } from "$lib/contact";
-  import { fetchAvailability, type Availability } from "$lib/publicData";
+  import { fetchAvailability, type AvailabilityOf } from "$lib/publicData";
   import {
     findNote,
     grapesText,
@@ -42,14 +42,14 @@
     .join(" · ")
     .slice(0, 280);
 
-  let availability: Map<string, Availability> | null = null;
+  let availability: AvailabilityOf | null = null;
   let shareFeedback = "";
 
   onMount(async () => {
     availability = await fetchAvailability();
   });
 
-  $: stock = v && availability ? availability.get(v.id) : null;
+  $: stock = v && availability ? availability(v.id) : null;
 
   async function share() {
     const url = $page.url.href;
@@ -204,7 +204,7 @@
         </div>
         <div class="grid">
           {#each data.fromWinery as other (other.id)}
-            <div><WineCard vintage={other} href="/vins/{other.id}" availability={availability?.get(other.id) ?? null} /></div>
+            <div><WineCard vintage={other} href="/vins/{other.id}" availability={availability?.(other.id) ?? null} /></div>
           {/each}
         </div>
       </section>
