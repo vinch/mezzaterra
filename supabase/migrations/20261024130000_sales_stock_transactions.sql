@@ -81,9 +81,11 @@ BEGIN
 
   SELECT coalesce(max(substring(invoice_number FROM '^INV-' || v_year || '-(\d+)$')::integer), 0) + 1
   INTO v_next
-  FROM sale;
+  FROM sale
+  WHERE invoice_number LIKE 'INV-' || v_year || '-%';
 
-  v_number := 'INV-' || v_year || '-' || lpad(v_next::text, 3, '0');
+  -- Au moins 3 chiffres (lpad tronquerait au-delà de 999).
+  v_number := 'INV-' || v_year || '-' || lpad(v_next::text, greatest(3, length(v_next::text)), '0');
   UPDATE sale SET invoice_number = v_number WHERE id = p_sale_id;
   RETURN v_number;
 END;
@@ -108,7 +110,8 @@ $$;
 -- p_sale : colonnes de sale (date, customer_id, total_price, note, global_discount, global_discount_type,
 -- payment_method, tasting_id) ; p_items : lignes de sale_item (wine_vintage_id, quantity, price, discount,
 -- discount_type, note). Création en « En attente » ; une modification garde le statut.
--- Une vente déjà payée ou livrée a déjà sorti son stock : modifier ses quantités ajoute la correction.
+-- Une vente déjà payée ou livrée a sorti son stock : ses quantités par millésime sont figées
+-- (prix, remises et note restent modifiables).
 -- p_wish_id : demande « J'en veux » transformée en cette vente (marquée traitée dans la même transaction).
 DROP FUNCTION IF EXISTS public.save_sale(uuid, jsonb, jsonb);
 CREATE OR REPLACE FUNCTION public.save_sale(p_sale_id uuid, p_sale jsonb, p_items jsonb, p_wish_id uuid DEFAULT NULL)
@@ -159,22 +162,21 @@ BEGIN
   SELECT v_id, i.wine_vintage_id, i.quantity, i.price, i.discount, i.discount_type, i.note
   FROM jsonb_populate_recordset(NULL::sale_item, p_items) AS i;
 
-  IF v_status IN ('paid', 'delivered') THEN
-    INSERT INTO stock_move (wine_vintage_id, reason, quantity, date, note)
-    SELECT d.wine_vintage_id, 'sale_out', -(d.after_qty - d.before_qty), brussels_today(), 'Correction de la vente modifiée'
-    FROM (
-      SELECT coalesce(a.wine_vintage_id, b.key::uuid) AS wine_vintage_id,
-             coalesce(a.qty, 0) AS after_qty,
-             coalesce(b.value::integer, 0) AS before_qty
-      FROM (SELECT wine_vintage_id, sum(quantity) AS qty FROM sale_item
-            WHERE sale_id = v_id AND wine_vintage_id IS NOT NULL GROUP BY wine_vintage_id) a
-      FULL JOIN jsonb_each_text(v_before) b ON b.key::uuid = a.wine_vintage_id
-    ) d
-    WHERE d.after_qty <> d.before_qty;
+  IF v_status IN ('paid', 'delivered') AND EXISTS (
+    SELECT 1
+    FROM (SELECT wine_vintage_id, sum(quantity) AS qty FROM sale_item
+          WHERE sale_id = v_id AND wine_vintage_id IS NOT NULL GROUP BY wine_vintage_id) a
+    FULL JOIN jsonb_each_text(v_before) b ON b.key::uuid = a.wine_vintage_id
+    WHERE coalesce(a.qty, 0) <> coalesce(b.value::integer, 0)
+  ) THEN
+    RAISE EXCEPTION 'Les quantités d’une vente payée ou livrée sont figées : son stock est déjà sorti.';
   END IF;
 
   IF p_wish_id IS NOT NULL THEN
-    UPDATE wish_request SET status = 'done', sale_id = v_id WHERE id = p_wish_id;
+    UPDATE wish_request SET status = 'done', sale_id = v_id WHERE id = p_wish_id AND status = 'new';
+    IF NOT FOUND THEN
+      RAISE EXCEPTION 'Cette demande a déjà été traitée.';
+    END IF;
   END IF;
 
   RETURN v_id;
@@ -252,20 +254,27 @@ DECLARE
   v_order "order" := jsonb_populate_record(NULL::"order", p_order);
   v_id uuid;
   v_status text;
+  v_transport_status text;
 BEGIN
   PERFORM assert_admin();
 
   IF p_order_id IS NULL THEN
-    INSERT INTO "order" (date, supplier_id, status, note)
-    VALUES (v_order.date, v_order.supplier_id, coalesce(v_order.status, 'pending'), v_order.note)
+    INSERT INTO "order" (date, supplier_id, status, note, total_price)
+    VALUES (v_order.date, v_order.supplier_id, coalesce(v_order.status, 'pending'), v_order.note, 0)
     RETURNING id INTO v_id;
   ELSE
-    SELECT status INTO v_status FROM "order" WHERE id = p_order_id FOR UPDATE;
+    SELECT o.status, t.status INTO v_status, v_transport_status
+    FROM "order" o LEFT JOIN transport t ON t.id = o.transport_id
+    WHERE o.id = p_order_id
+    FOR UPDATE OF o;
     IF NOT FOUND THEN
       RAISE EXCEPTION 'Commande introuvable';
     END IF;
     IF v_status = 'confirmed' THEN
       RAISE EXCEPTION 'Impossible de modifier une commande confirmée';
+    END IF;
+    IF v_transport_status IN ('delivered', 'cancelled') THEN
+      RAISE EXCEPTION 'Impossible de modifier une commande dont le transport est livré ou annulé';
     END IF;
     UPDATE "order" SET
       date = v_order.date,
@@ -313,14 +322,19 @@ BEGIN
   FOR UPDATE;
 
   IF v_order IS NULL THEN
-    INSERT INTO "order" (date, supplier_id, status, note)
-    VALUES (brussels_today(), p_supplier_id, 'pending', 'Réassort préparé depuis le tableau de bord')
+    INSERT INTO "order" (date, supplier_id, status, note, total_price)
+    VALUES (brussels_today(), p_supplier_id, 'pending', 'Réassort préparé depuis le tableau de bord', 0)
     RETURNING id INTO v_order;
     v_created := true;
   END IF;
 
   UPDATE order_item SET quantity = quantity + p_quantity
-  WHERE order_item.order_id = v_order AND wine_vintage_id = p_vintage_id;
+  WHERE id = (
+    SELECT oi.id FROM order_item oi
+    WHERE oi.order_id = v_order AND oi.wine_vintage_id = p_vintage_id
+    ORDER BY oi.created_at
+    LIMIT 1
+  );
   IF NOT FOUND THEN
     INSERT INTO order_item (order_id, wine_vintage_id, quantity, price)
     VALUES (v_order, p_vintage_id, p_quantity, p_price);
@@ -367,12 +381,14 @@ $$;
 
 -- ——— Dégustation, ses vins (dans l'ordre) et ses participants, en une transaction ———
 -- p_tasting : colonnes de tasting (name, date, location, notes, start_time, price, capacity, description,
--- is_private) ; p_wine_ids : millésimes dans l'ordre de passage ; p_customer_ids : participants.
+-- is_private) ; p_wine_ids : millésimes dans l'ordre de passage ; participants ajoutés et retirés depuis
+-- l'ouverture du formulaire (un participant inscrit entre-temps, ex. pendant le live, n'est pas effacé).
 CREATE OR REPLACE FUNCTION public.save_tasting(
   p_tasting_id uuid,
   p_tasting jsonb,
   p_wine_ids uuid[],
-  p_customer_ids uuid[]
+  p_added_customer_ids uuid[],
+  p_removed_customer_ids uuid[]
 )
 RETURNS uuid
 LANGUAGE plpgsql
@@ -403,10 +419,42 @@ BEGIN
   INSERT INTO tasting_wine_vintage (tasting_id, wine_vintage_id, "order")
   SELECT v_id, w.id, w.ord FROM unnest(p_wine_ids) WITH ORDINALITY AS w(id, ord);
 
-  DELETE FROM tasting_customer WHERE tasting_id = v_id;
+  DELETE FROM tasting_customer WHERE tasting_id = v_id AND customer_id = ANY (p_removed_customer_ids);
   INSERT INTO tasting_customer (tasting_id, customer_id)
-  SELECT DISTINCT v_id, c FROM unnest(p_customer_ids) AS c;
+  SELECT DISTINCT v_id, c FROM unnest(p_added_customer_ids) AS c
+  ON CONFLICT DO NOTHING;
 
   RETURN v_id;
+END;
+$$;
+
+-- ——— Commandes rattachées à un transport : tout ou rien ———
+-- Le transport ne doit être ni livré ni annulé (verrouillé le temps du rattachement), et chaque commande
+-- confirmée et sans transport ; sinon rien n'est rattaché.
+CREATE OR REPLACE FUNCTION public.attach_orders_to_transport(p_transport_id uuid, p_order_ids uuid[])
+RETURNS void
+LANGUAGE plpgsql
+SET search_path = public
+AS $$
+DECLARE
+  v_status text;
+  v_count integer;
+BEGIN
+  PERFORM assert_admin();
+
+  SELECT status INTO v_status FROM transport WHERE id = p_transport_id FOR UPDATE;
+  IF NOT FOUND THEN
+    RAISE EXCEPTION 'Transport introuvable';
+  END IF;
+  IF v_status IN ('delivered', 'cancelled') THEN
+    RAISE EXCEPTION 'Ce transport est livré ou annulé : on ne peut plus y associer de commandes.';
+  END IF;
+
+  UPDATE "order" SET transport_id = p_transport_id
+  WHERE id = ANY (p_order_ids) AND status = 'confirmed' AND transport_id IS NULL;
+  GET DIAGNOSTICS v_count = ROW_COUNT;
+  IF v_count <> cardinality(p_order_ids) THEN
+    RAISE EXCEPTION 'Seules les commandes confirmées et sans transport peuvent être associées : rien n’a été associé.';
+  END IF;
 END;
 $$;

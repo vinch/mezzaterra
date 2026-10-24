@@ -429,9 +429,13 @@
     const stockHint =
       currentStatus === "pending" ? "\n\nLe stock sera débité (hors lignes dégustation)." : "";
 
-    if (newStatus === "paid" && !String(sale.payment_method ?? "").trim()) {
-      error = "Indiquez le mode de paiement (Modifier la vente) avant de marquer comme payée.";
-      return false;
+    if (newStatus === "paid") {
+      /* Relu en base : le mode de paiement a pu être saisi ailleurs depuis le chargement de la page. */
+      const { data: fresh } = await supabase.from("sale").select("payment_method").eq("id", sale.id).single();
+      if (!String(fresh?.payment_method ?? "").trim()) {
+        error = "Indiquez le mode de paiement (Modifier la vente) avant de marquer comme payée.";
+        return false;
+      }
     }
 
     const question =

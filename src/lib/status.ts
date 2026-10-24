@@ -43,4 +43,4 @@ export const SALE_TRANSITIONS: Record<string, SaleStatus[]> = {
 };
 
 /** Ventes encore modifiables : leur badge devient un bouton. */
-export const EDITABLE_STATUSES: SaleStatus[] = ["pending", "paid", "delivered"];
+export const EDITABLE_STATUSES = Object.keys(SALE_TRANSITIONS) as SaleStatus[];

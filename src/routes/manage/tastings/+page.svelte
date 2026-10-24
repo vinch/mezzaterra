@@ -38,6 +38,8 @@
   let editingTasting: TastingRow | null = null;
   let modalWines: ModalWineEntry[] = [];
   let modalCustomers: ModalCustomerEntry[] = [];
+  /** Participants à l'ouverture du formulaire : seuls les ajouts et retraits sont enregistrés. */
+  let initialCustomerIds: string[] = [];
   let selectedVintageId = "";
   let selectedCustomerId = "";
   let saving = false;
@@ -140,6 +142,7 @@
       return;
     }
 
+    initialCustomerIds = (data || []).map((r) => r.customer_id);
     modalCustomers = (data || [])
       .filter((r) => r.customer)
       .map((r) => ({
@@ -205,6 +208,7 @@
     };
     modalWines = [];
     modalCustomers = [];
+    initialCustomerIds = [];
     selectedVintageId = "";
     selectedCustomerId = "";
   }
@@ -324,7 +328,8 @@
         p_tasting_id: editingTasting?.id ?? null,
         p_tasting: payload,
         p_wine_ids: modalWines.map((e) => e.wine_vintage_id),
-        p_customer_ids: modalCustomers.map((e) => e.customer_id),
+        p_added_customer_ids: modalCustomers.map((e) => e.customer_id).filter((id) => !initialCustomerIds.includes(id)),
+        p_removed_customer_ids: initialCustomerIds.filter((id) => !modalCustomers.some((e) => e.customer_id === id)),
       });
       if (saveError) throw new Error(saveError.message);
 

@@ -314,28 +314,18 @@
       return;
     }
 
-    if (selectedTransport.status === "delivered" || selectedTransport.status === "cancelled") {
-      error = "Ce transport est livré ou annulé : on ne peut plus y associer de commandes.";
+    /* Tout ou rien, transport verrouillé (fonction SQL attach_orders_to_transport). */
+    const { error: attachError } = await supabase.rpc("attach_orders_to_transport", {
+      p_transport_id: selectedTransport.id,
+      p_order_ids: selectedOrderIds,
+    });
+
+    if (attachError) {
+      error = attachError.message;
       return;
     }
 
-    /* Une seule requête filtrée : seules les commandes confirmées et encore libres sont rattachées. */
-    const { data: attached, error: updateError } = await supabase
-      .from("order")
-      .update({ transport_id: selectedTransport.id })
-      .in("id", selectedOrderIds)
-      .eq("status", "confirmed")
-      .is("transport_id", null)
-      .select("id");
-
-    if (updateError) {
-      error = `Erreur lors de l'association de la commande: ${updateError.message}`;
-      return;
-    }
-    if ((attached?.length ?? 0) < selectedOrderIds.length) {
-      error = "Certaines commandes n'ont pas été associées : seules les commandes confirmées et sans transport peuvent l'être.";
-    }
-
+    error = "";
     closeOrdersModal();
     await invalidateAll();
   }

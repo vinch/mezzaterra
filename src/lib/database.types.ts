@@ -1299,6 +1299,10 @@ export type Database = {
       }
       assert_admin: { Args: never; Returns: undefined }
       assign_invoice_number: { Args: { p_sale_id: string }; Returns: string }
+      attach_orders_to_transport: {
+        Args: { p_order_ids: string[]; p_transport_id: string }
+        Returns: undefined
+      }
       brussels_today: { Args: never; Returns: string }
       is_admin: { Args: never; Returns: boolean }
       my_notebook: { Args: never; Returns: Json }
@@ -1336,7 +1340,8 @@ export type Database = {
       }
       save_tasting: {
         Args: {
-          p_customer_ids: string[]
+          p_added_customer_ids: string[]
+          p_removed_customer_ids: string[]
           p_tasting: Json
           p_tasting_id: string | null
           p_wine_ids: string[]
