@@ -2,6 +2,10 @@
   import { supabase } from "$lib/supabase";
   import { onMount } from "svelte";
   import ManagePageShell from "$lib/components/manage/ManagePageShell.svelte";
+  import Button from "$lib/ui/Button.svelte";
+  import DataTable from "$lib/ui/DataTable.svelte";
+  import EmptyState from "$lib/ui/EmptyState.svelte";
+  import { IconBox } from "$lib/ui/icons";
   import {
     fetchStockDocVintages,
     sortedStockForDocuments,
@@ -36,105 +40,39 @@
 
 <ManagePageShell title="Stock">
   <svelte:fragment slot="actions">
-    <button
-      type="button"
-      class="btn-secondary"
-      on:click={loadStockInHand}
-      disabled={loading}
-    >
-      Actualiser
-    </button>
+    <Button on:click={loadStockInHand} disabled={loading}>Actualiser</Button>
   </svelte:fragment>
 
-  {#if error}
-    <div class="error-message">{error}</div>
-  {/if}
-
   {#if loading}
-    <p class="stock-loading">Chargement…</p>
+    <div class="loading">Chargement…</div>
+  {:else if error}
+    <div class="error-message" role="alert">{error}</div>
   {:else if stockInHandList.length === 0}
-    <p class="empty-text">Aucun vin avec du stock disponible.</p>
+    <EmptyState icon={IconBox} title="Aucun vin avec du stock disponible" />
   {:else}
-    <div class="stock-table-wrap">
-      <table class="stock-table">
-        <thead>
+    <DataTable caption="Vins en stock">
+      <thead>
+        <tr>
+          <th scope="col">Vignoble</th>
+          <th scope="col">Nom</th>
+          <th scope="col">Millésime</th>
+          <th scope="col" class="num">En stock</th>
+          <th scope="col" class="col-actions"><span class="sr-only">Actions</span></th>
+        </tr>
+      </thead>
+      <tbody>
+        {#each stockInHandList as row (row.id)}
           <tr>
-            <th>Vignoble</th>
-            <th>Nom</th>
-            <th>Millésime</th>
-            <th>En stock</th>
-            <th></th>
+            <td>{row.wineryName}</td>
+            <td><strong>{row.wineName}</strong></td>
+            <td>{stockVintageLabel(row)}</td>
+            <td class="num">{bottleLabel(row.quantity_on_hand)}</td>
+            <td class="col-actions">
+              <Button size="sm" href="/manage/wines/{row.wine_id}/stock/{row.id}">Détail</Button>
+            </td>
           </tr>
-        </thead>
-        <tbody>
-          {#each stockInHandList as row}
-            <tr>
-              <td>{row.wineryName}</td>
-              <td><strong>{row.wineName}</strong></td>
-              <td>{stockVintageLabel(row)}</td>
-              <td class="stock-qty">
-                {bottleLabel(row.quantity_on_hand)}
-              </td>
-              <td>
-                <a
-                  href="/manage/wines/{row.wine_id}/stock/{row.id}"
-                  class="ui-btn ui-btn--secondary ui-btn--sm"
-                >
-                  Détail
-                </a>
-              </td>
-            </tr>
-          {/each}
-        </tbody>
-      </table>
-    </div>
+        {/each}
+      </tbody>
+    </DataTable>
   {/if}
 </ManagePageShell>
-
-<style>
-  .stock-loading {
-    margin: 0;
-    padding: 0.5rem 0;
-    color: var(--ink-2);
-  }
-
-  .empty-text {
-    color: var(--ink-2);
-    margin: 0;
-  }
-
-  .stock-table-wrap {
-    margin-top: 0;
-    max-height: none;
-    overflow: visible;
-    border: 1px solid var(--border-soft);
-    border-radius: 6px;
-    background: white;
-    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.08);
-  }
-
-  .stock-table {
-    width: 100%;
-    border-collapse: collapse;
-    font-size: 0.9rem;
-  }
-
-  .stock-table th,
-  .stock-table td {
-    padding: 0.65rem 0.75rem;
-    border-bottom: 1px solid var(--border-soft);
-    text-align: left;
-    vertical-align: middle;
-  }
-
-  .stock-table thead th {
-    background: var(--table-head);
-    font-weight: 600;
-  }
-
-  .stock-table .stock-qty {
-    white-space: nowrap;
-    font-variant-numeric: tabular-nums;
-  }
-
-</style>
