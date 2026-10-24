@@ -1,7 +1,6 @@
-import type { SupabaseClient } from "@supabase/supabase-js";
-import type { Database } from "./database.types";
 import { errorMessage } from "./async";
 import { fetchStockMap } from "./manageData";
+import { supabase } from "./supabase";
 
 /**
  * Stock disponible mis en forme pour les documents (tarifs, feuilles de notes) et la page Stock.
@@ -112,9 +111,7 @@ export function mapInventoryToDocVintages(
   return out;
 }
 
-export async function fetchStockDocVintages(
-  supabase: SupabaseClient<Database>,
-): Promise<{ data: StockDocVintage[]; error: string | null }> {
+export async function fetchStockDocVintages(): Promise<{ data: StockDocVintage[]; error: string | null }> {
   let stock: Map<string, number>;
   try {
     stock = await fetchStockMap();

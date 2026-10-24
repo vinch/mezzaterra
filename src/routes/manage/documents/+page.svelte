@@ -52,7 +52,7 @@
   async function loadStockRows() {
     loading = true;
     error = "";
-    const { data, error: fetchError } = await fetchStockDocVintages(supabase);
+    const { data, error: fetchError } = await fetchStockDocVintages();
     if (fetchError) {
       error = fetchError;
       rows = [];

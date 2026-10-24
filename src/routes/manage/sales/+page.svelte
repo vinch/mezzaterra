@@ -9,7 +9,7 @@
   import Button from "$lib/ui/Button.svelte";
   import IconButton from "$lib/ui/IconButton.svelte";
   import StatusBadge from "$lib/ui/StatusBadge.svelte";
-  import { CHANGEABLE_STATUSES, SALE_TRANSITIONS, STATUS_META, type SaleStatus } from "$lib/status";
+  import { CHANGEABLE_STATUSES, SALE_TRANSITIONS, isSaleEditable, STATUS_META, type SaleStatus } from "$lib/status";
   import Menu, { type MenuItem } from "$lib/ui/Menu.svelte";
   import RowMenu from "$lib/ui/RowMenu.svelte";
   import ConfirmDialog from "$lib/ui/ConfirmDialog.svelte";
@@ -199,13 +199,6 @@
 
   async function openEditModal(sale: any) {
     error = "";
-    /* Payée ou livrée, la vente a sorti son stock : elle est figée (save_sale le refuse aussi). */
-    if (sale.status !== "pending") {
-      error = "Seule une vente en attente se modifie : son stock n’est pas encore sorti.";
-      formLoad.cancel();
-      return;
-    }
-
     /* Stock relu : il a pu bouger depuis l'ouverture de la page. */
     const loaded = await formLoad.run(() => Promise.all([fetchVintagesWithStock(), loadSaleItems(sale.id)]));
     if (!loaded) return;
@@ -538,6 +531,7 @@
   let paymentPrompt = $state<{ resolve: (method: string | null) => void } | null>(null);
   let paymentChoice = $state("");
   function askPaymentMethod(): Promise<string | null> {
+    paymentPrompt?.resolve(null);
     paymentChoice = "";
     return new Promise((resolve) => (paymentPrompt = { resolve }));
   }
@@ -549,7 +543,7 @@
   /** Appelée après confirmation via le ConfirmDialog. */
   async function deleteSale(id: string) {
     const sale = sales.find((s) => s.id === id);
-    if (sale && sale.status !== "pending") {
+    if (sale && !isSaleEditable(sale.status)) {
       error = "Seules les ventes en attente peuvent être supprimées.";
       return;
     }
@@ -649,9 +643,10 @@
       return items;
     }
     items.push({ label: "Ouvrir", icon: IconEye, onSelect: () => openDetailsModal(sale) });
-    if (st === "pending") items.push({ label: "Modifier", icon: IconPencil, onSelect: () => openEditModal(sale) });
+    /* Payée ou livrée, la vente a sorti son stock : elle est figée (save_sale le refuse aussi). */
+    if (isSaleEditable(st)) items.push({ label: "Modifier", icon: IconPencil, onSelect: () => openEditModal(sale) });
     items.push(...statusMenuItems(sale));
-    if (st === "pending") {
+    if (isSaleEditable(st)) {
       items.push({ label: "Supprimer…", icon: IconTrash, danger: true, separator: true, onSelect: () => askDelete(sale) });
     }
     return items;
@@ -942,7 +937,7 @@
 <Modal open={formOpen} title={editingSale ? "Modifier la vente" : "Nouvelle vente"} maxWidth={820} onclose={closeForm}>
   {#snippet titleExtra()}
     {#if editingSale}
-      <StatusBadge status={editingSale.status} />
+      <StatusBadge status="pending" />
     {:else}
       <span class="will-be"><IconClock size={14} strokeWidth={1.75} aria-hidden="true" /> Sera créée « En attente »</span>
     {/if}
@@ -1208,7 +1203,7 @@
       {#if detailsSale?.status === "closed"}
         <Button onclick={() => downloadInvoice(detailsSale.id)}><IconDownload size={16} strokeWidth={1.75} /> Télécharger la facture</Button>
       {/if}
-      {#if detailsSale?.status === "pending"}
+      {#if isSaleEditable(detailsSale?.status)}
         <Button
           onclick={() => {
             const s = detailsSale;

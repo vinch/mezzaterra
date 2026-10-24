@@ -93,11 +93,11 @@ BEGIN
     RAISE EXCEPTION 'Changement de statut impossible : %', v_old || ' → ' || p_status;
   END IF;
   -- Mode de paiement fourni au passage en « Payée » (une vente livrée n'est plus modifiable).
-  IF p_status = 'paid' AND coalesce(trim(p_payment_method), '') <> '' THEN
-    v_payment := trim(p_payment_method);
-  END IF;
-  IF p_status = 'paid' AND coalesce(trim(v_payment), '') = '' THEN
-    RAISE EXCEPTION 'Indiquez le mode de paiement avant de marquer la vente comme payée.';
+  IF p_status = 'paid' THEN
+    v_payment := coalesce(nullif(trim(p_payment_method), ''), v_payment);
+    IF coalesce(trim(v_payment), '') = '' THEN
+      RAISE EXCEPTION 'Indiquez le mode de paiement avant de marquer la vente comme payée.';
+    END IF;
   END IF;
 
   UPDATE sale SET status = p_status, payment_method = v_payment WHERE id = p_sale_id;

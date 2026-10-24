@@ -28,6 +28,7 @@
     IconX,
   } from "$lib/ui/icons";
   import { formatEUR } from "$lib/format";
+  import { errorMessage, latestOnly } from "$lib/async";
   import {
     appellationText,
     grapesText,
@@ -98,30 +99,29 @@
 
   function openCreateModal() {
     editingVintage = null;
-    sourceId = vintages[0]?.id ?? "";
     copyGrapes = copyNotes = true;
-    vintageFormData = { ...emptyForm(), image_url: vintages[0]?.image_url ?? "" };
+    vintageFormData = emptyForm();
+    pickSource(vintages[0]?.id ?? "");
     formOpen = true;
     if (vintages.length) loadSourceDetails();
   }
 
-  let detailsRequest = 0;
+  /* Une ouverture plus récente relance la lecture : sa réponse fait foi. */
+  const detailsLoad = latestOnly((e) => (error = `Cépages et notes des millésimes illisibles : ${errorMessage(e)}`));
 
   async function loadSourceDetails() {
     sourceDetails = null;
-    const request = ++detailsRequest;
-    const { data, error: loadError } = await supabase
-      .from("wine_vintage")
-      .select("id, wine_vintage_grape ( percentage, grape ( name ) ), note ( type, content )")
-      .eq("wine_id", wine.id);
-    /* Une ouverture plus récente a relancé la lecture : sa réponse fait foi. */
-    if (request !== detailsRequest) return;
-    if (loadError) {
-      error = `Cépages et notes des millésimes illisibles : ${loadError.message}`;
-      return;
-    }
+    const data = await detailsLoad.run(async () => {
+      const res = await supabase
+        .from("wine_vintage")
+        .select("id, wine_vintage_grape ( percentage, grape ( name ) ), note ( type, content )")
+        .eq("wine_id", wine.id);
+      if (res.error) throw new Error(res.error.message);
+      return res.data;
+    });
+    if (!data) return;
     sourceDetails = Object.fromEntries(
-      (data || []).map((v) => [
+      data.map((v) => [
         v.id,
         { grapes: grapesText(v.wine_vintage_grape, true), notes: vintageNotes(v.note).map((n) => n.label).join(", ") },
       ]),

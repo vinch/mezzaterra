@@ -1,5 +1,4 @@
 <script lang="ts">
-  import { supabase } from "$lib/supabase";
   import { onMount } from "svelte";
   import ManagePageShell from "$lib/components/manage/ManagePageShell.svelte";
   import {
@@ -23,7 +22,7 @@
   async function loadStockInHand() {
     loading = true;
     error = "";
-    const res = await fetchStockDocVintages(supabase);
+    const res = await fetchStockDocVintages();
     error = res.error ?? "";
     stockInHandList = sortedStockForDocuments(res.data);
     loading = false;
