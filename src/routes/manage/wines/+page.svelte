@@ -349,11 +349,13 @@
   }
 
   /* ——— Interface (refonte) ——— */
-  let stock = new Map<string, number>();
+  /** null : stock illisible, affiché « — » plutôt qu'en fausse rupture. */
+  let stock: Map<string, number> | null = new Map();
   async function loadStock() {
     try {
       stock = await fetchStockMap();
     } catch (e) {
+      stock = null;
       error = `Stock indisponible : ${errorMessage(e)}`;
     }
   }
@@ -368,7 +370,7 @@
   }
   /* Bouteilles en stock par vin, recalculées quand les vins ou le stock arrivent. */
   $: totalById = new Map(
-    wines.map((w: any) => [w.id, vintagesOf(w).reduce((n, v) => n + Math.max(0, stock.get(v.id) ?? 0), 0)]),
+    wines.map((w: any) => [w.id, vintagesOf(w).reduce((n, v) => n + Math.max(0, stock?.get(v.id) ?? 0), 0)]),
   );
   /** Dernier millésime qu'on peut encore recommander au fournisseur. */
   function latestVintage(wine: any): any | null {
@@ -396,11 +398,13 @@
   /* Vins retirés en fin de liste : visibles, mais hors du chemin. */
   $: shownWines = filteredWines
     .filter((w: any) => !robeFilter || robeOf(w.wine_type) === robeFilter)
-    .filter((w: any) => !inStockOnly || (totalById.get(w.id) ?? 0) > 0)
+    .filter((w: any) => !inStockOnly || !stock || (totalById.get(w.id) ?? 0) > 0)
     .sort((a: any, b: any) => Number(isRetired(a)) - Number(isRetired(b)));
   $: vintageCount = wines.reduce((n, w: any) => n + (w.wine_vintage?.length ?? 0), 0);
-  $: bottleCount = [...stock.values()].reduce((n, q) => n + Math.max(0, q), 0);
-  $: subtitle = `${wines.length} vin${wines.length > 1 ? "s" : ""} · ${vintageCount} millésime${vintageCount > 1 ? "s" : ""} · ${bottleCount} bouteille${bottleCount > 1 ? "s" : ""} en stock`;
+  $: bottleCount = stock ? [...stock.values()].reduce((n, q) => n + Math.max(0, q), 0) : null;
+  $: subtitle = `${wines.length} vin${wines.length > 1 ? "s" : ""} · ${vintageCount} millésime${vintageCount > 1 ? "s" : ""} · ${
+    bottleCount == null ? "stock indisponible" : `${bottleCount} bouteille${bottleCount > 1 ? "s" : ""} en stock`
+  }`;
   $: filtersActive = !!(searchText || filterWineryId || filterAppelationId || filterWineTypeId || robeFilter || inStockOnly);
 
   function resetAll() {
@@ -416,7 +420,7 @@
     try {
       notice = (await promptReorder(`${wineTitle(wine)} ${v.year ?? ""}`.trim(), v)) ?? notice;
     } catch (e) {
-      error = e instanceof Error ? e.message : String(e);
+      error = errorMessage(e);
     }
   }
 
@@ -524,7 +528,7 @@
         {/each}
       </select>
       <label class="check">
-        <input type="checkbox" bind:checked={inStockOnly} />
+        <input type="checkbox" bind:checked={inStockOnly} disabled={!stock} />
         En stock seulement
       </label>
       {#if filtersActive}
@@ -570,9 +574,11 @@
                 <td>
                   <span class="vintages">
                     {#each vintagesOf(wine) as v (v.id)}
-                      {@const q = stock.get(v.id) ?? 0}
+                      {@const q = stock?.get(v.id) ?? 0}
                       {#if isDiscontinued(v)}
                         <span class="vintage-chip gone" title="Plus jamais disponible">{v.year ?? v.production_year}</span>
+                      {:else if !stock}
+                        <span class="vintage-chip">{v.year ?? v.production_year}</span>
                       {:else}
                         <span class="vintage-chip" class:out={q <= 0}>
                           {v.year ?? v.production_year} · {q <= 0 ? "rupture" : q}
@@ -587,12 +593,14 @@
                   <span class="stock-cell">
                     {#if retired}
                       <StockBadge kind="gone" />
+                    {:else if !stock}
+                      <!-- Stock illisible : pas de badge. -->
                     {:else if vintagesOf(wine).length && total <= 0}
                       <StockBadge kind="out" />
                     {:else if total > 0 && total <= 3}
                       <StockBadge kind="low" />
                     {/if}
-                    <strong>{total} bt.</strong>
+                    <strong>{stock ? `${total} bt.` : "—"}</strong>
                   </span>
                 </td>
                 <td class="num">{priceText(wine)}</td>
@@ -611,11 +619,11 @@
             <a class="wine-card-main" href="/manage/wines/{wine.id}">
               <span class="wc-top">
                 <span class="wine-cell"><WineDot robe={robeOf(wine.wine_type)} /><strong>{wineTitle(wine)}</strong></span>
-                <strong>{total} bt.</strong>
+                <strong>{stock ? `${total} bt.` : "—"}</strong>
               </span>
               <span class="wc-bottom">
                 <span class="t-muted">{wine.winery?.name ?? ""}</span>
-                {#if isRetired(wine)}<StockBadge kind="gone" />{:else if vintagesOf(wine).length && total <= 0}<StockBadge kind="out" />{:else if total > 0 && total <= 3}<StockBadge kind="low" />{/if}
+                {#if isRetired(wine)}<StockBadge kind="gone" />{:else if !stock}<!-- Stock illisible -->{:else if vintagesOf(wine).length && total <= 0}<StockBadge kind="out" />{:else if total > 0 && total <= 3}<StockBadge kind="low" />{/if}
               </span>
             </a>
             <RowMenu items={rowItems(wine)} label="Actions pour {wineTitle(wine)}" />
