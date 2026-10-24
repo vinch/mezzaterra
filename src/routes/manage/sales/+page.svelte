@@ -40,6 +40,7 @@
   import {
     PAYMENT_METHOD_OPTIONS,
     TASTING_LINE_NOTE,
+    globalDiscountAmount,
     itemsSubtotal,
     paymentMethodLabel,
     saleItemDescription,
@@ -563,8 +564,12 @@
     delivered: { label: "Marquer comme livrée", icon: IconTruck },
     closed: { label: "Clôturer et facturer", icon: IconLock },
   };
-  function nextStatuses(cur: string): string[] {
-    return SALE_TRANSITIONS[cur] ?? [];
+  function statusMenuItems(sale: any): MenuItem[] {
+    return (SALE_TRANSITIONS[sale.status] ?? []).map((st) => ({
+      label: STATUS_ACTIONS[st].label,
+      icon: STATUS_ACTIONS[st].icon,
+      onSelect: () => changeStatus(sale, st),
+    }));
   }
   async function changeStatus(sale: any, next: string) {
     error = "";
@@ -582,13 +587,7 @@
     statusAnchor = statusAnchors[sale.id] ?? null;
     statusMenuOpen = true;
   }
-  $: statusItems = statusMenuSale
-    ? nextStatuses(statusMenuSale.status).map<MenuItem>((st) => ({
-        label: STATUS_ACTIONS[st].label,
-        icon: STATUS_ACTIONS[st].icon,
-        onSelect: () => changeStatus(statusMenuSale, st),
-      }))
-    : [];
+  $: statusItems = statusMenuSale ? statusMenuItems(statusMenuSale) : [];
 
   function rowItems(sale: any): MenuItem[] {
     const st = sale.status;
@@ -602,9 +601,7 @@
     }
     items.push({ label: "Ouvrir", icon: IconEye, onSelect: () => openDetailsModal(sale) });
     items.push({ label: "Modifier", icon: IconPencil, onSelect: () => openEditModal(sale) });
-    for (const next of nextStatuses(st)) {
-      items.push({ label: STATUS_ACTIONS[next].label, icon: STATUS_ACTIONS[next].icon, onSelect: () => changeStatus(sale, next) });
-    }
+    items.push(...statusMenuItems(sale));
     if (st === "pending") {
       items.push({ label: "Supprimer…", icon: IconTrash, danger: true, separator: true, onSelect: () => askDelete(sale) });
     }
@@ -1100,7 +1097,7 @@
           <p><span>Sous-total articles (TTC)</span><span>{formatEUR(itemsSubtotal(detailsSaleItems))}</span></p>
           <p>
             <span>Ristourne globale {detailsSale.global_discount_type === "percent" ? `(${toNumber(detailsSale.global_discount)} %)` : "(montant)"}</span>
-            <span>−{formatEUR(Math.max(0, itemsSubtotal(detailsSaleItems) - toNumber(detailsSale.total_price)))}</span>
+            <span>−{formatEUR(globalDiscountAmount(detailsSaleItems, detailsSale.total_price))}</span>
           </p>
         {/if}
         <p class="grand"><span>Total TTC</span><span>{formatEUR(detailsSale.total_price)}</span></p>

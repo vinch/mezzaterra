@@ -51,6 +51,11 @@ export function saleTotal(items: any[], globalDiscount: unknown, globalDiscountT
   return Math.max(0, Math.round((subtotal - g) * 100) / 100);
 }
 
+/** Montant de la ristourne globale : écart entre le sous-total des lignes et le total enregistré. */
+export function globalDiscountAmount(items: any[], total: unknown): number {
+  return Math.max(0, Math.round((itemsSubtotal(items) - toNumber(total)) * 100) / 100);
+}
+
 /**
  * Numéro de facture de la vente, attribué s'il manque par la fonction SQL assign_invoice_number
  * (atomique, séquence continue par année). Lève une erreur lisible en cas d'échec.

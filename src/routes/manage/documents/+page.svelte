@@ -288,7 +288,7 @@
                 </td>
                 <td>{r.wineryName}</td>
                 <td><strong>{r.wineName}</strong></td>
-                <td>{wineTypeLabel({ name: r.wineTypeName, category: r.wineTypeCategory })}</td>
+                <td>{wineTypeLabel({ name: r.wineTypeName })}</td>
                 <td>{vintageLabel(r)}</td>
                 <td class="num">
                   {r.price != null ? `${r.price.toFixed(2)}` : "—"}
@@ -331,7 +331,7 @@
             <strong>{row.wineryName}</strong>
             <span class="notes-order-wine">{row.wineName}</span>
             <span class="notes-order-meta"
-              >{wineTypeLabel({ name: row.wineTypeName, category: row.wineTypeCategory })} · {vintageLabel(row)}</span
+              >{wineTypeLabel({ name: row.wineTypeName })} · {vintageLabel(row)}</span
             >
           </div>
           <div class="notes-order-actions">

@@ -4,6 +4,7 @@ import { formatDate, toNumber } from "$lib/format";
 import {
   SALE_LINE_ITEMS_SELECT,
   ensureInvoiceNumber,
+  globalDiscountAmount,
   itemsSubtotal,
   paymentMethodLabel,
   saleItemDescription,
@@ -53,7 +54,7 @@ export async function downloadInvoicePdf(saleId: string): Promise<void> {
   const gType = String(sale.global_discount_type ?? "").trim().toLowerCase();
   if (gDisc > 0 && (gType === "amount" || gType === "percent")) {
     const subtotalTTC = itemsSubtotal(items);
-    const ristEuro = Math.max(0, Math.round((subtotalTTC - total) * 100) / 100);
+    const ristEuro = globalDiscountAmount(items, total);
     summary.push(
       `Sous-total TTC: ${pdfEur(subtotalTTC)}`,
       gType === "percent"

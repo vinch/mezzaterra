@@ -390,7 +390,7 @@ export async function downloadNotesPdf(
     const title = `${noteEntryNumber(idx)} ${v.wineryName} ${v.wineName}`;
     const grapes = v.grapeNames.length ? v.grapeNames.join(", ") : "—";
     const abvStr = v.abv != null ? `${v.abv}%` : "—";
-    const detail = `${wineTypeLabel({ name: v.wineTypeName, category: v.wineTypeCategory })} / ${stockVintageLabel(v)} / ${abvStr} / Cépages : ${grapes} / ${v.appellationLine || "—"}`;
+    const detail = `${wineTypeLabel({ name: v.wineTypeName })} / ${stockVintageLabel(v)} / ${abvStr} / Cépages : ${grapes} / ${v.appellationLine || "—"}`;
 
     const titleLines = fitLine(doc, title, textW - 2, 10.5);
     const detailLines = fitLine(doc, detail, textW, 9);

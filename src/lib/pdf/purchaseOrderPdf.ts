@@ -99,8 +99,6 @@ export async function downloadOrderPdf(orderId: string, lang: OrderPdfLanguage):
   }
   if (order.note) blocks.push({ gap: 15, lines: [{ text: `${t.note}: ${order.note}`, italic: true }] });
 
-  const lineTotalOf = (item: (typeof items)[number]) => item.price * item.quantity;
-
   downloadLineItemsPdf({
     title,
     meta: [
@@ -112,7 +110,7 @@ export async function downloadOrderPdf(orderId: string, lang: OrderPdfLanguage):
     columns: [t.quantity, t.unitPrice, t.total],
     rows: items.map((item) => ({
       description: vintageProductLabel(item.wine_vintage!),
-      values: [String(item.quantity), pdfEur(item.price), pdfEur(lineTotalOf(item))],
+      values: [String(item.quantity), pdfEur(item.price), pdfEur(item.price * item.quantity)],
     })),
     totals: [{ text: `${t.totalLabel}: ${pdfEur(order.total_price)}` }],
     blocks,

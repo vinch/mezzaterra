@@ -8,7 +8,7 @@
   import StatusBadge from "$lib/ui/StatusBadge.svelte";
   import { KIND_META, statusMeta } from "$lib/status";
   import ManagePageShell from "$lib/components/manage/ManagePageShell.svelte";
-    import { formatDate, formatEUR } from "$lib/format";
+  import { formatDate, formatEUR } from "$lib/format";
   import { vintageProductLabel } from "$lib/wine";
 
   export let data: PageData;
@@ -253,10 +253,7 @@
       return;
     }
 
-    detailsOrders = (orders || []).map(({ order_item: items, ...order }) => ({
-      ...order,
-      items,
-    }));
+    detailsOrders = orders || [];
   }
 
   async function loadAvailableOrders() {
@@ -707,9 +704,9 @@
                 {#if order.note}
                   <div class="details-order-note">{order.note}</div>
                 {/if}
-                {#if order.items && order.items.length > 0}
+                {#if order.order_item && order.order_item.length > 0}
                   <div class="details-order-items">
-                    {#each order.items as item}
+                    {#each order.order_item as item}
                       <div class="details-order-item">
                         <div class="details-order-item-name">
                           {vintageProductLabel(item.wine_vintage)}

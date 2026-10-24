@@ -1,5 +1,6 @@
 import { NEW_ROW, escapeLike, supabase } from "./supabase";
 import { todayIso } from "./dates";
+import { itemsSubtotal } from "./sales";
 
 /**
  * Transformation des demandes publiques (inscriptions, « J'en veux ») en données de gestion :
@@ -100,7 +101,7 @@ export async function createSaleFromWish(
     quantity: i.quantity,
     price: prices.get(i.wine_vintage_id) ?? 0,
   }));
-  const total = Math.round(lines.reduce((s, l) => s + l.price * l.quantity, 0) * 100) / 100;
+  const total = itemsSubtotal(lines);
 
   const noteParts = [
     wish.source === "live" ? `Demande « J'en veux »${tastingName ? ` — ${tastingName}` : ""}` : "Demande depuis le site",
