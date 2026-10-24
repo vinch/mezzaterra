@@ -120,7 +120,7 @@
     }
     if (params.has("nouvelle")) {
       /* Stock tout juste lu : relu seulement si le chargement a échoué. */
-      if (wineVintages.length) showCreateForm();
+      if (wineVintages.length && !hasUnknownStock(wineVintages)) showCreateForm();
       else await openCreateModal();
       const client = params.get("client");
       if (client) formData.customer_id = client;
@@ -170,20 +170,22 @@
   }
 
   /**
-   * Millésimes du sélecteur, avec leur stock (relu à chaque ouverture du formulaire).
-   * Stock illisible : erreur affichée et stock compté à 0. On ne peut plus ajouter de
-   * bouteilles, mais une vente reste modifiable (mode de paiement…).
+   * Millésimes du sélecteur avec leur stock, relu à chaque ouverture du formulaire (le
+   * catalogue n'est lu qu'une fois). Stock illisible : `stock` vaut null ; on ne peut plus
+   * ajouter de bouteilles ni en augmenter, mais une vente reste modifiable (paiement…).
    */
   async function fetchVintagesWithStock(): Promise<any[]> {
     const [list, stock] = await Promise.all([
-      fetchPickerVintages(),
+      wineVintages.length ? wineVintages : fetchPickerVintages(),
       fetchStockMap().catch((e) => {
-        error = `Stock indisponible : ${errorMessage(e)}`;
-        return new Map<string, number>();
+        console.error(e);
+        return null;
       }),
     ]);
-    return list.map((v) => ({ ...v, stock: stock.get(v.id) ?? 0 }));
+    return list.map((v) => ({ ...v, stock: stock ? (stock.get(v.id) ?? 0) : null }));
   }
+  const hasUnknownStock = (list: any[]) => list.some((v) => v.stock == null);
+  $: stockUnknown = hasUnknownStock(wineVintages);
 
   /* Chargements des modales : le dernier clic gagne (deux « Modifier » enchaînés…). */
   const formLoad = latestOnly((e) => (error = errorMessage(e)));
@@ -205,6 +207,7 @@
   async function openEditModal(sale: any) {
     if (sale.status === "closed" || sale.status === "cancelled") {
       error = "Impossible de modifier une vente clôturée ou annulée";
+      formLoad.cancel();
       return;
     }
 
@@ -231,7 +234,7 @@
     };
     /* Le stock d'une ligne est lu dans vintageById (liste tout juste relue). */
     saleItems = items.map((item: any) => ({
-      wine_vintage: item.wine_vintage_id ? item.wine_vintage : null,
+      wine_vintage: item.wine_vintage,
       wine_vintage_id: item.wine_vintage_id ?? null,
       quantity: item.quantity,
       price: toNumber(item.price),
@@ -1512,6 +1515,9 @@
     {#if error && formOpen}
       <div class="error-message" role="alert">{error}</div>
     {/if}
+    {#if stockUnknown && formOpen}
+      <div class="error-message" role="alert">Stock indisponible : impossible d’ajouter des bouteilles pour l’instant.</div>
+    {/if}
 
     <div class="grid-2">
       <Field id="sale-date" label="Date" required>
@@ -1563,8 +1569,9 @@
               <tbody>
                 {#each saleItems as item, index}
                   {@const v = vintageById.get(item.wine_vintage_id) ?? item.wine_vintage}
-                  <!-- Stock connu du millésime ; null pour une ligne dégustation. -->
+                  <!-- Stock du millésime ; null pour une ligne dégustation ou un stock illisible. -->
                   {@const stock = item.wine_vintage_id ? (v?.stock ?? null) : null}
+                  {@const qty = parseInt(String(item.quantity), 10) || 1}
                   <tr>
                     <td>
                       <span class="wine-cell">
@@ -1583,9 +1590,13 @@
                     </td>
                     <td>
                       <Stepper
-                        value={parseInt(String(item.quantity), 10) || 1}
+                        value={qty}
                         min={1}
-                        max={stock != null && (!editingSale || editingSale.status === "pending") ? stock : 9999}
+                        max={item.wine_vintage_id && stock == null
+                          ? qty
+                          : stock != null && (!editingSale || editingSale.status === "pending")
+                            ? stock
+                            : 9999}
                         label="Quantité de {saleItemDescription(item)}"
                         on:change={(e) => setItemQuantity(index, e.detail)}
                       />
