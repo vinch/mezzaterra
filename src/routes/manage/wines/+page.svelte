@@ -350,7 +350,11 @@
   /* ——— Interface (refonte) ——— */
   let stock = new Map<string, number>();
   async function loadStock() {
-    stock = await fetchStockMap();
+    try {
+      stock = await fetchStockMap();
+    } catch (e) {
+      error = `Stock indisponible : ${e instanceof Error ? e.message : String(e)}`;
+    }
   }
 
   let robeFilter: Robe | "" = "";

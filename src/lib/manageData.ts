@@ -31,10 +31,15 @@ export async function fetchPickerVintages(): Promise<any[]> {
   return (data || []).sort(compareVintages);
 }
 
-/** Bouteilles en stock par millésime (vue `inventory`), en une requête. */
+/**
+ * Bouteilles en stock par millésime (vue `inventory`). Lève une erreur plutôt que
+ * de renvoyer une carte vide : un échec afficherait sinon tout le catalogue en rupture.
+ */
 export async function fetchStockMap(): Promise<Map<string, number>> {
-  const { data } = await supabase.from("inventory").select("wine_vintage_id, quantity_on_hand");
-  return new Map((data || []).map((r) => [r.wine_vintage_id as string, r.quantity_on_hand ?? 0]));
+  const rows = await fetchAllRows<{ wine_vintage_id: string; quantity_on_hand: number | null }>((from, to) =>
+    supabase.from("inventory").select("wine_vintage_id, quantity_on_hand").order("wine_vintage_id").range(from, to),
+  );
+  return new Map(rows.map((r) => [r.wine_vintage_id, r.quantity_on_hand ?? 0]));
 }
 
 /** Prix d'une ligne de commande : le sien, sinon le prix d'achat du millésime. */
