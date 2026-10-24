@@ -1,4 +1,6 @@
 <script lang="ts">
+  import { preventDefault } from "$lib/ui/events";
+
   import { NEW_ROW, supabase } from "$lib/supabase";
   import { onMount } from "svelte";
   import { invalidateAll } from "$app/navigation";
@@ -15,38 +17,41 @@
   import { formatDate, formatEUR } from "$lib/format";
   import { isDiscontinued, vintageProductLabel } from "$lib/wine";
 
-  export let data: PageData;
+  interface Props {
+    data: PageData;
+  }
 
-  let orders: any[];
+  let { data }: Props = $props();
+
+  let orders: any[] = $derived(data.orders);
   /* Rechargé par invalidateAll() après une création, une modification ou une suppression. */
-  $: orders = data.orders;
-  let suppliers: any[] = [];
-  let wineVintages: any[] = [];
-  let loading = true;
-  let error = "";
+  let suppliers = $state<any[]>([]);
+  let wineVintages = $state.raw<any[]>([]);
+  let loading = $state(true);
+  let error = $state("");
   /** Modale unique création / édition (`editingOrder` les distingue). */
-  let formOpen = false;
-  let saving = false;
-  let showDetailsModal = false;
-  let showLanguageModal = false;
-  let editingOrder: any = null;
-  let detailsOrder: any = null;
-  let detailsOrderItems: any[] = [];
-  let orderIdForPDF: string | null = null;
+  let formOpen = $state(false);
+  let saving = $state(false);
+  let showDetailsModal = $state(false);
+  let showLanguageModal = $state(false);
+  let editingOrder = $state<any>(null);
+  let detailsOrder = $state<any>(null);
+  let detailsOrderItems = $state<any[]>([]);
+  let orderIdForPDF = $state<string | null>(null);
 
   // Form fields
-  let formData = {
+  let formData = $state({
     date: todayIso(),
     supplier_id: "",
     status: "pending",
     note: "",
-  };
+  });
 
   // Order items
-  let orderItems: any[] = [];
-  let selectedVintageId = "";
-  let selectedQuantity = "";
-  let selectedPrice = "";
+  let orderItems = $state<any[]>([]);
+  let selectedVintageId = $state("");
+  let selectedQuantity = $state("");
+  let selectedPrice = $state("");
 
   onMount(async () => {
     try {
@@ -67,6 +72,7 @@
   const formLoad = latestOnly((e) => (error = errorMessage(e)));
 
   function openCreateModal() {
+    error = "";
     formLoad.cancel();
     editingOrder = null;
     resetForm();
@@ -74,13 +80,17 @@
   }
 
   async function openEditModal(order: any) {
+    error = "";
     if (order.status === "confirmed") {
       error = "Impossible de modifier une commande confirmée";
       formLoad.cancel();
       return;
     }
 
-    const loaded = await formLoad.run(() => Promise.all([fetchPickerVintages(), loadOrderItems(order.id)]));
+    /* Catalogue lu au chargement de la page : relu seulement s'il avait échoué. */
+    const loaded = await formLoad.run(() =>
+      Promise.all([wineVintages.length ? wineVintages : fetchPickerVintages(), loadOrderItems(order.id)]),
+    );
     if (!loaded) return;
     const [vintages, items] = loaded;
 
@@ -164,10 +174,10 @@
     return price * quantity;
   }
 
-  $: total = orderItems.reduce((sum, item) => sum + calculateItemTotal(item), 0);
+  let total = $derived(orderItems.reduce((sum, item) => sum + calculateItemTotal(item), 0));
 
   /* On ne recommande pas un millésime « plus jamais disponible ». */
-  $: orderableVintages = wineVintages.filter((v) => !isDiscontinued(v));
+  let orderableVintages = $derived(wineVintages.filter((v) => !isDiscontinued(v)));
 
   function handleVintageChange() {
     if (selectedVintageId) {
@@ -281,12 +291,8 @@
       return false;
     }
 
-    // Update the local state
-    const orderIndex = orders.findIndex((o) => o.id === orderId);
-    if (orderIndex !== -1) {
-      orders[orderIndex].status = newStatus;
-      orders = [...orders];
-    }
+    /* Objet neuf pour la ligne : la liste ($derived, sans proxy) ne suit pas les mutations. */
+    orders = orders.map((o) => (o.id === orderId ? { ...o, status: newStatus } : o));
 
     return true;
   }
@@ -346,9 +352,9 @@
 </svelte:head>
 
 <ManagePageShell title="Commandes">
-  <svelte:fragment slot="actions">
-    <button class="btn-primary" on:click={openCreateModal}>+ Nouvelle commande</button>
-  </svelte:fragment>
+  {#snippet actions()}
+      <button class="btn-primary" onclick={openCreateModal}>+ Nouvelle commande</button>
+  {/snippet}
 
   {#if error}
       <div class="error-message">{error}</div>
@@ -359,7 +365,7 @@
     {:else if orders.length === 0}
       <div class="empty-state">
         <p>Aucune commande trouvée</p>
-        <button class="btn-primary" on:click={openCreateModal}>
+        <button class="btn-primary" onclick={openCreateModal}>
           Créer la première commande
         </button>
       </div>
@@ -410,7 +416,7 @@
                     class="status-select tone-{statusMeta("order", order.status).tone}"
                     value={order.status || "pending"}
                     disabled={order.status === "confirmed"}
-                    on:change={async (e) => {
+                    onchange={async (e) => {
                       const target = e.target as HTMLSelectElement;
                       const previousStatus = order.status || "pending";
                       const newStatus = target.value;
@@ -425,9 +431,6 @@
                       // If update failed, restore select value
                       if (!success) {
                         target.value = previousStatus;
-                        // Force reactivity by triggering a small delay
-                        await new Promise((resolve) => setTimeout(resolve, 0));
-                        orders = [...orders];
                       }
                     }}
                   >
@@ -441,7 +444,7 @@
                   <div class="actions">
                     <button
                       class="ui-btn ui-btn--secondary ui-btn--sm"
-                      on:click={() => openLanguageModal(order.id)}
+                      onclick={() => openLanguageModal(order.id)}
                       title="Exporter en PDF"
                     >
                       PDF
@@ -449,20 +452,20 @@
                     {#if order.status === "confirmed" || (order.transport && (order.transport.status === "delivered" || order.transport.status === "cancelled"))}
                       <button
                         class="ui-btn ui-btn--secondary ui-btn--sm"
-                        on:click={() => openDetailsModal(order)}
+                        onclick={() => openDetailsModal(order)}
                       >
                         Détails
                       </button>
                     {:else}
                       <button
                         class="ui-btn ui-btn--secondary ui-btn--sm"
-                        on:click={() => openEditModal(order)}
+                        onclick={() => openEditModal(order)}
                       >
                         Modifier
                       </button>
                       <button
                         class="ui-btn ui-btn--danger ui-btn--sm"
-                        on:click={() => deleteOrder(order.id)}
+                        onclick={() => deleteOrder(order.id)}
                       >
                         Supprimer
                       </button>
@@ -478,8 +481,8 @@
 </ManagePageShell>
 
 <!-- Modal de création / édition -->
-<Modal open={formOpen} title={editingOrder ? "Modifier la commande" : "Nouvelle commande"} on:close={closeForm}>
-  <form id="order-form" on:submit|preventDefault={submitForm}>
+<Modal open={formOpen} title={editingOrder ? "Modifier la commande" : "Nouvelle commande"} onclose={closeForm}>
+  <form id="order-form" onsubmit={preventDefault(submitForm)}>
     <div class="form-grid">
       <div class="form-group">
         <label for="date">Date *</label>
@@ -517,7 +520,7 @@
                   <button
                     type="button"
                     class="ui-remove"
-                    on:click={() => removeOrderItem(index)}
+                    onclick={() => removeOrderItem(index)}
                   >
                     ×
                   </button>
@@ -526,20 +529,18 @@
             </div>
           {/if}
           <div class="add-item-form">
-            {#key orderItems.map((i) => i.wine_vintage_id).join("|")}
-              <select
-                bind:value={selectedVintageId}
-                on:change={handleVintageChange}
-              >
-                <option value="">Sélectionner un produit</option>
-                {#each orderableVintages as vintage}
-                  {@const alreadyAdded = isVintageAlreadyAdded(vintage.id)}
-                  <option value={vintage.id} disabled={alreadyAdded}>
-                    {vintageProductLabel(vintage)}
-                  </option>
-                {/each}
-              </select>
-            {/key}
+            <select
+              bind:value={selectedVintageId}
+              onchange={handleVintageChange}
+            >
+              <option value="">Sélectionner un produit</option>
+              {#each orderableVintages as vintage}
+                {@const alreadyAdded = isVintageAlreadyAdded(vintage.id)}
+                <option value={vintage.id} disabled={alreadyAdded}>
+                  {vintageProductLabel(vintage)}
+                </option>
+              {/each}
+            </select>
             <input
               type="number"
               min="1"
@@ -553,7 +554,7 @@
               placeholder="Prix d'achat"
               bind:value={selectedPrice}
             />
-            <button type="button" class="ui-btn ui-btn--secondary ui-btn--sm" on:click={addOrderItem}>
+            <button type="button" class="ui-btn ui-btn--secondary ui-btn--sm" onclick={addOrderItem}>
               Ajouter
             </button>
           </div>
@@ -564,14 +565,14 @@
       </div>
     </div>
   </form>
-  <svelte:fragment slot="footer">
-    <Button variant="ghost" on:click={closeForm}>Annuler</Button>
-    <Button variant="primary" type="submit" form="order-form" disabled={saving}>{editingOrder ? "Enregistrer" : "Créer la commande"}</Button>
-  </svelte:fragment>
+  {#snippet footer()}
+      <Button variant="ghost" onclick={closeForm}>Annuler</Button>
+      <Button variant="primary" type="submit" form="order-form" disabled={saving}>{editingOrder ? "Enregistrer" : "Créer la commande"}</Button>
+  {/snippet}
 </Modal>
 
 <!-- Modal de détails -->
-<Modal open={showDetailsModal} title="Détails de la commande" on:close={closeDetailsModal}>
+<Modal open={showDetailsModal} title="Détails de la commande" onclose={closeDetailsModal}>
   {#if detailsOrder}
     <div class="details-content">
       <div class="details-grid">
@@ -630,14 +631,14 @@
 </Modal>
 
 <!-- Modal de sélection de langue pour PDF -->
-<Modal open={showLanguageModal} title="Choisir la langue pour l'export PDF" on:close={closeLanguageModal}>
+<Modal open={showLanguageModal} title="Choisir la langue pour l'export PDF" onclose={closeLanguageModal}>
   <div class="language-selection">
     <p>Sélectionnez la langue dans laquelle vous souhaitez générer le PDF :</p>
     <div class="language-buttons">
       {#each [["fr", "🇫🇷 Français"], ["en", "🇬🇧 English"], ["it", "🇮🇹 Italiano"]] as [lang, label]}
         <button
           class="btn-language"
-          on:click={async () => {
+          onclick={async () => {
             if (orderIdForPDF) {
               await downloadOrderPDF(orderIdForPDF, lang as OrderPdfLanguage);
               closeLanguageModal();

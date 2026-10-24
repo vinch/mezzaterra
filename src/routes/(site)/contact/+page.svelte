@@ -1,5 +1,6 @@
 <script lang="ts">
-  import { onDestroy, onMount } from "svelte";
+  import { preventDefault } from "$lib/ui/events";
+  import { onDestroy, onMount, untrack } from "svelte";
   import { page } from "$app/stores";
   import { env as publicEnv } from "$env/dynamic/public";
   import { CONTACT_EMAIL, CONTACT_REASONS, contactReason } from "$lib/contact";
@@ -7,27 +8,26 @@
   /* CAPTCHA Cloudflare Turnstile : actif dès que la clé publique est définie. */
   const siteKey = publicEnv.PUBLIC_TURNSTILE_SITE_KEY || "";
 
-  let reason = "";
-  let subject = "";
-  let firstName = "";
-  let lastName = "";
-  let email = "";
-  let phone = "";
-  let message = "";
+  let reason = $state("");
+  let subject = $state("");
+  let firstName = $state("");
+  let lastName = $state("");
+  let email = $state("");
+  let phone = $state("");
+  let message = $state("");
   /** Piège à robots : champ invisible, laissé vide par les humains. */
-  let website = "";
+  let website = $state("");
 
-  let state: "idle" | "sending" | "done" | "unavailable" = "idle";
-  let errorMsg = "";
+  let status = $state<"idle" | "sending" | "done" | "unavailable">("idle");
+  let errorMsg = $state("");
   let startedAt = Date.now();
 
-  let turnstileEl: HTMLDivElement;
+  let turnstileEl = $state<HTMLDivElement>();
   let turnstileId: string | null = null;
   let turnstileToken = "";
 
   /* La raison (et le sujet) viennent de l'URL : /contact?raison=prive&sujet=… */
   let lastQuery = "";
-  $: syncFromUrl($page.url.searchParams);
 
   function syncFromUrl(params: URLSearchParams) {
     const query = params.toString();
@@ -36,15 +36,6 @@
     reason = contactReason(params.get("raison"))?.id ?? "";
     subject = (params.get("sujet") || "").slice(0, 200);
   }
-
-  $: placeholder = contactReason(reason)?.placeholder ?? "Votre message";
-  $: reasonLabel = contactReason(reason)?.label ?? "Contact";
-
-  $: mailtoHref = `mailto:${CONTACT_EMAIL}?subject=${encodeURIComponent(
-    `${reasonLabel}${subject ? ` — ${subject}` : ""}`,
-  )}&body=${encodeURIComponent(
-    `${message}\n\n${[firstName, lastName].filter(Boolean).join(" ")}${phone ? `\n${phone}` : ""}`,
-  )}`;
 
   type Turnstile = {
     render: (el: HTMLElement, opts: Record<string, unknown>) => string;
@@ -117,7 +108,7 @@
       return;
     }
 
-    state = "sending";
+    status = "sending";
     const referrer = document.referrer ? new URL(document.referrer) : null;
     const res = await fetch("/api/contact", {
       method: "POST",
@@ -138,18 +129,31 @@
     }).catch(() => null);
 
     if (res?.ok) {
-      state = "done";
+      status = "done";
       return;
     }
     if (res?.status === 503) {
-      state = "unavailable";
+      status = "unavailable";
       return;
     }
-    state = "idle";
+    status = "idle";
     const body = res ? await res.json().catch(() => null) : null;
     errorMsg = body?.message || "L’envoi a échoué. Merci de réessayer dans un instant.";
     resetTurnstile();
   }
+  /* Lu dès l'initialisation (rendu serveur compris), puis à chaque navigation côté client. */
+  syncFromUrl($page.url.searchParams);
+  $effect.pre(() => {
+    const params = $page.url.searchParams;
+    untrack(() => syncFromUrl(params));
+  });
+  let placeholder = $derived(contactReason(reason)?.placeholder ?? "Votre message");
+  let reasonLabel = $derived(contactReason(reason)?.label ?? "Contact");
+  let mailtoHref = $derived(`mailto:${CONTACT_EMAIL}?subject=${encodeURIComponent(
+    `${reasonLabel}${subject ? ` — ${subject}` : ""}`,
+  )}&body=${encodeURIComponent(
+    `${message}\n\n${[firstName, lastName].filter(Boolean).join(" ")}${phone ? `\n${phone}` : ""}`,
+  )}`);
 </script>
 
 <svelte:head>
@@ -175,13 +179,13 @@
   </section>
 
   <section class="mz-card box mz-rise" style="animation-delay: 80ms" aria-label="Formulaire de contact">
-    {#if state === "done"}
+    {#if status === "done"}
       <div class="done" role="status">
         <h2 class="mz-display mz-h3">Merci {firstName.trim()} !</h2>
         <p>Votre message est bien parti. On vous répond très vite à {email.trim()}.</p>
         <a class="mz-btn mz-btn--ghost" href="/">Retour à l’accueil</a>
       </div>
-    {:else if state === "unavailable"}
+    {:else if status === "unavailable"}
       <div class="done" role="status">
         <h2 class="mz-display mz-h3">Presque !</h2>
         <p>
@@ -191,7 +195,7 @@
         <a class="mz-btn" href={mailtoHref}>Ouvrir ma messagerie</a>
       </div>
     {:else}
-      <form on:submit|preventDefault={submit} class="form" novalidate>
+      <form onsubmit={preventDefault(submit)} class="form" novalidate>
         <div class="mz-field full">
           <label for="contact-reason">Raison de votre message *</label>
           <select id="contact-reason" bind:value={reason} required>
@@ -204,7 +208,7 @@
         {#if subject}
           <p class="full about">
             <span class="about-label">À propos de</span> <span class="mz-chip">{subject}</span>
-            <button type="button" class="clear" on:click={() => (subject = "")} aria-label="Retirer le sujet">×</button>
+            <button type="button" class="clear" onclick={() => (subject = "")} aria-label="Retirer le sujet">×</button>
           </p>
         {/if}
         <div class="mz-field">
@@ -235,8 +239,8 @@
           <div class="full captcha" bind:this={turnstileEl}></div>
         {/if}
         <div class="full actions">
-          <button class="mz-btn" type="submit" disabled={state === "sending"}>
-            {state === "sending" ? "Envoi…" : "Envoyer"}
+          <button class="mz-btn" type="submit" disabled={status === "sending"}>
+            {status === "sending" ? "Envoi…" : "Envoyer"}
           </button>
         </div>
       </form>

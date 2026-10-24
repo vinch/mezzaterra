@@ -1,22 +1,33 @@
 <script lang="ts">
-  import { createEventDispatcher } from "svelte";
   import type { Customer } from "$lib/types";
   import { customerDisplayLabel, sortCustomersByLabel } from "$lib/customerDisplay";
   import Combobox, { type ComboOption } from "$lib/ui/Combobox.svelte";
   import { fold } from "$lib/format";
   import { initials } from "$lib/format";
 
-  export let value = "";
-  export let customers: Customer[] = [];
-  export let placeholder = "Rechercher un client…";
-  export let isCustomerAlreadyAdded: (customerId: string) => boolean = () => false;
-  export let id: string | undefined = undefined;
-  export let invalid = false;
-  export let describedby: string | undefined = undefined;
+  interface Props {
+    onchange?: () => void;
+    value?: string;
+    customers?: Customer[];
+    placeholder?: string;
+    isCustomerAlreadyAdded?: (customerId: string) => boolean;
+    id?: string | undefined;
+    invalid?: boolean;
+    describedby?: string | undefined;
+  }
 
-  const dispatch = createEventDispatcher<{ change: void }>();
+  let {
+    value = $bindable(""),
+    customers = [],
+    placeholder = "Rechercher un client…",
+    isCustomerAlreadyAdded = () => false,
+    id = undefined,
+    invalid = false,
+    describedby = undefined,
+    onchange
+  }: Props = $props();
 
-  $: options = sortCustomersByLabel(customers).map<ComboOption>((c: any) => ({
+  let options = $derived(sortCustomersByLabel(customers).map<ComboOption>((c: any) => ({
     id: c.id,
     label: customerDisplayLabel(c),
     searchText: fold(`${c.first_name} ${c.last_name} ${c.company_name || ""} ${c.email || ""} ${c.city || ""}`),
@@ -24,7 +35,7 @@
     initials: initials(c.first_name, c.last_name),
     name: `${c.first_name} ${c.last_name}`.trim(),
     detail: [c.company_name, c.city].filter(Boolean).join(" · "),
-  }));
+  })));
 </script>
 
 <Combobox
@@ -35,15 +46,15 @@
   {invalid}
   {describedby}
   emptyText="Aucun client trouvé"
-  on:change={() => dispatch("change")}
+  {onchange}
 >
-  <svelte:fragment slot="option" let:option>
-    <span class="avatar" aria-hidden="true">{option.initials}</span>
-    <span class="name">
-      <strong>{option.name}</strong>
-      {#if option.detail}<small>{option.detail}</small>{/if}
-    </span>
-  </svelte:fragment>
+  {#snippet option({ option })}
+      <span class="avatar" aria-hidden="true">{option.initials}</span>
+      <span class="name">
+        <strong>{option.name}</strong>
+        {#if option.detail}<small>{option.detail}</small>{/if}
+      </span>
+  {/snippet}
 </Combobox>
 
 <style>

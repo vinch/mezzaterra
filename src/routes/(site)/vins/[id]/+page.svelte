@@ -19,19 +19,19 @@
   } from "$lib/wine";
   import { formatEUR } from "$lib/format";
 
-  export let data;
+  let { data } = $props();
 
-  $: v = data.vintage;
-  $: wine = v?.wine;
-  $: style = wineStyle(wine?.wine_type);
-  $: title = wine ? wineTitle(wine) : "";
-  $: grapes = grapesText(v?.wine_vintage_grape, true);
-  $: notes = vintageNotes(v?.note);
-  $: pairings = winePairings(wine);
-  $: winery = wine?.winery;
-  $: region = wineryPlace(winery);
-  $: flag = wineryFlag(winery);
-  $: ogDescription = [
+  let v = $derived(data.vintage);
+  let wine = $derived(v?.wine);
+  let style = $derived(wineStyle(wine?.wine_type));
+  let title = $derived(wine ? wineTitle(wine) : "");
+  let grapes = $derived(grapesText(v?.wine_vintage_grape, true));
+  let notes = $derived(vintageNotes(v?.note));
+  let pairings = $derived(winePairings(wine));
+  let winery = $derived(wine?.winery);
+  let region = $derived(wineryPlace(winery));
+  let flag = $derived(wineryFlag(winery));
+  let ogDescription = $derived([
     wineSubtitle(wine),
     winery?.name,
     v?.year,
@@ -40,16 +40,16 @@
   ]
     .filter(Boolean)
     .join(" · ")
-    .slice(0, 280);
+    .slice(0, 280));
 
-  let availability: AvailabilityOf | null = null;
-  let shareFeedback = "";
+  let availability = $state<AvailabilityOf | null>(null);
+  let shareFeedback = $state("");
 
   onMount(async () => {
     availability = await fetchAvailability();
   });
 
-  $: stock = v && availability ? availability(v.id) : null;
+  let stock = $derived(v && availability ? availability(v.id) : null);
 
   async function share() {
     const url = $page.url.href;
@@ -67,8 +67,8 @@
     setTimeout(() => (shareFeedback = ""), 2500);
   }
 
-  $: orderHref = contactHref("commande", [title, v?.year].filter(Boolean).join(" "));
-  $: hasAbout = Boolean(wine?.description || notes.length || pairings.length);
+  let orderHref = $derived(contactHref("commande", [title, v?.year].filter(Boolean).join(" ")));
+  let hasAbout = $derived(Boolean(wine?.description || notes.length || pairings.length));
 </script>
 
 <svelte:head>
@@ -146,7 +146,7 @@
             {#if !stock || stock.in_stock}
               <a class="mz-btn" href={orderHref}>Commander ce vin</a>
             {/if}
-            <button type="button" class="mz-btn mz-btn--ghost" on:click={share}>Partager</button>
+            <button type="button" class="mz-btn mz-btn--ghost" onclick={share}>Partager</button>
             {#if shareFeedback}<span class="share-feedback" role="status">{shareFeedback}</span>{/if}
           </div>
         </div>

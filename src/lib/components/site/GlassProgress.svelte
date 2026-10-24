@@ -1,13 +1,22 @@
 <script lang="ts">
-  /** Verre qui se remplit au fil de la dégustation. */
-  export let value = 0;
-  export let total = 1;
-  export let color = "#7a1f2e";
-  export let size = "3.5rem";
+  interface Props {
+    /** Verre qui se remplit au fil de la dégustation. */
+    value?: number;
+    total?: number;
+    color?: string;
+    size?: string;
+  }
 
-  $: ratio = total > 0 ? Math.min(1, Math.max(0, value / total)) : 0;
+  let {
+    value = 0,
+    total = 1,
+    color = "#7a1f2e",
+    size = "3.5rem"
+  }: Props = $props();
+
+  let ratio = $derived(total > 0 ? Math.min(1, Math.max(0, value / total)) : 0);
   /* Bol du verre : y de 6 (bord) à 46 (fond). */
-  $: level = 46 - ratio * 34;
+  let level = $derived(46 - ratio * 34);
   const gid = "mz-glass";
 </script>
 

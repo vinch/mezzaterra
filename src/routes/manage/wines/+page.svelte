@@ -1,4 +1,6 @@
 <script lang="ts">
+  import { preventDefault } from "$lib/ui/events";
+
   import { supabase } from "$lib/supabase";
   import { onMount } from "svelte";
   import type { Wine, Winery, Appelation, WineType } from "$lib/types";
@@ -35,36 +37,36 @@
   import { fetchStockMap } from "$lib/manageData";
   import { errorMessage } from "$lib/async";
 
-  let wines: Wine[] = [];
-  let wineries: Winery[] = [];
-  let appellations: Appelation[] = [];
-  let wineTypes: WineType[] = [];
-  let loading = true;
-  let error = "";
-  let showModal = false;
-  let editingWine: Wine | null = null;
+  let wines = $state.raw<Wine[]>([]);
+  let wineries = $state<Winery[]>([]);
+  let appellations = $state<Appelation[]>([]);
+  let wineTypes = $state<WineType[]>([]);
+  let loading = $state(true);
+  let error = $state("");
+  let showModal = $state(false);
+  let editingWine = $state<Wine | null>(null);
 
   // Pairings modal state
-  let showPairingsModal = false;
-  let selectedWine: Wine | null = null;
-  let winePairings: any[] = [];
-  let allPairings: any[] = [];
-  let selectedPairingId = "";
+  let showPairingsModal = $state(false);
+  let selectedWine = $state<Wine | null>(null);
+  let winePairings = $state<any[]>([]);
+  let allPairings = $state<any[]>([]);
+  let selectedPairingId = $state("");
 
   // Filter state
-  let filterWineryId = "";
-  let filterAppelationId = "";
-  let filterWineTypeId = "";
-  let searchText = "";
+  let filterWineryId = $state("");
+  let filterAppelationId = $state("");
+  let filterWineTypeId = $state("");
+  let searchText = $state("");
 
   // Form fields
-  let formData = {
+  let formData = $state({
     name: "",
     description: "",
     winery_id: "",
     appelation_id: "",
     wine_type_id: "",
-  };
+  });
 
   onMount(async () => {
     void Promise.all([loadWineries(), loadAppellations(), loadWineTypes(), loadAllPairings()]);
@@ -298,47 +300,6 @@
     selectedPairingId = "";
   }
 
-  $: linkedPairingIds = new Set(winePairings.map((wp) => wp.pairing_id));
-
-  // Filter wines based on selected filters
-  $: filteredWines = wines.filter((wine) => {
-    // Filter by winery
-    if (filterWineryId && wine.winery_id !== filterWineryId) {
-      return false;
-    }
-
-    // Filter by appellation
-    if (filterAppelationId && wine.appelation_id !== filterAppelationId) {
-      return false;
-    }
-
-    // Filter by wine type
-    if (filterWineTypeId && wine.wine_type_id !== filterWineTypeId) {
-      return false;
-    }
-
-    // Filter by search text (vignoble, nom, appellation)
-    if (searchText) {
-      const searchLower = searchText.toLowerCase();
-      const wineryName = wine.winery?.name?.toLowerCase() || "";
-      const wineName = wine.name?.toLowerCase() || "";
-      const appelationName = wine.appelation?.name?.toLowerCase() || "";
-      const appelationLabel = wine.appelation?.label?.name?.toLowerCase() || "";
-
-      const matchesSearch =
-        wineryName.includes(searchLower) ||
-        wineName.includes(searchLower) ||
-        appelationName.includes(searchLower) ||
-        appelationLabel.includes(searchLower);
-
-      if (!matchesSearch) {
-        return false;
-      }
-    }
-
-    return true;
-  });
-
   function clearFilters() {
     filterWineryId = "";
     filterAppelationId = "";
@@ -348,8 +309,8 @@
 
   /* ——— Interface (refonte) ——— */
   /** null : stock illisible, affiché « — » plutôt qu'en fausse rupture (cause dans stockError). */
-  let stock: Map<string, number> | null = new Map();
-  let stockError = "";
+  let stock = $state<Map<string, number> | null>(new Map());
+  let stockError = $state("");
   async function loadStock() {
     try {
       stock = await fetchStockMap();
@@ -359,21 +320,14 @@
     }
   }
 
-  let robeFilter: WineStyleKey | "" = "";
-  let inStockOnly = false;
+  let robeFilter = $state<WineStyleKey | "">("");
+  let inStockOnly = $state(false);
   const ROBES: WineStyleKey[] = ["red", "white", "rose"];
 
   /** Millésimes du plus ancien au plus récent (triés au chargement). */
   function vintagesOf(wine: any): any[] {
     return wine.wine_vintage || [];
   }
-  /* Bouteilles en stock et badge par vin, recalculés quand les vins ou le stock arrivent. */
-  $: stockById = new Map(
-    wines.map((w: any) => {
-      const total = vintagesOf(w).reduce((n, v) => n + Math.max(0, stock?.get(v.id) ?? 0), 0);
-      return [w.id, { total, badge: stockBadge(w, total, !!stock) }];
-    }),
-  );
   /** Dernier millésime qu'on peut encore recommander au fournisseur. */
   function latestVintage(wine: any): any | null {
     const list = vintagesOf(wine).filter((v) => !isDiscontinued(v));
@@ -404,25 +358,13 @@
     return wine.name?.trim() || wine.appelation?.name || "Vin sans nom";
   }
 
-  /* Vins retirés en fin de liste : visibles, mais hors du chemin. */
-  $: shownWines = filteredWines
-    .filter((w: any) => !robeFilter || wineRobe(w.wine_type).key === robeFilter)
-    .filter((w: any) => !inStockOnly || !stock || (stockById.get(w.id)?.total ?? 0) > 0)
-    .sort((a: any, b: any) => Number(isRetired(a)) - Number(isRetired(b)));
-  $: vintageCount = wines.reduce((n, w: any) => n + (w.wine_vintage?.length ?? 0), 0);
-  $: bottleCount = stock ? [...stock.values()].reduce((n, q) => n + Math.max(0, q), 0) : null;
-  $: subtitle = `${wines.length} vin${wines.length > 1 ? "s" : ""} · ${vintageCount} millésime${vintageCount > 1 ? "s" : ""} · ${
-    bottleCount == null ? "stock indisponible" : `${bottleCount} bouteille${bottleCount > 1 ? "s" : ""} en stock`
-  }`;
-  $: filtersActive = !!(searchText || filterWineryId || filterAppelationId || filterWineTypeId || robeFilter || inStockOnly);
-
   function resetAll() {
     clearFilters();
     robeFilter = "";
     inStockOnly = false;
   }
 
-  let notice = "";
+  let notice = $state("");
   async function reorder(wine: any) {
     const v = latestVintage(wine);
     if (!v) return;
@@ -472,8 +414,8 @@
     void goto(`/manage/wines/${wine.id}`);
   }
 
-  let deleteTarget: any = null;
-  let confirmOpen = false;
+  let deleteTarget = $state<any>(null);
+  let confirmOpen = $state(false);
   function askDelete(wine: any) {
     deleteTarget = wine;
     confirmOpen = true;
@@ -483,6 +425,63 @@
     await deleteWine(deleteTarget.id);
     confirmOpen = false;
   }
+  let linkedPairingIds = $derived(new Set(winePairings.map((wp) => wp.pairing_id)));
+  // Filter wines based on selected filters
+  let filteredWines = $derived(wines.filter((wine) => {
+    // Filter by winery
+    if (filterWineryId && wine.winery_id !== filterWineryId) {
+      return false;
+    }
+
+    // Filter by appellation
+    if (filterAppelationId && wine.appelation_id !== filterAppelationId) {
+      return false;
+    }
+
+    // Filter by wine type
+    if (filterWineTypeId && wine.wine_type_id !== filterWineTypeId) {
+      return false;
+    }
+
+    // Filter by search text (vignoble, nom, appellation)
+    if (searchText) {
+      const searchLower = searchText.toLowerCase();
+      const wineryName = wine.winery?.name?.toLowerCase() || "";
+      const wineName = wine.name?.toLowerCase() || "";
+      const appelationName = wine.appelation?.name?.toLowerCase() || "";
+      const appelationLabel = wine.appelation?.label?.name?.toLowerCase() || "";
+
+      const matchesSearch =
+        wineryName.includes(searchLower) ||
+        wineName.includes(searchLower) ||
+        appelationName.includes(searchLower) ||
+        appelationLabel.includes(searchLower);
+
+      if (!matchesSearch) {
+        return false;
+      }
+    }
+
+    return true;
+  }));
+  /* Bouteilles en stock et badge par vin, recalculés quand les vins ou le stock arrivent. */
+  let stockById = $derived(new Map(
+    wines.map((w: any) => {
+      const total = vintagesOf(w).reduce((n, v) => n + Math.max(0, stock?.get(v.id) ?? 0), 0);
+      return [w.id, { total, badge: stockBadge(w, total, !!stock) }];
+    }),
+  ));
+  /* Vins retirés en fin de liste : visibles, mais hors du chemin. */
+  let shownWines = $derived(filteredWines
+    .filter((w: any) => !robeFilter || wineRobe(w.wine_type).key === robeFilter)
+    .filter((w: any) => !inStockOnly || !stock || (stockById.get(w.id)?.total ?? 0) > 0)
+    .sort((a: any, b: any) => Number(isRetired(a)) - Number(isRetired(b))));
+  let vintageCount = $derived(wines.reduce((n, w: any) => n + (w.wine_vintage?.length ?? 0), 0));
+  let bottleCount = $derived(stock ? [...stock.values()].reduce((n, q) => n + Math.max(0, q), 0) : null);
+  let subtitle = $derived(`${wines.length} vin${wines.length > 1 ? "s" : ""} · ${vintageCount} millésime${vintageCount > 1 ? "s" : ""} · ${
+    bottleCount == null ? "stock indisponible" : `${bottleCount} bouteille${bottleCount > 1 ? "s" : ""} en stock`
+  }`);
+  let filtersActive = $derived(!!(searchText || filterWineryId || filterAppelationId || filterWineTypeId || robeFilter || inStockOnly));
 </script>
 
 <svelte:head>
@@ -490,9 +489,9 @@
 </svelte:head>
 
 <ManagePageShell title="Vins" subtitle={loading ? "" : subtitle}>
-  <svelte:fragment slot="actions">
-    <Button variant="primary" on:click={openCreateModal}><IconPlus size={18} strokeWidth={1.75} /> Nouveau vin</Button>
-  </svelte:fragment>
+  {#snippet actions()}
+      <Button variant="primary" onclick={openCreateModal}><IconPlus size={18} strokeWidth={1.75} /> Nouveau vin</Button>
+  {/snippet}
 
   {#if error}
     <div class="error-message" role="alert">{error}</div>
@@ -509,7 +508,7 @@
   {:else if wines.length === 0}
     <div class="empty-card">
       <EmptyState icon={IconWine} title="Aucun vin au catalogue" text="Ajoutez un premier vin, puis ses millésimes.">
-        <Button on:click={openCreateModal}>Créer le premier vin</Button>
+        <Button onclick={openCreateModal}>Créer le premier vin</Button>
       </EmptyState>
     </div>
   {:else}
@@ -520,9 +519,9 @@
         <input class="ui-control" type="search" placeholder="Rechercher un vin, un domaine…" bind:value={searchText} />
       </label>
       <div class="chips" role="group" aria-label="Filtrer par robe">
-        <button type="button" class="ui-chip" aria-pressed={!robeFilter} on:click={() => (robeFilter = "")}>Toutes</button>
+        <button type="button" class="ui-chip" aria-pressed={!robeFilter} onclick={() => (robeFilter = "")}>Toutes</button>
         {#each ROBES as r}
-          <button type="button" class="ui-chip" aria-pressed={robeFilter === r} on:click={() => (robeFilter = robeFilter === r ? "" : r)}>
+          <button type="button" class="ui-chip" aria-pressed={robeFilter === r} onclick={() => (robeFilter = robeFilter === r ? "" : r)}>
             <WineDot robe={r} />{styleByKey(r).label}
           </button>
         {/each}
@@ -544,14 +543,14 @@
         En stock seulement
       </label>
       {#if filtersActive}
-        <Button variant="ghost" size="sm" on:click={resetAll}><IconX size={14} strokeWidth={1.75} /> Réinitialiser</Button>
+        <Button variant="ghost" size="sm" onclick={resetAll}><IconX size={14} strokeWidth={1.75} /> Réinitialiser</Button>
       {/if}
     </div>
 
     {#if shownWines.length === 0}
       <div class="empty-card">
         <EmptyState icon={IconSearch} title="Aucun vin ne correspond" text="Modifiez la recherche ou les filtres." compact>
-          <Button on:click={resetAll}>Réinitialiser les filtres</Button>
+          <Button onclick={resetAll}>Réinitialiser les filtres</Button>
         </EmptyState>
       </div>
     {:else}
@@ -572,7 +571,7 @@
               {@const { total, badge } = stockById.get(wine.id) ?? { total: 0, badge: null }}
               {@const robe = wineRobe(wine.wine_type).key}
               {@const retired = isRetired(wine)}
-              <tr class="is-clickable" class:retired on:click={(e) => openRow(wine, e)}>
+              <tr class="is-clickable" class:retired onclick={(e) => openRow(wine, e)}>
                 <td>
                   <span class="wine-cell">
                     <WineDot {robe} />
@@ -644,11 +643,11 @@
   message={deleteTarget
     ? `« ${wineTitle(deleteTarget)} » (${deleteTarget.winery?.name ?? ""}) sera supprimé du catalogue, ainsi que ses ${deleteTarget.wine_vintage?.length ?? 0} millésime(s) si la base l’autorise. Les ventes passées ne sont pas modifiées.`
     : ""}
-  on:confirm={confirmDelete}
+  onconfirm={confirmDelete}
 />
 
-<Modal open={showModal} title={editingWine ? "Modifier le vin" : "Nouveau vin"} on:close={closeModal}>
-  <form id="wine-form" class="wine-form" on:submit|preventDefault={handleSubmit}>
+<Modal open={showModal} title={editingWine ? "Modifier le vin" : "Nouveau vin"} onclose={closeModal}>
+  <form id="wine-form" class="wine-form" onsubmit={preventDefault(handleSubmit)}>
     <Field id="wine-name" label="Nom du vin" help="Laisser vide pour utiliser le nom de l’appellation.">
       <input id="wine-name" class="ui-control" type="text" bind:value={formData.name} />
     </Field>
@@ -682,13 +681,13 @@
       <textarea id="wine-description" class="ui-control" rows="3" bind:value={formData.description}></textarea>
     </Field>
   </form>
-  <svelte:fragment slot="footer">
-    <Button variant="ghost" on:click={closeModal}>Annuler</Button>
-    <Button variant="primary" on:click={handleSubmit}>{editingWine ? "Enregistrer" : "Créer le vin"}</Button>
-  </svelte:fragment>
+  {#snippet footer()}
+      <Button variant="ghost" onclick={closeModal}>Annuler</Button>
+      <Button variant="primary" onclick={handleSubmit}>{editingWine ? "Enregistrer" : "Créer le vin"}</Button>
+  {/snippet}
 </Modal>
 
-<Modal open={showPairingsModal} title="Accords mets & vins" maxWidth={520} on:close={closePairingsModal}>
+<Modal open={showPairingsModal} title="Accords mets & vins" maxWidth={520} onclose={closePairingsModal}>
   {#if selectedWine}<p class="t-muted pairing-intro">{wineTitle(selectedWine)} · {selectedWine.winery?.name ?? ""}</p>{/if}
   {#if winePairings.length === 0}
     <EmptyState icon={IconPlate} title="Aucun accord pour ce vin" compact />
@@ -697,7 +696,7 @@
       {#each winePairings as wp}
         <li>
           <span>{wp.pairing.description}</span>
-          <IconButton label="Retirer {wp.pairing.description}" on:click={() => removePairing(wp.pairing_id)}>
+          <IconButton label="Retirer {wp.pairing.description}" onclick={() => removePairing(wp.pairing_id)}>
             <IconX size={16} strokeWidth={1.75} />
           </IconButton>
         </li>
@@ -713,11 +712,11 @@
         </option>
       {/each}
     </select>
-    <Button on:click={addPairing} disabled={!selectedPairingId}><IconPlus size={16} strokeWidth={1.75} /> Ajouter</Button>
+    <Button onclick={addPairing} disabled={!selectedPairingId}><IconPlus size={16} strokeWidth={1.75} /> Ajouter</Button>
   </div>
-  <svelte:fragment slot="footer">
-    <Button variant="primary" on:click={closePairingsModal}>Terminé</Button>
-  </svelte:fragment>
+  {#snippet footer()}
+      <Button variant="primary" onclick={closePairingsModal}>Terminé</Button>
+  {/snippet}
 </Modal>
 
 <style>

@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { createEventDispatcher } from "svelte";
+  import { self } from "$lib/ui/events";
   import { fade, fly } from "svelte/transition";
   import type { WineVintage } from "$lib/types";
   import WineBottle from "$lib/components/site/WineBottle.svelte";
@@ -14,22 +14,27 @@
   } from "$lib/wine";
   import { formatEUR } from "$lib/format";
 
-  export let wineVintage: WineVintage | null = null;
+  interface Props {
+    onclose?: () => void;
+    wineVintage?: WineVintage | null;
+  }
 
-  const dispatch = createEventDispatcher();
+  let { wineVintage = null,
+    onclose
+  }: Props = $props();
 
-  $: v = wineVintage as any;
-  $: wine = v?.wine;
-  $: style = wineStyle(wine?.wine_type);
-  $: region = wine?.winery?.region?.name || wine?.winery?.country?.name || "";
-  $: flag = wineryFlag(wine?.winery);
-  $: grapes = grapesText(v?.wine_vintage_grape, true);
-  $: notes = vintageNotes(v?.note);
+  let v = $derived(wineVintage as any);
+  let wine = $derived(v?.wine);
+  let style = $derived(wineStyle(wine?.wine_type));
+  let region = $derived(wine?.winery?.region?.name || wine?.winery?.country?.name || "");
+  let flag = $derived(wineryFlag(wine?.winery));
+  let grapes = $derived(grapesText(v?.wine_vintage_grape, true));
+  let notes = $derived(vintageNotes(v?.note));
   /* Les millésimes du site sont chargés avec VINTAGE_PUBLIC_SELECT, accords compris. */
-  $: pairings = winePairings(wine);
+  let pairings = $derived(winePairings(wine));
 
   function closeModal() {
-    dispatch("close");
+    onclose?.();
   }
 
   function handleKeydown(event: KeyboardEvent) {
@@ -37,13 +42,13 @@
   }
 </script>
 
-<svelte:window on:keydown={handleKeydown} />
+<svelte:window onkeydown={handleKeydown} />
 
 {#if v && wine}
   <div
     class="backdrop"
     transition:fade={{ duration: 180 }}
-    on:click|self={closeModal}
+    onclick={self(() => closeModal())}
     role="presentation"
   >
     <div
@@ -54,7 +59,7 @@
       aria-labelledby="wine-modal-title"
       transition:fly={{ y: 24, duration: 260 }}
     >
-      <button class="close" on:click={closeModal} aria-label="Fermer">×</button>
+      <button class="close" onclick={closeModal} aria-label="Fermer">×</button>
 
       <header class="hero">
         <div class="hero-bottle">

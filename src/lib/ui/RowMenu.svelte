@@ -7,11 +7,15 @@
    * Menu « … » d'une ligne. Ne passer que les actions permises par l'état ;
    * « Supprimer… » en dernier, avec `separator: true, danger: true` (il ouvre un ConfirmDialog).
    */
-  export let items: MenuItem[] = [];
-  export let label = "Actions";
+  interface Props {
+    items?: MenuItem[];
+    label?: string;
+  }
 
-  let open = false;
-  let anchor: HTMLElement | null = null;
+  let { items = [], label = "Actions" }: Props = $props();
+
+  let open = $state(false);
+  let anchor = $state<HTMLElement | null>(null);
   const id = `rowmenu-${Math.random().toString(36).slice(2, 9)}`;
 </script>
 
@@ -21,7 +25,7 @@
   haspopup="menu"
   expanded={open}
   controls={open ? id : undefined}
-  on:click={(e) => {
+  onclick={(e) => {
     e.stopPropagation();
     open = !open;
   }}

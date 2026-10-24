@@ -6,15 +6,15 @@
   import { fetchRegions } from "$lib/manageData";
   import type { Label, Region } from "$lib/types";
 
-  let regions: Region[] = [];
-  let labels: Label[] = [];
+  let regions = $state<Region[]>([]);
+  let labels = $state<Label[]>([]);
   onMount(async () => {
     const [r, { data }] = await Promise.all([fetchRegions(), supabase.from("label").select("*").order("name")]);
     regions = r;
     labels = data || [];
   });
 
-  $: labelOptions = labels.map((l) => ({ value: l.id, label: l.name }));
+  let labelOptions = $derived(labels.map((l) => ({ value: l.id, label: l.name })));
 </script>
 
 <svelte:head>

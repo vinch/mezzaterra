@@ -2,13 +2,13 @@
   import { page } from "$app/stores";
   import { supabase } from "$lib/supabase";
 
-  let state: "idle" | "busy" | "done" | "error" = "idle";
-  $: id = $page.url.searchParams.get("id") || "";
+  let status = $state<"idle" | "busy" | "done" | "error">("idle");
+  let id = $derived($page.url.searchParams.get("id") || "");
 
   async function unsubscribe() {
-    state = "busy";
+    status = "busy";
     const { error } = await supabase.rpc("unsubscribe_email", { p_id: id });
-    state = error ? "error" : "done";
+    status = error ? "error" : "done";
   }
 </script>
 
@@ -22,15 +22,15 @@
     <h1 class="mz-display mz-h2">Désinscription</h1>
     {#if !id}
       <p class="mz-muted">Ce lien de désinscription est incomplet. Répondez simplement à l’un de nos emails et nous vous retirerons de la liste.</p>
-    {:else if state === "done"}
+    {:else if status === "done"}
       <p>C’est fait : vous ne recevrez plus nos invitations. À bientôt peut-être autour d’un verre !</p>
       <a class="mz-btn mz-btn--ghost" href="/">Retour à l’accueil</a>
-    {:else if state === "error"}
+    {:else if status === "error"}
       <p class="mz-feedback mz-feedback--error">Impossible de traiter la demande pour le moment. Répondez à l’un de nos emails et nous nous en chargeons.</p>
     {:else}
       <p>Vous ne souhaitez plus recevoir les invitations aux dégustations Mezzaterra ?</p>
-      <button class="mz-btn" type="button" disabled={state === "busy"} on:click={unsubscribe}>
-        {state === "busy" ? "…" : "Me désinscrire"}
+      <button class="mz-btn" type="button" disabled={status === "busy"} onclick={unsubscribe}>
+        {status === "busy" ? "…" : "Me désinscrire"}
       </button>
     {/if}
   </div>

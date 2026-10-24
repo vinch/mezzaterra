@@ -4,14 +4,24 @@
    * Colonnes ≤ 24px, bout arrondi 4px côté donnée, carré à la base ; grille hairline ;
    * infobulle au survol sur toute la bande ; vue tableau pour l'accessibilité.
    */
-  export let data: { key: string; label: string; value: number }[] = [];
-  export let format: (n: number) => string = (n) => String(Math.round(n));
-  /** Description complète pour les lecteurs d'écran. */
-  export let ariaLabel = "";
-  /** Clé en cours (ex. mois courant, non terminé) : affichée plus claire. */
-  export let highlightKey: string | null = null;
-  /** Format des graduations de l'axe. */
-  export let tickFormat: ((n: number) => string) | null = null;
+  interface Props {
+    data?: { key: string; label: string; value: number }[];
+    format?: (n: number) => string;
+    /** Description complète pour les lecteurs d'écran. */
+    ariaLabel?: string;
+    /** Clé en cours (ex. mois courant, non terminé) : affichée plus claire. */
+    highlightKey?: string | null;
+    /** Format des graduations de l'axe. */
+    tickFormat?: ((n: number) => string) | null;
+  }
+
+  let {
+    data = [],
+    format = (n) => String(Math.round(n)),
+    ariaLabel = "",
+    highlightKey = null,
+    tickFormat = null
+  }: Props = $props();
 
   const H = 180;
   const PAD_TOP = 18;
@@ -19,8 +29,8 @@
   const PAD_LEFT = 56;
   const BAR_MAX = 24;
 
-  let width = 600;
-  let hover: number | null = null;
+  let width = $state(600);
+  let hover = $state<number | null>(null);
 
   function niceMax(v: number): number {
     if (v <= 0) return 1;
@@ -34,14 +44,14 @@
     return String(Math.round(n));
   }
 
-  $: max = niceMax(Math.max(0, ...data.map((d) => d.value)));
-  $: ticks = [0, max / 2, max];
-  $: plotW = Math.max(0, width - PAD_LEFT - 8);
-  $: band = data.length ? plotW / data.length : 0;
-  $: barW = Math.min(BAR_MAX, band * 0.6);
-  $: y = (v: number) => PAD_TOP + (H - PAD_TOP - PAD_BOTTOM) * (1 - v / max);
-  $: base = H - PAD_BOTTOM;
-  $: peak = data.reduce((m, d, i) => (d.value > (data[m]?.value ?? -1) ? i : m), 0);
+  let max = $derived(niceMax(Math.max(0, ...data.map((d) => d.value))));
+  let ticks = $derived([0, max / 2, max]);
+  let plotW = $derived(Math.max(0, width - PAD_LEFT - 8));
+  let band = $derived(data.length ? plotW / data.length : 0);
+  let barW = $derived(Math.min(BAR_MAX, band * 0.6));
+  let y = $derived((v: number) => PAD_TOP + (H - PAD_TOP - PAD_BOTTOM) * (1 - v / max));
+  let base = $derived(H - PAD_BOTTOM);
+  let peak = $derived(data.reduce((m, d, i) => (d.value > (data[m]?.value ?? -1) ? i : m), 0));
 
   function columnPath(x: number, top: number, w: number): string {
     const h = base - top;
@@ -64,8 +74,8 @@
       <g
         class="col"
         class:dim={hover != null && hover !== i}
-        on:mouseenter={() => (hover = i)}
-        on:mouseleave={() => (hover = null)}
+        onmouseenter={() => (hover = i)}
+        onmouseleave={() => (hover = null)}
         role="presentation"
       >
         <rect x={PAD_LEFT + band * i} y={PAD_TOP} width={band} height={base - PAD_TOP} fill="transparent" />

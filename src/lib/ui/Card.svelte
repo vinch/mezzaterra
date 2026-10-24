@@ -1,22 +1,36 @@
 <script lang="ts">
-  /** Carte : fond --card, bordure 1 px, sans ombre. Titre en Fraunces 19/26, actions à droite. */
-  export let title = "";
-  export let subtitle = "";
-  export let padded = true;
-  export let id: string | undefined = undefined;
+  import type { Snippet } from "svelte";
+  interface Props {
+    /** Carte : fond --card, bordure 1 px, sans ombre. Titre en Fraunces 19/26, actions à droite. */
+    title?: string;
+    subtitle?: string;
+    padded?: boolean;
+    id?: string | undefined;
+    actions?: Snippet;
+    children?: Snippet;
+  }
+
+  let {
+    title = "",
+    subtitle = "",
+    padded = true,
+    id = undefined,
+    actions,
+    children
+  }: Props = $props();
 </script>
 
 <section class="card" class:padded {id} aria-labelledby={title && id ? `${id}-title` : undefined}>
-  {#if title || $$slots.actions}
+  {#if title || actions}
     <header class="card-head">
       <div>
         {#if title}<h2 class="t-card-title" id={id ? `${id}-title` : undefined}>{title}</h2>{/if}
         {#if subtitle}<p class="t-caption sub">{subtitle}</p>{/if}
       </div>
-      {#if $$slots.actions}<div class="card-actions"><slot name="actions" /></div>{/if}
+      {#if actions}<div class="card-actions">{@render actions?.()}</div>{/if}
     </header>
   {/if}
-  <slot />
+  {@render children?.()}
 </section>
 
 <style>

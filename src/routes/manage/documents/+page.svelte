@@ -14,25 +14,23 @@
   import { todayIso } from "$lib/dates";
   import { wineTypeLabel } from "$lib/wine";
 
-  let rows: StockDocVintage[] = [];
-  let loading = true;
-  let error = "";
-  let wineries: Winery[] = [];
-  let wineTypes: WineType[] = [];
+  let rows = $state.raw<StockDocVintage[]>([]);
+  let loading = $state(true);
+  let error = $state("");
+  let wineries = $state<Winery[]>([]);
+  let wineTypes = $state<WineType[]>([]);
 
-  let filterWineryId = "";
-  let filterWineTypeId = "";
-  let searchText = "";
+  let filterWineryId = $state("");
+  let filterWineTypeId = $state("");
+  let searchText = $state("");
 
-  let selectedVintageIds: string[] = [];
-  let docError = "";
-  /** Case « tout » dans l’en-tête du tableau (état indeterminé géré en JS). */
-  let headerSelectAllEl: HTMLInputElement | null = null;
+  let selectedVintageIds = $state<string[]>([]);
+  let docError = $state("");
 
-  let showNotesModal = false;
-  let notesModalRows: StockDocVintage[] = [];
-  let notesTastingDate = "";
-  let notesPdfGenerating = false;
+  let showNotesModal = $state(false);
+  let notesModalRows = $state<StockDocVintage[]>([]);
+  let notesTastingDate = $state("");
+  let notesPdfGenerating = $state(false);
 
   onMount(async () => {
     await Promise.all([loadStockRows(), loadWineries(), loadWineTypes()]);
@@ -64,7 +62,7 @@
     loading = false;
   }
 
-  $: filteredRows = rows.filter((r) => {
+  let filteredRows = $derived(rows.filter((r) => {
     if (filterWineTypeId && r.wine_type_id !== filterWineTypeId) {
       return false;
     }
@@ -77,21 +75,16 @@
       if (!blob.includes(q)) return false;
     }
     return true;
-  });
+  }));
 
-  $: sortedVisible = sortedStockForDocuments(filteredRows);
+  let sortedVisible = $derived(sortedStockForDocuments(filteredRows));
 
-  $: allVisibleSelected =
-    sortedVisible.length > 0 &&
-    sortedVisible.every((r) => selectedVintageIds.includes(r.id));
-  $: someVisibleSelected = sortedVisible.some((r) =>
+  let allVisibleSelected =
+    $derived(sortedVisible.length > 0 &&
+    sortedVisible.every((r) => selectedVintageIds.includes(r.id)));
+  let someVisibleSelected = $derived(sortedVisible.some((r) =>
     selectedVintageIds.includes(r.id),
-  );
-
-  $: if (headerSelectAllEl) {
-    headerSelectAllEl.indeterminate =
-      someVisibleSelected && !allVisibleSelected;
-  }
+  ));
 
   function clearFilters() {
     filterWineryId = "";
@@ -182,11 +175,11 @@
 </svelte:head>
 
 <ManagePageShell title="Documents">
-  <svelte:fragment slot="actions">
-    <button type="button" class="btn-secondary" on:click={loadStockRows} disabled={loading}>
-      Actualiser
-    </button>
-  </svelte:fragment>
+  {#snippet actions()}
+      <button type="button" class="btn-secondary" onclick={loadStockRows} disabled={loading}>
+        Actualiser
+      </button>
+  {/snippet}
 
     {#if error}
       <div class="error-message">{error}</div>
@@ -205,10 +198,10 @@
       <div class="filters-container doc-top-panel">
         <h2 class="panel-title">Génération PDF</h2>
         <div class="actions-bar">
-          <button type="button" class="btn-primary" on:click={handlePricesPdf}>
+          <button type="button" class="btn-primary" onclick={handlePricesPdf}>
             Télécharger la liste de prix (PDF)
           </button>
-          <button type="button" class="btn-primary" on:click={openNotesModal}>
+          <button type="button" class="btn-primary" onclick={openNotesModal}>
             Préparer les notes de dégustation (PDF)
           </button>
         </div>
@@ -247,7 +240,7 @@
             </select>
           </div>
           <div class="filter-group filter-actions">
-            <button type="button" class="btn-secondary" on:click={clearFilters}>Réinitialiser</button>
+            <button type="button" class="btn-secondary" onclick={clearFilters}>Réinitialiser</button>
           </div>
         </div>
       </div>
@@ -258,12 +251,12 @@
             <tr>
               <th class="col-check" scope="col">
                 <input
-                  bind:this={headerSelectAllEl}
+                  indeterminate={someVisibleSelected && !allVisibleSelected}
                   id="doc-select-all-visible"
                   type="checkbox"
                   checked={allVisibleSelected}
                   disabled={sortedVisible.length === 0}
-                  on:change={onHeaderSelectAllChange}
+                  onchange={onHeaderSelectAllChange}
                   aria-label="Tout sélectionner ou tout désélectionner dans la liste affichée"
                 />
               </th>
@@ -306,7 +299,7 @@
     {/if}
 </ManagePageShell>
 
-<Modal open={showNotesModal} title="Notes de dégustation" maxWidth={820} on:close={closeNotesModal}>
+<Modal open={showNotesModal} title="Notes de dégustation" maxWidth={820} onclose={closeNotesModal}>
   <div class="notes-modal-body">
     <p class="notes-modal-hint">
       Choisissez la date de la dégustation et l’ordre de passage des vins (du premier au
@@ -340,7 +333,7 @@
               class="btn-icon"
               title="Monter"
               disabled={i === 0}
-              on:click={() => moveNoteWine(i, -1)}
+              onclick={() => moveNoteWine(i, -1)}
               aria-label="Monter {row.wineName}"
             >
               ↑
@@ -350,7 +343,7 @@
               class="btn-icon"
               title="Descendre"
               disabled={i === notesModalRows.length - 1}
-              on:click={() => moveNoteWine(i, 1)}
+              onclick={() => moveNoteWine(i, 1)}
               aria-label="Descendre {row.wineName}"
             >
               ↓
@@ -361,12 +354,12 @@
     </ol>
   </div>
 
-  <svelte:fragment slot="footer">
-    <Button variant="ghost" on:click={closeNotesModal} disabled={notesPdfGenerating}>Annuler</Button>
-    <Button variant="primary" on:click={confirmNotesPdf} disabled={notesPdfGenerating || notesModalRows.length === 0}>
-      {notesPdfGenerating ? "Génération…" : "Télécharger le PDF"}
-    </Button>
-  </svelte:fragment>
+  {#snippet footer()}
+      <Button variant="ghost" onclick={closeNotesModal} disabled={notesPdfGenerating}>Annuler</Button>
+      <Button variant="primary" onclick={confirmNotesPdf} disabled={notesPdfGenerating || notesModalRows.length === 0}>
+        {notesPdfGenerating ? "Génération…" : "Télécharger le PDF"}
+      </Button>
+  {/snippet}
 </Modal>
 
 <style>

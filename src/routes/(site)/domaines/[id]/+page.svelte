@@ -16,33 +16,33 @@
     wineryPlace,
   } from "$lib/wine";
 
-  export let data;
+  let { data } = $props();
 
-  let availability: AvailabilityOf | null = null;
+  let availability = $state<AvailabilityOf | null>(null);
 
   onMount(async () => {
     availability = await fetchAvailability();
   });
 
-  $: winery = data.winery;
-  $: place = wineryPlace(winery);
-  $: flag = wineryFlag(winery);
-  $: mapUrl = wineryMapUrl(winery);
+  let winery = $derived(data.winery);
+  let place = $derived(wineryPlace(winery));
+  let flag = $derived(wineryFlag(winery));
+  let mapUrl = $derived(wineryMapUrl(winery));
 
-  $: vintages = [...data.vintages].sort((a, b) => {
+  let vintages = $derived([...data.vintages].sort((a, b) => {
     const sa = STYLE_ORDER.indexOf(wineStyle(a.wine?.wine_type).key);
     const sb = STYLE_ORDER.indexOf(wineStyle(b.wine?.wine_type).key);
     if (sa !== sb) return sa - sb;
     const byTitle = wineTitle(a.wine).localeCompare(wineTitle(b.wine), "fr");
     if (byTitle) return byTitle;
     return (b.year ?? 0) - (a.year ?? 0);
-  });
+  }));
 
-  $: cuveeCount = new Set(vintages.map((v) => v.wine_id)).size;
-  $: styles = allWineStyles().filter((s) => vintages.some((v) => wineStyle(v.wine?.wine_type).key === s.key));
-  $: grapes = [
+  let cuveeCount = $derived(new Set(vintages.map((v) => v.wine_id)).size);
+  let styles = $derived(allWineStyles().filter((s) => vintages.some((v) => wineStyle(v.wine?.wine_type).key === s.key)));
+  let grapes = $derived([
     ...new Set(vintages.flatMap((v) => (v.wine_vintage_grape || []).map((g: any) => g.grape?.name).filter(Boolean))),
-  ].sort((a, b) => a.localeCompare(b, "fr"));
+  ].sort((a, b) => a.localeCompare(b, "fr")));
 
   /* La carte des Abruzzes ne couvre qu'un cadre ; au-delà, on se rabat sur OpenStreetMap. */
   function onMainMap(w: { latitude: number | null; longitude: number | null }): boolean {
@@ -51,15 +51,15 @@
     return x >= 0 && x <= MAIN.width && y >= 0 && y <= MAIN.height;
   }
 
-  $: pins = [winery, ...data.others].filter(onMainMap);
-  $: mapEmbed = onMainMap(winery) ? null : wineryMapEmbedUrl(winery);
+  let pins = $derived([winery, ...data.others].filter(onMainMap));
+  let mapEmbed = $derived(onMainMap(winery) ? null : wineryMapEmbedUrl(winery));
 
-  $: ogDescription = (
+  let ogDescription = $derived((
     winery.description?.trim() ||
     [place, cuveeCount ? `${cuveeCount} cuvée${cuveeCount > 1 ? "s" : ""} chez Mezzaterra` : "", grapes.join(", ")]
       .filter(Boolean)
       .join(" · ")
-  ).slice(0, 280);
+  ).slice(0, 280));
 </script>
 
 <svelte:head>

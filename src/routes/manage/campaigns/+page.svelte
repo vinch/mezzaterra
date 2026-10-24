@@ -1,5 +1,6 @@
 <script lang="ts">
-  import { onMount } from "svelte";
+  import { onMount, untrack } from "svelte";
+  import { errorMessage } from "$lib/async";
   import { supabase } from "$lib/supabase";
   import ManagePageShell from "$lib/components/manage/ManagePageShell.svelte";
   import { formatDateLong, formatTime, todayIso } from "$lib/dates";
@@ -9,29 +10,29 @@
 
   type Recipient = { email: string; unsubscribeId?: string | null; source: string };
 
-  let loading = true;
-  let error = "";
-  let sendEnabled = false;
+  let loading = $state(true);
+  let error = $state("");
+  let sendEnabled = $state(false);
 
-  let subscribers: { id: string; email: string }[] = [];
-  let customers: { email: string; first_name: string }[] = [];
-  let tastings: any[] = [];
-  let registrations: { email: string; status: string }[] = [];
+  let subscribers = $state<{ id: string; email: string }[]>([]);
+  let customers = $state<{ email: string; first_name: string }[]>([]);
+  let tastings = $state<any[]>([]);
+  let registrations = $state<{ email: string; status: string }[]>([]);
 
-  let useSubscribers = true;
-  let useCustomers = true;
-  let useRegistrants = false;
-  let registrantTastingId = "";
+  let useSubscribers = $state(true);
+  let useCustomers = $state(true);
+  let useRegistrants = $state(false);
+  let registrantTastingId = $state("");
 
-  let template: "invite" | "reminder" | "free" = "invite";
-  let tastingId = "";
-  let subject = "";
-  let message = "";
-  let attachFlyer = true;
+  let template = $state<"invite" | "reminder" | "free">("invite");
+  let tastingId = $state("");
+  let subject = $state("");
+  let message = $state("");
+  let attachFlyer = $state(true);
 
-  let sending = false;
-  let result = "";
-  let copied = "";
+  let sending = $state(false);
+  let result = $state("");
+  let copied = $state("");
 
   onMount(async () => {
     try {
@@ -53,37 +54,16 @@
       registrantTastingId = tastingId;
       applyTemplate();
     } catch (e) {
-      error = e instanceof Error ? e.message : String(e);
+      error = errorMessage(e);
     } finally {
       loading = false;
     }
   });
 
-  $: if (useRegistrants && registrantTastingId) void loadRegistrations(registrantTastingId);
-
   async function loadRegistrations(id: string) {
     const { data } = await supabase.from("tasting_registration").select("email, status").eq("tasting_id", id);
     registrations = (data || []).filter((r) => r.status !== "cancelled");
   }
-
-  $: recipients = (() => {
-    const map = new Map<string, Recipient>();
-    const add = (email: string | null | undefined, source: string, unsubscribeId?: string) => {
-      const e = (email || "").trim().toLowerCase();
-      if (!e || !e.includes("@")) return;
-      const prev = map.get(e);
-      map.set(e, { email: e, source: prev ? prev.source : source, unsubscribeId: unsubscribeId ?? prev?.unsubscribeId ?? null });
-    };
-    if (useSubscribers) for (const s of subscribers) add(s.email, "Newsletter", s.id);
-    if (useCustomers) for (const c of customers) add(c.email, "Client");
-    if (useRegistrants) for (const r of registrations) add(r.email, "Inscrit");
-    /* Les clients aussi abonnés gardent leur lien de désinscription. */
-    for (const s of subscribers) {
-      const r = map.get(s.email.toLowerCase());
-      if (r && !r.unsubscribeId) r.unsubscribeId = s.id;
-    }
-    return [...map.values()];
-  })();
 
   function tastingUrl(t: any, hash = ""): string {
     return `${window.location.origin}/tastings/${t.id}${hash}`;
@@ -167,7 +147,7 @@
       if (!res.ok) throw new Error(out?.message || `Erreur ${res.status}`);
       result = `${out.sent} email${out.sent > 1 ? "s" : ""} envoyé${out.sent > 1 ? "s" : ""}${out.failed ? ` — ${out.failed} échec(s)` : ""}.`;
     } catch (e) {
-      error = e instanceof Error ? e.message : String(e);
+      error = errorMessage(e);
     } finally {
       sending = false;
     }
@@ -179,9 +159,30 @@
     setTimeout(() => (copied = ""), 1800);
   }
 
-  $: mailtoHref = `mailto:?bcc=${encodeURIComponent(recipients.map((r) => r.email).join(","))}&subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(message)}`;
+  $effect.pre(() => {
+    if (useRegistrants && registrantTastingId) untrack(() => void loadRegistrations(registrantTastingId));
+  });
+  let recipients = $derived((() => {
+    const map = new Map<string, Recipient>();
+    const add = (email: string | null | undefined, source: string, unsubscribeId?: string) => {
+      const e = (email || "").trim().toLowerCase();
+      if (!e || !e.includes("@")) return;
+      const prev = map.get(e);
+      map.set(e, { email: e, source: prev ? prev.source : source, unsubscribeId: unsubscribeId ?? prev?.unsubscribeId ?? null });
+    };
+    if (useSubscribers) for (const s of subscribers) add(s.email, "Newsletter", s.id);
+    if (useCustomers) for (const c of customers) add(c.email, "Client");
+    if (useRegistrants) for (const r of registrations) add(r.email, "Inscrit");
+    /* Les clients aussi abonnés gardent leur lien de désinscription. */
+    for (const s of subscribers) {
+      const r = map.get(s.email.toLowerCase());
+      if (r && !r.unsubscribeId) r.unsubscribeId = s.id;
+    }
+    return [...map.values()];
+  })());
+  let mailtoHref = $derived(`mailto:?bcc=${encodeURIComponent(recipients.map((r) => r.email).join(","))}&subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(message)}`);
   /* Les clients mail tronquent les URLs trop longues : au-delà, on propose seulement la copie. */
-  $: mailtoUsable = mailtoHref.length < 8000;
+  let mailtoUsable = $derived(mailtoHref.length < 8000);
 </script>
 
 <svelte:head>
@@ -199,15 +200,15 @@
       <section class="card">
         <h2>1. Message</h2>
         <div class="templates" role="radiogroup" aria-label="Modèle">
-          <label class:on={template === "invite"}><input type="radio" bind:group={template} value="invite" on:change={applyTemplate} /> Invitation</label>
-          <label class:on={template === "reminder"}><input type="radio" bind:group={template} value="reminder" on:change={applyTemplate} /> Rappel aux inscrits</label>
-          <label class:on={template === "free"}><input type="radio" bind:group={template} value="free" on:change={applyTemplate} /> Message libre</label>
+          <label class:on={template === "invite"}><input type="radio" bind:group={template} value="invite" onchange={applyTemplate} /> Invitation</label>
+          <label class:on={template === "reminder"}><input type="radio" bind:group={template} value="reminder" onchange={applyTemplate} /> Rappel aux inscrits</label>
+          <label class:on={template === "free"}><input type="radio" bind:group={template} value="free" onchange={applyTemplate} /> Message libre</label>
         </div>
 
         {#if template !== "free"}
           <div class="form-group">
             <label for="camp-tasting">Dégustation</label>
-            <select id="camp-tasting" bind:value={tastingId} on:change={applyTemplate}>
+            <select id="camp-tasting" bind:value={tastingId} onchange={applyTemplate}>
               {#each tastings as t}
                 <option value={t.id}>{tastingTitle(t)} — {formatDateLong(t.date)}</option>
               {/each}
@@ -254,7 +255,7 @@
 
         <h2 class="send-title">3. Envoi</h2>
         {#if sendEnabled}
-          <button type="button" class="btn-primary big" disabled={sending || !recipients.length || !subject.trim()} on:click={send}>
+          <button type="button" class="btn-primary big" disabled={sending || !recipients.length || !subject.trim()} onclick={send}>
             {sending ? "Envoi en cours…" : `Envoyer à ${recipients.length} personne${recipients.length > 1 ? "s" : ""}`}
           </button>
         {:else}
@@ -264,10 +265,10 @@
           </p>
         {/if}
         <div class="fallback">
-          <button type="button" class="btn-secondary" on:click={() => copy(recipients.map((r) => r.email).join(", "), "emails")}>
+          <button type="button" class="btn-secondary" onclick={() => copy(recipients.map((r) => r.email).join(", "), "emails")}>
             {copied === "emails" ? "Copié ✓" : "Copier les adresses"}
           </button>
-          <button type="button" class="btn-secondary" on:click={() => copy(message, "message")}>
+          <button type="button" class="btn-secondary" onclick={() => copy(message, "message")}>
             {copied === "message" ? "Copié ✓" : "Copier le message"}
           </button>
           {#if mailtoUsable && recipients.length}

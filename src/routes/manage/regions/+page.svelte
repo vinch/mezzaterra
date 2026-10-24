@@ -5,7 +5,7 @@
   import { fetchCountries } from "$lib/manageData";
   import type { Country } from "$lib/types";
 
-  let countries: Country[] = [];
+  let countries = $state<Country[]>([]);
   onMount(async () => (countries = await fetchCountries()));
 </script>
 

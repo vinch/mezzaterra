@@ -10,10 +10,14 @@
     project,
   } from "$lib/geo/abruzzo";
 
-  /** Domaines à épingler (coordonnées GPS de la table winery). */
-  export let wineries: { id: string; name: string; latitude: number | null; longitude: number | null }[] = [];
-  /** Domaine mis en avant (page domaine) : les autres épingles passent au second plan. */
-  export let current: string | null = null;
+  interface Props {
+    /** Domaines à épingler (coordonnées GPS de la table winery). */
+    wineries?: { id: string; name: string; latitude: number | null; longitude: number | null }[];
+    /** Domaine mis en avant (page domaine) : les autres épingles passent au second plan. */
+    current?: string | null;
+  }
+
+  let { wineries = [], current = null }: Props = $props();
 
   const W = MAIN.width;
   const H = MAIN.height;
@@ -49,7 +53,7 @@
   /* Rayon du point (8 sur mobile) + liseré : le trait démarre juste au bord. */
   const LEADER_GAP = 10;
 
-  $: pins = wineries
+  let pins = $derived(wineries
     .filter((w) => w.latitude != null && w.longitude != null)
     .sort((a, b) => (a.longitude ?? 0) - (b.longitude ?? 0))
     .map((w, i, all) => {
@@ -69,9 +73,9 @@
         text: { x: x + label.tx, y: y + label.ty, anchor: label.anchor },
         delay: 1400 + i * 180,
       };
-    });
+    }));
 
-  let drawn = false;
+  let drawn = $state(false);
   onMount(() => {
     requestAnimationFrame(() => (drawn = true));
   });

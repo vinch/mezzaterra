@@ -1,18 +1,24 @@
 <script lang="ts">
+  import type { Snippet } from "svelte";
   import "$lib/styles/site.css";
   import { page } from "$app/stores";
   import SiteFooter from "$lib/components/SiteFooter.svelte";
   import SiteNav from "$lib/components/site/SiteNav.svelte";
+  interface Props {
+    children?: Snippet;
+  }
 
-  $: path = $page.url.pathname;
+  let { children }: Props = $props();
+
+  let path = $derived($page.url.pathname);
   /* Le mode live a son propre habillage plein écran (thème « cave »). */
-  $: immersive = path.endsWith("/live");
+  let immersive = $derived(path.endsWith("/live"));
   /* Hauteur réelle du header, pour coller les barres sticky juste dessous. */
-  let headerHeight = 0;
+  let headerHeight = $state(0);
 </script>
 
 {#if immersive}
-  <slot />
+  {@render children?.()}
 {:else}
   <div class="site" style={headerHeight ? `--mz-header-h: ${headerHeight}px` : undefined}>
     <header class="site-header" bind:offsetHeight={headerHeight}>
@@ -25,7 +31,7 @@
     </header>
 
     <main class="site-main">
-      <slot />
+      {@render children?.()}
     </main>
 
     <SiteFooter />

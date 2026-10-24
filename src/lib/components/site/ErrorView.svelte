@@ -2,28 +2,37 @@
   /**
    * Page d'erreur Mezzaterra (404, 500…). Utilisée par les +error.svelte du site et de la gestion.
    */
-  export let status = 500;
-  export let message = "";
-  /** Liens proposés (le premier est mis en avant). */
-  export let links: { href: string; label: string }[] = [
+  interface Props {
+    status?: number;
+    message?: string;
+    /** Liens proposés (le premier est mis en avant). */
+    links?: { href: string; label: string }[];
+    /** Afficher le logo en haut (quand la page n'a pas d'en-tête autour). */
+    withLogo?: boolean;
+  }
+
+  let {
+    status = 500,
+    message = "",
+    links = [
     { href: "/", label: "Retour à l’accueil" },
     { href: "/vins", label: "Nos vins" },
-  ];
-  /** Afficher le logo en haut (quand la page n'a pas d'en-tête autour). */
-  export let withLogo = false;
+  ],
+    withLogo = false
+  }: Props = $props();
 
-  $: notFound = status === 404;
-  $: forbidden = status === 401 || status === 403;
-  $: title = notFound
+  let notFound = $derived(status === 404);
+  let forbidden = $derived(status === 401 || status === 403);
+  let title = $derived(notFound
     ? "Cette bouteille est introuvable"
     : forbidden
       ? "Cette cave est fermée à clé"
-      : "Un bouchon a sauté";
-  $: lead = notFound
+      : "Un bouchon a sauté");
+  let lead = $derived(notFound
     ? "La page que vous cherchez a peut-être été débouchée, déplacée… ou n’a jamais existé."
     : forbidden
       ? "Vous n’avez pas accès à cette page."
-      : "Quelque chose s’est mal passé de notre côté. Réessayez dans un instant ; si le problème persiste, prévenez-nous.";
+      : "Quelque chose s’est mal passé de notre côté. Réessayez dans un instant ; si le problème persiste, prévenez-nous.");
 </script>
 
 <section class="error" aria-labelledby="error-title">

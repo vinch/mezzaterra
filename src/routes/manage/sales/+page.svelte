@@ -1,6 +1,8 @@
 <script lang="ts">
+  import { preventDefault } from "$lib/ui/events";
+
   import { NEW_ROW, supabase } from "$lib/supabase";
-  import { getContext, onMount } from "svelte";
+  import { getContext, onMount, untrack } from "svelte";
   import type { PageData } from "./$types";
   import ManagePageShell from "$lib/components/manage/ManagePageShell.svelte";
   import Modal from "$lib/ui/Modal.svelte";
@@ -52,30 +54,33 @@
   import ProductVintageAutocomplete from "$lib/components/manage/ProductVintageAutocomplete.svelte";
   import CustomerAutocomplete from "$lib/components/manage/CustomerAutocomplete.svelte";
 
-  export let data: PageData;
+  interface Props {
+    data: PageData;
+  }
+
+  let { data }: Props = $props();
 
   const { refreshCounts } = getContext<{ refreshCounts: () => void }>("manage");
 
   /** Valeur interne du select « produit » pour une ligne dégustation (sans millésime). */
   const TASTING_SELECT_VALUE = "__tasting__";
 
-  let sales: any[];
   /* Rechargé par invalidateAll() après une création, une modification ou une suppression. */
-  $: sales = data.sales;
-  let customers: any[] = [];
-  let wineVintages: any[] = [];
-  let loading = true;
-  let error = "";
+  let sales: any[] = $derived(data.sales);
+  let customers = $state.raw<any[]>([]);
+  let wineVintages = $state.raw<any[]>([]);
+  let loading = $state(true);
+  let error = $state("");
   /** Modale unique création / édition (`editingSale` les distingue). */
-  let formOpen = false;
-  let saving = false;
-  let showDetailsModal = false;
-  let editingSale: any = null;
-  let detailsSale: any = null;
-  let detailsSaleItems: any[] = [];
+  let formOpen = $state(false);
+  let saving = $state(false);
+  let showDetailsModal = $state(false);
+  let editingSale = $state<any>(null);
+  let detailsSale = $state<any>(null);
+  let detailsSaleItems = $state<any[]>([]);
 
   // Form fields
-  let formData = {
+  let formData = $state({
     date: todayIso(),
     customer_id: "",
     note: "",
@@ -83,16 +88,16 @@
     global_discount_type: "amount" as "amount" | "percent",
     payment_method: "",
     tasting_id: "",
-  };
+  });
 
   // Sale items
-  let saleItems: any[] = [];
-  let selectedVintageId = "";
-  let selectedQuantity = "";
-  let selectedPrice = "";
-  let selectedDiscount = "";
+  let saleItems = $state<any[]>([]);
+  let selectedVintageId = $state("");
+  let selectedQuantity = $state("");
+  let selectedPrice = $state("");
+  let selectedDiscount = $state("");
   /** Par défaut « montant » : sinon une remise saisie sans type était ignorée (discount_type null). */
-  let selectedDiscountType: "amount" | "percent" = "amount";
+  let selectedDiscountType = $state<"amount" | "percent">("amount");
 
   onMount(async () => {
     /* Liens profonds depuis le tableau de bord : ?statut=pending, ?nouvelle=1 */
@@ -128,18 +133,20 @@
     if (telecharger) void downloadInvoice(telecharger);
   });
 
-  function getProductDisplayNameWithStock(vintage: any, availableStock: number) {
-    return `${vintageProductLabel(vintage)} - Stock : ${availableStock}`;
+  function getProductDisplayNameWithStock(vintage: any, availableStock: number | null) {
+    return `${vintageProductLabel(vintage)} - Stock : ${availableStock ?? "indisponible"}`;
   }
 
-  function getAvailableStock(vintageId: string): number {
+  /** Bouteilles encore ajoutables ; null si le stock est illisible (rien d'ajoutable). */
+  function getAvailableStock(vintageId: string): number | null {
     if (vintageId === TASTING_SELECT_VALUE) {
       return 999999;
     }
     const vintage = vintageById.get(vintageId);
     if (!vintage) return 0;
+    if (vintage.stock == null) return null;
 
-    const stock = vintage.stock || 0;
+    const stock = vintage.stock;
     // Subtract quantities already in saleItems
     const alreadyAdded = saleItems
       .filter((item) => item.wine_vintage_id === vintageId)
@@ -171,7 +178,6 @@
     return list.map((v) => ({ ...v, stock: stock ? (stock.get(v.id) ?? 0) : null }));
   }
   const hasUnknownStock = (list: any[]) => list.some((v) => v.stock == null);
-  $: stockUnknown = hasUnknownStock(wineVintages);
 
   /* Chargements des modales : le dernier clic gagne (deux « Modifier » enchaînés…). */
   const formLoad = latestOnly((e) => (error = errorMessage(e)));
@@ -183,6 +189,7 @@
   }
 
   async function openCreateModal() {
+    error = "";
     /* Stock relu : des ventes ont pu être payées depuis l'ouverture de la page. */
     const vintages = await formLoad.run(fetchVintagesWithStock);
     if (!vintages) return;
@@ -191,6 +198,7 @@
   }
 
   async function openEditModal(sale: any) {
+    error = "";
     if (sale.status === "closed" || sale.status === "cancelled") {
       error = "Impossible de modifier une vente clôturée ou annulée";
       formLoad.cancel();
@@ -309,8 +317,6 @@
     selectedDiscountType = "amount";
   }
 
-  $: total = saleTotal(saleItems, formData.global_discount, formData.global_discount_type);
-
   function handleVintageChange() {
     if (selectedVintageId === TASTING_SELECT_VALUE) {
       selectedPrice = "";
@@ -365,6 +371,10 @@
 
     const availableStock = getAvailableStock(selectedVintageId);
 
+    if (availableStock == null) {
+      error = "Stock indisponible : impossible d’ajouter des bouteilles pour l’instant.";
+      return;
+    }
     if (quantity > availableStock) {
       error = `Stock insuffisant. Stock disponible: ${availableStock}`;
       return;
@@ -509,10 +519,8 @@
       return false;
     }
 
-    // Update the local state
-    sale.status = newStatus;
-    sale.invoice_number = invoiceNumber;
-    sales = [...sales];
+    /* Objet neuf pour la ligne : la liste ($derived, sans proxy) ne suit pas les mutations. */
+    sales = sales.map((s) => (s.id === sale.id ? { ...s, status: newStatus, invoice_number: invoiceNumber } : s));
 
     return true;
   }
@@ -544,12 +552,11 @@
   }
 
   /* ——— Dégustations (lien vente ↔ dégustation) ——— */
-  let tastings: { id: string; name: string | null; date: string }[] = [];
+  let tastings = $state<{ id: string; name: string | null; date: string }[]>([]);
   async function loadTastings() {
     const { data } = await supabase.from("tasting").select("id, name, date").order("date", { ascending: false });
     tastings = data || [];
   }
-  $: tastingById = new Map(tastings.map((t) => [t.id, t]));
   /** Dégustation unique ayant lieu à cette date (sinon chaîne vide). */
   function tastingOnDate(date: string): string {
     const same = tastings.filter((t) => t.date === date);
@@ -560,14 +567,9 @@
     return t ? `${t.name || "Dégustation"} · ${formatDate(t.date)}` : "";
   }
   /* Nouvelle vente : la dégustation suit la date tant qu'on ne l'a pas choisie à la main. */
-  let tastingTouched = false;
-  let lastDate = "";
-  $: if (formOpen && !editingSale && formData.date !== lastDate) {
-    lastDate = formData.date;
-    if (!tastingTouched) formData.tasting_id = tastingOnDate(formData.date);
-  }
-  $: if (!formOpen) tastingTouched = false;
-  let tastingFilter = "";
+  let tastingTouched = $state(false);
+  let lastDate = $state("");
+  let tastingFilter = $state("");
 
   /* ——— Interface (refonte) : filtres, menus, confirmation ——— */
   type Tab = "all" | SaleStatus;
@@ -579,28 +581,9 @@
     { key: "closed", label: STATUS_META.closed.plural },
     { key: "cancelled", label: STATUS_META.cancelled.plural },
   ];
-  let tab: Tab = "all";
-  let search = "";
-  let period = "all";
-
-  $: years = [...new Set(sales.map((s) => String(s.date).slice(0, 4)))].sort().reverse();
-  $: periodSales = sales
-    .filter((s) => period === "all" || String(s.date).startsWith(period))
-    .filter((s) => !tastingFilter || (tastingFilter === "none" ? !s.tasting_id : s.tasting_id === tastingFilter));
-  $: counts = TABS.reduce(
-    (acc, t) => ({ ...acc, [t.key]: t.key === "all" ? periodSales.length : periodSales.filter((s) => s.status === t.key).length }),
-    {} as Record<Tab, number>,
-  );
-  $: visibleSales = periodSales
-    .filter((s) => tab === "all" || s.status === tab)
-    .filter((s) => {
-      const q = fold(search.trim());
-      if (!q) return true;
-      const c = s.customer || {};
-      return fold(`${c.first_name ?? ""} ${c.last_name ?? ""} ${c.company_name ?? ""} ${s.invoice_number ?? ""}`).includes(q);
-    });
-  $: pendingCount = sales.filter((s) => s.status === "pending").length;
-  $: subtitle = `${periodSales.length} vente${periodSales.length > 1 ? "s" : ""}${period === "all" ? "" : ` en ${period}`} · ${pendingCount} en attente de paiement`;
+  let tab = $state<Tab>("all");
+  let search = $state("");
+  let period = $state("all");
 
   function customerName(s: any): string {
     return s?.customer ? `${s.customer.first_name} ${s.customer.last_name}`.trim() : "—";
@@ -621,21 +604,18 @@
   }
   async function changeStatus(sale: any, next: string) {
     error = "";
-    const ok = await updateSaleStatus(sale, next);
-    if (ok) refreshCounts();
-    else sales = [...sales];
+    if (await updateSaleStatus(sale, next)) refreshCounts();
   }
 
-  let statusMenuSale: any = null;
-  let statusMenuOpen = false;
-  let statusAnchor: HTMLElement | null = null;
-  const statusAnchors: Record<string, HTMLElement | null> = {};
+  let statusMenuSale = $state<any>(null);
+  let statusMenuOpen = $state(false);
+  let statusAnchor = $state<HTMLElement | null>(null);
+  const statusAnchors: Record<string, HTMLElement | null> = $state({});
   function openStatusMenu(sale: any) {
     statusMenuSale = sale;
     statusAnchor = statusAnchors[sale.id] ?? null;
     statusMenuOpen = true;
   }
-  $: statusItems = statusMenuSale ? statusMenuItems(statusMenuSale) : [];
 
   function rowItems(sale: any): MenuItem[] {
     const st = sale.status;
@@ -662,9 +642,9 @@
     openDetailsModal(sale);
   }
 
-  let deleteTarget: any = null;
-  let confirmOpen = false;
-  let deleting = false;
+  let deleteTarget = $state<any>(null);
+  let confirmOpen = $state(false);
+  let deleting = $state(false);
   function askDelete(sale: any) {
     deleteTarget = sale;
     confirmOpen = true;
@@ -677,22 +657,12 @@
     confirmOpen = false;
   }
 
-  $: grossTotal = Math.round(
-    saleItems.reduce((sum, it) => sum + toNumber(it.price) * (parseInt(String(it.quantity ?? 0), 10) || 0), 0) * 100,
-  ) / 100;
-  $: discountsTotal = Math.max(0, Math.round((grossTotal - total) * 100) / 100);
-  $: bottleCount = saleItems.reduce((n, it) => n + (it.wine_vintage_id ? parseInt(String(it.quantity), 10) || 0 : 0), 0);
-
-  $: vintageById = new Map(wineVintages.map((v) => [v.id, v]));
   function setItemQuantity(index: number, q: number) {
     saleItems = saleItems.map((it, i) => (i === index ? { ...it, quantity: q } : it));
   }
 
-  /* Client choisi : puce + aide (goûts, dernier achat). */
-  $: selectedCustomer = customers.find((c) => c.id === formData.customer_id) ?? null;
-  let customerHint = "";
-  let hintFor = "";
-  $: if (formOpen && formData.customer_id && formData.customer_id !== hintFor) void loadCustomerHint(formData.customer_id);
+  let customerHint = $state("");
+  let hintFor = $state("");
   async function loadCustomerHint(id: string) {
     hintFor = id;
     customerHint = "";
@@ -721,6 +691,49 @@
     hintFor = "";
     customerHint = "";
   }
+  let stockUnknown = $derived(hasUnknownStock(wineVintages));
+  let total = $derived(saleTotal(saleItems, formData.global_discount, formData.global_discount_type));
+  let tastingById = $derived(new Map(tastings.map((t) => [t.id, t])));
+  $effect.pre(() => {
+    if (!formOpen) tastingTouched = false;
+  });
+  $effect.pre(() => {
+    if (formOpen && !editingSale && formData.date !== lastDate) {
+      lastDate = formData.date;
+      if (!tastingTouched) formData.tasting_id = untrack(() => tastingOnDate(formData.date));
+    }
+  });
+  let years = $derived([...new Set(sales.map((s) => String(s.date).slice(0, 4)))].sort().reverse());
+  let periodSales = $derived(sales
+    .filter((s) => period === "all" || String(s.date).startsWith(period))
+    .filter((s) => !tastingFilter || (tastingFilter === "none" ? !s.tasting_id : s.tasting_id === tastingFilter)));
+  let counts = $derived(TABS.reduce(
+    (acc, t) => ({ ...acc, [t.key]: t.key === "all" ? periodSales.length : periodSales.filter((s) => s.status === t.key).length }),
+    {} as Record<Tab, number>,
+  ));
+  let visibleSales = $derived(periodSales
+    .filter((s) => tab === "all" || s.status === tab)
+    .filter((s) => {
+      const q = fold(search.trim());
+      if (!q) return true;
+      const c = s.customer || {};
+      return fold(`${c.first_name ?? ""} ${c.last_name ?? ""} ${c.company_name ?? ""} ${s.invoice_number ?? ""}`).includes(q);
+    }));
+  let pendingCount = $derived(sales.filter((s) => s.status === "pending").length);
+  let subtitle = $derived(`${periodSales.length} vente${periodSales.length > 1 ? "s" : ""}${period === "all" ? "" : ` en ${period}`} · ${pendingCount} en attente de paiement`);
+  let statusItems = $derived(statusMenuSale ? statusMenuItems(statusMenuSale) : []);
+  let grossTotal = $derived(Math.round(
+    saleItems.reduce((sum, it) => sum + toNumber(it.price) * (parseInt(String(it.quantity ?? 0), 10) || 0), 0) * 100,
+  ) / 100);
+  let discountsTotal = $derived(Math.max(0, Math.round((grossTotal - total) * 100) / 100));
+  let bottleCount = $derived(saleItems.reduce((n, it) => n + (it.wine_vintage_id ? parseInt(String(it.quantity), 10) || 0 : 0), 0));
+  let vintageById = $derived(new Map(wineVintages.map((v) => [v.id, v])));
+  /* Client choisi : puce + aide (goûts, dernier achat). */
+  let selectedCustomer = $derived(customers.find((c) => c.id === formData.customer_id) ?? null);
+  $effect.pre(() => {
+    const id = formData.customer_id;
+    if (formOpen && id && id !== hintFor) untrack(() => void loadCustomerHint(id));
+  });
 </script>
 
 
@@ -729,27 +742,27 @@
 </svelte:head>
 
 <ManagePageShell title="Ventes" {subtitle}>
-  <svelte:fragment slot="actions">
-    <Button variant="primary" on:click={openCreateModal}>
-      <IconPlus size={18} strokeWidth={1.75} /> <span class="label-long">Nouvelle vente</span><span class="label-short">Nouvelle</span>
-    </Button>
-  </svelte:fragment>
+  {#snippet actions()}
+      <Button variant="primary" onclick={openCreateModal}>
+        <IconPlus size={18} strokeWidth={1.75} /> <span class="label-long">Nouvelle vente</span><span class="label-short">Nouvelle</span>
+      </Button>
+  {/snippet}
 
-  <svelte:fragment slot="tabs">
-    <div class="tabs" role="tablist" aria-label="Filtrer par statut">
-      {#each TABS as t}
-        <button
-          type="button"
-          role="tab"
-          class="tab"
-          aria-selected={tab === t.key}
-          on:click={() => (tab = t.key)}
-        >
-          {t.label}<span class="tab-count">{counts[t.key] ?? 0}</span>
-        </button>
-      {/each}
-    </div>
-  </svelte:fragment>
+  {#snippet tabs()}
+      <div class="tabs" role="tablist" aria-label="Filtrer par statut">
+        {#each TABS as t}
+          <button
+            type="button"
+            role="tab"
+            class="tab"
+            aria-selected={tab === t.key}
+            onclick={() => (tab = t.key)}
+          >
+            {t.label}<span class="tab-count">{counts[t.key] ?? 0}</span>
+          </button>
+        {/each}
+      </div>
+  {/snippet}
 
   {#if error}
     <div class="error-message" role="alert">{error}</div>
@@ -785,7 +798,7 @@
   {:else if sales.length === 0}
     <div class="empty-card">
       <EmptyState icon={IconReceipt} title="Aucune vente pour l’instant" text="Créez la première vente : elle sera enregistrée « En attente ».">
-        <Button on:click={openCreateModal}>Créer la première vente</Button>
+        <Button onclick={openCreateModal}>Créer la première vente</Button>
       </EmptyState>
     </div>
   {:else if visibleSales.length === 0}
@@ -807,10 +820,10 @@
         </thead>
         <tbody>
           {#each visibleSales as sale (sale.id)}
-            <tr class="is-clickable" on:click={(e) => openRow(sale, e)}>
+            <tr class="is-clickable" onclick={(e) => openRow(sale, e)}>
               <td>{formatDate(sale.date)}</td>
               <td>
-                <button type="button" class="link-cell" on:click={() => openDetailsModal(sale)}>{customerName(sale)}</button>
+                <button type="button" class="link-cell" onclick={() => openDetailsModal(sale)}>{customerName(sale)}</button>
                 {#if sale.customer?.company_name}<span class="t-muted">&nbsp;· {sale.customer.company_name}</span>{/if}
                 {#if sale.tasting_id}<span class="tasting-tag" title={tastingLabel(sale.tasting_id)}><IconGlasses size={12} strokeWidth={1.75} aria-hidden="true" />{tastingById.get(sale.tasting_id)?.name || "Dégustation"}</span>{/if}
               </td>
@@ -821,7 +834,7 @@
                     interactive
                     bind:el={statusAnchors[sale.id]}
                     expanded={statusMenuOpen && statusMenuSale?.id === sale.id}
-                    on:click={() => openStatusMenu(sale)}
+                    onclick={() => openStatusMenu(sale)}
                   />
                 {:else}
                   <StatusBadge status={sale.status} />
@@ -837,7 +850,7 @@
               <td class="col-actions">
                 <div class="row-actions">
                   {#if sale.status === "closed"}
-                    <IconButton label="Télécharger la facture" on:click={() => downloadInvoice(sale.id)}>
+                    <IconButton label="Télécharger la facture" onclick={() => downloadInvoice(sale.id)}>
                       <IconDownload size={18} strokeWidth={1.75} />
                     </IconButton>
                   {/if}
@@ -854,7 +867,7 @@
     <ul class="cards mobile-only">
       {#each visibleSales as sale (sale.id)}
         <li class="sale-card">
-          <button type="button" class="sale-card-main" on:click={() => openDetailsModal(sale)}>
+          <button type="button" class="sale-card-main" onclick={() => openDetailsModal(sale)}>
             <span class="sc-top">
               <strong class="sc-name">{customerName(sale)}{sale.customer?.company_name ? ` (${sale.customer.company_name})` : ""}</strong>
               {#if sale.status === "cancelled"}
@@ -884,20 +897,20 @@
   message={deleteTarget
     ? `La vente du ${formatDate(deleteTarget.date)} à ${customerName(deleteTarget)} (${formatEUR(deleteTarget.total_price)}) sera définitivement supprimée, avec ses articles. Le stock n’est pas modifié : une vente en attente ne l’a pas encore débité.`
     : ""}
-  on:confirm={confirmDelete}
+  onconfirm={confirmDelete}
 />
 
 <!-- Création / modification -->
-<Modal open={formOpen} title={editingSale ? "Modifier la vente" : "Nouvelle vente"} maxWidth={820} on:close={closeForm}>
-  <svelte:fragment slot="title-extra">
+<Modal open={formOpen} title={editingSale ? "Modifier la vente" : "Nouvelle vente"} maxWidth={820} onclose={closeForm}>
+  {#snippet titleExtra()}
     {#if editingSale}
       <StatusBadge status={editingSale.status} />
     {:else}
       <span class="will-be"><IconClock size={14} strokeWidth={1.75} aria-hidden="true" /> Sera créée « En attente »</span>
     {/if}
-  </svelte:fragment>
+  {/snippet}
 
-  <form id="sale-form" class="sale-form" on:submit|preventDefault={submitForm}>
+  <form id="sale-form" class="sale-form" onsubmit={preventDefault(submitForm)}>
     {#if error && formOpen}
       <div class="error-message" role="alert">{error}</div>
     {/if}
@@ -917,7 +930,7 @@
             <span class="chip-name">
               <strong>{selectedCustomer.first_name} {selectedCustomer.last_name}</strong>{#if selectedCustomer.city}<span class="t-muted">&nbsp;· {selectedCustomer.city}</span>{/if}
             </span>
-            <IconButton label="Changer de client" on:click={clearCustomer}><IconX size={16} strokeWidth={1.75} /></IconButton>
+            <IconButton label="Changer de client" onclick={clearCustomer}><IconX size={16} strokeWidth={1.75} /></IconButton>
           </div>
           <p class="t-caption hint">
             {customerHint}{customerHint ? " · " : ""}<a href="/manage/customers/{selectedCustomer.id}" target="_blank" rel="noopener noreferrer">voir la fiche</a>
@@ -982,7 +995,7 @@
                         min={1}
                         max={bounded ? (stock ?? item.saved_quantity ?? qty) : 9999}
                         label="Quantité de {saleItemDescription(item)}"
-                        on:change={(e) => setItemQuantity(index, e.detail)}
+                        onchange={(q) => setItemQuantity(index, q)}
                       />
                       {#if stock != null && qty >= stock}
                         <p class="t-caption t-warn stock-warn">Dernières bouteilles en stock</p>
@@ -996,7 +1009,7 @@
                     </td>
                     <td class="num"><strong>{formatEUR(lineTotal(item))}</strong></td>
                     <td class="col-actions">
-                      <IconButton label="Retirer {saleItemDescription(item)}" on:click={() => removeSaleItem(index)}>
+                      <IconButton label="Retirer {saleItemDescription(item)}" onclick={() => removeSaleItem(index)}>
                         <IconTrash size={18} strokeWidth={1.75} />
                       </IconButton>
                     </td>
@@ -1010,17 +1023,15 @@
         <div class="add-row">
           <div class="add-wine">
             <span class="t-label" id="add-wine-label">Ajouter un vin</span>
-            {#key saleItems.map((i) => i.wine_vintage_id ?? "_tasting").join("|")}
-              <ProductVintageAutocomplete
-                bind:value={selectedVintageId}
-                {wineVintages}
-                tastingValue={TASTING_SELECT_VALUE}
-                {getAvailableStock}
-                {isVintageAlreadyAdded}
-                formatLabel={getProductDisplayNameWithStock}
-                on:change={handleVintageChange}
-              />
-            {/key}
+            <ProductVintageAutocomplete
+              bind:value={selectedVintageId}
+              {wineVintages}
+              tastingValue={TASTING_SELECT_VALUE}
+              {getAvailableStock}
+              {isVintageAlreadyAdded}
+              formatLabel={getProductDisplayNameWithStock}
+              onchange={handleVintageChange}
+            />
           </div>
           <label class="add-qty">
             <span class="t-label">Qté</span>
@@ -1035,36 +1046,40 @@
             <AmountTypeInput bind:amount={selectedDiscount} bind:type={selectedDiscountType} ariaLabel="Remise sur la ligne" />
           </div>
           <div class="add-btn">
-            <Button on:click={addSaleItem}><IconPlus size={16} strokeWidth={1.75} /> Ajouter</Button>
+            <Button onclick={addSaleItem}><IconPlus size={16} strokeWidth={1.75} /> Ajouter</Button>
           </div>
         </div>
       </div>
     </section>
 
     <div class="grid-2">
-      <Field id="sale-payment" label="Mode de paiement" help="Obligatoire avant de passer la vente en « Payée »." let:describedby>
-        <select id="sale-payment" class="ui-control" bind:value={formData.payment_method} aria-describedby={describedby}>
-          <option value="">— Non renseigné —</option>
-          {#each PAYMENT_METHOD_OPTIONS as opt}
-            <option value={opt.value}>{opt.label}</option>
-          {/each}
-        </select>
-      </Field>
+      <Field id="sale-payment" label="Mode de paiement" help="Obligatoire avant de passer la vente en « Payée »." >
+        {#snippet children({ describedby })}
+                <select id="sale-payment" class="ui-control" bind:value={formData.payment_method} aria-describedby={describedby}>
+            <option value="">— Non renseigné —</option>
+            {#each PAYMENT_METHOD_OPTIONS as opt}
+              <option value={opt.value}>{opt.label}</option>
+            {/each}
+          </select>
+                      {/snippet}
+            </Field>
 
-      <Field id="sale-global-discount" label="Ristourne globale" optional help="Sur le sous-total, après les remises par article." let:describedby>
-        <AmountTypeInput
-          id="sale-global-discount"
-          {describedby}
-          bind:amount={formData.global_discount}
-          bind:type={formData.global_discount_type}
-          amountLabel="Montant TTC (€)"
-          percentLabel="Pourcentage (%)"
-        />
-      </Field>
+      <Field id="sale-global-discount" label="Ristourne globale" optional help="Sur le sous-total, après les remises par article." >
+        {#snippet children({ describedby })}
+                <AmountTypeInput
+            id="sale-global-discount"
+            {describedby}
+            bind:amount={formData.global_discount}
+            bind:type={formData.global_discount_type}
+            amountLabel="Montant TTC (€)"
+            percentLabel="Pourcentage (%)"
+          />
+                      {/snippet}
+            </Field>
     </div>
 
     <Field id="sale-tasting" label="Dégustation" optional help="Proposée automatiquement quand une dégustation a lieu à la date de la vente.">
-      <select id="sale-tasting" class="ui-control" bind:value={formData.tasting_id} on:change={() => (tastingTouched = true)}>
+      <select id="sale-tasting" class="ui-control" bind:value={formData.tasting_id} onchange={() => (tastingTouched = true)}>
         <option value="">— Aucune —</option>
         {#each tastings as t}
           <option value={t.id}>{t.name || "Dégustation"} · {formatDate(t.date)}</option>
@@ -1077,22 +1092,22 @@
     </Field>
   </form>
 
-  <svelte:fragment slot="footer">
-    <div class="totals" aria-live="polite">
-      <span>Sous-total <strong>{formatEUR(grossTotal)}</strong></span>
-      <span>Remises <strong>{formatEUR(discountsTotal)}</strong></span>
-      <span class="grand">Total TTC <strong>{formatEUR(total)}</strong></span>
-    </div>
-    <Button variant="ghost" on:click={closeForm}>Annuler</Button>
-    <Button variant="primary" type="submit" disabled={saving} on:click={submitForm}>Enregistrer la vente</Button>
-  </svelte:fragment>
+  {#snippet footer()}
+      <div class="totals" aria-live="polite">
+        <span>Sous-total <strong>{formatEUR(grossTotal)}</strong></span>
+        <span>Remises <strong>{formatEUR(discountsTotal)}</strong></span>
+        <span class="grand">Total TTC <strong>{formatEUR(total)}</strong></span>
+      </div>
+      <Button variant="ghost" onclick={closeForm}>Annuler</Button>
+      <Button variant="primary" type="submit" disabled={saving} onclick={submitForm}>Enregistrer la vente</Button>
+  {/snippet}
 </Modal>
 
 <!-- Détail -->
-<Modal open={showDetailsModal} title="Détail de la vente" maxWidth={720} on:close={closeDetailsModal}>
-  <svelte:fragment slot="title-extra">
+<Modal open={showDetailsModal} title="Détail de la vente" maxWidth={720} onclose={closeDetailsModal}>
+  {#snippet titleExtra()}
     {#if detailsSale}<StatusBadge status={detailsSale.status} />{/if}
-  </svelte:fragment>
+  {/snippet}
   {#if detailsSale}
     <dl class="facts">
       <div><dt>Date</dt><dd>{formatDate(detailsSale.date)}</dd></div>
@@ -1153,21 +1168,21 @@
       </div>
     {/if}
   {/if}
-  <svelte:fragment slot="footer">
-    {#if detailsSale?.status === "closed"}
-      <Button on:click={() => downloadInvoice(detailsSale.id)}><IconDownload size={16} strokeWidth={1.75} /> Télécharger la facture</Button>
-    {/if}
-    {#if detailsSale && EDITABLE_STATUSES.includes(detailsSale.status)}
-      <Button
-        on:click={() => {
-          const s = detailsSale;
-          closeDetailsModal();
-          openEditModal(s);
-        }}><IconPencil size={16} strokeWidth={1.75} /> Modifier</Button
-      >
-    {/if}
-    <Button variant="primary" on:click={closeDetailsModal}>Fermer</Button>
-  </svelte:fragment>
+  {#snippet footer()}
+      {#if detailsSale?.status === "closed"}
+        <Button onclick={() => downloadInvoice(detailsSale.id)}><IconDownload size={16} strokeWidth={1.75} /> Télécharger la facture</Button>
+      {/if}
+      {#if detailsSale && EDITABLE_STATUSES.includes(detailsSale.status)}
+        <Button
+          onclick={() => {
+            const s = detailsSale;
+            closeDetailsModal();
+            openEditModal(s);
+          }}><IconPencil size={16} strokeWidth={1.75} /> Modifier</Button
+        >
+      {/if}
+      <Button variant="primary" onclick={closeDetailsModal}>Fermer</Button>
+  {/snippet}
 </Modal>
 
 <style>

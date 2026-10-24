@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { createEventDispatcher } from "svelte";
+  import type { Snippet } from "svelte";
   import Modal from "./Modal.svelte";
   import Button from "./Button.svelte";
 
@@ -7,47 +7,65 @@
    * Confirmation d'une action destructive.
    * Titre en question, phrase d'impact, « Annuler » (ghost) puis « Oui, supprimer » (danger-solid).
    */
-  export let open = false;
-  export let title = "Supprimer ?";
-  export let message = "";
-  export let confirmLabel = "Oui, supprimer";
-  export let cancelLabel = "Annuler";
-  export let busy = false;
-  /**
-   * Action confirmée. Si fournie, la boîte gère seule l'attente (impossible de l'annuler pendant)
-   * et se ferme à la fin en émettant `done` ; sinon, écouter `confirm`.
-   */
-  export let onConfirm: (() => Promise<unknown>) | null = null;
+  interface Props {
+    onconfirm?: () => void;
+    oncancel?: () => void;
+    ondone?: () => void;
+    open?: boolean;
+    title?: string;
+    message?: string;
+    confirmLabel?: string;
+    cancelLabel?: string;
+    busy?: boolean;
+    /**
+     * Action confirmée. Si fournie, la boîte gère seule l'attente (impossible de l'annuler pendant)
+     * puis appelle `ondone` ; sinon, elle appelle seulement `onconfirm`.
+     */
+    action?: (() => Promise<unknown>) | null;
+    children?: Snippet;
+  }
 
-  const dispatch = createEventDispatcher<{ confirm: void; cancel: void; done: void }>();
+  let {
+    open = $bindable(false),
+    title = "Supprimer ?",
+    message = "",
+    confirmLabel = "Oui, supprimer",
+    cancelLabel = "Annuler",
+    busy = $bindable(false),
+    action = null,
+    children,
+    onconfirm,
+    oncancel,
+    ondone
+  }: Props = $props();
 
   function cancel() {
-    if (busy && onConfirm) return;
+    if (busy && action) return;
     open = false;
-    dispatch("cancel");
+    oncancel?.();
   }
 
   async function confirm() {
-    if (!onConfirm) return dispatch("confirm");
+    if (!action) return onconfirm?.();
     busy = true;
     try {
-      await onConfirm();
+      await action();
     } finally {
       busy = false;
       open = false;
-      dispatch("done");
+      ondone?.();
     }
   }
 </script>
 
-<Modal {open} {title} maxWidth={460} role="alertdialog" on:close={cancel}>
-  <p class="impact">{message}<slot /></p>
-  <svelte:fragment slot="footer">
-    <Button variant="ghost" disabled={busy && !!onConfirm} on:click={cancel}>{cancelLabel}</Button>
-    <Button variant="danger-solid" disabled={busy} on:click={confirm}>
-      {busy ? "…" : confirmLabel}
-    </Button>
-  </svelte:fragment>
+<Modal {open} {title} maxWidth={460} role="alertdialog" onclose={cancel}>
+  <p class="impact">{message}{@render children?.()}</p>
+  {#snippet footer()}
+      <Button variant="ghost" disabled={busy && !!action} onclick={cancel}>{cancelLabel}</Button>
+      <Button variant="danger-solid" disabled={busy} onclick={confirm}>
+        {busy ? "…" : confirmLabel}
+      </Button>
+  {/snippet}
 </Modal>
 
 <style>

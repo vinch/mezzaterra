@@ -1,21 +1,42 @@
 <script lang="ts">
+  import type { Snippet } from "svelte";
   /**
    * Bouton du design system.
    * Règle : un seul `primary` visible par écran ou par modale.
    * `danger-solid` est réservé aux confirmations (ConfirmDialog).
    */
-  export let variant: "primary" | "secondary" | "ghost" | "danger" | "danger-solid" = "secondary";
-  export let size: "md" | "sm" | "lg" = "md";
-  export let href: string | null = null;
-  export let type: "button" | "submit" = "button";
-  /** Formulaire soumis par ce bouton quand il est placé hors du <form> (pied de modale). */
-  export let form: string | undefined = undefined;
-  export let disabled = false;
-  export let block = false;
-  export let target: string | undefined = undefined;
-  export let rel: string | undefined = undefined;
-  export let title: string | undefined = undefined;
-  export let ariaLabel: string | undefined = undefined;
+  interface Props {
+    onclick?: (e: MouseEvent) => void;
+    variant?: "primary" | "secondary" | "ghost" | "danger" | "danger-solid";
+    size?: "md" | "sm" | "lg";
+    href?: string | null;
+    type?: "button" | "submit";
+    /** Formulaire soumis par ce bouton quand il est placé hors du <form> (pied de modale). */
+    form?: string | undefined;
+    disabled?: boolean;
+    block?: boolean;
+    target?: string | undefined;
+    rel?: string | undefined;
+    title?: string | undefined;
+    ariaLabel?: string | undefined;
+    children?: Snippet;
+  }
+
+  let {
+    variant = "secondary",
+    size = "md",
+    href = null,
+    type = "button",
+    form = undefined,
+    disabled = false,
+    block = false,
+    target = undefined,
+    rel = undefined,
+    title = undefined,
+    ariaLabel = undefined,
+    children,
+    onclick
+  }: Props = $props();
 </script>
 
 {#if href && !disabled}
@@ -27,9 +48,9 @@
     aria-label={ariaLabel}
     class="btn btn--{variant} btn--{size}"
     class:btn--block={block}
-    on:click
+    {onclick}
   >
-    <slot />
+    {@render children?.()}
   </a>
 {:else}
   <button
@@ -40,9 +61,9 @@
     aria-label={ariaLabel}
     class="btn btn--{variant} btn--{size}"
     class:btn--block={block}
-    on:click
+    {onclick}
   >
-    <slot />
+    {@render children?.()}
   </button>
 {/if}
 
