@@ -32,6 +32,8 @@
   let tastings: any[] = [];
   let feedback: any[] = [];
   let vintages: any[] = [];
+  /** Lecture secondaire en échec (millésimes, stock) : la fiche reste affichée, incomplète. */
+  let warning = "";
   /** null : stock illisible, les suggestions (vins en stock) ne peuvent pas être calculées. */
   let stock: Map<string, number> | null = new Map();
 
@@ -56,9 +58,15 @@
             )
             .order("id")
             .range(from, to),
-        ),
+        ).catch((e) => {
+          warning = `Millésimes indisponibles, achats et suggestions incomplets : ${errorMessage(e)}`;
+          return [];
+        }),
         /* Le stock ne sert qu'aux suggestions : sans lui, le reste de la fiche reste lisible. */
-        fetchStockMap().catch(() => null),
+        fetchStockMap().catch((e) => {
+          warning = `Stock indisponible : ${errorMessage(e)}`;
+          return null;
+        }),
       ]);
       const failed = [cRes, sRes, tRes].find((r) => r.error);
       if (failed?.error) throw new Error(failed.error.message);
@@ -231,6 +239,7 @@
   {:else if !customer}
     <EmptyState title="Client introuvable" text="Il a peut-être été supprimé." />
   {:else}
+    {#if warning}<div class="error-message" role="alert">{warning}</div>{/if}
     <div class="top">
       <Card title="Coordonnées" id="coords">
         <dl class="coords">
