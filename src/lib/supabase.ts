@@ -11,6 +11,12 @@ if (!supabaseUrl || !supabaseAnonKey) {
 
 export const supabase = createClient<Database>(supabaseUrl, supabaseAnonKey);
 
+/**
+ * Identifiant « à créer » des fonctions SQL save_sale, save_order, save_tasting (null en base).
+ * Le générateur de types ne sait pas qu'un paramètre de fonction accepte null : il le type `string`.
+ */
+export const NEW_ROW = null as unknown as string;
+
 /** Valeur littérale pour `.ilike()` (comparaison insensible à la casse, sans jokers `%` ni `_`). */
 export function escapeLike(value: string): string {
   return value.replace(/[\\%_]/g, "\\$&");

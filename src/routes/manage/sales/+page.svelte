@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { fetchAllRows, supabase } from "$lib/supabase";
+  import { NEW_ROW, supabase } from "$lib/supabase";
   import { getContext, onMount } from "svelte";
   import type { PageData } from "./$types";
   import ManagePageShell from "$lib/components/manage/ManagePageShell.svelte";
@@ -7,7 +7,7 @@
   import Button from "$lib/ui/Button.svelte";
   import IconButton from "$lib/ui/IconButton.svelte";
   import StatusBadge from "$lib/ui/StatusBadge.svelte";
-  import { EDITABLE_STATUSES, STATUS_META, type SaleStatus } from "$lib/status";
+  import { EDITABLE_STATUSES, SALE_TRANSITIONS, STATUS_META, type SaleStatus } from "$lib/status";
   import Menu, { type MenuItem } from "$lib/ui/Menu.svelte";
   import RowMenu from "$lib/ui/RowMenu.svelte";
   import ConfirmDialog from "$lib/ui/ConfirmDialog.svelte";
@@ -17,7 +17,7 @@
   import Select from "$lib/ui/Select.svelte";
   import AmountTypeInput from "$lib/ui/AmountTypeInput.svelte";
   import Stepper from "$lib/ui/Stepper.svelte";
-  import WineDot, { robeOf, ROBE_LABEL } from "$lib/ui/WineDot.svelte";
+  import WineDot from "$lib/ui/WineDot.svelte";
   import {
     IconCheck,
     IconClock,
@@ -36,7 +36,16 @@
   import { fold, formatDate, formatEUR, initials, toNumber } from "$lib/format";
   import { todayIso } from "$lib/dates";
   import { lineTotal } from "$lib/analytics";
-  import { vintageProductLabel, vintageShortLabel } from "$lib/wine";
+  import { styleByKey, vintageProductLabel, vintageShortLabel, wineRobe, type WineStyleKey } from "$lib/wine";
+  import {
+    PAYMENT_METHOD_OPTIONS,
+    TASTING_LINE_NOTE,
+    globalDiscountAmount,
+    itemsSubtotal,
+    paymentMethodLabel,
+    saleItemDescription,
+    saleTotal,
+  } from "$lib/sales";
   import { fetchCustomers, fetchPickerVintages, fetchStockMap } from "$lib/manageData";
   import { errorMessage, latestOnly } from "$lib/async";
   import { invalidateAll } from "$app/navigation";
@@ -49,20 +58,6 @@
 
   /** Valeur interne du select « produit » pour une ligne dégustation (sans millésime). */
   const TASTING_SELECT_VALUE = "__tasting__";
-  const TASTING_LINE_NOTE = "Dégustation";
-
-  const PAYMENT_METHOD_OPTIONS: { value: string; label: string }[] = [
-    { value: "liquide", label: "Liquide" },
-    { value: "virement", label: "Virement" },
-    { value: "payconiq_pro", label: "Payconiq pro" },
-    { value: "payconiq_perso", label: "Payconiq perso" },
-  ];
-
-  function paymentMethodLabel(value: string | null | undefined): string {
-    if (value == null || String(value).trim() === "") return "—";
-    const o = PAYMENT_METHOD_OPTIONS.find((p) => p.value === value);
-    return o ? o.label : String(value);
-  }
 
   let sales: any[];
   /* Rechargé par invalidateAll() après une création, une modification ou une suppression. */
@@ -83,7 +78,6 @@
   let formData = {
     date: todayIso(),
     customer_id: "",
-    status: "pending",
     note: "",
     global_discount: "",
     global_discount_type: "amount" as "amount" | "percent",
@@ -133,14 +127,6 @@
     const telecharger = params.get("telecharger");
     if (telecharger) void downloadInvoice(telecharger);
   });
-
-  function saleItemDescription(item: any): string {
-    if (item.wine_vintage_id && item.wine_vintage) {
-      return vintageProductLabel(item.wine_vintage);
-    }
-    const n = item.note != null ? String(item.note).trim() : "";
-    return n || TASTING_LINE_NOTE;
-  }
 
   function getProductDisplayNameWithStock(vintage: any, availableStock: number) {
     return `${vintageProductLabel(vintage)} - Stock : ${availableStock}`;
@@ -221,7 +207,6 @@
     formData = {
       date: sale.date.split("T")[0],
       customer_id: sale.customer_id || "",
-      status: sale.status || "pending",
       note: sale.note || "",
       global_discount:
         sale.global_discount != null && toNumber(sale.global_discount) > 0
@@ -295,444 +280,13 @@
     detailsSaleItems = [];
   }
 
-  async function generateAndSaveInvoiceNumber(
-    saleId: string,
-    saleDate: string,
-  ): Promise<string | null> {
-    // Year of the sale date (read from the string: a date-only value has no timezone)
-    const year = Number(saleDate.slice(0, 4));
-    const yearStart = `${year}-01-01`;
-    const yearEnd = `${year}-12-31`;
-
-    // All sales of the year, by date then creation (paginated past PostgREST's 1000 rows):
-    // their order gives the position, those already invoiced give the max number
-    let allSalesInYear: { id: string; date: string; created_at: string; invoice_number: string | null }[];
-    try {
-      allSalesInYear = await fetchAllRows((from, to) =>
-        supabase
-          .from("sale")
-          .select("id, date, created_at, invoice_number")
-          .gte("date", yearStart)
-          .lte("date", yearEnd)
-          .order("date", { ascending: true })
-          .order("created_at", { ascending: true })
-          .order("id", { ascending: true })
-          .range(from, to),
-      );
-    } catch (err) {
-      console.error(
-        "Erreur lors de la génération du numéro de facture:",
-        err,
-      );
-      return null;
-    }
-
-    // Find the position of this sale in the ordered list
-    const saleIndex = allSalesInYear.findIndex((s) => s.id === saleId);
-
-    // Find the highest invoice number for this year
-    let maxInvoiceNumber = 0;
-    for (const sale of allSalesInYear) {
-      const match = sale.invoice_number?.match(/INV-\d+-(\d+)/);
-      if (match) maxInvoiceNumber = Math.max(maxInvoiceNumber, parseInt(match[1], 10));
-    }
-
-    // Generate the next invoice number
-    // Use the position in the year or max + 1, whichever is higher
-    const sequenceNumber = Math.max(saleIndex + 1, maxInvoiceNumber + 1);
-
-    const invoiceNumber = `INV-${year}-${String(sequenceNumber).padStart(3, "0")}`;
-
-    // Save the invoice number to the database
-    const { error: updateError } = await supabase
-      .from("sale")
-      .update({ invoice_number: invoiceNumber })
-      .eq("id", saleId);
-
-    if (updateError) {
-      console.error(
-        "Erreur lors de l'enregistrement du numéro de facture:",
-        updateError,
-      );
-      return null;
-    }
-
-    return invoiceNumber;
-  }
-
   async function downloadInvoice(saleId: string) {
     try {
       /* jsPDF n'est chargé qu'au moment de générer une facture. */
-      const { default: jsPDF } = await import("jspdf");
-      // Load sale with customer info
-      const { data: sale, error: saleError } = await supabase
-        .from("sale")
-        .select(
-          `
-          *,
-          customer (
-            first_name,
-            last_name,
-            company_name,
-            email,
-            address_line_1,
-            address_line_2,
-            city,
-            zip_code,
-            country_id,
-            vat
-          )
-        `,
-        )
-        .eq("id", saleId)
-        .single();
-
-      if (saleError || !sale) {
-        error = `Erreur lors du chargement de la vente: ${saleError?.message}`;
-        return;
-      }
-
-      // Load sale items with wine info
-      const { data: items, error: itemsError } = await supabase
-        .from("sale_item")
-        .select(
-          `
-          *,
-          wine_vintage (
-            *,
-            wine (
-              *,
-              winery (*),
-              appelation (*)
-            )
-          )
-        `,
-        )
-        .eq("sale_id", saleId);
-
-      if (itemsError || !items) {
-        error = `Erreur lors du chargement des articles: ${itemsError?.message}`;
-        return;
-      }
-
-      // Use existing invoice number or generate one if it doesn't exist
-      let invoiceNumber = sale.invoice_number;
-      if (!invoiceNumber) {
-        invoiceNumber = await generateAndSaveInvoiceNumber(sale.id, sale.date);
-        if (!invoiceNumber) {
-          error = "Impossible de générer le numéro de facture";
-          return;
-        }
-      }
-
-      // Create PDF
-      const doc = new jsPDF();
-      const pageWidth = doc.internal.pageSize.getWidth();
-      const margin = 20;
-      let yPos = margin;
-
-      // Header
-      doc.setFontSize(20);
-      doc.setFont("helvetica", "bold");
-      doc.text("FACTURE", pageWidth - margin, yPos, { align: "right" });
-      yPos += 12;
-
-      doc.setFontSize(10);
-      doc.setFont("helvetica", "normal");
-      doc.text(`N° ${invoiceNumber}`, pageWidth - margin, yPos, {
-        align: "right",
-      });
-      yPos += 6;
-      doc.text(
-        `Date: ${formatDate(sale.date)}`,
-        pageWidth - margin,
-        yPos,
-        { align: "right" },
-      );
-      yPos += 15;
-
-      // Company info (left side) and Customer info (right side)
-      // Both start at the same Y position
-      const customerX = pageWidth - margin;
-      let customerY = yPos; // Start at same Y as company info
-
-      // Company info (left side)
-      doc.setFontSize(12);
-      doc.setFont("helvetica", "bold");
-      doc.text("Mezzaterra", margin, yPos);
-      yPos += 6;
-
-      doc.setFontSize(10);
-      doc.setFont("helvetica", "normal");
-      // You can add your company address here
-      // doc.text("Adresse", margin, yPos);
-      // yPos += 5;
-      // doc.text("Code postal Ville", margin, yPos);
-      // yPos += 5;
-      doc.setFontSize(12);
-      doc.setFont("helvetica", "bold");
-      let customerName = `${sale.customer.first_name} ${sale.customer.last_name}`;
-      if (sale.customer.company_name) {
-        customerName += `\n${sale.customer.company_name}`;
-      }
-      const customerLines = doc.splitTextToSize(customerName, 80);
-      doc.text(customerLines, customerX, customerY, { align: "right" });
-      // Calculate proper spacing: 5.5 per line for font size 12
-      customerY += customerLines.length * 5.5 + 3;
-
-      doc.setFontSize(10);
-      doc.setFont("helvetica", "normal");
-      if (sale.customer.address_line_1) {
-        doc.text(sale.customer.address_line_1, customerX, customerY, {
-          align: "right",
-        });
-        customerY += 5;
-      }
-      if (sale.customer.address_line_2) {
-        doc.text(sale.customer.address_line_2, customerX, customerY, {
-          align: "right",
-        });
-        customerY += 5;
-      }
-      if (sale.customer.zip_code || sale.customer.city) {
-        const cityLine =
-          `${sale.customer.zip_code || ""} ${sale.customer.city || ""}`.trim();
-        if (cityLine) {
-          doc.text(cityLine, customerX, customerY, { align: "right" });
-          customerY += 5;
-        }
-      }
-      if (sale.customer.email) {
-        doc.text(sale.customer.email, customerX, customerY, { align: "right" });
-        customerY += 5;
-      }
-      if (sale.customer.vat) {
-        doc.text(`TVA: ${sale.customer.vat}`, customerX, customerY, {
-          align: "right",
-        });
-        customerY += 5;
-      }
-
-      // Use the maximum Y position between left and right columns
-      yPos = Math.max(yPos, customerY);
-      yPos += 15;
-
-      // Check if customer is a company (has company_name or vat)
-      const isCompany = !!(sale.customer.company_name || sale.customer.vat);
-      const VAT_RATE = 0.21;
-
-      // Items table header
-      // Define column positions - optimize spacing to prevent overlaps
-      // All numeric columns have the same width for consistency
-      const descColStart = margin + 2;
-      const numericColWidth = 18; // Fixed width for all numeric columns (Qté, PU HTVA, PU TTC, Total HTVA, Total TTC)
-      const colSpacing = 2; // Spacing between columns
-
-      // For companies: 6 columns (Description, Qté, PU HTVA, PU TTC, Total HTVA, Total TTC)
-      // For individuals: 4 columns (Description, Qté, PU, Total)
-      // Calculate positions from right to left
-      const totalTTColX = pageWidth - margin - numericColWidth / 2; // Center of Total TTC column
-      const totalHTColX = isCompany
-        ? totalTTColX - numericColWidth - colSpacing
-        : null; // Center of Total HTVA column (company only)
-      const priceTTColX = isCompany
-        ? (totalHTColX || totalTTColX) - numericColWidth - colSpacing
-        : totalTTColX - numericColWidth - colSpacing; // Center of PU TTC column
-      const priceHTColX = isCompany
-        ? priceTTColX - numericColWidth - colSpacing
-        : null; // Center of PU HTVA column (company only)
-      const qtyColX = isCompany
-        ? (priceHTColX || priceTTColX) - numericColWidth - colSpacing
-        : priceTTColX - numericColWidth - colSpacing; // Center of Qté column
-
-      // Calculate description width with padding
-      const descColWidth = qtyColX - descColStart - numericColWidth / 2 - 15; // 15mm padding before Qté
-
-      // Use smaller font size (9) for the entire table
-      doc.setFontSize(9);
-      doc.setFont("helvetica", "bold");
-      doc.line(margin, yPos, pageWidth - margin, yPos);
-      yPos += 6;
-      doc.text("Description", descColStart, yPos);
-      doc.text("Qté", qtyColX, yPos, { align: "center" });
-      if (isCompany && priceHTColX !== null) {
-        doc.text("PU HTVA", priceHTColX, yPos, { align: "center" });
-      }
-      doc.text(isCompany ? "PU TTC" : "PU", priceTTColX, yPos, {
-        align: "center",
-      });
-      if (isCompany && totalHTColX !== null) {
-        doc.text("Total HTVA", totalHTColX, yPos, { align: "center" });
-      }
-      doc.text(isCompany ? "Total TTC" : "Total", totalTTColX, yPos, {
-        align: "center",
-      });
-      yPos += 3;
-      doc.line(margin, yPos, pageWidth - margin, yPos);
-      yPos += 6;
-
-      // Items
-      doc.setFont("helvetica", "normal");
-      // Font size is already set to 9 for the entire table
-      let subtotalTTC = 0;
-      let subtotalHTVA = 0;
-
-      for (const item of items) {
-        if (yPos > doc.internal.pageSize.getHeight() - 40) {
-          doc.addPage();
-          yPos = margin + 20;
-        }
-
-        const productName = saleItemDescription(item);
-        const quantity = item.quantity;
-        const priceTTC = toNumber(item.price); // Price in DB is TTC
-        const priceHTVA = isCompany ? priceTTC / (1 + VAT_RATE) : priceTTC;
-        const itemTotalTTC = lineTotal(item);
-        subtotalTTC += itemTotalTTC;
-
-        // Calculate HTVA from TTC: HTVA = TTC / (1 + VAT_RATE)
-        const itemTotalHTVA = isCompany
-          ? itemTotalTTC / (1 + VAT_RATE)
-          : itemTotalTTC;
-        subtotalHTVA += itemTotalHTVA;
-
-        // Description (with wrapping) - limit width to avoid overlap
-        const descriptionLines = doc.splitTextToSize(productName, descColWidth);
-        const startY = yPos;
-        doc.text(descriptionLines, descColStart, startY);
-        const itemHeight = Math.max(descriptionLines.length * 4.2, 6);
-
-        // Quantity - centered in column
-        doc.text(quantity.toString(), qtyColX, startY, { align: "center" });
-
-        // Unit price HTVA if company - centered in column
-        if (isCompany && priceHTColX !== null) {
-          doc.text(`€${priceHTVA.toFixed(2)}`, priceHTColX, startY, {
-            align: "center",
-          });
-        }
-
-        // Unit price TTC - centered in column
-        doc.text(`€${priceTTC.toFixed(2)}`, priceTTColX, startY, {
-          align: "center",
-        });
-
-        // Total HTVA if company - centered in column
-        if (isCompany && totalHTColX) {
-          doc.text(`€${itemTotalHTVA.toFixed(2)}`, totalHTColX, startY, {
-            align: "center",
-          });
-        }
-
-        // Total TTC - centered in column
-        doc.text(`€${itemTotalTTC.toFixed(2)}`, totalTTColX, startY, {
-          align: "center",
-        });
-
-        yPos += itemHeight + 2;
-      }
-
-      const gDisc = toNumber(sale.global_discount);
-      const gType = String(sale.global_discount_type ?? "")
-        .trim()
-        .toLowerCase();
-      if (gDisc > 0 && (gType === "amount" || gType === "percent")) {
-        doc.setFontSize(10);
-        doc.setFont("helvetica", "normal");
-        doc.text(
-          `Sous-total TTC: €${subtotalTTC.toFixed(2)}`,
-          pageWidth - margin,
-          yPos,
-          { align: "right" },
-        );
-        yPos += 5;
-        const ristEuro = Math.max(
-          0,
-          Math.round((subtotalTTC - toNumber(sale.total_price)) * 100) / 100,
-        );
-        const ristLabel =
-          gType === "percent"
-            ? `Ristourne globale (${gDisc} %) : –€${ristEuro.toFixed(2)}`
-            : `Ristourne globale : –€${gDisc.toFixed(2)}`;
-        doc.text(ristLabel, pageWidth - margin, yPos, { align: "right" });
-        yPos += 8;
-      }
-
-      yPos += 5;
-      doc.line(margin, yPos, pageWidth - margin, yPos);
-      yPos += 10;
-
-      // Totals
-      doc.setFontSize(12);
-      doc.setFont("helvetica", "bold");
-
-      if (isCompany) {
-        // Calculate final totals
-        const totalHTVA = sale.total_price / (1 + VAT_RATE);
-        const totalVAT = sale.total_price - totalHTVA;
-
-        doc.text(
-          `Total HTVA: €${totalHTVA.toFixed(2)}`,
-          pageWidth - margin,
-          yPos,
-          { align: "right" },
-        );
-        yPos += 7;
-        doc.setFontSize(10);
-        doc.setFont("helvetica", "normal");
-        doc.text(
-          `TVA (21%): €${totalVAT.toFixed(2)}`,
-          pageWidth - margin,
-          yPos,
-          { align: "right" },
-        );
-        yPos += 7;
-        doc.setFontSize(12);
-        doc.setFont("helvetica", "bold");
-        doc.text(
-          `Total TTC: €${sale.total_price.toFixed(2)}`,
-          pageWidth - margin,
-          yPos,
-          { align: "right" },
-        );
-      } else {
-        doc.text(
-          `TOTAL: €${sale.total_price.toFixed(2)}`,
-          pageWidth - margin,
-          yPos,
-          { align: "right" },
-        );
-      }
-
-      if (sale.payment_method) {
-        yPos += 10;
-        doc.setFontSize(10);
-        doc.setFont("helvetica", "normal");
-        doc.text(
-          `Mode de paiement : ${paymentMethodLabel(sale.payment_method)}`,
-          margin,
-          yPos,
-        );
-      }
-
-      // Note if present
-      if (sale.note) {
-        yPos += 15;
-        doc.setFontSize(10);
-        doc.setFont("helvetica", "normal");
-        doc.setFont("helvetica", "italic");
-        const noteLines = doc.splitTextToSize(
-          `Note: ${sale.note}`,
-          pageWidth - 2 * margin,
-        );
-        doc.text(noteLines, margin, yPos);
-      }
-
-      // Save PDF
-      const fileName = `Facture_${invoiceNumber.replace(/[^a-zA-Z0-9]/g, "_")}.pdf`;
-      doc.save(fileName);
+      const { downloadInvoicePdf } = await import("$lib/pdf/invoicePdf");
+      await downloadInvoicePdf(saleId);
     } catch (err) {
-      error = `Erreur lors de la génération de la facture: ${err}`;
+      error = `Erreur lors de la génération de la facture : ${err instanceof Error ? err.message : err}`;
       console.error(err);
     }
   }
@@ -741,7 +295,6 @@
     formData = {
       date: todayIso(),
       customer_id: "",
-      status: "pending",
       note: "",
       global_discount: "",
       global_discount_type: "amount",
@@ -754,23 +307,6 @@
     selectedPrice = "";
     selectedDiscount = "";
     selectedDiscountType = "amount";
-  }
-
-  /** Sous-total TTC après remises par ligne (avant ristourne globale). */
-  function itemsSubtotal(items: any[]): number {
-    return Math.round(items.reduce((sum, item) => sum + lineTotal(item), 0) * 100) / 100;
-  }
-
-  /** Total TTC : sous-total moins la ristourne globale (montant ou %). */
-  function saleTotal(items: any[], globalDiscount: unknown, globalDiscountType: string): number {
-    const subtotal = itemsSubtotal(items);
-    const g = toNumber(globalDiscount);
-    if (g <= 0) return subtotal;
-    if (globalDiscountType === "percent") {
-      const pct = Math.min(100, g);
-      return Math.max(0, Math.round(subtotal * (1 - pct / 100) * 100) / 100);
-    }
-    return Math.max(0, Math.round((subtotal - g) * 100) / 100);
   }
 
   $: total = saleTotal(saleItems, formData.global_discount, formData.global_discount_type);
@@ -871,11 +407,6 @@
       return;
     }
 
-    if (editingSale?.status === "closed" || editingSale?.status === "cancelled") {
-      error = "Impossible de modifier une vente clôturée ou annulée";
-      return;
-    }
-
     const gGlobal = toNumber(formData.global_discount);
     if (
       gGlobal > 0 &&
@@ -889,7 +420,6 @@
     const saleData = {
       date: formData.date,
       customer_id: formData.customer_id,
-      status: editingSale ? editingSale.status : "pending", // Keep the original status
       total_price: total,
       note: formData.note || null,
       global_discount: gGlobal > 0 ? gGlobal : null,
@@ -902,46 +432,11 @@
 
     saving = true;
     try {
-      let saleId: string;
-      if (editingSale) {
-        saleId = editingSale.id;
-        const { error: updateError } = await supabase
-          .from("sale")
-          .update(saleData)
-          .eq("id", saleId);
-
-        if (updateError) {
-          error = updateError.message;
-          return;
-        }
-
-        // Delete existing sale items
-        const { error: deleteError } = await supabase
-          .from("sale_item")
-          .delete()
-          .eq("sale_id", saleId);
-
-        if (deleteError) {
-          error = deleteError.message;
-          return;
-        }
-      } else {
-        const { data: newSale, error: insertError } = await supabase
-          .from("sale")
-          .insert(saleData)
-          .select("id")
-          .single();
-
-        if (insertError) {
-          error = insertError.message;
-          return;
-        }
-        saleId = newSale.id;
-      }
-
-      const { error: itemError } = await supabase.from("sale_item").insert(
-        saleItems.map((item) => ({
-          sale_id: saleId,
+      /* Vente et lignes enregistrées ensemble (fonction SQL save_sale) : tout ou rien. */
+      const { error: saveError } = await supabase.rpc("save_sale", {
+        p_sale_id: editingSale?.id ?? NEW_ROW,
+        p_sale: saleData,
+        p_items: saleItems.map((item) => ({
           wine_vintage_id: item.wine_vintage_id ?? null,
           quantity: item.quantity,
           price: toNumber(item.price),
@@ -949,10 +444,10 @@
           discount_type: item.discount_type || null,
           note: item.note || null,
         })),
-      );
+      });
 
-      if (itemError) {
-        error = itemError.message;
+      if (saveError) {
+        error = saveError.message;
         return;
       }
 
@@ -965,166 +460,59 @@
     }
   }
 
-  async function updateSaleStatus(
-    saleId: string,
-    newStatus: string,
-    currentStatus: string,
-  ): Promise<boolean> {
+  /**
+   * Changement de statut. Les règles (transitions permises, mode de paiement obligatoire), le
+   * déstockage et le numéro de facture sont appliqués par la fonction SQL set_sale_status, en une
+   * transaction ; ici, seulement les confirmations et un rappel du mode de paiement avant de demander.
+   */
+  async function updateSaleStatus(sale: any, newStatus: string): Promise<boolean> {
+    const currentStatus = sale.status;
     if (currentStatus === newStatus) {
       return true;
     }
 
-    if (currentStatus === "cancelled") {
-      error = "Impossible de modifier le statut d'une vente annulée.";
-      return false;
-    }
-
-    if (currentStatus === "closed") {
-      error = "Impossible de modifier le statut d'une vente clôturée.";
-      return false;
-    }
-
-    if (
-      newStatus === "pending" &&
-      (currentStatus === "paid" ||
-        currentStatus === "delivered" ||
-        currentStatus === "closed")
-    ) {
-      error =
-        "Impossible de repasser en « En attente » une fois la vente engagée (payée, livrée ou clôturée).";
-      return false;
-    }
-
-    if (newStatus === "closed") {
-      if (currentStatus !== "paid" && currentStatus !== "delivered") {
-        error =
-          "Une vente ne peut être clôturée qu’à partir des statuts « Payée » ou « Livrée ».";
-        return false;
-      }
-      if (
-        !confirm(
-          "Clôturer cette vente ?\n\nElle ne pourra plus être modifiée ni changer de statut.",
-        )
-      ) {
-        return false;
-      }
-    }
-
-    if (newStatus === "delivered") {
-      const stockHint =
-        currentStatus === "pending"
-          ? "\n\nLe stock sera débité (hors lignes dégustation)."
-          : "";
-      if (!confirm(`Marquer cette vente comme livrée ?${stockHint}`)) {
-        return false;
-      }
-    }
+    const stockHint =
+      currentStatus === "pending" ? "\n\nLe stock sera débité (hors lignes dégustation)." : "";
 
     if (newStatus === "paid") {
-      if (currentStatus !== "paid") {
-        const { data: salePm, error: pmErr } = await supabase
-          .from("sale")
-          .select("payment_method")
-          .eq("id", saleId)
-          .single();
-        if (pmErr || !String(salePm?.payment_method ?? "").trim()) {
-          error =
-            "Indiquez le mode de paiement (Modifier la vente) avant de marquer comme payée.";
-          return false;
-        }
+      /* Relu en base : le mode de paiement a pu être saisi ailleurs depuis le chargement de la page. */
+      const { data: fresh, error: freshError } = await supabase.from("sale").select("payment_method").eq("id", sale.id).single();
+      if (freshError) {
+        error = freshError.message;
+        return false;
       }
-      const stockHint =
-        currentStatus === "pending"
-          ? "\n\nLe stock sera débité (hors lignes dégustation)."
-          : "";
-      if (
-        !confirm(
-          `Marquer cette vente comme payée ?${stockHint}\n\nUn numéro de facture sera attribué si besoin.`,
-        )
-      ) {
+      if (!String(fresh?.payment_method ?? "").trim()) {
+        error = "Indiquez le mode de paiement (Modifier la vente) avant de marquer comme payée.";
         return false;
       }
     }
 
-    const { error: updateError } = await supabase
-      .from("sale")
-      .update({ status: newStatus })
-      .eq("id", saleId);
-
-    if (updateError) {
-      error = updateError.message;
+    const question =
+      newStatus === "closed"
+        ? "Clôturer cette vente ?\n\nElle ne pourra plus être modifiée ni changer de statut."
+        : newStatus === "delivered"
+          ? `Marquer cette vente comme livrée ?${stockHint}`
+          : newStatus === "paid"
+            ? `Marquer cette vente comme payée ?${stockHint}\n\nUn numéro de facture sera attribué si besoin.`
+            : null;
+    if (question && !confirm(question)) {
       return false;
     }
 
-    /* Déstockage uniquement quand on quitte « En attente » vers Payée ou Livrée. */
-    const shouldApplyStockOut =
-      currentStatus === "pending" &&
-      (newStatus === "paid" || newStatus === "delivered");
+    const { data: invoiceNumber, error: statusError } = await supabase.rpc("set_sale_status", {
+      p_sale_id: sale.id,
+      p_status: newStatus,
+    });
 
-    if (shouldApplyStockOut) {
-      const [{ data: sale, error: saleError }, { data: items, error: itemsError }] = await Promise.all([
-        supabase.from("sale").select("customer ( first_name, last_name )").eq("id", saleId).single(),
-        supabase.from("sale_item").select("wine_vintage_id, quantity").eq("sale_id", saleId),
-      ]);
-
-      if (saleError) {
-        error = `Erreur lors du chargement de la vente: ${saleError.message}`;
-        return false;
-      }
-
-      if (itemsError) {
-        error = `Erreur lors du chargement des articles: ${itemsError.message}`;
-        return false;
-      }
-
-      const customerName = sale.customer
-        ? `${sale.customer.first_name} ${sale.customer.last_name}`
-        : "Client inconnu";
-      const note = `Vente à ${customerName}`;
-
-      const moves = (items || [])
-        .filter((item) => item.wine_vintage_id)
-        .map((item) => ({
-          wine_vintage_id: item.wine_vintage_id!,
-          reason: "sale_out",
-          quantity: -Math.abs(item.quantity),
-          date: todayIso(),
-          note: note,
-        }));
-      if (moves.length) {
-        const { error: stockMoveError } = await supabase.from("stock_move").insert(moves);
-        if (stockMoveError) {
-          error = `Erreur lors de la création du mouvement de stock: ${stockMoveError.message}`;
-          return false;
-        }
-      }
-    }
-
-    /* Numéro de facture attribué au passage en « Payée » ou à la clôture, s'il n'en a pas déjà un. */
-    if ((newStatus === "paid" && currentStatus !== "paid") || newStatus === "closed") {
-      const { data: saleForInv } = await supabase
-        .from("sale")
-        .select("id, date, invoice_number")
-        .eq("id", saleId)
-        .single();
-
-      if (saleForInv && !saleForInv.invoice_number) {
-        const invoiceNumber = await generateAndSaveInvoiceNumber(
-          saleForInv.id,
-          saleForInv.date,
-        );
-        if (!invoiceNumber) {
-          console.error("Impossible de générer le numéro de facture");
-        }
-      }
+    if (statusError) {
+      error = statusError.message;
+      return false;
     }
 
     // Update the local state
-    const saleIndex = sales.findIndex((s) => s.id === saleId);
-    if (saleIndex !== -1) {
-      sales[saleIndex].status = newStatus;
-      sales = [...sales];
-    }
+    sale.status = newStatus;
+    sale.invoice_number = invoiceNumber;
+    sales = [...sales];
 
     return true;
   }
@@ -1137,13 +525,16 @@
       return;
     }
 
-    const { error: deleteError } = await supabase
+    /* Filtrée sur « En attente » : une vente passée entre-temps ailleurs (stock déjà sorti) n'est pas supprimée. */
+    const { data: deleted, error: deleteError } = await supabase
       .from("sale")
       .delete()
-      .eq("id", id);
+      .eq("id", id)
+      .eq("status", "pending")
+      .select("id");
 
-    if (deleteError) {
-      error = deleteError.message;
+    if (deleteError || !deleted?.length) {
+      error = deleteError?.message ?? "Seules les ventes en attente peuvent être supprimées.";
       return;
     }
 
@@ -1221,15 +612,16 @@
     delivered: { label: "Marquer comme livrée", icon: IconTruck },
     closed: { label: "Clôturer et facturer", icon: IconLock },
   };
-  function nextStatuses(cur: string): string[] {
-    if (cur === "pending") return ["paid", "delivered"];
-    if (cur === "paid") return ["delivered", "closed"];
-    if (cur === "delivered") return ["paid", "closed"];
-    return [];
+  function statusMenuItems(sale: any): MenuItem[] {
+    return (SALE_TRANSITIONS[sale.status] ?? []).map((st) => ({
+      label: STATUS_ACTIONS[st].label,
+      icon: STATUS_ACTIONS[st].icon,
+      onSelect: () => changeStatus(sale, st),
+    }));
   }
   async function changeStatus(sale: any, next: string) {
     error = "";
-    const ok = await updateSaleStatus(sale.id, next, sale.status);
+    const ok = await updateSaleStatus(sale, next);
     if (ok) refreshCounts();
     else sales = [...sales];
   }
@@ -1243,13 +635,7 @@
     statusAnchor = statusAnchors[sale.id] ?? null;
     statusMenuOpen = true;
   }
-  $: statusItems = statusMenuSale
-    ? nextStatuses(statusMenuSale.status).map<MenuItem>((st) => ({
-        label: STATUS_ACTIONS[st].label,
-        icon: STATUS_ACTIONS[st].icon,
-        onSelect: () => changeStatus(statusMenuSale, st),
-      }))
-    : [];
+  $: statusItems = statusMenuSale ? statusMenuItems(statusMenuSale) : [];
 
   function rowItems(sale: any): MenuItem[] {
     const st = sale.status;
@@ -1263,9 +649,7 @@
     }
     items.push({ label: "Ouvrir", icon: IconEye, onSelect: () => openDetailsModal(sale) });
     items.push({ label: "Modifier", icon: IconPencil, onSelect: () => openEditModal(sale) });
-    for (const next of st === "pending" ? ["paid"] : st === "paid" ? ["delivered", "closed"] : ["closed"]) {
-      items.push({ label: STATUS_ACTIONS[next].label, icon: STATUS_ACTIONS[next].icon, onSelect: () => changeStatus(sale, next) });
-    }
+    items.push(...statusMenuItems(sale));
     if (st === "pending") {
       items.push({ label: "Supprimer…", icon: IconTrash, danger: true, separator: true, onSelect: () => askDelete(sale) });
     }
@@ -1318,15 +702,15 @@
       .from("sale_item")
       .select("quantity, sale_id, wine_vintage ( wine ( wine_type ( name ) ) )")
       .in("sale_id", own.map((s) => s.id).slice(0, 100));
-    const byRobe = new Map<string, number>();
+    const byRobe = new Map<WineStyleKey, number>();
     for (const it of (data || []) as any[]) {
-      const r = robeOf(it.wine_vintage?.wine?.wine_type);
-      if (r !== "autre") byRobe.set(r, (byRobe.get(r) ?? 0) + (it.quantity || 0));
+      const r = wineRobe(it.wine_vintage?.wine?.wine_type).key;
+      if (r === "red" || r === "white" || r === "rose") byRobe.set(r, (byRobe.get(r) ?? 0) + (it.quantity || 0));
     }
-    const fav = [...byRobe.entries()].sort((a, b) => b[1] - a[1])[0]?.[0] as keyof typeof ROBE_LABEL | undefined;
+    const fav = [...byRobe.entries()].sort((a, b) => b[1] - a[1])[0]?.[0];
     if (hintFor !== id) return;
     customerHint = [
-      fav ? `Aime les ${ROBE_LABEL[fav].toLowerCase()}s` : "",
+      fav ? `Aime les ${styleByKey(fav).label.toLowerCase()}s` : "",
       last ? `dernier achat le ${formatDate(last)}` : "premier achat",
     ]
       .filter(Boolean)
@@ -1580,7 +964,7 @@
                     <td>
                       <span class="wine-cell">
                         {#if item.wine_vintage_id}
-                          <WineDot robe={robeOf(v?.wine?.wine_type)} />
+                          <WineDot type={v?.wine?.wine_type} />
                         {/if}
                         <span class="wine-name">
                           {#if item.wine_vintage_id && v?.wine}
@@ -1762,7 +1146,7 @@
           <p><span>Sous-total articles (TTC)</span><span>{formatEUR(itemsSubtotal(detailsSaleItems))}</span></p>
           <p>
             <span>Ristourne globale {detailsSale.global_discount_type === "percent" ? `(${toNumber(detailsSale.global_discount)} %)` : "(montant)"}</span>
-            <span>−{formatEUR(Math.max(0, itemsSubtotal(detailsSaleItems) - toNumber(detailsSale.total_price)))}</span>
+            <span>−{formatEUR(globalDiscountAmount(detailsSaleItems, detailsSale.total_price))}</span>
           </p>
         {/if}
         <p class="grand"><span>Total TTC</span><span>{formatEUR(detailsSale.total_price)}</span></p>

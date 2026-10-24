@@ -92,7 +92,7 @@ export async function loadDataset(): Promise<Dataset> {
 }
 
 /** Total d'une ligne après remise (même règle que /manage/sales). */
-export function lineTotal(item: SaleItemRow): number {
+export function lineTotal(item: Pick<SaleItemRow, "price" | "quantity" | "discount" | "discount_type">): number {
   let t = toNumber(item.price) * (Number(item.quantity) || 0);
   const d = toNumber(item.discount);
   const kind = String(item.discount_type ?? "").toLowerCase();

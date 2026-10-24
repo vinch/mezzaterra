@@ -25,7 +25,7 @@
     IconX,
   } from "$lib/ui/icons";
   import { formatEUR } from "$lib/format";
-  import { appellationText, isDiscontinued, vintageYearLabel, wineStyle, wineTitle } from "$lib/wine";
+  import { appellationText, isDiscontinued, vintageYearLabel, wineTitle, wineTypeLabel } from "$lib/wine";
 
   export let data: PageData;
 
@@ -42,6 +42,9 @@
     return { production_year: "", year: "", abv: "", purchase_price: "", price: "", image_url: "", organic: false };
   }
   let vintageFormData = emptyForm();
+  /** Image proposée à un nouveau millésime : celle du dernier millésime qui en a une. */
+  $: imageSource = vintages.find((v) => v.image_url);
+  $: imageReused = !editingVintage && !!imageSource && vintageFormData.image_url === imageSource.image_url;
 
   // Grapes modal state
   let showGrapesModal = false;
@@ -56,20 +59,13 @@
     if (new URLSearchParams(window.location.search).has("nouveau")) openCreateModal();
   });
 
-  /** « Rouge », « Blanc »… ; un type hors de ces styles garde son nom. */
-  function typeLabel(t: { name?: string | null; category?: string | null } | null | undefined): string {
-    if (!t) return "";
-    const style = wineStyle(t);
-    return style.key === "other" ? t.name ?? "" : style.label;
-  }
-
   function sortVintages(list: WineVintage[]): WineVintage[] {
     return [...list].sort((a, b) => b.production_year - a.production_year);
   }
 
   function openCreateModal() {
     editingVintage = null;
-    vintageFormData = emptyForm();
+    vintageFormData = { ...emptyForm(), image_url: imageSource?.image_url ?? "" };
     formOpen = true;
   }
 
@@ -182,7 +178,7 @@
     ];
   }
 
-  $: subtitle = [wine.winery?.name, appellationText(wine.appelation), typeLabel(wine.wine_type)].filter(Boolean).join(" · ");
+  $: subtitle = [wine.winery?.name, appellationText(wine.appelation), wineTypeLabel(wine.wine_type)].filter(Boolean).join(" · ");
 
   // Grapes modal functions
   async function openGrapesModal(vintage: any) {
@@ -395,7 +391,15 @@
           type="url"
           id="image_url"
           bind:value={vintageFormData.image_url}
+          aria-describedby={imageReused ? "image-hint" : undefined}
         />
+        {#if imageReused && imageSource}
+          <span id="image-hint" class="t-muted image-hint">
+            <img src={imageSource.image_url} alt="" class="thumb" />
+            Reprise {imageSource.year ? `du millésime ${imageSource.year}` : `de la mise en bouteille ${imageSource.production_year}`} : remplacez
+            ou videz l’URL pour en mettre une autre.
+          </span>
+        {/if}
       </div>
 
       <div class="form-group full-width">
@@ -489,6 +493,13 @@
     width: 28px;
     height: 40px;
     object-fit: contain;
+  }
+
+  .image-hint {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 13px;
   }
 
 

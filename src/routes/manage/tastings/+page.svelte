@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { supabase } from "$lib/supabase";
+  import { NEW_ROW, supabase } from "$lib/supabase";
   import { onMount } from "svelte";
   import type { Customer, Tasting } from "$lib/types";
   import Modal from "$lib/ui/Modal.svelte";
@@ -39,6 +39,8 @@
   let editingTasting: TastingRow | null = null;
   let modalWines: ModalWineEntry[] = [];
   let modalCustomers: ModalCustomerEntry[] = [];
+  /** Participants à l'ouverture du formulaire : seuls les ajouts et retraits sont enregistrés. */
+  let initialCustomerIds: string[] = [];
   let selectedVintageId = "";
   let selectedCustomerId = "";
   let saving = false;
@@ -78,7 +80,7 @@
         return;
       }
       /* jsPDF et qrcode ne sont chargés qu'au moment de générer les fiches. */
-      const { downloadTableCardsPdf } = await import("$lib/tableCards");
+      const { downloadTableCardsPdf } = await import("$lib/pdf/tableCardsPdf");
       await downloadTableCardsPdf(res.tasting, res.wineVintages, window.location.origin);
     } catch (e) {
       error = e instanceof Error ? e.message : "Génération des fiches impossible";
@@ -125,9 +127,9 @@
     }
   }
 
-  /* Les chargeurs de la modale lèvent leurs erreurs : une dégustation ouverte sans ses
-     vins ou ses inscrits les effacerait à l'enregistrement. */
-  async function loadModalCustomers(tastingId: string): Promise<ModalCustomerEntry[]> {
+  /* Les chargeurs de la modale lèvent leurs erreurs : save_tasting remplace vins et inscrits
+     par ceux de la modale, qui ne doit donc jamais s'ouvrir sans eux. */
+  async function loadModalCustomers(tastingId: string): Promise<{ entries: ModalCustomerEntry[]; ids: string[] }> {
     const { data, error: fetchError } = await supabase
       .from("tasting_customer")
       .select(
@@ -145,7 +147,7 @@
       .eq("tasting_id", tastingId);
 
     if (fetchError) throw new Error(fetchError.message);
-    return (data || [])
+    const entries = (data || [])
       .filter((r) => r.customer)
       .map((r) => ({
         customer_id: r.customer_id,
@@ -158,6 +160,7 @@
           { sensitivity: "base" },
         ),
       );
+    return { entries, ids: (data || []).map((r) => r.customer_id) };
   }
 
   async function loadModalWines(tastingId: string): Promise<ModalWineEntry[]> {
@@ -205,6 +208,7 @@
     };
     modalWines = [];
     modalCustomers = [];
+    initialCustomerIds = [];
     selectedVintageId = "";
     selectedCustomerId = "";
   }
@@ -226,7 +230,10 @@
     );
     if (!loaded) return;
 
-    [modalWines, modalCustomers] = loaded;
+    const [wines, registered] = loaded;
+    modalWines = wines;
+    modalCustomers = registered.entries;
+    initialCustomerIds = registered.ids;
     editingTasting = tasting;
     formData = {
       name: tasting.name || "",
@@ -301,51 +308,6 @@
     modalWines = next;
   }
 
-  async function saveTastingCustomers(tastingId: string) {
-    const { error: delErr } = await supabase
-      .from("tasting_customer")
-      .delete()
-      .eq("tasting_id", tastingId);
-
-    if (delErr) throw new Error(delErr.message);
-
-    if (modalCustomers.length === 0) return;
-
-    const rows = modalCustomers.map((entry) => ({
-      tasting_id: tastingId,
-      customer_id: entry.customer_id,
-    }));
-
-    const { error: insErr } = await supabase
-      .from("tasting_customer")
-      .insert(rows);
-
-    if (insErr) throw new Error(insErr.message);
-  }
-
-  async function saveTastingWines(tastingId: string) {
-    const { error: delErr } = await supabase
-      .from("tasting_wine_vintage")
-      .delete()
-      .eq("tasting_id", tastingId);
-
-    if (delErr) throw new Error(delErr.message);
-
-    if (modalWines.length === 0) return;
-
-    const rows = modalWines.map((entry, i) => ({
-      tasting_id: tastingId,
-      wine_vintage_id: entry.wine_vintage_id,
-      order: i + 1,
-    }));
-
-    const { error: insErr } = await supabase
-      .from("tasting_wine_vintage")
-      .insert(rows);
-
-    if (insErr) throw new Error(insErr.message);
-  }
-
   async function handleSubmit() {
     if (!formData.date) {
       error = "La date est obligatoire.";
@@ -369,26 +331,15 @@
     };
 
     try {
-      if (editingTasting) {
-        const { error: updateError } = await supabase
-          .from("tasting")
-          .update(payload)
-          .eq("id", editingTasting.id);
-
-        if (updateError) throw new Error(updateError.message);
-        await Promise.all([saveTastingWines(editingTasting.id), saveTastingCustomers(editingTasting.id)]);
-      } else {
-        const { data: created, error: insertError } = await supabase
-          .from("tasting")
-          .insert(payload)
-          .select("id")
-          .single();
-
-        if (insertError || !created) {
-          throw new Error(insertError?.message || "Création impossible");
-        }
-        await Promise.all([saveTastingWines(created.id), saveTastingCustomers(created.id)]);
-      }
+      /* Dégustation, vins (dans l'ordre) et participants en une transaction (fonction SQL save_tasting). */
+      const { error: saveError } = await supabase.rpc("save_tasting", {
+        p_tasting_id: editingTasting?.id ?? NEW_ROW,
+        p_tasting: payload,
+        p_wine_ids: modalWines.map((e) => e.wine_vintage_id),
+        p_added_customer_ids: modalCustomers.map((e) => e.customer_id).filter((id) => !initialCustomerIds.includes(id)),
+        p_removed_customer_ids: initialCustomerIds.filter((id) => !modalCustomers.some((e) => e.customer_id === id)),
+      });
+      if (saveError) throw new Error(saveError.message);
 
       closeModal();
       await loadTastings();

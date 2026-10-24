@@ -353,7 +353,7 @@
     padding: clamp(3rem, 6vw, 4.5rem) clamp(1.5rem, 5vw, 3rem);
     border-radius: var(--mz-radius-lg);
     text-align: center;
-    color: #f4f2ed;
+    color: var(--mz-paper-raised);
     background:
       radial-gradient(ellipse 60% 80% at 15% 0%, rgba(255, 255, 255, 0.12), transparent 60%),
       radial-gradient(ellipse 50% 70% at 100% 100%, rgba(122, 31, 46, 0.35), transparent 70%),

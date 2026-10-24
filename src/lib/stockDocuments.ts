@@ -3,7 +3,7 @@ import type { Database } from "./database.types";
 
 /**
  * Stock disponible mis en forme pour les documents (tarifs, feuilles de notes) et la page Stock.
- * Sans jsPDF : les générateurs PDF vivent dans manageDocumentPdfs.ts, chargé à la demande.
+ * Sans jsPDF : les générateurs PDF vivent dans pdf/stockDocumentsPdf.ts, chargé à la demande.
  */
 
 export type StockDocVintage = {
@@ -19,7 +19,6 @@ export type StockDocVintage = {
   wineName: string;
   wineryName: string;
   wineTypeName: string;
-  wineTypeCategory: string | null;
   appellationLine: string;
   grapeNames: string[];
 };
@@ -77,7 +76,7 @@ export function mapInventoryToDocVintages(
           name: string | null;
           label?: { name: string | null } | null;
         } | null;
-        wine_type?: { name: string; category?: string | null } | null;
+        wine_type?: { name: string } | null;
       } | null;
       wine_vintage_grape?: {
         percentage: number | null;
@@ -104,7 +103,6 @@ export function mapInventoryToDocVintages(
       wineName: wineDisplayName(w),
       wineryName: w.winery?.name?.trim() || "—",
       wineTypeName: w.wine_type?.name?.trim() || "Autre",
-      wineTypeCategory: w.wine_type?.category ?? null,
       appellationLine: appellationLine(w),
       grapeNames: collectGrapeNames(v.wine_vintage_grape),
     });
@@ -156,7 +154,7 @@ export async function fetchStockDocVintages(
         wine_type_id,
         winery (name),
         appelation (name, label (name)),
-        wine_type (name, category)
+        wine_type (name)
       ),
       wine_vintage_grape (
         percentage,
@@ -198,17 +196,6 @@ function sortDocVintages(a: StockDocVintage, b: StockDocVintage): number {
 
 export function sortedStockForDocuments(rows: StockDocVintage[]): StockDocVintage[] {
   return [...rows].sort(sortDocVintages);
-}
-
-/** Libellé type de vin en français pour les PDF / UI documents. */
-export function wineTypeLabelFr(name: string): string {
-  const n = name.trim().toLowerCase();
-  if (n === "white") return "Blanc";
-  if (n === "red") return "Rouge";
-  if (n === "rose" || n === "rosé") return "Rosé";
-  if (n === "blanc") return "Blanc";
-  if (n === "rouge") return "Rouge";
-  return name;
 }
 
 export function stockVintageLabel(v: StockDocVintage): string {

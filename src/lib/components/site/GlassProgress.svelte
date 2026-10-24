@@ -49,12 +49,12 @@
   }
 
   .wine {
-    transition: y 0.9s var(--mz-ease, ease);
+    transition: y 0.9s var(--mz-ease);
   }
 
   .wave {
     animation: wave 3.2s linear infinite;
-    transition: d 0.9s var(--mz-ease, ease);
+    transition: d 0.9s var(--mz-ease);
   }
 
   @keyframes wave {

@@ -9,7 +9,7 @@
   import IconButton from "$lib/ui/IconButton.svelte";
   import Card from "$lib/ui/Card.svelte";
   import EmptyState from "$lib/ui/EmptyState.svelte";
-  import WineDot, { robeOf, ROBE_LABEL } from "$lib/ui/WineDot.svelte";
+  import WineDot from "$lib/ui/WineDot.svelte";
   import {
     IconArrowLeft,
     IconArrowRight,
@@ -28,7 +28,7 @@
   import { fetchTastingWithWines, tastingTitle } from "$lib/publicData";
   import { broadcastPosition, joinLiveChannel } from "$lib/live";
   import { qrDataUrl } from "$lib/qr";
-  import { vintageShortLabel, wineStyle, wineSubtitle, wineTitle } from "$lib/wine";
+  import { swatchStyle, vintageShortLabel, wineRobe, wineStyle, wineSubtitle, wineTitle, wineTypeLabel } from "$lib/wine";
   import {
     confirmRegistrationAsGuest,
     createSaleFromWish,
@@ -291,7 +291,6 @@
   $: orderedBottles = activeWishes.flatMap((w) => wishItems(w.items)).reduce((n, i) => n + i.quantity, 0);
   $: currentOrdered = current ? (stats.get(current.id)?.wanted ?? 0) : 0;
   $: currentStock = current ? stockMap.get(current.id) ?? null : null;
-  $: robe = robeOf(current?.wine?.wine_type);
   $: isLiveDay = tasting ? isLiveNow(tasting.date) : false;
   $: headerSubtitle = tasting
     ? [formatDate(tasting.date), tasting.location, tasting.start_time ? `depuis ${formatTime(tasting.start_time)}` : ""].filter(Boolean).join(" · ")
@@ -386,7 +385,7 @@
                 <li>
                   <button type="button" class="step" class:current={i === position} aria-current={i === position ? "step" : undefined} on:click={() => setPosition(i)}>
                     <span class="step-num">{i + 1}</span>
-                    <WineDot robe={robeOf(w.wine?.wine_type)} />
+                    <WineDot type={w.wine?.wine_type} />
                     <span class="step-main">
                       <strong>{vintageShortLabel(w)}</strong>
                       <span class="t-caption">
@@ -420,9 +419,9 @@
 
         <div class="main">
           <section class="now" aria-labelledby="now-title" aria-live="polite">
-            <span class="bottle bottle--{robe}" aria-hidden="true"></span>
+            <span class="bottle" style={swatchStyle(wineRobe(current?.wine?.wine_type))} aria-hidden="true"></span>
             <div class="now-text">
-              <span class="now-eyebrow">Vin {position + 1} · {ROBE_LABEL[robe]}</span>
+              <span class="now-eyebrow">Vin {position + 1} · {wineTypeLabel(current?.wine?.wine_type)}</span>
               <h2 id="now-title" class="now-title">{vintageShortLabel(current)}</h2>
               <p>{current.wine?.winery?.name ?? ""}{current.price ? " · " : ""}{#if current.price}<strong>{formatEUR(current.price)}</strong> la bouteille{/if}</p>
               <p class="t-caption">
@@ -635,7 +634,7 @@
   }
 
   .band-link {
-    color: inherit !important;
+    color: inherit;
     text-decoration: none;
   }
 
@@ -784,20 +783,6 @@
     box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.12);
   }
 
-  .bottle--rouge {
-    background: var(--rouge);
-  }
-
-  .bottle--blanc {
-    background: var(--blanc);
-    box-shadow: inset 0 0 0 1px var(--blanc-ring);
-  }
-
-  .bottle--rose {
-    background: var(--rose);
-    box-shadow: inset 0 0 0 1px var(--rose-ring);
-  }
-
   .now-eyebrow {
     font-size: 12px;
     font-weight: 600;
@@ -896,23 +881,17 @@
 
   /* ——— Mobile : en-tête sombre, pastilles numérotées, barre fixe « Vin suivant » ——— */
   @media (max-width: 767px) {
-    .pilot :global(.page-head) {
-      background: var(--night);
-      border-bottom: none;
+    .pilot {
+      --page-head-bg: var(--night);
+      --page-head-border: none;
+      --page-head-fg: #fff;
+      --page-head-muted: rgba(255, 255, 255, 0.8);
     }
 
-    .pilot :global(.page-head .t-page-title),
-    .pilot :global(.page-head .back),
-    .pilot :global(.page-head .subtitle) {
-      color: #fff !important;
-    }
-
-    .pilot :global(.page-head .subtitle) {
-      opacity: 0.8;
-    }
-
-    .pilot :global(.page-head .btn--ghost) {
-      color: #fff !important;
+    /* Boutons de l'en-tête (contenu de la page, rendu par Button) : blancs, survol compris. */
+    .pilot :global(.page-head .btn--ghost),
+    .pilot :global(.page-head .btn--ghost:hover) {
+      color: #fff;
     }
 
     .band {
