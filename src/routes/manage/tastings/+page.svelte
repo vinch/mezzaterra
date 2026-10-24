@@ -119,7 +119,7 @@
     }
   }
 
-  async function loadModalCustomers(tastingId: string) {
+  async function loadModalCustomers(tastingId: string): Promise<boolean> {
     const { data, error: fetchError } = await supabase
       .from("tasting_customer")
       .select(
@@ -139,7 +139,7 @@
     if (fetchError) {
       error = fetchError.message;
       modalCustomers = [];
-      return;
+      return false;
     }
 
     initialCustomerIds = (data || []).map((r) => r.customer_id);
@@ -156,9 +156,10 @@
           { sensitivity: "base" },
         ),
       );
+    return true;
   }
 
-  async function loadModalWines(tastingId: string) {
+  async function loadModalWines(tastingId: string): Promise<boolean> {
     const { data, error: fetchError } = await supabase
       .from("tasting_wine_vintage")
       .select(
@@ -183,7 +184,7 @@
     if (fetchError) {
       error = fetchError.message;
       modalWines = [];
-      return;
+      return false;
     }
 
     modalWines = (data || [])
@@ -192,6 +193,7 @@
         wine_vintage_id: r.wine_vintage_id,
         vintage: r.wine_vintage,
       }));
+    return true;
   }
 
   function resetForm() {
@@ -236,11 +238,9 @@
     };
     selectedVintageId = "";
     selectedCustomerId = "";
-    await Promise.all([
-      loadModalWines(tasting.id),
-      loadModalCustomers(tasting.id),
-    ]);
-    showModal = true;
+    /* Modale ouverte seulement si tout est chargé : save_tasting remplace la liste des vins par celle de la modale. */
+    const loaded = await Promise.all([loadModalWines(tasting.id), loadModalCustomers(tasting.id)]);
+    if (loaded.every(Boolean)) showModal = true;
   }
 
   function closeModal() {
