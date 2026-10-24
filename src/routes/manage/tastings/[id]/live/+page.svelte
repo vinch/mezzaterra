@@ -5,6 +5,7 @@
   import { page } from "$app/stores";
   import type { RealtimeChannel } from "@supabase/supabase-js";
   import { supabase } from "$lib/supabase";
+  import { fetchStockMap } from "$lib/manageData";
   import ManagePageShell from "$lib/components/manage/ManagePageShell.svelte";
   import Button from "$lib/ui/Button.svelte";
   import IconButton from "$lib/ui/IconButton.svelte";
@@ -118,7 +119,8 @@
   }
 
   let participants = $state<any[]>([]);
-  let stockMap = $state(new Map<string, number>());
+  /** null : stock illisible (affiché « indisponible » plutôt qu'en rupture). */
+  let stockMap = $state.raw<Map<string, number> | null>(new Map());
   /** Ventes rattachées à cette dégustation (sale.tasting_id). */
   let eveningSales = $state.raw<any[]>([]);
 
@@ -141,8 +143,7 @@
       (async () => {
         const ids = wines.map((w) => w.id);
         if (!ids.length) return;
-        const { data } = await supabase.from("inventory").select("wine_vintage_id, quantity_on_hand").in("wine_vintage_id", ids);
-        stockMap = new Map((data || []).map((r: any) => [r.wine_vintage_id, r.quantity_on_hand ?? 0]));
+        stockMap = await fetchStockMap(ids).catch(() => null);
       })(),
       (async () => {
         const { data } = await supabase
@@ -291,7 +292,7 @@
   })());
   let orderedBottles = $derived(activeWishes.flatMap((w) => wishItems(w.items)).reduce((n, i) => n + i.quantity, 0));
   let currentOrdered = $derived(current ? (stats.get(current.id)?.wanted ?? 0) : 0);
-  let currentStock = $derived(current ? stockMap.get(current.id) ?? null : null);
+  let currentStock = $derived(current ? stockMap?.get(current.id) ?? null : null);
   let isLiveDay = $derived(tasting ? isLiveNow(tasting.date) : false);
   let headerSubtitle = $derived(tasting
     ? [formatDate(tasting.date), tasting.location, tasting.start_time ? `depuis ${formatTime(tasting.start_time)}` : ""].filter(Boolean).join(" · ")
@@ -430,7 +431,7 @@
               <h2 id="now-title" class="now-title">{vintageShortLabel(current)}</h2>
               <p>{current.wine?.winery?.name ?? ""}{current.price ? " · " : ""}{#if current.price}<strong>{formatEUR(current.price)}</strong> la bouteille{/if}</p>
               <p class="t-caption">
-                Stock : <strong>{currentStock ?? "—"} bt.</strong> · vendues ce soir : <strong>{soldByWine.get(current.id) ?? 0} bt.</strong>{#if currentOrdered} · demandées : <strong>{currentOrdered} bt.</strong>{/if}
+                Stock : <strong>{stockMap ? `${currentStock ?? "—"} bt.` : "indisponible"}</strong> · vendues ce soir : <strong>{soldByWine.get(current.id) ?? 0} bt.</strong>{#if currentOrdered} · demandées : <strong>{currentOrdered} bt.</strong>{/if}
               </p>
             </div>
             <div class="now-actions">

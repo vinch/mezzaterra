@@ -36,19 +36,17 @@ export async function fetchPickerVintages(): Promise<any[]> {
 }
 
 /**
- * Bouteilles en stock par millésime (vue `inventory`). Lève une erreur plutôt que
- * de renvoyer une carte vide : un échec afficherait sinon tout le catalogue en rupture.
+ * Bouteilles en stock par millésime (vue `inventory`), éventuellement limitées à quelques
+ * millésimes. Lève une erreur plutôt que de renvoyer une carte vide : un échec afficherait
+ * sinon tout le catalogue en rupture.
  */
-export async function fetchStockMap(): Promise<Map<string, number>> {
-  const rows = await fetchAllRows<{ wine_vintage_id: string | null; quantity_on_hand: number | null }>((from, to) =>
-    supabase
-      .from("inventory")
-      .select("wine_vintage_id, quantity_on_hand")
-      .order("wine_vintage_id")
-      .order("quantity_on_hand")
-      .range(from, to),
-  );
-  /* Plusieurs lignes pour un millésime : quantités additionnées (comme stockDocuments). */
+export async function fetchStockMap(vintageIds?: string[]): Promise<Map<string, number>> {
+  const rows = await fetchAllRows<{ wine_vintage_id: string | null; quantity_on_hand: number | null }>((from, to) => {
+    let query = supabase.from("inventory").select("wine_vintage_id, quantity_on_hand");
+    if (vintageIds) query = query.in("wine_vintage_id", vintageIds);
+    return query.order("wine_vintage_id").order("quantity_on_hand").range(from, to);
+  });
+  /* Plusieurs lignes pour un millésime : quantités additionnées. */
   const stock = new Map<string, number>();
   for (const r of rows) {
     if (r.wine_vintage_id) stock.set(r.wine_vintage_id, (stock.get(r.wine_vintage_id) ?? 0) + (r.quantity_on_hand ?? 0));

@@ -1,5 +1,7 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "./database.types";
+import { errorMessage } from "./async";
+import { fetchStockMap } from "./manageData";
 
 /**
  * Stock disponible mis en forme pour les documents (tarifs, feuilles de notes) et la page Stock.
@@ -113,62 +115,58 @@ export function mapInventoryToDocVintages(
 export async function fetchStockDocVintages(
   supabase: SupabaseClient<Database>,
 ): Promise<{ data: StockDocVintage[]; error: string | null }> {
-  const { data: invRows, error: invErr } = await supabase
-    .from("inventory")
-    .select("wine_vintage_id, quantity_on_hand")
-    .gt("quantity_on_hand", 0);
-
-  if (invErr) {
-    return { data: [], error: invErr.message };
+  let stock: Map<string, number>;
+  try {
+    stock = await fetchStockMap();
+  } catch (e) {
+    return { data: [], error: errorMessage(e) };
   }
-
-  /** Plusieurs lignes inventaire pour le même millésime → une seule ligne doc (quantités additionnées). */
-  const qtyByVintage = new Map<string, number>();
-  for (const r of invRows || []) {
-    const vid = r.wine_vintage_id;
-    if (vid == null) continue;
-    const q = r.quantity_on_hand ?? 0;
-    if (q <= 0) continue;
-    qtyByVintage.set(vid, (qtyByVintage.get(vid) ?? 0) + q);
-  }
+  const qtyByVintage = new Map([...stock].filter(([, q]) => q > 0));
 
   if (qtyByVintage.size === 0) {
     return { data: [], error: null };
   }
 
+  /* Millésimes lus par lots de 100 identifiants : une seule liste ferait une URL trop longue. */
   const ids = [...qtyByVintage.keys()];
-
-  const { data: vintages, error: vErr } = await supabase
-    .from("wine_vintage")
-    .select(
-      `
-      id,
-      production_year,
-      year,
-      price,
-      abv,
-      wine (
-        id,
-        winery_id,
-        name,
-        wine_type_id,
-        winery (name),
-        appelation (name, label (name)),
-        wine_type (name)
-      ),
-      wine_vintage_grape (
-        percentage,
-        grape (name)
-      )
-    `,
-    )
-    .in("id", ids);
-
-  if (vErr) {
-    return { data: [], error: vErr.message };
+  const chunks: string[][] = [];
+  for (let i = 0; i < ids.length; i += 100) chunks.push(ids.slice(i, i + 100));
+  const pages = await Promise.all(
+    chunks.map((chunk) =>
+      supabase
+        .from("wine_vintage")
+        .select(
+          `
+          id,
+          production_year,
+          year,
+          price,
+          abv,
+          wine (
+            id,
+            winery_id,
+            name,
+            wine_type_id,
+            winery (name),
+            appelation (name, label (name)),
+            wine_type (name)
+          ),
+          wine_vintage_grape (
+            percentage,
+            grape (name)
+          )
+        `,
+        )
+        .in("id", chunk),
+    ),
+  );
+  const failed = pages.find((p) => p.error);
+  if (failed?.error) {
+    return { data: [], error: failed.error.message };
   }
+  const vintages = pages.flatMap((p) => p.data || []);
 
-  const vintageMap = new Map((vintages || []).map((v) => [v.id, v]));
+  const vintageMap = new Map(vintages.map((v) => [v.id, v]));
 
   const merged: Parameters<typeof mapInventoryToDocVintages>[0] = [];
   for (const [wine_vintage_id, quantity_on_hand] of qtyByVintage) {
