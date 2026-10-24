@@ -148,16 +148,14 @@
 
   function openEditModal(vintage: WineVintage) {
     editingVintage = vintage;
+    /* `!= null` et non un test de vérité : un prix ou un degré à 0 reste 0 (et non vide, donc null). */
+    const text = (v: number | null) => (v != null ? String(v) : "");
     vintageFormData = {
-      production_year: vintage.production_year
-        ? vintage.production_year.toString()
-        : "",
-      year: vintage.year ? vintage.year.toString() : "",
-      abv: vintage.abv ? vintage.abv.toString() : "",
-      purchase_price: vintage.purchase_price
-        ? vintage.purchase_price.toString()
-        : "",
-      price: vintage.price ? vintage.price.toString() : "",
+      production_year: text(vintage.production_year),
+      year: text(vintage.year),
+      abv: text(vintage.abv),
+      purchase_price: text(vintage.purchase_price),
+      price: text(vintage.price),
       image_url: vintage.image_url || "",
       organic: vintage.organic || false,
     };
