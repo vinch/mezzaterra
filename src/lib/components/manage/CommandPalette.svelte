@@ -37,6 +37,7 @@
   async function loadData() {
     if (loaded || loadingData) return;
     loadingData = true;
+    let failed = false;
     /* Millésimes et clients lus en pages : au-delà de 1000, ils manqueraient à la recherche. */
     const [vintages, customers, sales, orders, tastings] = await Promise.all([
       fetchAllRows<any>((from, to) =>
@@ -45,10 +46,16 @@
           .select("id, wine_id, year, production_year, wine ( name, winery ( name ), appelation ( name, label ( name ) ) )")
           .order("id")
           .range(from, to),
-      ).catch(() => []),
+      ).catch(() => {
+        failed = true;
+        return [];
+      }),
       fetchAllRows<any>((from, to) =>
         supabase.from("customer").select("id, first_name, last_name, company_name, email, city").order("id").range(from, to),
-      ).catch(() => []),
+      ).catch(() => {
+        failed = true;
+        return [];
+      }),
       supabase
         .from("sale")
         .select("id, date, total_price, invoice_number, status, customer ( first_name, last_name, company_name )")
@@ -124,7 +131,8 @@
     }
 
     dataItems = items;
-    loaded = true;
+    /* Lecture en échec : relancée à la prochaine ouverture plutôt que manquante toute la session. */
+    loaded = !failed;
     loadingData = false;
   }
 
