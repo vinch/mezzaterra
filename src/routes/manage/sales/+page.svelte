@@ -106,8 +106,13 @@
     if (st && ["pending", "paid", "delivered", "closed", "cancelled"].includes(st)) tab = st as Tab;
     const t = params.get("degustation");
     if (t) tastingFilter = t;
-    await Promise.all([fetchCustomers().then((c) => (customers = c)), loadTastings(), loadWineVintages()]);
-    loading = false;
+    try {
+      await Promise.all([fetchCustomers().then((c) => (customers = c)), loadTastings(), loadWineVintages()]);
+    } catch (e) {
+      error = e instanceof Error ? e.message : String(e);
+    } finally {
+      loading = false;
+    }
     if (params.has("nouvelle")) {
       openCreateModal();
       const client = params.get("client");
@@ -163,10 +168,24 @@
     wineVintages = list.map((v) => ({ ...v, stock: stock.get(v.id) ?? 0 }));
   }
 
-  function openCreateModal() {
+  /**
+   * Numéro du dernier formulaire demandé : si l'on clique sur une autre vente pendant
+   * un chargement, la réponse la plus ancienne est ignorée au lieu d'écraser les lignes.
+   */
+  let formRequest = 0;
+
+  async function openCreateModal() {
+    const request = ++formRequest;
     editingSale = null;
     resetForm();
-    formOpen = true;
+    /* Stock relu : des ventes ont pu être payées depuis l'ouverture de la page. */
+    try {
+      await loadWineVintages();
+    } catch (e) {
+      if (request === formRequest) error = e instanceof Error ? e.message : String(e);
+      return;
+    }
+    if (request === formRequest) formOpen = true;
   }
 
   async function openEditModal(sale: any) {
@@ -174,6 +193,17 @@
       error = "Impossible de modifier une vente clôturée ou annulée";
       return;
     }
+
+    const request = ++formRequest;
+    /* Stock relu : il a pu bouger depuis l'ouverture de la page. */
+    let items: any[];
+    try {
+      [, items] = await Promise.all([loadWineVintages(), loadSaleItems(sale.id)]);
+    } catch (e) {
+      if (request === formRequest) error = e instanceof Error ? e.message : String(e);
+      return;
+    }
+    if (request !== formRequest) return;
 
     editingSale = sale;
     formData = {
@@ -190,8 +220,6 @@
       payment_method: sale.payment_method ?? "",
       tasting_id: sale.tasting_id ?? "",
     };
-    /* Stock relu : il a pu bouger depuis l'ouverture de la page. */
-    const [, items] = await Promise.all([loadWineVintages(), loadSaleItems(sale.id)]);
     const stock = new Map(wineVintages.map((v) => [v.id, v.stock]));
     saleItems = items.map((item: any) => ({
       wine_vintage: item.wine_vintage_id
@@ -212,8 +240,9 @@
     formOpen = true;
   }
 
+  /** Lève une erreur : une édition ouverte sans ses lignes les effacerait à l'enregistrement. */
   async function loadSaleItems(saleId: string): Promise<any[]> {
-    const { data } = await supabase
+    const { data, error: itemsError } = await supabase
       .from("sale_item")
       .select(
         `
@@ -230,6 +259,7 @@
       )
       .eq("sale_id", saleId);
 
+    if (itemsError) throw new Error(itemsError.message);
     return data || [];
   }
 
@@ -240,8 +270,13 @@
   }
 
   async function openDetailsModal(sale: any) {
+    try {
+      detailsSaleItems = await loadSaleItems(sale.id);
+    } catch (e) {
+      error = e instanceof Error ? e.message : String(e);
+      return;
+    }
     detailsSale = sale;
-    detailsSaleItems = await loadSaleItems(sale.id);
     showDetailsModal = true;
   }
 
