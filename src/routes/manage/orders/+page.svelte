@@ -75,6 +75,7 @@
   async function openEditModal(order: any) {
     if (order.status === "confirmed") {
       error = "Impossible de modifier une commande confirmée";
+      formLoad.cancel();
       return;
     }
 
