@@ -341,7 +341,7 @@
       const { downloadOrderPdf } = await import("$lib/pdf/purchaseOrderPdf");
       await downloadOrderPdf(orderId, lang);
     } catch (err) {
-      error = `Erreur lors de la génération du PDF : ${err instanceof Error ? err.message : err}`;
+      error = `Erreur lors de la génération du PDF : ${errorMessage(err)}`;
       console.error(err);
     }
   }
