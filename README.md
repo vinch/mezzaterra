@@ -39,12 +39,23 @@ enregistrement d'une dégustation. Le total d'une commande est tenu par un trigg
 code de l'admin appelle ces fonctions (migration appliquée en production le 24/10/2026).
 
 `20261024140000_wine_vintage_reuse_image.sql` donne aux millésimes sans image celle d'un autre
-millésime du même vin (le plus proche, de préférence plus ancien). Un nouveau millésime propose de
-même de reprendre l'image du dernier millésime qui en a une.
+millésime du même vin (le plus proche, de préférence plus ancien).
 
 `20261024150000_wine_vintage_images_storage.sql` fait pointer les images Filomusi Guelfi vers notre
 storage. Toutes les images des vins sont dans le bucket public `wines` : PNG détouré sur fond
 transparent, 1000 × 2000 px, bouteille d'environ 1 800 px de haut, centrée, pied à ~110 px du bas.
+
+`20261024170000_create_wine_vintage.sql` crée un millésime en reprenant, au choix, les cépages et les
+notes de dégustation d'un autre millésime du même vin (fonction `create_wine_vintage`, en une
+transaction). Le formulaire « Nouveau millésime » propose de reprendre image, cépages et notes du
+millésime le plus récent (ou d'un autre, ou rien) ; les accords mets-vins sont rattachés au vin, donc communs
+à tous ses millésimes. À appliquer avant de déployer le code : la création d'un millésime appelle
+cette fonction.
+
+`20261024180000_wine_vintage_reuse_grapes_notes.sql` donne aux millésimes sans cépages, ou sans notes
+de dégustation, ceux du millésime plus ancien le plus proche du même vin qui en a (jamais depuis un
+millésime plus récent). Un millésime qui a déjà au moins un cépage, ou au moins une note, n'est pas
+touché.
 
 ```sh
 supabase link --project-ref wmerreifcpttrhxwmkmn

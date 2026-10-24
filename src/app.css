@@ -249,9 +249,14 @@ select:disabled {
   border-color: var(--danger);
 }
 
-.ui-control:disabled {
-  background: var(--table-head);
+/* Champ non modifiable : contrôles .ui-control et champs des formulaires de modale (.form-group,
+   sélecteurs repris de manage-shared.css, plus :disabled pour passer devant leur fond blanc). */
+.ui-control:disabled,
+.app .form-group input:not([type="checkbox"]):not([type="radio"]):not(.ui-control):disabled,
+.app .form-group textarea:not(.ui-control):disabled {
+  background-color: var(--table-head);
   color: var(--ink-2);
+  cursor: not-allowed;
 }
 
 /* Tableaux (DataTable) */
