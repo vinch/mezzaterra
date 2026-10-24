@@ -70,12 +70,13 @@ function groupBy<T>(items: T[], key: (item: T) => string | null): Map<string, T[
 export async function loadDataset(): Promise<Dataset> {
   const [sales, items, vintages, stock] = await Promise.all([
     fetchAllRows<SaleRow>((a, b) =>
-      supabase.from("sale").select("id, date, status, total_price, customer_id, tasting_id").range(a, b),
+      supabase.from("sale").select("id, date, status, total_price, customer_id, tasting_id").order("id").range(a, b),
     ),
     fetchAllRows<SaleItemRow>((a, b) =>
       supabase
         .from("sale_item")
         .select("id, sale_id, wine_vintage_id, quantity, price, discount, discount_type, note")
+        .order("id")
         .range(a, b),
     ),
     fetchAllRows<VintageRow>((a, b) =>
@@ -84,6 +85,7 @@ export async function loadDataset(): Promise<Dataset> {
         .select(
           "*, wine ( id, name, winery ( id, name ), appelation ( name, label ( name ) ), wine_type ( name, category ) )",
         )
+        .order("id")
         .range(a, b),
     ),
     fetchStockMap(),
