@@ -32,8 +32,8 @@
   let tastings: any[] = [];
   let feedback: any[] = [];
   let vintages: any[] = [];
-  /** Lecture secondaire en échec (millésimes, stock) : la fiche reste affichée, incomplète. */
-  let warning = "";
+  /** Lectures secondaires en échec (millésimes, stock, dégustations) : fiche affichée, incomplète. */
+  let warnings: string[] = [];
   /** null : stock illisible, les suggestions (vins en stock) ne peuvent pas être calculées. */
   let stock: Map<string, number> | null = new Map();
 
@@ -59,17 +59,18 @@
             .order("id")
             .range(from, to),
         ).catch((e) => {
-          warning = `Millésimes indisponibles, achats et suggestions incomplets : ${errorMessage(e)}`;
+          warnings = [...warnings, `Millésimes indisponibles, achats et suggestions incomplets : ${errorMessage(e)}`];
           return [];
         }),
         /* Le stock ne sert qu'aux suggestions : sans lui, le reste de la fiche reste lisible. */
         fetchStockMap().catch((e) => {
-          warning = `Stock indisponible : ${errorMessage(e)}`;
+          warnings = [...warnings, `Stock indisponible : ${errorMessage(e)}`];
           return null;
         }),
       ]);
-      const failed = [cRes, sRes, tRes].find((r) => r.error);
+      const failed = [cRes, sRes].find((r) => r.error);
       if (failed?.error) throw new Error(failed.error.message);
+      if (tRes.error) warnings = [...warnings, `Dégustations indisponibles : ${tRes.error.message}`];
       customer = cRes.data;
       sales = sRes.data || [];
       tastings = ((tRes.data || []) as any[])
@@ -239,7 +240,7 @@
   {:else if !customer}
     <EmptyState title="Client introuvable" text="Il a peut-être été supprimé." />
   {:else}
-    {#if warning}<div class="error-message" role="alert">{warning}</div>{/if}
+    {#each warnings as w}<div class="error-message" role="alert">{w}</div>{/each}
     <div class="top">
       <Card title="Coordonnées" id="coords">
         <dl class="coords">
