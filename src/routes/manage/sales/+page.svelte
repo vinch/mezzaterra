@@ -120,7 +120,8 @@
     if (params.has("nouvelle")) {
       /* Stock tout juste lu : relu seulement si le chargement a échoué. */
       if (wineVintages.length && !hasUnknownStock(wineVintages)) showCreateForm();
-      else await openCreateModal();
+      /* Chargement en échec : son message reste affiché plutôt qu'un formulaire incomplet. */
+      else if (!error) await openCreateModal();
       const client = params.get("client");
       if (client) formData.customer_id = client;
     }
@@ -288,7 +289,7 @@
       const { downloadInvoicePdf } = await import("$lib/pdf/invoicePdf");
       await downloadInvoicePdf(saleId);
     } catch (err) {
-      error = `Erreur lors de la génération de la facture : ${err instanceof Error ? err.message : err}`;
+      error = `Erreur lors de la génération de la facture : ${errorMessage(err)}`;
       console.error(err);
     }
   }
@@ -478,9 +479,9 @@
     const stockHint =
       currentStatus === "pending" ? "\n\nLe stock sera débité (hors lignes dégustation)." : "";
 
-    /* Mode de paiement manquant : demandé ici (une vente livrée n'est plus modifiable). */
+    /* Mode de paiement manquant : demandé ici, la facture en a besoin (une vente livrée n'est plus modifiable). */
     let paymentMethod: string | null = null;
-    if (newStatus === "paid") {
+    if (newStatus === "paid" || newStatus === "closed") {
       /* Relu en base : le mode de paiement a pu être saisi ailleurs depuis le chargement de la page. */
       const { data: fresh, error: freshError } = await supabase.from("sale").select("payment_method").eq("id", sale.id).single();
       if (freshError) {
@@ -488,7 +489,14 @@
         return false;
       }
       if (!String(fresh?.payment_method ?? "").trim()) {
-        paymentMethod = await askPaymentMethod();
+        paymentMethod = await askPaymentMethod(
+          newStatus === "paid"
+            ? {
+                action: "Marquer comme payée",
+                note: `Un numéro de facture sera attribué si besoin.${stockHint ? " Le stock sera débité (hors lignes dégustation)." : ""}`,
+              }
+            : { action: "Clôturer et facturer", note: "La vente ne pourra plus être modifiée ni changer de statut." },
+        );
         if (!paymentMethod) return false;
       }
     }
@@ -527,13 +535,14 @@
     return true;
   }
 
-  /* Fenêtre « Mode de paiement » : résolue par le choix, ou null si on annule. */
-  let paymentPrompt = $state<{ resolve: (method: string | null) => void } | null>(null);
+  /* Fenêtre « Mode de paiement » : résolue par le choix, ou null si on annule. Elle vaut confirmation. */
+  type PaymentAsk = { action: string; note: string };
+  let paymentPrompt = $state<(PaymentAsk & { resolve: (method: string | null) => void }) | null>(null);
   let paymentChoice = $state("");
-  function askPaymentMethod(): Promise<string | null> {
+  function askPaymentMethod(ask: PaymentAsk): Promise<string | null> {
     paymentPrompt?.resolve(null);
     paymentChoice = "";
-    return new Promise((resolve) => (paymentPrompt = { resolve }));
+    return new Promise((resolve) => (paymentPrompt = { ...ask, resolve }));
   }
   function answerPayment(method: string | null) {
     paymentPrompt?.resolve(method);
@@ -917,7 +926,7 @@
 />
 
 <Modal open={!!paymentPrompt} title="Mode de paiement" maxWidth={440} onclose={() => answerPayment(null)}>
-  <Field id="paid-payment" label="Mode de paiement" help="Indispensable pour marquer la vente comme payée ; un numéro de facture sera attribué si besoin.">
+  <Field id="paid-payment" label="Mode de paiement" help={paymentPrompt?.note}>
     {#snippet children({ describedby })}
       <select id="paid-payment" class="ui-control" bind:value={paymentChoice} aria-describedby={describedby}>
         <option value="">Choisir…</option>
@@ -929,7 +938,7 @@
   </Field>
   {#snippet footer()}
     <Button variant="ghost" onclick={() => answerPayment(null)}>Annuler</Button>
-    <Button variant="primary" disabled={!paymentChoice} onclick={() => answerPayment(paymentChoice)}>Marquer comme payée</Button>
+    <Button variant="primary" disabled={!paymentChoice} onclick={() => answerPayment(paymentChoice)}>{paymentPrompt?.action}</Button>
   {/snippet}
 </Modal>
 

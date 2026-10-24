@@ -1,6 +1,8 @@
--- Une vente ne se modifie plus qu'« En attente » : payée ou livrée, son stock est sorti et elle est
--- figée (avant, prix, remises et note restaient modifiables, seules les quantités étaient bloquées).
--- Le mode de paiement, seul champ encore utile après la livraison, se donne au passage en « Payée ».
+-- Une vente ne se modifie et ne se supprime plus qu'« En attente » : payée ou livrée, son stock est
+-- sorti et elle est figée (avant, prix, remises et note restaient modifiables, seules les quantités
+-- étaient bloquées ; la suppression n'était filtrée que par l'interface).
+-- Le mode de paiement, seul champ encore utile après la livraison, se donne au passage en « Payée »
+-- ou « Clôturée » (les deux facturent).
 
 CREATE OR REPLACE FUNCTION public.save_sale(p_sale_id uuid, p_sale jsonb, p_items jsonb, p_wish_id uuid DEFAULT NULL)
 RETURNS uuid
@@ -92,11 +94,12 @@ BEGIN
   ) THEN
     RAISE EXCEPTION 'Changement de statut impossible : %', v_old || ' → ' || p_status;
   END IF;
-  -- Mode de paiement fourni au passage en « Payée » (une vente livrée n'est plus modifiable).
-  IF p_status = 'paid' THEN
+  -- La facture (« Payée » ou « Clôturée ») exige un mode de paiement, fourni ici s'il manque :
+  -- une vente livrée n'est plus modifiable.
+  IF p_status IN ('paid', 'closed') THEN
     v_payment := coalesce(nullif(trim(p_payment_method), ''), v_payment);
     IF coalesce(trim(v_payment), '') = '' THEN
-      RAISE EXCEPTION 'Indiquez le mode de paiement avant de marquer la vente comme payée.';
+      RAISE EXCEPTION 'Indiquez le mode de paiement avant de facturer la vente (payée ou clôturée).';
     END IF;
   END IF;
 
@@ -115,3 +118,23 @@ BEGIN
   RETURN v_number;
 END;
 $$;
+
+-- Suppression : seulement « En attente ». Une vente payée ou livrée a des sorties de stock (sale_out)
+-- et peut-être un numéro de facture : la supprimer laisserait le stock débité et un trou dans la suite.
+CREATE OR REPLACE FUNCTION public.sale_delete_pending_only()
+RETURNS trigger
+LANGUAGE plpgsql
+SET search_path = public
+AS $$
+BEGIN
+  IF OLD.status <> 'pending' THEN
+    RAISE EXCEPTION 'Seule une vente en attente se supprime : son stock n’est pas encore sorti.';
+  END IF;
+  RETURN OLD;
+END;
+$$;
+
+DROP TRIGGER IF EXISTS sale_delete_pending_only ON public.sale;
+CREATE TRIGGER sale_delete_pending_only
+  BEFORE DELETE ON public.sale
+  FOR EACH ROW EXECUTE FUNCTION public.sale_delete_pending_only();
