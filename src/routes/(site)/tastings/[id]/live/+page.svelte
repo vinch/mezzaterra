@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { preventDefault, self } from "$lib/ui/events";
   import { onDestroy, onMount } from "svelte";
   import { fade, fly } from "svelte/transition";
   import type { RealtimeChannel } from "@supabase/supabase-js";
@@ -34,38 +35,38 @@
     type LocalRating,
   } from "$lib/live";
 
-  export let data;
+  let { data } = $props();
 
-  $: tasting = data.tasting as any;
-  $: wines = data.wineVintages as any[];
-  $: total = wines.length;
+  let tasting = $derived(data.tasting as any);
+  let wines = $derived(data.wineVintages as any[]);
+  let total = $derived(wines.length);
 
   /* ——— Position ——— */
-  let index = 0;
-  let hostPosition: number | null = null;
+  let index = $state(0);
+  let hostPosition = $state<number | null>(null);
   /** Dernier vin servi par l'animateur : les invités ne voient rien au-delà. */
-  let maxServed = 0;
-  let follow = true;
-  let direction = 1;
-  let connected = false;
+  let maxServed = $state(0);
+  let follow = $state(true);
+  let direction = $state(1);
+  let connected = $state(false);
   let channel: RealtimeChannel | null = null;
 
   /* ——— État invité ——— */
-  let profile: GuestProfile = { firstName: "", lastName: "", email: "", phone: "" };
-  let ratings: Record<string, LocalRating> = {};
-  let cart: Record<string, number> = {};
-  let showWelcome = false;
-  let showCart = false;
-  let showNotes = false;
-  let showRecap = false;
+  let profile = $state<GuestProfile>({ firstName: "", lastName: "", email: "", phone: "" });
+  let ratings = $state<Record<string, LocalRating>>({});
+  let cart = $state<Record<string, number>>({});
+  let showWelcome = $state(false);
+  let showCart = $state(false);
+  let showNotes = $state(false);
+  let showRecap = $state(false);
   let commentTimer: ReturnType<typeof setTimeout> | null = null;
-  let savedFlash = false;
+  let savedFlash = $state(false);
 
   /* ——— Envoi de la demande ——— */
-  let sending = false;
-  let sendResult: "ok" | "offline" | null = null;
-  let sendError = "";
-  let message = "";
+  let sending = $state(false);
+  let sendResult = $state<"ok" | "offline" | null>(null);
+  let sendError = $state("");
+  let message = $state("");
 
   onMount(() => {
     if (!tasting) return;
@@ -112,9 +113,9 @@
   }
 
   /* Avant la soirée : rien. Pendant : jusqu'au vin servi. Après : tout. */
-  $: upcoming = tasting ? daysUntil(tasting.date) > 0 : false;
-  $: finished = tasting ? winesRevealed(tasting.date) : false;
-  $: unlocked = finished ? Math.max(0, total - 1) : Math.min(maxServed, Math.max(0, total - 1));
+  let upcoming = $derived(tasting ? daysUntil(tasting.date) > 0 : false);
+  let finished = $derived(tasting ? winesRevealed(tasting.date) : false);
+  let unlocked = $derived(finished ? Math.max(0, total - 1) : Math.min(maxServed, Math.max(0, total - 1)));
 
   function goTo(i: number, manual = true) {
     const next = Math.min(clamp(i), manual ? unlocked : clamp(i));
@@ -131,15 +132,15 @@
     goTo(hostPosition, false);
   }
 
-  $: current = wines[index];
-  $: style = wineStyle(current?.wine?.wine_type);
-  $: currentRating = current ? ratings[current.id] : undefined;
-  $: notes = vintageNotes(current?.note);
-  $: pairings = winePairings(current?.wine);
-  $: cartLines = wines.filter((w) => (cart[w.id] ?? 0) > 0).map((w) => ({ wine: w, qty: cart[w.id] }));
-  $: cartCount = cartLines.reduce((s, l) => s + l.qty, 0);
-  $: cartTotal = cartLines.reduce((s, l) => s + l.qty * Number(l.wine.price ?? 0), 0);
-  $: ratedCount = wines.filter((w) => ratings[w.id]?.rating).length;
+  let current = $derived(wines[index]);
+  let style = $derived(wineStyle(current?.wine?.wine_type));
+  let currentRating = $derived(current ? ratings[current.id] : undefined);
+  let notes = $derived(vintageNotes(current?.note));
+  let pairings = $derived(winePairings(current?.wine));
+  let cartLines = $derived(wines.filter((w) => (cart[w.id] ?? 0) > 0).map((w) => ({ wine: w, qty: cart[w.id] })));
+  let cartCount = $derived(cartLines.reduce((s, l) => s + l.qty, 0));
+  let cartTotal = $derived(cartLines.reduce((s, l) => s + l.qty * Number(l.wine.price ?? 0), 0));
+  let ratedCount = $derived(wines.filter((w) => ratings[w.id]?.rating).length);
 
   function persistRating(vintage: any, patch: Partial<LocalRating>) {
     const prev = ratings[vintage.id] ?? { rating: null, comment: "", updatedAt: "" };
@@ -249,7 +250,7 @@
   }
 </script>
 
-<svelte:window on:keydown={onKey} />
+<svelte:window onkeydown={onKey} />
 
 <svelte:head>
   <title>{tasting ? `${tastingTitle(tasting)} — en direct` : "Dégustation"} — Mezzaterra</title>
@@ -284,18 +285,18 @@
           </span>
         </div>
       </div>
-      <button type="button" class="avatar" on:click={() => (showWelcome = true)} aria-label="Mon profil">
+      <button type="button" class="avatar" onclick={() => (showWelcome = true)} aria-label="Mon profil">
         {(profile.firstName || "?").charAt(0).toUpperCase()}
       </button>
     </header>
 
     {#if !follow && hostPosition != null && hostPosition !== index}
-      <button type="button" class="rejoin" on:click={backToHost} transition:fly={{ y: -10, duration: 200 }}>
+      <button type="button" class="rejoin" onclick={backToHost} transition:fly={{ y: -10, duration: 200 }}>
         Le vin {hostPosition + 1} est servi — y retourner →
       </button>
     {/if}
 
-    <main class="stage" on:touchstart|passive={onTouchStart} on:touchend|passive={onTouchEnd}>
+    <main class="stage" ontouchstart={onTouchStart} ontouchend={onTouchEnd}>
       {#key index}
         <section
           class="slide"
@@ -322,19 +323,19 @@
               <span>Votre note</span>
               {#if savedFlash}<span class="saved" transition:fade={{ duration: 150 }}>✓ enregistrée</span>{/if}
             </div>
-            <StarRating value={currentRating?.rating ?? null} size="2.2rem" label="Notez ce vin" on:change={(e) => rate(e.detail)} />
+            <StarRating value={currentRating?.rating ?? null} size="2.2rem" label="Notez ce vin" onchange={rate} />
             <textarea
               rows="2"
               placeholder="Vos impressions… (fruité, épicé, coup de cœur ?)"
               value={currentRating?.comment ?? ""}
-              on:input={onComment}
+              oninput={onComment}
               maxlength="1000"
             ></textarea>
           </div>
 
           {#if notes.length || pairings.length}
             <div class="panel">
-              <button type="button" class="panel-toggle" on:click={() => (showNotes = !showNotes)} aria-expanded={showNotes}>
+              <button type="button" class="panel-toggle" onclick={() => (showNotes = !showNotes)} aria-expanded={showNotes}>
                 Notes du sommelier & accords <span class="chev" class:open={showNotes}>⌄</span>
               </button>
               {#if showNotes}
@@ -358,9 +359,9 @@
               {#if current.price}<span class="want-price">{formatEUR(current.price)} la bouteille</span>{/if}
             </div>
             <div class="stepper" role="group" aria-label="Nombre de bouteilles">
-              <button type="button" on:click={() => setQty(current.id, (cart[current.id] ?? 0) - 1)} disabled={!cart[current.id]} aria-label="Une bouteille de moins">−</button>
+              <button type="button" onclick={() => setQty(current.id, (cart[current.id] ?? 0) - 1)} disabled={!cart[current.id]} aria-label="Une bouteille de moins">−</button>
               <output aria-live="polite">{cart[current.id] ?? 0}</output>
-              <button type="button" on:click={() => setQty(current.id, (cart[current.id] ?? 0) + 1)} aria-label="Une bouteille de plus">+</button>
+              <button type="button" onclick={() => setQty(current.id, (cart[current.id] ?? 0) + 1)} aria-label="Une bouteille de plus">+</button>
             </div>
           </div>
         </section>
@@ -368,7 +369,7 @@
     </main>
 
     <nav class="dots" aria-label="Vins de la soirée">
-      <button type="button" class="nav-arrow" on:click={() => goTo(index - 1)} disabled={index === 0} aria-label="Vin précédent">‹</button>
+      <button type="button" class="nav-arrow" onclick={() => goTo(index - 1)} disabled={index === 0} aria-label="Vin précédent">‹</button>
       <div class="dot-row">
         {#each wines as w, i}
           {@const s = wineStyle(w.wine?.wine_type)}
@@ -380,7 +381,7 @@
               class:served={hostPosition != null && i === hostPosition}
               class:rated={!!ratings[w.id]?.rating}
               style="--c: {s.color}"
-              on:click={() => goTo(i)}
+              onclick={() => goTo(i)}
               aria-label="Vin {i + 1} : {wineTitle(w.wine)}"
               aria-current={i === index}
             ></button>
@@ -390,14 +391,14 @@
         {/each}
       </div>
       {#if index === total - 1}
-        <button type="button" class="nav-arrow recap-btn" on:click={() => (showRecap = true)}>Récap</button>
+        <button type="button" class="nav-arrow recap-btn" onclick={() => (showRecap = true)}>Récap</button>
       {:else}
-        <button type="button" class="nav-arrow" on:click={() => goTo(index + 1)} disabled={index >= unlocked} aria-label={index >= unlocked ? "Le vin suivant n’est pas encore servi" : "Vin suivant"}>›</button>
+        <button type="button" class="nav-arrow" onclick={() => goTo(index + 1)} disabled={index >= unlocked} aria-label={index >= unlocked ? "Le vin suivant n’est pas encore servi" : "Vin suivant"}>›</button>
       {/if}
     </nav>
 
     {#if cartCount > 0}
-      <button type="button" class="cart-bar" on:click={() => (showCart = true)} transition:fly={{ y: 40, duration: 250 }}>
+      <button type="button" class="cart-bar" onclick={() => (showCart = true)} transition:fly={{ y: 40, duration: 250 }}>
         <span>🛒 {cartCount} bouteille{cartCount > 1 ? "s" : ""}</span>
         <strong>{formatEUR(cartTotal)} →</strong>
       </button>
@@ -406,13 +407,13 @@
 </div>
 
 {#if showWelcome}
-  <div class="sheet-backdrop" transition:fade={{ duration: 150 }} on:click|self={saveWelcome} role="presentation">
+  <div class="sheet-backdrop" transition:fade={{ duration: 150 }} onclick={self(() => saveWelcome())} role="presentation">
     <div class="sheet" transition:fly={{ y: 40, duration: 250 }} role="dialog" aria-modal="true" aria-labelledby="welcome-title">
       <h2 id="welcome-title">Bienvenue 🍷</h2>
       <p class="sheet-lead">
         Suivez la soirée vin après vin, notez ce que vous goûtez et mettez de côté vos coups de cœur.
       </p>
-      <form on:submit|preventDefault={saveWelcome} class="sheet-form">
+      <form onsubmit={preventDefault(saveWelcome)} class="sheet-form">
         <label>Prénom<input bind:value={profile.firstName} autocomplete="given-name" /></label>
         <label>Email <span class="opt">(facultatif)</span>
           <input type="email" bind:value={profile.email} autocomplete="email" />
@@ -424,13 +425,13 @@
 {/if}
 
 {#if showCart}
-  <div class="sheet-backdrop" transition:fade={{ duration: 150 }} on:click|self={() => (showCart = false)} role="presentation">
+  <div class="sheet-backdrop" transition:fade={{ duration: 150 }} onclick={self(() => (showCart = false))} role="presentation">
     <div class="sheet" transition:fly={{ y: 40, duration: 250 }} role="dialog" aria-modal="true" aria-labelledby="cart-title">
-      <button type="button" class="sheet-close" on:click={() => (showCart = false)} aria-label="Fermer">×</button>
+      <button type="button" class="sheet-close" onclick={() => (showCart = false)} aria-label="Fermer">×</button>
       {#if sendResult === "ok"}
         <h2 id="cart-title">Merci {profile.firstName} !</h2>
         <p class="sheet-lead">Votre demande est bien partie. On prépare vos bouteilles et on revient vers vous très vite.</p>
-        <button type="button" class="solid-btn" on:click={() => { showCart = false; sendResult = null; }}>Continuer la dégustation</button>
+        <button type="button" class="solid-btn" onclick={() => { showCart = false; sendResult = null; }}>Continuer la dégustation</button>
       {:else}
         <h2 id="cart-title">Mes coups de cœur</h2>
         <ul class="cart-lines">
@@ -439,9 +440,9 @@
               <span class="mz-dot" style="background: {wineStyle(l.wine.wine?.wine_type).color}"></span>
               <span class="cart-name">{wineTitle(l.wine.wine)}{l.wine.year ? ` ${l.wine.year}` : ""}</span>
               <div class="stepper small">
-                <button type="button" on:click={() => setQty(l.wine.id, l.qty - 1)} aria-label="Moins">−</button>
+                <button type="button" onclick={() => setQty(l.wine.id, l.qty - 1)} aria-label="Moins">−</button>
                 <output>{l.qty}</output>
-                <button type="button" on:click={() => setQty(l.wine.id, l.qty + 1)} aria-label="Plus">+</button>
+                <button type="button" onclick={() => setQty(l.wine.id, l.qty + 1)} aria-label="Plus">+</button>
               </div>
               <span class="cart-price">{formatEUR(l.qty * Number(l.wine.price ?? 0))}</span>
             </li>
@@ -456,7 +457,7 @@
           </p>
         {/if}
 
-        <form on:submit|preventDefault={sendRequest} class="sheet-form">
+        <form onsubmit={preventDefault(sendRequest)} class="sheet-form">
           <div class="row">
             <label>Prénom *<input bind:value={profile.firstName} autocomplete="given-name" required /></label>
             <label>Nom<input bind:value={profile.lastName} autocomplete="family-name" /></label>
@@ -478,9 +479,9 @@
 {/if}
 
 {#if showRecap}
-  <div class="sheet-backdrop" transition:fade={{ duration: 150 }} on:click|self={() => (showRecap = false)} role="presentation">
+  <div class="sheet-backdrop" transition:fade={{ duration: 150 }} onclick={self(() => (showRecap = false))} role="presentation">
     <div class="sheet" transition:fly={{ y: 40, duration: 250 }} role="dialog" aria-modal="true" aria-labelledby="recap-title">
-      <button type="button" class="sheet-close" on:click={() => (showRecap = false)} aria-label="Fermer">×</button>
+      <button type="button" class="sheet-close" onclick={() => (showRecap = false)} aria-label="Fermer">×</button>
       <h2 id="recap-title">Votre soirée</h2>
       <p class="sheet-lead">{ratedCount} vin{ratedCount > 1 ? "s" : ""} noté{ratedCount > 1 ? "s" : ""} sur {total}.</p>
       <ol class="recap">
@@ -488,7 +489,7 @@
           {@const r = ratings[w.id]}
           <li>
             {#if i <= unlocked}
-              <button type="button" on:click={() => { showRecap = false; goTo(i); }}>
+              <button type="button" onclick={() => { showRecap = false; goTo(i); }}>
                 <span class="recap-num" style="--c: {wineStyle(w.wine?.wine_type).color}">{i + 1}</span>
                 <span class="recap-name">{wineTitle(w.wine)}</span>
                 <StarRating value={r?.rating ?? null} readonly size="0.95rem" />
@@ -502,7 +503,7 @@
       </ol>
       {#if cartCount > 0}
         <div class="recap-actions">
-          <button type="button" class="solid-btn" on:click={() => { showRecap = false; showCart = true; }}>Commander mes coups de cœur</button>
+          <button type="button" class="solid-btn" onclick={() => { showRecap = false; showCart = true; }}>Commander mes coups de cœur</button>
         </div>
       {/if}
     </div>

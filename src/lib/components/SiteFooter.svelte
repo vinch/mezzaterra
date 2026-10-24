@@ -2,7 +2,7 @@
   import IconMail from "@lucide/svelte/icons/mail";
   import { page } from "$app/stores";
 
-  $: onContact = $page.url.pathname === "/contact";
+  let onContact = $derived($page.url.pathname === "/contact");
 </script>
 
 <footer class="site-footer">

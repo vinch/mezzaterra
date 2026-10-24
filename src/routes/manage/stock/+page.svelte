@@ -1,5 +1,4 @@
 <script lang="ts">
-  import { supabase } from "$lib/supabase";
   import { onMount } from "svelte";
   import ManagePageShell from "$lib/components/manage/ManagePageShell.svelte";
   import Button from "$lib/ui/Button.svelte";
@@ -13,9 +12,9 @@
     type StockDocVintage,
   } from "$lib/stockDocuments";
 
-  let loading = true;
-  let error = "";
-  let stockInHandList: StockDocVintage[] = [];
+  let loading = $state(true);
+  let error = $state("");
+  let stockInHandList = $state<StockDocVintage[]>([]);
 
   onMount(() => loadStockInHand());
 
@@ -27,7 +26,7 @@
   async function loadStockInHand() {
     loading = true;
     error = "";
-    const res = await fetchStockDocVintages(supabase);
+    const res = await fetchStockDocVintages();
     error = res.error ?? "";
     stockInHandList = sortedStockForDocuments(res.data);
     loading = false;
@@ -39,9 +38,9 @@
 </svelte:head>
 
 <ManagePageShell title="Stock">
-  <svelte:fragment slot="actions">
-    <Button on:click={loadStockInHand} disabled={loading}>Actualiser</Button>
-  </svelte:fragment>
+  {#snippet actions()}
+    <Button onclick={loadStockInHand} disabled={loading}>Actualiser</Button>
+  {/snippet}
 
   {#if loading}
     <div class="loading">Chargement…</div>

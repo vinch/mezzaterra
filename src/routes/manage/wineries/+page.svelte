@@ -5,8 +5,8 @@
   import { fetchCountries, fetchRegions } from "$lib/manageData";
   import type { Country, Region } from "$lib/types";
 
-  let countries: Country[] = [];
-  let regions: Region[] = [];
+  let countries = $state<Country[]>([]);
+  let regions = $state<Region[]>([]);
   onMount(async () => {
     [countries, regions] = await Promise.all([fetchCountries(), fetchRegions()]);
   });

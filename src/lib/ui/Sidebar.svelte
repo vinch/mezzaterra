@@ -1,4 +1,4 @@
-<script lang="ts" context="module">
+<script lang="ts" module>
   export type NavLink = { href: string; label: string; icon: any; count?: number };
   export type NavSection = { title: string | null; links: NavLink[]; collapsible?: string };
 
@@ -10,7 +10,6 @@
 </script>
 
 <script lang="ts">
-  import { createEventDispatcher } from "svelte";
   import IconButton from "./IconButton.svelte";
   import { IconChevronDown, IconLayers, IconLogout, IconSearch } from "./icons";
 
@@ -19,19 +18,32 @@
    * groupes en petites capitales, élément actif (aria-current), compteurs dorés,
    * groupe « Référentiels » repliable, email + déconnexion en bas.
    */
-  export let sections: NavSection[] = [];
-  export let path = "";
-  export let email = "";
-  export let id = "manage-sidebar";
-
-  const dispatch = createEventDispatcher<{ search: void; logout: void }>();
-
-  let expanded: Record<string, boolean> = {};
-  $: for (const s of sections) {
-    if (s.collapsible && expanded[s.collapsible] === undefined) {
-      expanded[s.collapsible] = s.links.some((l) => isActiveLink(l.href, path));
-    }
+  interface Props {
+    onsearch?: () => void;
+    onlogout?: () => void;
+    sections?: NavSection[];
+    path?: string;
+    email?: string;
+    id?: string;
   }
+
+  let {
+    sections = [],
+    path = "",
+    email = "",
+    id = "manage-sidebar",
+    onsearch,
+    onlogout
+  }: Props = $props();
+
+  let expanded = $state<Record<string, boolean>>({});
+  $effect.pre(() => {
+    for (const s of sections) {
+      if (s.collapsible && expanded[s.collapsible] === undefined) {
+        expanded[s.collapsible] = s.links.some((l) => isActiveLink(l.href, path));
+      }
+    }
+  });
 </script>
 
 <nav {id} class="sidebar" aria-label="Navigation de la gestion">
@@ -40,7 +52,7 @@
       <span class="brand-mezza">Mezza</span>
       <span class="brand-terra">TERRA</span>
     </a>
-    <IconButton label="Rechercher (⌘K)" variant="dark" on:click={() => dispatch("search")}>
+    <IconButton label="Rechercher (⌘K)" variant="dark" onclick={() => onsearch?.()}>
       <IconSearch size={18} strokeWidth={1.75} />
     </IconButton>
   </div>
@@ -54,7 +66,7 @@
           class="nav-item collapse-toggle"
           aria-expanded={expanded[section.collapsible]}
           aria-controls="nav-{section.collapsible}"
-          on:click={() => (expanded[section.collapsible!] = !expanded[section.collapsible!])}
+          onclick={() => (expanded[section.collapsible!] = !expanded[section.collapsible!])}
         >
           <IconLayers size={18} strokeWidth={1.75} aria-hidden="true" />
           <span class="nav-label">{section.collapsible}</span>
@@ -65,7 +77,7 @@
             {#each section.links as link}
               <li>
                 <a href={link.href} class="nav-item" class:active={isActiveLink(link.href, path)} aria-current={isActiveLink(link.href, path) ? "page" : undefined}>
-                  <svelte:component this={link.icon} size={18} strokeWidth={1.75} aria-hidden="true" />
+                  <link.icon size={18} strokeWidth={1.75} aria-hidden="true" />
                   <span class="nav-label">{link.label}</span>
                 </a>
               </li>
@@ -78,7 +90,7 @@
           {#each section.links as link}
             <li>
               <a href={link.href} class="nav-item" class:active={isActiveLink(link.href, path)} aria-current={isActiveLink(link.href, path) ? "page" : undefined}>
-                <svelte:component this={link.icon} size={18} strokeWidth={1.75} aria-hidden="true" />
+                <link.icon size={18} strokeWidth={1.75} aria-hidden="true" />
                 <span class="nav-label">{link.label}</span>
                 {#if link.count}
                   <span class="count" aria-label="{link.count} en attente">{link.count}</span>
@@ -93,7 +105,7 @@
 
   <div class="foot">
     <span class="email">{email}</span>
-    <button type="button" class="logout" on:click={() => dispatch("logout")}>
+    <button type="button" class="logout" onclick={() => onlogout?.()}>
       <IconLogout size={16} strokeWidth={1.75} aria-hidden="true" />
       Se déconnecter
     </button>

@@ -1,20 +1,28 @@
 <script lang="ts">
-  import { createEventDispatcher } from "svelte";
+  interface Props {
+    onchange?: (value: number) => void;
+    value?: number | null;
+    readonly?: boolean;
+    size?: string;
+    label?: string;
+  }
 
-  export let value: number | null = null;
-  export let readonly = false;
-  export let size = "1.6rem";
-  export let label = "Note";
+  let {
+    value = null,
+    readonly = false,
+    size = "1.6rem",
+    label = "Note",
+    onchange
+  }: Props = $props();
 
-  const dispatch = createEventDispatcher<{ change: number }>();
-  let hover: number | null = null;
+  let hover = $state<number | null>(null);
 
   function pick(n: number) {
     if (readonly) return;
-    dispatch("change", n);
+    onchange?.(n);
   }
 
-  $: shown = hover ?? value ?? 0;
+  let shown = $derived(hover ?? value ?? 0);
 </script>
 
 <div
@@ -23,7 +31,7 @@
   style="--size: {size}"
   role={readonly ? "img" : "radiogroup"}
   aria-label={readonly ? `${label} : ${value ?? 0} sur 5` : label}
-  on:mouseleave={() => (hover = null)}
+  onmouseleave={() => (hover = null)}
 >
   {#each [1, 2, 3, 4, 5] as n}
     {#if readonly}
@@ -36,10 +44,10 @@
         role="radio"
         aria-checked={value === n}
         aria-label="{n} étoile{n > 1 ? 's' : ''}"
-        on:mouseenter={() => (hover = n)}
-        on:focus={() => (hover = n)}
-        on:blur={() => (hover = null)}
-        on:click={() => pick(n)}>★</button
+        onmouseenter={() => (hover = n)}
+        onfocus={() => (hover = n)}
+        onblur={() => (hover = null)}
+        onclick={() => pick(n)}>★</button
       >
     {/if}
   {/each}

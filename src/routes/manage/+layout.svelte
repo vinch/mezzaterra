@@ -2,7 +2,7 @@
   import "$lib/styles/manage-shared.css";
   import { supabase } from "$lib/supabase";
   import { afterNavigate, goto } from "$app/navigation";
-  import { onMount, setContext } from "svelte";
+  import { onMount, setContext, type Snippet } from "svelte";
   import { writable } from "svelte/store";
   import { page } from "$app/stores";
   import CommandPalette from "$lib/components/manage/CommandPalette.svelte";
@@ -35,16 +35,21 @@
     IconX,
   } from "$lib/ui/icons";
   import IconPlate from "@lucide/svelte/icons/utensils-crossed";
+  interface Props {
+    children?: Snippet;
+  }
+
+  let { children }: Props = $props();
 
   const userStore = writable<any>(null);
   const checkingAuthStore = writable(true);
   /** `false` uniquement si la base confirme que l'utilisateur n'est pas admin. */
   const isAdminStore = writable<boolean | null>(null);
 
-  let moreOpen = false;
-  let paletteOpen = false;
-  let newRequests = 0;
-  let pendingSales = 0;
+  let moreOpen = $state(false);
+  let paletteOpen = $state(false);
+  let newRequests = $state(0);
+  let pendingSales = $state(0);
 
   setContext("auth", {
     user: userStore,
@@ -53,7 +58,7 @@
   /* Les pages qui créent, suppriment ou changent le statut d'une vente rafraîchissent les compteurs. */
   setContext("manage", { refreshCounts: () => void refreshCounts() });
 
-  $: sections = [
+  let sections = $derived([
     { title: null, links: [{ href: "/manage", label: "Tableau de bord", icon: IconHome }] },
     {
       title: "Produits",
@@ -105,19 +110,19 @@
         { href: "/manage/regions", label: "Régions", icon: IconMap },
       ],
     },
-  ] satisfies NavSection[];
+  ] satisfies NavSection[]);
 
-  $: allLinks = sections.flatMap((s) => s.links);
+  let allLinks = $derived(sections.flatMap((s) => s.links));
   /* Pilotage en direct : plein écran sur mobile (il a son propre en-tête et sa barre « Vin suivant »). */
-  $: immersive = /^\/manage\/tastings\/[^/]+\/live$/.test($page.url.pathname);
+  let immersive = $derived(/^\/manage\/tastings\/[^/]+\/live$/.test($page.url.pathname));
 
   /* Barre d'onglets mobile. */
-  $: tabs = [
+  let tabs = $derived([
     { href: "/manage", label: "Accueil", icon: IconHome },
     { href: "/manage/sales", label: "Ventes", icon: IconReceipt, count: pendingSales },
     { href: "/manage/tastings", label: "Dégustation", icon: IconGlasses },
     { href: "/manage/customers", label: "Clients", icon: IconUsers },
-  ];
+  ]);
 
   afterNavigate(() => {
     moreOpen = false;
@@ -208,7 +213,7 @@
   <div class="app loading-container denied">
     <h1 class="t-page-title">Accès réservé</h1>
     <p>Le compte <strong>{$userStore.email}</strong> n’a pas accès à la gestion.</p>
-    <button class="denied-logout" on:click={handleLogout}>Se déconnecter</button>
+    <button class="denied-logout" onclick={handleLogout}>Se déconnecter</button>
   </div>
 {:else if $userStore}
   <div class="app admin-layout" class:more-open={moreOpen} class:immersive>
@@ -217,24 +222,28 @@
         {sections}
         path={$page.url.pathname}
         email={$userStore?.email ?? ""}
-        on:search={() => (paletteOpen = true)}
-        on:logout={handleLogout}
+        onsearch={() => (paletteOpen = true)}
+        onlogout={handleLogout}
       />
     </div>
 
-    <button type="button" class="more-backdrop" aria-label="Fermer le menu" tabindex="-1" on:click={() => (moreOpen = false)}></button>
+    <button type="button" class="more-backdrop" aria-label="Fermer le menu" tabindex="-1" onclick={() => (moreOpen = false)}></button>
 
     <div class="main-column">
       <header class="mobile-topbar">
         <a href="/manage" class="mobile-brand" aria-label="Mezzaterra — accueil">
           <span class="m-mezza">Mezza</span><span class="m-terra">TERRA</span>
         </a>
-        <IconButton label="Rechercher" variant="dark" on:click={() => (paletteOpen = true)}>
+        <IconButton label="Rechercher" variant="dark" onclick={() => (paletteOpen = true)}>
           <IconSearch size={20} strokeWidth={1.75} />
         </IconButton>
       </header>
       <main class="main-content">
-        <slot />
+        <!-- Une page par chemin : sans ce key, aller d'un client, d'un millésime ou d'une
+             dégustation à un autre (⌘K) réutilisait la page, encore liée au précédent. -->
+        {#key $page.url.pathname}
+          {@render children?.()}
+        {/key}
       </main>
     </div>
 
@@ -247,7 +256,7 @@
           aria-current={isActiveLink(tab.href, $page.url.pathname) ? "page" : undefined}
         >
           <span class="tab-icon">
-            <svelte:component this={tab.icon} size={22} strokeWidth={1.75} aria-hidden="true" />
+            <tab.icon size={22} strokeWidth={1.75} aria-hidden="true" />
             {#if tab.count}<span class="tab-count" aria-label="{tab.count} en attente">{tab.count}</span>{/if}
           </span>
           {tab.label}
@@ -259,7 +268,7 @@
         class:active={moreOpen}
         aria-expanded={moreOpen}
         aria-controls="manage-sidebar"
-        on:click={() => (moreOpen = !moreOpen)}
+        onclick={() => (moreOpen = !moreOpen)}
       >
         <span class="tab-icon">
           {#if moreOpen}<IconX size={22} strokeWidth={1.75} />{:else}<IconMenu size={22} strokeWidth={1.75} />{/if}
@@ -270,7 +279,11 @@
   </div>
   <CommandPalette bind:open={paletteOpen} pages={allLinks} />
 {:else}
-  <div class="app"><slot /></div>
+  <div class="app">
+    {#key $page.url.pathname}
+      {@render children?.()}
+    {/key}
+  </div>
 {/if}
 
 <style>

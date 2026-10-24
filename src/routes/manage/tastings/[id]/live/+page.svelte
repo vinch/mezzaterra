@@ -1,9 +1,11 @@
 <script lang="ts">
   import { onDestroy, onMount } from "svelte";
+  import { errorMessage } from "$lib/async";
   import { fade } from "svelte/transition";
   import { page } from "$app/stores";
   import type { RealtimeChannel } from "@supabase/supabase-js";
   import { supabase } from "$lib/supabase";
+  import { fetchStockMap } from "$lib/manageData";
   import ManagePageShell from "$lib/components/manage/ManagePageShell.svelte";
   import Button from "$lib/ui/Button.svelte";
   import IconButton from "$lib/ui/IconButton.svelte";
@@ -40,26 +42,26 @@
 
   const tastingId = $page.params.id ?? "";
 
-  let tasting: any = null;
-  let wines: any[] = [];
-  let loading = true;
-  let error = "";
-  let actionError = "";
+  let tasting = $state<any>(null);
+  let wines = $state<any[]>([]);
+  let loading = $state(true);
+  let error = $state("");
+  let actionError = $state("");
 
-  let position = 0;
+  let position = $state(0);
   let channel: RealtimeChannel | null = null;
-  let connected = false;
-  let guestCount = 0;
+  let connected = $state(false);
+  let guestCount = $state(0);
 
   let guestUrl = "";
-  let qr = "";
-  let projecting = false;
-  let copied = false;
+  let qr = $state("");
+  let projecting = $state(false);
+  let copied = $state(false);
 
-  let feedback: any[] = [];
-  let wishes: WishRequest[] = [];
-  let registrations: any[] = [];
-  let busyId = "";
+  let feedback = $state.raw<any[]>([]);
+  let wishes = $state.raw<WishRequest[]>([]);
+  let registrations = $state<any[]>([]);
+  let busyId = $state("");
   let poll: ReturnType<typeof setInterval> | null = null;
   /* onDestroy peut passer pendant les await d'onMount : on ne crée alors ni canal ni polling. */
   let destroyed = false;
@@ -116,10 +118,11 @@
     if (e) console.warn("live_position non enregistrée :", e.message);
   }
 
-  let participants: any[] = [];
-  let stockMap = new Map<string, number>();
+  let participants = $state<any[]>([]);
+  /** null : stock illisible (affiché « indisponible » plutôt qu'en rupture). */
+  let stockMap = $state.raw<Map<string, number> | null>(new Map());
   /** Ventes rattachées à cette dégustation (sale.tasting_id). */
-  let eveningSales: any[] = [];
+  let eveningSales = $state.raw<any[]>([]);
 
   async function refresh() {
     await Promise.all([
@@ -140,8 +143,7 @@
       (async () => {
         const ids = wines.map((w) => w.id);
         if (!ids.length) return;
-        const { data } = await supabase.from("inventory").select("wine_vintage_id, quantity_on_hand").in("wine_vintage_id", ids);
-        stockMap = new Map((data || []).map((r: any) => [r.wine_vintage_id, r.quantity_on_hand ?? 0]));
+        stockMap = await fetchStockMap(ids).catch(() => null);
       })(),
       (async () => {
         const { data } = await supabase
@@ -171,41 +173,41 @@
   }
 
   /* Dernière note par (invité, vin). */
-  $: latest = (() => {
+  let latest = $derived((() => {
     const map = new Map<string, any>();
     for (const f of feedback) map.set(`${f.guest_id}:${f.wine_vintage_id}`, f);
     return [...map.values()];
-  })();
+  })());
 
   /* Bouteilles demandées par vin (demandes non écartées). */
-  $: wantedByWine = (() => {
+  let wantedByWine = $derived((() => {
     const m = new Map<string, number>();
     for (const w of wishes) {
       if (w.status === "dismissed") continue;
       for (const i of wishItems(w.items)) m.set(i.wine_vintage_id, (m.get(i.wine_vintage_id) ?? 0) + i.quantity);
     }
     return m;
-  })();
+  })());
 
-  $: stats = new Map(
+  let stats = $derived(new Map(
     wines.map((w) => {
       const rated = latest.filter((f) => f.wine_vintage_id === w.id && f.rating);
       const avg = rated.length ? rated.reduce((s, r) => s + r.rating, 0) / rated.length : null;
       return [w.id, { avg, count: rated.length, wanted: wantedByWine.get(w.id) ?? 0 }];
     }),
-  );
+  ));
 
-  $: comments = latest
+  let comments = $derived(latest
     .filter((f) => f.comment)
     .sort((a, b) => b.created_at.localeCompare(a.created_at))
-    .slice(0, 12);
+    .slice(0, 12));
 
-  $: prices = new Map(wines.map((w) => [w.id, Number(w.price ?? 0)]));
-  $: wineById = new Map(wines.map((w) => [w.id, w]));
-  $: confirmedSeats = registrations.filter((r) => r.status === "confirmed").reduce((s, r) => s + r.seats, 0);
+  let prices = $derived(new Map(wines.map((w) => [w.id, Number(w.price ?? 0)])));
+  let wineById = $derived(new Map(wines.map((w) => [w.id, w])));
+  let confirmedSeats = $derived(registrations.filter((r) => r.status === "confirmed").reduce((s, r) => s + r.seats, 0));
 
-  $: current = wines[position];
-  $: style = wineStyle(current?.wine?.wine_type);
+  let current = $derived(wines[position]);
+  let style = $derived(wineStyle(current?.wine?.wine_type));
 
   async function makeSale(w: WishRequest) {
     actionError = "";
@@ -214,7 +216,7 @@
       await createSaleFromWish(w, prices, tastingTitle(tasting));
       await refresh();
     } catch (e) {
-      actionError = e instanceof Error ? e.message : String(e);
+      actionError = errorMessage(e);
     } finally {
       busyId = "";
     }
@@ -226,7 +228,7 @@
       await setWishStatus(w.id, "dismissed");
       await refresh();
     } catch (e) {
-      actionError = e instanceof Error ? e.message : String(e);
+      actionError = errorMessage(e);
     } finally {
       busyId = "";
     }
@@ -239,7 +241,7 @@
       await confirmRegistrationAsGuest(r);
       await refresh();
     } catch (e) {
-      actionError = e instanceof Error ? e.message : String(e);
+      actionError = errorMessage(e);
     } finally {
       busyId = "";
     }
@@ -252,7 +254,7 @@
       try {
         await confirmRegistrationAsGuest(r);
       } catch (e) {
-        actionError = e instanceof Error ? e.message : String(e);
+        actionError = errorMessage(e);
       }
     }
     busyId = "";
@@ -277,33 +279,34 @@
   }
 
   /* ——— Interface (refonte) ——— */
-  $: activeWishes = wishes.filter((w) => w.status !== "dismissed");
-  $: soldBottles = eveningSales.reduce(
+  let activeWishes = $derived(wishes.filter((w) => w.status !== "dismissed"));
+  let soldBottles = $derived(eveningSales.reduce(
     (n, x) => n + (x.sale_item || []).filter((i: any) => i.wine_vintage_id).reduce((m: number, i: any) => m + (i.quantity || 0), 0),
     0,
-  );
-  $: soldAmount = eveningSales.reduce((n, x) => n + Number(x.total_price || 0), 0);
-  $: soldByWine = (() => {
+  ));
+  let soldAmount = $derived(eveningSales.reduce((n, x) => n + Number(x.total_price || 0), 0));
+  let soldByWine = $derived((() => {
     const m = new Map<string, number>();
     for (const x of eveningSales) for (const i of x.sale_item || []) if (i.wine_vintage_id) m.set(i.wine_vintage_id, (m.get(i.wine_vintage_id) ?? 0) + (i.quantity || 0));
     return m;
-  })();
-  $: orderedBottles = activeWishes.flatMap((w) => wishItems(w.items)).reduce((n, i) => n + i.quantity, 0);
-  $: currentOrdered = current ? (stats.get(current.id)?.wanted ?? 0) : 0;
-  $: currentStock = current ? stockMap.get(current.id) ?? null : null;
-  $: isLiveDay = tasting ? isLiveNow(tasting.date) : false;
-  $: headerSubtitle = tasting
+  })());
+  let orderedBottles = $derived(activeWishes.flatMap((w) => wishItems(w.items)).reduce((n, i) => n + i.quantity, 0));
+  let currentOrdered = $derived(current ? (stats.get(current.id)?.wanted ?? 0) : 0);
+  /* Absent de la vue : aucun mouvement, donc 0 bouteille (et non « inconnu »). */
+  let currentStock = $derived(current && stockMap ? (stockMap.get(current.id) ?? 0) : null);
+  let isLiveDay = $derived(tasting ? isLiveNow(tasting.date) : false);
+  let headerSubtitle = $derived(tasting
     ? [formatDate(tasting.date), tasting.location, tasting.start_time ? `depuis ${formatTime(tasting.start_time)}` : ""].filter(Boolean).join(" · ")
-    : "";
+    : "");
   /* Participants connus = participants enregistrés + inscrits en ligne (sans doublon d'email). */
-  $: participantCount = (() => {
+  let participantCount = $derived((() => {
     const emails = new Set(participants.map((p) => (p.email || p.id).toLowerCase()));
     let n = participants.length;
     for (const r of registrations.filter((r) => r.status === "confirmed" && !r.customer_id)) {
       if (!emails.has((r.email || "").toLowerCase())) n += r.seats;
     }
     return n;
-  })();
+  })());
 
   function wishFor(w: WishRequest, vintageId: string): number {
     return wishItems(w.items).filter((i) => i.wine_vintage_id === vintageId).reduce((n, i) => n + i.quantity, 0);
@@ -313,7 +316,7 @@
   }
 </script>
 
-<svelte:window on:keydown={onKey} />
+<svelte:window onkeydown={onKey} />
 
 <svelte:head>
   <title>Piloter la dégustation - Gestion</title>
@@ -325,23 +328,23 @@
     subtitle={headerSubtitle}
     back={{ href: "/manage/tastings", label: "Dégustations" }}
   >
-    <svelte:fragment slot="badge">
-      {#if tasting && isLiveDay}
-        <span class="live-badge" class:off={!connected}>
-          <span class="dot" aria-hidden="true"></span>{connected ? "En direct" : "Connexion…"}
-        </span>
-      {/if}
-    </svelte:fragment>
-    <svelte:fragment slot="actions">
-      {#if tasting}
-        <Button variant="ghost" href="/tastings/{tastingId}/live" target="_blank" rel="noopener noreferrer">
-          <IconExternal size={16} strokeWidth={1.75} /> Vue invité
-        </Button>
-        <Button variant="ghost" on:click={() => (projecting = true)}>
-          <IconMonitor size={16} strokeWidth={1.75} /> Projeter le visuel
-        </Button>
-      {/if}
-    </svelte:fragment>
+    {#snippet badge()}
+        {#if tasting && isLiveDay}
+          <span class="live-badge" class:off={!connected}>
+            <span class="dot" aria-hidden="true"></span>{connected ? "En direct" : "Connexion…"}
+          </span>
+        {/if}
+      {/snippet}
+    {#snippet actions()}
+        {#if tasting}
+          <Button variant="ghost" href="/tastings/{tastingId}/live" target="_blank" rel="noopener noreferrer">
+            <IconExternal size={16} strokeWidth={1.75} /> Vue invité
+          </Button>
+          <Button variant="ghost" onclick={() => (projecting = true)}>
+            <IconMonitor size={16} strokeWidth={1.75} /> Projeter le visuel
+          </Button>
+        {/if}
+      {/snippet}
 
     {#if loading}
       <div class="loading">Chargement…</div>
@@ -378,12 +381,14 @@
       <div class="layout">
         <div class="side">
           <Card title="Déroulé" id="deroule">
-            <a slot="actions" class="edit-link" href="/manage/tastings">Modifier</a>
+            {#snippet actions()}
+                                <a class="edit-link" href="/manage/tastings">Modifier</a>
+                              {/snippet}
             <ol class="steps">
               {#each wines as w, i (w.id)}
                 {@const st = stats.get(w.id)}
                 <li>
-                  <button type="button" class="step" class:current={i === position} aria-current={i === position ? "step" : undefined} on:click={() => setPosition(i)}>
+                  <button type="button" class="step" class:current={i === position} aria-current={i === position ? "step" : undefined} onclick={() => setPosition(i)}>
                     <span class="step-num">{i + 1}</span>
                     <WineDot type={w.wine?.wine_type} />
                     <span class="step-main">
@@ -404,12 +409,14 @@
           </Card>
 
           <Card title="Invités" id="invites">
-            <span slot="actions" class="t-caption"><IconUsers size={14} strokeWidth={1.75} aria-hidden="true" /> {guestCount} connecté{guestCount > 1 ? "s" : ""}</span>
+            {#snippet actions()}
+                                <span class="t-caption"><IconUsers size={14} strokeWidth={1.75} aria-hidden="true" /> {guestCount} connecté{guestCount > 1 ? "s" : ""}</span>
+                              {/snippet}
             <div class="qr-row">
               {#if qr}<img src={qr} alt="QR code vers la vue invité" class="qr" />{/if}
               <div class="qr-text">
                 <p class="t-caption">Les invités scannent ce code pour suivre la soirée, noter les vins et commander.</p>
-                <Button size="sm" on:click={copyLink}>
+                <Button size="sm" onclick={copyLink}>
                   {#if copied}<IconCheck size={14} strokeWidth={1.75} /> Lien copié{:else}<IconCopy size={14} strokeWidth={1.75} /> Copier le lien{/if}
                 </Button>
               </div>
@@ -425,21 +432,23 @@
               <h2 id="now-title" class="now-title">{vintageShortLabel(current)}</h2>
               <p>{current.wine?.winery?.name ?? ""}{current.price ? " · " : ""}{#if current.price}<strong>{formatEUR(current.price)}</strong> la bouteille{/if}</p>
               <p class="t-caption">
-                Stock : <strong>{currentStock ?? "—"} bt.</strong> · vendues ce soir : <strong>{soldByWine.get(current.id) ?? 0} bt.</strong>{#if currentOrdered} · demandées : <strong>{currentOrdered} bt.</strong>{/if}
+                Stock : <strong>{currentStock == null ? "indisponible" : `${currentStock} bt.`}</strong> · vendues ce soir : <strong>{soldByWine.get(current.id) ?? 0} bt.</strong>{#if currentOrdered} · demandées : <strong>{currentOrdered} bt.</strong>{/if}
               </p>
             </div>
             <div class="now-actions">
-              <Button size="lg" on:click={() => setPosition(position - 1)} disabled={position === 0}>
+              <Button size="lg" onclick={() => setPosition(position - 1)} disabled={position === 0}>
                 <IconArrowLeft size={18} strokeWidth={1.75} /> Précédent
               </Button>
-              <Button size="lg" variant="primary" on:click={() => setPosition(position + 1)} disabled={position === wines.length - 1}>
+              <Button size="lg" variant="primary" onclick={() => setPosition(position + 1)} disabled={position === wines.length - 1}>
                 Vin suivant <IconArrowRight size={18} strokeWidth={1.75} />
               </Button>
             </div>
           </section>
 
           <Card title="Commandes des participants" id="orders" padded={false}>
-            <span slot="actions" class="t-caption">Flèches ← → ou espace pour avancer</span>
+            {#snippet actions()}
+                                <span class="t-caption">Flèches ← → ou espace pour avancer</span>
+                              {/snippet}
             {#if wishes.length === 0}
               <EmptyState icon={IconInbox} title="Aucune commande pour l’instant" text="Les invités commandent depuis leur téléphone (« J’en veux »)." compact />
             {:else}
@@ -466,8 +475,8 @@
                         <td class="col-actions">
                           {#if w.status === "new"}
                             <span class="order-actions">
-                              <Button size="sm" disabled={busyId === w.id} on:click={() => makeSale(w)}>{busyId === w.id ? "…" : "Créer la vente"}</Button>
-                              <Button size="sm" variant="ghost" disabled={busyId === w.id} on:click={() => dismiss(w)}>Ignorer</Button>
+                              <Button size="sm" disabled={busyId === w.id} onclick={() => makeSale(w)}>{busyId === w.id ? "…" : "Créer la vente"}</Button>
+                              <Button size="sm" variant="ghost" disabled={busyId === w.id} onclick={() => dismiss(w)}>Ignorer</Button>
                             </span>
                           {:else if w.sale_id}
                             <a href="/manage/sales?statut=pending" class="t-caption">Vente créée</a>
@@ -485,11 +494,11 @@
 
           {#if registrations.length}
             <Card title="Inscrits en ligne" id="registrations">
-              <svelte:fragment slot="actions">
-                {#if registrations.some((r) => r.status === "confirmed" && !r.customer_id)}
-                  <Button size="sm" on:click={addAllRegistrations}><IconUserCheck size={14} strokeWidth={1.75} /> Tous comme participants</Button>
-                {/if}
-              </svelte:fragment>
+              {#snippet actions()}
+                  {#if registrations.some((r) => r.status === "confirmed" && !r.customer_id)}
+                    <Button size="sm" onclick={addAllRegistrations}><IconUserCheck size={14} strokeWidth={1.75} /> Tous comme participants</Button>
+                  {/if}
+                                  {/snippet}
               <ul class="list">
                 {#each registrations as r (r.id)}
                   <li>
@@ -500,7 +509,7 @@
                     {#if r.customer_id}
                       <span class="t-caption ok"><IconCheck size={13} strokeWidth={2} aria-hidden="true" /> Participant</span>
                     {:else if r.status === "confirmed"}
-                      <Button size="sm" variant="ghost" disabled={busyId === r.id} on:click={() => addAsGuest(r)}>Ajouter</Button>
+                      <Button size="sm" variant="ghost" disabled={busyId === r.id} onclick={() => addAsGuest(r)}>Ajouter</Button>
                     {/if}
                   </li>
                 {/each}
@@ -527,10 +536,10 @@
 
       <!-- Barre fixe (mobile) -->
       <div class="mobile-next">
-        <IconButton label="Vin précédent" variant="outline" disabled={position === 0} on:click={() => setPosition(position - 1)}>
+        <IconButton label="Vin précédent" variant="outline" disabled={position === 0} onclick={() => setPosition(position - 1)}>
           <IconArrowLeft size={20} strokeWidth={1.75} />
         </IconButton>
-        <button type="button" class="next-btn" disabled={position === wines.length - 1} on:click={() => setPosition(position + 1)}>
+        <button type="button" class="next-btn" disabled={position === wines.length - 1} onclick={() => setPosition(position + 1)}>
           {position === wines.length - 1 ? "Dernier vin" : `Vin suivant : ${vintageShortLabel(wines[position + 1])}`}
           <IconArrowRight size={18} strokeWidth={1.75} aria-hidden="true" />
         </button>
@@ -541,7 +550,7 @@
 
 {#if projecting && current}
   <div class="projection" style="--robe: {style.color}; --robe-light: {style.light};" transition:fade={{ duration: 200 }}>
-    <button type="button" class="proj-close" on:click={() => (projecting = false)} aria-label="Quitter la projection">×</button>
+    <button type="button" class="proj-close" onclick={() => (projecting = false)} aria-label="Quitter la projection">×</button>
     <div class="proj-qr">
       {#if qr}<img src={qr} alt="QR code" />{/if}
       <p>Scannez pour suivre la soirée,<br />noter les vins et commander.</p>

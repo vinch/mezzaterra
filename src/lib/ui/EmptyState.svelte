@@ -1,18 +1,30 @@
 <script lang="ts">
-  /** État vide : icône ronde --mist, phrase en gras, explication, action secondaire optionnelle. */
-  export let icon: any = null;
-  export let title: string;
-  export let text = "";
-  export let compact = false;
+  import type { Snippet } from "svelte";
+  interface Props {
+    /** État vide : icône ronde --mist, phrase en gras, explication, action secondaire optionnelle. */
+    icon?: any;
+    title: string;
+    text?: string;
+    compact?: boolean;
+    children?: Snippet;
+  }
+
+  let {
+    icon: Icon = null,
+    title,
+    text = "",
+    compact = false,
+    children
+  }: Props = $props();
 </script>
 
 <div class="empty" class:compact>
-  {#if icon}
-    <span class="empty-icon" aria-hidden="true"><svelte:component this={icon} size={20} strokeWidth={1.75} /></span>
+  {#if Icon}
+    <span class="empty-icon" aria-hidden="true"><Icon size={20} strokeWidth={1.75} /></span>
   {/if}
   <p class="empty-title">{title}</p>
   {#if text}<p class="empty-text">{text}</p>{/if}
-  {#if $$slots.default}<div class="empty-action"><slot /></div>{/if}
+  {#if children}<div class="empty-action">{@render children?.()}</div>{/if}
 </div>
 
 <style>

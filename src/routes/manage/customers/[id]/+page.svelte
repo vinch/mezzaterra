@@ -1,7 +1,8 @@
 <script lang="ts">
   import { onMount } from "svelte";
   import { page } from "$app/stores";
-  import { escapeLike, supabase } from "$lib/supabase";
+  import { escapeLike, fetchAllRows, supabase } from "$lib/supabase";
+  import { errorMessage } from "$lib/async";
   import { fetchStockMap } from "$lib/manageData";
   import { goto } from "$app/navigation";
   import ManagePageShell from "$lib/components/manage/ManagePageShell.svelte";
@@ -24,14 +25,17 @@
 
   const customerId = $page.params.id ?? "";
 
-  let loading = true;
-  let error = "";
-  let customer: any = null;
-  let sales: any[] = [];
-  let tastings: any[] = [];
-  let feedback: any[] = [];
-  let vintages: any[] = [];
-  let stock = new Map<string, number>();
+  let loading = $state(true);
+  let error = $state("");
+  let customer = $state<any>(null);
+  let sales = $state<any[]>([]);
+  let tastings = $state<any[]>([]);
+  let feedback = $state<any[]>([]);
+  let vintages = $state.raw<any[]>([]);
+  /** Lectures secondaires en échec (millésimes, stock, dégustations) : fiche affichée, incomplète. */
+  let warnings = $state<string[]>([]);
+  /** null : stock illisible, les suggestions (vins en stock) ne peuvent pas être calculées. */
+  let stock = $state<Map<string, number> | null>(new Map());
 
   onMount(async () => {
     try {
@@ -46,21 +50,34 @@
           .from("tasting_customer")
           .select("tasting ( id, name, date, location )")
           .eq("customer_id", customerId),
-        supabase
-          .from("wine_vintage")
-          .select(
-            "id, wine_id, year, production_year, price, purchase_price, wine ( id, name, winery ( name ), appelation ( name, label ( name ) ), wine_type ( name, category ) )",
-          ),
-        fetchStockMap(),
+        fetchAllRows<any>((from, to) =>
+          supabase
+            .from("wine_vintage")
+            .select(
+              "id, wine_id, year, production_year, price, purchase_price, wine ( id, name, winery ( name ), appelation ( name, label ( name ) ), wine_type ( name, category ) )",
+            )
+            .order("id")
+            .range(from, to),
+        ).catch((e) => {
+          warnings = [...warnings, `Millésimes indisponibles, achats et suggestions incomplets : ${errorMessage(e)}`];
+          return [];
+        }),
+        /* Le stock ne sert qu'aux suggestions : sans lui, le reste de la fiche reste lisible. */
+        fetchStockMap().catch((e) => {
+          warnings = [...warnings, `Stock indisponible : ${errorMessage(e)}`];
+          return null;
+        }),
       ]);
-      if (cRes.error) throw new Error(cRes.error.message);
+      const failed = [cRes, sRes].find((r) => r.error);
+      if (failed?.error) throw new Error(failed.error.message);
+      if (tRes.error) warnings = [...warnings, `Dégustations indisponibles : ${tRes.error.message}`];
       customer = cRes.data;
       sales = sRes.data || [];
       tastings = ((tRes.data || []) as any[])
         .map((r) => r.tasting)
         .filter(Boolean)
         .sort((a, b) => b.date.localeCompare(a.date));
-      vintages = vRes.data || [];
+      vintages = vRes;
       stock = iRes;
 
       if (customer?.email) {
@@ -74,20 +91,20 @@
         feedback = [...latest.values()].filter((f) => f.rating || f.comment);
       }
     } catch (e) {
-      error = e instanceof Error ? e.message : String(e);
+      error = errorMessage(e);
     } finally {
       loading = false;
     }
   });
 
-  $: vintageById = new Map(vintages.map((v) => [v.id, v]));
-  $: paidSales = sales.filter((s) => REVENUE_STATUSES.includes(s.status));
-  $: revenue = paidSales.reduce((s, x) => s + Number(x.total_price || 0), 0);
-  $: avgBasket = paidSales.length ? revenue / paidSales.length : 0;
-  $: lastSale = sales.find((s) => s.status !== "cancelled") ?? null;
+  let vintageById = $derived(new Map(vintages.map((v) => [v.id, v])));
+  let paidSales = $derived(sales.filter((s) => REVENUE_STATUSES.includes(s.status)));
+  let revenue = $derived(paidSales.reduce((s, x) => s + Number(x.total_price || 0), 0));
+  let avgBasket = $derived(paidSales.length ? revenue / paidSales.length : 0);
+  let lastSale = $derived(sales.find((s) => s.status !== "cancelled") ?? null);
 
   /* Vins achetés (agrégés par millésime, ventes non annulées). */
-  $: bought = (() => {
+  let bought = $derived((() => {
     const map = new Map<string, { vintage: any; qty: number; spent: number; last: string }>();
     for (const s of sales) {
       if (s.status === "cancelled") continue;
@@ -103,36 +120,36 @@
       }
     }
     return [...map.values()].sort((a, b) => b.qty - a.qty);
-  })();
+  })());
 
-  $: totalBottles = bought.reduce((s, b) => s + b.qty, 0);
+  let totalBottles = $derived(bought.reduce((s, b) => s + b.qty, 0));
 
   /* Préférences : répartition par robe (toujours rouge / blanc / rosé) et domaine préféré. */
   const ROBES: WineStyleKey[] = ["white", "red", "rose"];
-  $: robeQty = (() => {
+  let robeQty = $derived((() => {
     const map: Record<WineStyleKey, number> = { red: 0, white: 0, rose: 0, orange: 0, sparkling: 0, other: 0 };
     for (const b of bought) map[wineRobe(b.vintage.wine?.wine_type).key] += b.qty;
     return map;
-  })();
-  $: robeOrder = [...ROBES].sort((a, b) => robeQty[b] - robeQty[a]);
-  $: favRobe = robeOrder[0] && robeQty[robeOrder[0]] > 0 ? robeOrder[0] : null;
+  })());
+  let robeOrder = $derived([...ROBES].sort((a, b) => robeQty[b] - robeQty[a]));
+  let favRobe = $derived(robeOrder[0] && robeQty[robeOrder[0]] > 0 ? robeOrder[0] : null);
 
-  $: favoriteWinery = (() => {
+  let favoriteWinery = $derived((() => {
     const map = new Map<string, number>();
     for (const b of bought) {
       const n = b.vintage.wine?.winery?.name || "—";
       map.set(n, (map.get(n) ?? 0) + b.qty);
     }
     return [...map.entries()].sort((a, b) => b[1] - a[1])[0] ?? null;
-  })();
+  })());
 
   /* Suggestions de relance. */
-  $: suggestions = (() => {
+  let suggestions = $derived((() => {
     const boughtIds = new Set(bought.map((b) => b.vintage.id));
     const out: { vintage: any; reason: string }[] = [];
     const seen = new Set<string>();
     const push = (v: any, reason: string) => {
-      if (!v || seen.has(v.id) || boughtIds.has(v.id) || (stock.get(v.id) ?? 0) <= 0) return;
+      if (!v || seen.has(v.id) || boughtIds.has(v.id) || (stock?.get(v.id) ?? 0) <= 0) return;
       seen.add(v.id);
       out.push({ vintage: v, reason });
     };
@@ -155,11 +172,11 @@
       }
     }
     return out.slice(0, 6);
-  })();
+  })());
 
   /* Cases « À lui proposer » : toutes cochées par défaut. */
-  let unchecked = new Set<string>();
-  $: selectedSuggestions = suggestions.filter((sg) => !unchecked.has(sg.vintage.id));
+  let unchecked = $state(new Set<string>());
+  let selectedSuggestions = $derived(suggestions.filter((sg) => !unchecked.has(sg.vintage.id)));
   function toggleSuggestion(id: string) {
     const next = new Set(unchecked);
     if (next.has(id)) next.delete(id);
@@ -174,11 +191,11 @@
     return `mailto:${customer.email}?subject=${encodeURIComponent("Quelques vins pour vous")}&body=${encodeURIComponent(body)}`;
   }
 
-  $: lastSaleDays = lastSale ? -daysUntil(lastSale.date) : null;
+  let lastSaleDays = $derived(lastSale ? -daysUntil(lastSale.date) : null);
 
   /* Suppression (même opération que dans la liste des clients). */
-  let confirmOpen = false;
-  let deleting = false;
+  let confirmOpen = $state(false);
+  let deleting = $state(false);
   async function deleteCustomer() {
     deleting = true;
     const { error: delErr } = await supabase.from("customer").delete().eq("id", customerId);
@@ -191,10 +208,10 @@
     await goto("/manage/customers");
   }
 
-  $: menuItems = [
+  let menuItems = $derived([
     { label: "Modifier", icon: IconPencil, href: `/manage/customers?modifier=${customerId}` },
     { label: "Supprimer…", icon: IconTrash, danger: true, separator: true, onSelect: () => (confirmOpen = true) },
-  ];
+  ]);
 </script>
 
 <svelte:head>
@@ -206,15 +223,15 @@
   subtitle={customer ? [`Client depuis le ${formatDate(customer.created_at)}`, customer.company_name, customer.city].filter(Boolean).join(" · ") : ""}
   back={{ href: "/manage/customers", label: "Clients" }}
 >
-  <svelte:fragment slot="actions">
-    {#if customer}
-      <Button href="/manage/sales?nouvelle=1&client={customerId}">Nouvelle vente</Button>
-      {#if customer.email && selectedSuggestions.length}
-        <Button variant="primary" href={mailto()}><IconSend size={16} strokeWidth={1.75} /> Envoyer des suggestions</Button>
+  {#snippet actions()}
+      {#if customer}
+        <Button href="/manage/sales?nouvelle=1&client={customerId}">Nouvelle vente</Button>
+        {#if customer.email && selectedSuggestions.length}
+          <Button variant="primary" href={mailto()}><IconSend size={16} strokeWidth={1.75} /> Envoyer des suggestions</Button>
+        {/if}
+        <RowMenu items={menuItems} label="Plus d’actions pour ce client" />
       {/if}
-      <RowMenu items={menuItems} label="Plus d’actions pour ce client" />
-    {/if}
-  </svelte:fragment>
+  {/snippet}
 
   {#if loading}
     <div class="loading">Chargement…</div>
@@ -223,6 +240,7 @@
   {:else if !customer}
     <EmptyState title="Client introuvable" text="Il a peut-être été supprimé." />
   {:else}
+    {#each warnings as w}<div class="error-message" role="alert">{w}</div>{/each}
     <div class="top">
       <Card title="Coordonnées" id="coords">
         <dl class="coords">
@@ -283,20 +301,26 @@
       </Card>
 
       <Card title="À lui proposer" id="suggest">
-        <span slot="actions" class="t-caption">{selectedSuggestions.length} vin{selectedSuggestions.length > 1 ? "s" : ""} sélectionné{selectedSuggestions.length > 1 ? "s" : ""} pour l’envoi</span>
+        {#snippet actions()}
+                        <span class="t-caption">{selectedSuggestions.length} vin{selectedSuggestions.length > 1 ? "s" : ""} sélectionné{selectedSuggestions.length > 1 ? "s" : ""} pour l’envoi</span>
+                      {/snippet}
         {#if suggestions.length === 0}
-          <EmptyState icon={IconSparkle} title="Pas de suggestion pour l’instant" compact />
+          <EmptyState
+            icon={IconSparkle}
+            title={!stock ? "Stock indisponible : suggestions impossibles" : "Pas de suggestion pour l’instant"}
+            compact
+          />
         {:else}
           <ul class="list">
             {#each suggestions as sg (sg.vintage.id)}
               <li>
                 <label class="suggest">
-                  <input type="checkbox" checked={!unchecked.has(sg.vintage.id)} on:change={() => toggleSuggestion(sg.vintage.id)} />
+                  <input type="checkbox" checked={!unchecked.has(sg.vintage.id)} onchange={() => toggleSuggestion(sg.vintage.id)} />
                   <WineDot type={sg.vintage.wine?.wine_type} />
                   <span class="list-main">
                     <span><strong>{vintageShortLabel(sg.vintage)}</strong><span class="t-muted">&nbsp;· {sg.vintage.wine?.winery?.name ?? ""}</span></span>
-                    <span class="t-caption" class:t-warn={(stock.get(sg.vintage.id) ?? 0) <= 3}>
-                      {sg.reason}{(stock.get(sg.vintage.id) ?? 0) <= 3 ? ` · plus que ${stock.get(sg.vintage.id)} bt.` : ""}
+                    <span class="t-caption" class:t-warn={(stock?.get(sg.vintage.id) ?? 0) <= 3}>
+                      {sg.reason}{(stock?.get(sg.vintage.id) ?? 0) <= 3 ? ` · plus que ${stock?.get(sg.vintage.id)} bt.` : ""}
                     </span>
                   </span>
                   <span class="price">{formatEUR(sg.vintage.price)}</span>
@@ -425,7 +449,7 @@
   message={customer
     ? `${customer.first_name} ${customer.last_name} sera supprimé de vos clients. ${sales.length ? `Il a ${sales.length} vente(s) : la suppression sera refusée par la base si elles y sont liées.` : "Aucune vente n’est liée à ce client."}`
     : ""}
-  on:confirm={deleteCustomer}
+  onconfirm={deleteCustomer}
 />
 
 <style>

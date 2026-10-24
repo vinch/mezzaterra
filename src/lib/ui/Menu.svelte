@@ -1,4 +1,4 @@
-<script lang="ts" context="module">
+<script lang="ts" module>
   export type MenuItem = {
     label: string;
     icon?: any;
@@ -13,23 +13,35 @@
 </script>
 
 <script lang="ts">
-  import { createEventDispatcher, onDestroy, tick } from "svelte";
+  import { tick, untrack } from "svelte";
   import { portal } from "./portal";
 
   /**
    * Menu déroulant accessible (role=menu), rendu dans <body> pour ne jamais être rogné.
    * Clavier : ↑ ↓ Début Fin pour naviguer, Entrée pour choisir, Échap ferme et rend le focus.
    */
-  export let open = false;
-  export let anchor: HTMLElement | null = null;
-  export let items: MenuItem[] = [];
-  export let label = "Actions";
-  export let id = `menu-${Math.random().toString(36).slice(2, 9)}`;
-  export let align: "end" | "start" = "end";
+  interface Props {
+    onclose?: () => void;
+    open?: boolean;
+    anchor?: HTMLElement | null;
+    items?: MenuItem[];
+    label?: string;
+    id?: any;
+    align?: "end" | "start";
+  }
 
-  const dispatch = createEventDispatcher<{ close: void }>();
-  let menuEl: HTMLElement;
-  let style = "";
+  let {
+    open = $bindable(false),
+    anchor = null,
+    items = [],
+    label = "Actions",
+    id = `menu-${Math.random().toString(36).slice(2, 9)}`,
+    align = "end",
+    onclose
+  }: Props = $props();
+
+  let menuEl = $state<HTMLElement | undefined>();
+  let style = $state("");
 
   function position() {
     if (!anchor || !menuEl) return;
@@ -61,14 +73,16 @@
     document.removeEventListener("pointerdown", onOutside, true);
   }
 
-  $: if (open) void onOpen();
-  $: if (!open) cleanup();
-  onDestroy(cleanup);
+  $effect(() => {
+    if (!open) return;
+    untrack(() => void onOpen());
+    return cleanup;
+  });
 
   function close() {
     if (!open) return;
     open = false;
-    dispatch("close");
+    onclose?.();
   }
 
   function closeAndFocus() {
@@ -123,7 +137,7 @@
     aria-label={label}
     tabindex="-1"
     {style}
-    on:keydown={onKeydown}
+    onkeydown={onKeydown}
   >
     {#each items as item}
       {#if item.separator}<div class="sep" role="separator"></div>{/if}
@@ -134,9 +148,9 @@
           class="item"
           class:danger={item.danger}
           href={item.href}
-          on:click={() => close()}
+          onclick={() => close()}
         >
-          {#if item.icon}<svelte:component this={item.icon} size={16} strokeWidth={1.75} aria-hidden="true" />{/if}
+          {#if item.icon}<item.icon size={16} strokeWidth={1.75} aria-hidden="true" />{/if}
           <span>{item.label}</span>
         </a>
       {:else}
@@ -147,9 +161,9 @@
           class="item"
           class:danger={item.danger}
           aria-disabled={item.disabled ? "true" : undefined}
-          on:click={() => choose(item)}
+          onclick={() => choose(item)}
         >
-          {#if item.icon}<svelte:component this={item.icon} size={16} strokeWidth={1.75} aria-hidden="true" />{/if}
+          {#if item.icon}<item.icon size={16} strokeWidth={1.75} aria-hidden="true" />{/if}
           <span>{item.label}</span>
         </button>
       {/if}

@@ -1,4 +1,4 @@
-import { supabase } from "./supabase";
+import { fetchAllRows, supabase } from "./supabase";
 import { sortCustomersByLabel } from "./customerDisplay";
 import { compareVintages } from "./wine";
 import type { Country, Customer, Region } from "./types";
@@ -7,8 +7,8 @@ import type { Country, Customer, Region } from "./types";
 
 /** Clients triés par libellé (sélecteurs, autocomplétion). */
 export async function fetchCustomers(): Promise<Customer[]> {
-  const { data } = await supabase.from("customer").select("*");
-  return sortCustomersByLabel((data || []) as Customer[]);
+  const rows = await fetchAllRows<Customer>((from, to) => supabase.from("customer").select("*").order("id").range(from, to));
+  return sortCustomersByLabel(rows);
 }
 
 /** Pays triés par nom (sélecteurs des référentiels). */
@@ -25,16 +25,40 @@ export async function fetchRegions(): Promise<Region[]> {
 
 /** Millésimes des sélecteurs de produit, triés domaine → cuvée → année décroissante. */
 export async function fetchPickerVintages(): Promise<any[]> {
-  const { data } = await supabase
-    .from("wine_vintage")
-    .select("*, wine ( *, winery (*), appelation (*), wine_type (*) )");
-  return (data || []).sort(compareVintages);
+  const rows = await fetchAllRows<any>((from, to) =>
+    supabase
+      .from("wine_vintage")
+      .select("*, wine ( *, winery (*), appelation (*), wine_type (*) )")
+      .order("id")
+      .range(from, to),
+  );
+  return rows.sort(compareVintages);
 }
 
-/** Bouteilles en stock par millésime (vue `inventory`), en une requête. */
-export async function fetchStockMap(): Promise<Map<string, number>> {
-  const { data } = await supabase.from("inventory").select("wine_vintage_id, quantity_on_hand");
-  return new Map((data || []).map((r) => [r.wine_vintage_id as string, r.quantity_on_hand ?? 0]));
+/**
+ * Bouteilles en stock par millésime (vue `inventory`), éventuellement limitées à quelques
+ * millésimes. Lève une erreur plutôt que de renvoyer une carte vide : un échec afficherait
+ * sinon tout le catalogue en rupture.
+ */
+export async function fetchStockMap(vintageIds?: string[]): Promise<Map<string, number>> {
+  const rows = await fetchAllRows<{ wine_vintage_id: string | null; quantity_on_hand: number | null }>((from, to) => {
+    let query = supabase.from("inventory").select("wine_vintage_id, quantity_on_hand");
+    if (vintageIds) query = query.in("wine_vintage_id", vintageIds);
+    return query.order("wine_vintage_id").order("quantity_on_hand").range(from, to);
+  });
+  /* Plusieurs lignes pour un millésime : quantités additionnées. */
+  const stock = new Map<string, number>();
+  for (const r of rows) {
+    if (r.wine_vintage_id) stock.set(r.wine_vintage_id, (stock.get(r.wine_vintage_id) ?? 0) + (r.quantity_on_hand ?? 0));
+  }
+  return stock;
+}
+
+/** Stock d'un millésime ; null s'il est illisible (affiché comme tel, pas en rupture). */
+export function vintageStock(vintageId: string): Promise<number | null> {
+  return fetchStockMap([vintageId])
+    .then((stock) => stock.get(vintageId) ?? 0)
+    .catch(() => null);
 }
 
 /** Lignes d'articles (vente ou commande) : de quoi les libeller et les chiffrer. */

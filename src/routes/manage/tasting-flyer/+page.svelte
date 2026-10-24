@@ -12,15 +12,15 @@
     type FlyerAssets,
   } from "$lib/tastingFlyer";
 
-  let canvasEl: HTMLCanvasElement | null = null;
-  let assets: FlyerAssets | null = null;
-  let loading = true;
-  let error = "";
-  let sharing = false;
+  let canvasEl = $state<HTMLCanvasElement | null>(null);
+  let assets = $state<FlyerAssets | null>(null);
+  let loading = $state(true);
+  let error = $state("");
+  let sharing = $state(false);
 
-  let date = nextFridayIsoDate();
-  let time = "18:30";
-  let price = 20;
+  let date = $state(nextFridayIsoDate());
+  let time = $state("18:30");
+  let price = $state(20);
 
   /** Prochain vendredi (aujourd’hui inclus). */
   function nextFridayIsoDate(): string {
@@ -52,15 +52,17 @@
     if (next.price != null) price = Number(next.price);
   }
 
-  $: if (canvasEl && assets) {
-    drawTastingFlyer(canvasEl.getContext("2d")!, assets, {
-      date,
-      time,
-      price: Number(price) || 0,
-    });
-  }
+  $effect.pre(() => {
+    if (canvasEl && assets) {
+      drawTastingFlyer(canvasEl.getContext("2d")!, assets, {
+        date,
+        time,
+        price: Number(price) || 0,
+      });
+    }
+  });
 
-  $: fileName = `degustation-${date || "visuel"}.png`;
+  let fileName = $derived(`degustation-${date || "visuel"}.png`);
 
   function canvasBlob(): Promise<Blob> {
     return new Promise((resolve, reject) => {
@@ -86,12 +88,12 @@
     }
   }
 
-  $: canShare =
-    typeof navigator !== "undefined" &&
+  let canShare =
+    $derived(typeof navigator !== "undefined" &&
     typeof navigator.canShare === "function" &&
     navigator.canShare({
       files: [new File([], "test.png", { type: "image/png" })],
-    });
+    }));
 
   async function handleShare() {
     error = "";
@@ -145,7 +147,7 @@
         <button
           type="button"
           class="btn-primary"
-          on:click={handleDownload}
+          onclick={handleDownload}
           disabled={loading || !assets}
         >
           Télécharger (PNG)
@@ -154,7 +156,7 @@
           <button
             type="button"
             class="btn-secondary"
-            on:click={handleShare}
+            onclick={handleShare}
             disabled={loading || !assets || sharing}
           >
             Partager

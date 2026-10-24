@@ -5,11 +5,15 @@
    * Pastille de 10 px à la couleur de la robe : d'après le type de vin, ou une clé (filtres, légendes).
    * Toujours accompagnée du nom du vin à côté : elle est décorative (aria-hidden).
    */
-  export let type: { name?: string | null } | null | undefined = null;
-  export let robe: WineStyleKey | null = null;
-  export let size = 10;
+  interface Props {
+    type?: { name?: string | null } | null | undefined;
+    robe?: WineStyleKey | null;
+    size?: number;
+  }
 
-  $: style = robe ? styleByKey(robe) : wineRobe(type);
+  let { type = null, robe = null, size = 10 }: Props = $props();
+
+  let style = $derived(robe ? styleByKey(robe) : wineRobe(type));
 </script>
 
 <span class="dot" style="--size: {size}px; {swatchStyle(style)}" aria-hidden="true"></span>

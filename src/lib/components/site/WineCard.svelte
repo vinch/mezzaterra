@@ -1,27 +1,35 @@
 <script lang="ts">
-  import { createEventDispatcher } from "svelte";
   import OrganicLogo from "./OrganicLogo.svelte";
   import WineBottle from "./WineBottle.svelte";
   import { grapesText, wineStyle, wineSubtitle, wineTitle } from "$lib/wine";
   import { formatEUR } from "$lib/format";
   import type { Availability } from "$lib/publicData";
 
-  export let vintage: any;
-  /** Numéro de passage (1-based) dans une dégustation. */
-  export let position: number | null = null;
-  /** Lien vers la fiche ; sinon la carte émet `open`. */
-  export let href: string | null = null;
-  export let availability: Availability | null = null;
+  interface Props {
+    onopen?: (vintage: any) => void;
+    vintage: any;
+    /** Numéro de passage (1-based) dans une dégustation. */
+    position?: number | null;
+    /** Lien vers la fiche ; sinon la carte émet `open`. */
+    href?: string | null;
+    availability?: Availability | null;
+  }
 
-  const dispatch = createEventDispatcher<{ open: any }>();
+  let {
+    vintage,
+    position = null,
+    href = null,
+    availability = null,
+    onopen
+  }: Props = $props();
 
-  $: wine = vintage?.wine;
-  $: style = wineStyle(wine?.wine_type);
-  $: title = wineTitle(wine);
-  $: subtitle = wineSubtitle(wine);
-  $: grapes = grapesText(vintage?.wine_vintage_grape);
-  $: soldOut = !!availability && !availability.in_stock;
-  $: lowStock = !soldOut && !!availability?.low_stock;
+  let wine = $derived(vintage?.wine);
+  let style = $derived(wineStyle(wine?.wine_type));
+  let title = $derived(wineTitle(wine));
+  let subtitle = $derived(wineSubtitle(wine));
+  let grapes = $derived(grapesText(vintage?.wine_vintage_grape));
+  let soldOut = $derived(!!availability && !availability.in_stock);
+  let lowStock = $derived(!soldOut && !!availability?.low_stock);
 </script>
 
 <svelte:element
@@ -31,7 +39,7 @@
   class="wine-card"
   class:sold-out={soldOut}
   style="--robe: {style.color}; --robe-light: {style.light};"
-  on:click={() => !href && dispatch("open", vintage)}
+  onclick={() => !href && onopen?.(vintage)}
   role={href ? undefined : "button"}
 >
   <div class="visual">

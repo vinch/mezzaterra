@@ -1,4 +1,6 @@
 <script lang="ts">
+  import { preventDefault } from "$lib/ui/events";
+
   import { supabase } from "$lib/supabase";
   import { onMount } from "svelte";
   import type { PageData } from "./$types";
@@ -26,6 +28,7 @@
     IconX,
   } from "$lib/ui/icons";
   import { formatEUR } from "$lib/format";
+  import { errorMessage, latestOnly } from "$lib/async";
   import {
     appellationText,
     grapesText,
@@ -37,49 +40,53 @@
     wineTypeLabel,
   } from "$lib/wine";
 
-  export let data: PageData;
+  interface Props {
+    data: PageData;
+  }
+
+  let { data }: Props = $props();
 
   let wine = data.wine;
   /* Millésimes déjà chargés par +page.ts ; relus seulement après une modification. */
-  let vintages: WineVintage[] = sortVintages(wine.wine_vintage || []);
-  let error = "";
+  let vintages = $state<WineVintage[]>(sortVintages(wine.wine_vintage || []));
+  let error = $state("");
   /** Modale unique création / édition (`editingVintage` les distingue). */
-  let formOpen = false;
-  let saving = false;
-  let editingVintage: any = null;
+  let formOpen = $state(false);
+  let saving = $state(false);
+  let editingVintage = $state<any>(null);
 
   function emptyForm() {
     return { production_year: "", year: "", abv: "", purchase_price: "", price: "", image_url: "", organic: false };
   }
-  let vintageFormData = emptyForm();
+  let vintageFormData = $state(emptyForm());
 
   /*
    * Nouveau millésime d'un vin qui en a déjà : on reprend image, cépages et notes de dégustation
    * d'un millésime existant (le plus récent par défaut). Les accords sont ceux du vin.
    */
   /** Millésime repris ; vide : « Ne rien reprendre ». */
-  let sourceId = "";
-  let copyGrapes = true;
-  let copyNotes = true;
+  let sourceId = $state("");
+  let copyGrapes = $state(true);
+  let copyNotes = $state(true);
   /** Cépages et notes des millésimes, en texte, lus à l'ouverture de la création. */
-  let sourceDetails: Record<string, { grapes: string; notes: string }> | null = null;
-  $: source = editingVintage ? null : vintages.find((v) => v.id === sourceId);
-  $: sourceInfo = source && sourceDetails?.[source.id];
+  let sourceDetails = $state<Record<string, { grapes: string; notes: string }> | null>(null);
+  let source = $derived(editingVintage ? null : vintages.find((v) => v.id === sourceId));
+  let sourceInfo = $derived(source && sourceDetails?.[source.id]);
   /* Rien à reprendre : case décochée et grisée (tant que c'est en lecture, on ne sait pas). */
-  $: noGrapes = !!sourceInfo && !sourceInfo.grapes;
-  $: noNotes = !!sourceInfo && !sourceInfo.notes;
+  let noGrapes = $derived(!!sourceInfo && !sourceInfo.grapes);
+  let noNotes = $derived(!!sourceInfo && !sourceInfo.notes);
   /* Ce que les cases annoncent est exactement ce qui est copié. */
-  $: takeGrapes = copyGrapes && !noGrapes;
-  $: takeNotes = copyNotes && !noNotes;
-  $: imageReused = !!source?.image_url && vintageFormData.image_url === source.image_url;
+  let takeGrapes = $derived(copyGrapes && !noGrapes);
+  let takeNotes = $derived(copyNotes && !noNotes);
+  let imageReused = $derived(!!source?.image_url && vintageFormData.image_url === source.image_url);
 
   // Grapes modal state
-  let showGrapesModal = false;
-  let selectedVintage: any = null;
-  let vintageGrapes: any[] = [];
-  let allGrapes: any[] = [];
-  let selectedGrapeId = "";
-  let grapePercentage = "";
+  let showGrapesModal = $state(false);
+  let selectedVintage = $state<any>(null);
+  let vintageGrapes = $state<any[]>([]);
+  let allGrapes = $state<any[]>([]);
+  let selectedGrapeId = $state("");
+  let grapePercentage = $state("");
 
   onMount(() => {
     /* Lien « Ajouter un millésime » depuis la liste des vins. */
@@ -92,30 +99,29 @@
 
   function openCreateModal() {
     editingVintage = null;
-    sourceId = vintages[0]?.id ?? "";
     copyGrapes = copyNotes = true;
-    vintageFormData = { ...emptyForm(), image_url: vintages[0]?.image_url ?? "" };
+    vintageFormData = emptyForm();
+    pickSource(vintages[0]?.id ?? "");
     formOpen = true;
     if (vintages.length) loadSourceDetails();
   }
 
-  let detailsRequest = 0;
+  /* Une ouverture plus récente relance la lecture : sa réponse fait foi. */
+  const detailsLoad = latestOnly((e) => (error = `Cépages et notes des millésimes illisibles : ${errorMessage(e)}`));
 
   async function loadSourceDetails() {
     sourceDetails = null;
-    const request = ++detailsRequest;
-    const { data, error: loadError } = await supabase
-      .from("wine_vintage")
-      .select("id, wine_vintage_grape ( percentage, grape ( name ) ), note ( type, content )")
-      .eq("wine_id", wine.id);
-    /* Une ouverture plus récente a relancé la lecture : sa réponse fait foi. */
-    if (request !== detailsRequest) return;
-    if (loadError) {
-      error = `Cépages et notes des millésimes illisibles : ${loadError.message}`;
-      return;
-    }
+    const data = await detailsLoad.run(async () => {
+      const res = await supabase
+        .from("wine_vintage")
+        .select("id, wine_vintage_grape ( percentage, grape ( name ) ), note ( type, content )")
+        .eq("wine_id", wine.id);
+      if (res.error) throw new Error(res.error.message);
+      return res.data;
+    });
+    if (!data) return;
     sourceDetails = Object.fromEntries(
-      (data || []).map((v) => [
+      data.map((v) => [
         v.id,
         { grapes: grapesText(v.wine_vintage_grape, true), notes: vintageNotes(v.note).map((n) => n.label).join(", ") },
       ]),
@@ -210,7 +216,7 @@
     closeForm();
   }
 
-  let deleteTarget: WineVintage | null = null;
+  let deleteTarget = $state<WineVintage | null>(null);
 
   async function deleteVintage(vintage: WineVintage) {
     const { error: deleteError } = await supabase.from("wine_vintage").delete().eq("id", vintage.id);
@@ -254,7 +260,7 @@
     ];
   }
 
-  $: subtitle = [wine.winery?.name, appellationText(wine.appelation), wineTypeLabel(wine.wine_type)].filter(Boolean).join(" · ");
+  let subtitle = $derived([wine.winery?.name, appellationText(wine.appelation), wineTypeLabel(wine.wine_type)].filter(Boolean).join(" · "));
 
   // Grapes modal functions
   async function openGrapesModal(vintage: any) {
@@ -337,7 +343,7 @@
     grapePercentage = "";
   }
 
-  $: linkedGrapeIds = new Set(vintageGrapes.map((vg) => vg.grape_id));
+  let linkedGrapeIds = $derived(new Set(vintageGrapes.map((vg) => vg.grape_id)));
 </script>
 
 <svelte:head>
@@ -345,9 +351,9 @@
 </svelte:head>
 
 <ManagePageShell title={wineTitle(wine)} {subtitle} back={{ href: "/manage/wines", label: "Vins" }}>
-  <svelte:fragment slot="actions">
-    <Button variant="primary" on:click={openCreateModal}><IconPlus size={16} strokeWidth={1.75} /> Nouveau millésime</Button>
-  </svelte:fragment>
+  {#snippet actions()}
+      <Button variant="primary" onclick={openCreateModal}><IconPlus size={16} strokeWidth={1.75} /> Nouveau millésime</Button>
+  {/snippet}
 
   {#if wine.description}
     <p class="wine-description">{wine.description}</p>
@@ -359,7 +365,7 @@
 
   {#if vintages.length === 0}
     <EmptyState icon={IconWine} title="Aucun millésime pour ce vin" text="Ajoutez un millésime pour le vendre, le stocker et le servir en dégustation.">
-      <Button on:click={openCreateModal}><IconPlus size={16} strokeWidth={1.75} /> Nouveau millésime</Button>
+      <Button onclick={openCreateModal}><IconPlus size={16} strokeWidth={1.75} /> Nouveau millésime</Button>
     </EmptyState>
   {:else}
     <DataTable caption="Millésimes de {wineTitle(wine)}">
@@ -397,14 +403,14 @@
 </ManagePageShell>
 
 <!-- Modal de création / édition -->
-<Modal open={formOpen} title="{editingVintage ? 'Modifier le millésime' : 'Nouveau millésime'} - {wine.name}" on:close={closeForm}>
+<Modal open={formOpen} title="{editingVintage ? 'Modifier le millésime' : 'Nouveau millésime'} - {wine.name}" onclose={closeForm}>
   {#if error}<div class="error-message" role="alert">{error}</div>{/if}
-  <form id="vintage-form" on:submit|preventDefault={submitForm}>
+  <form id="vintage-form" onsubmit={preventDefault(submitForm)}>
     <div class="form-grid">
       {#if !editingVintage && vintages.length}
         <fieldset class="form-group full-width reuse">
           <legend class="section-title">Reprendre d’un millésime existant</legend>
-          <select aria-label="Millésime repris" value={sourceId} on:change={(e) => pickSource(e.currentTarget.value)}>
+          <select aria-label="Millésime repris" value={sourceId} onchange={(e) => pickSource(e.currentTarget.value)}>
             <option value="">Ne rien reprendre</option>
             {#each vintages as v (v.id)}
               <option value={v.id}>{vintageYearLabel(v)}</option>
@@ -422,7 +428,7 @@
                     type="checkbox"
                     checked={imageReused}
                     disabled={!source.image_url}
-                    on:change={(e) => (vintageFormData.image_url = e.currentTarget.checked ? source?.image_url ?? "" : "")}
+                    onchange={(e) => (vintageFormData.image_url = e.currentTarget.checked ? source?.image_url ?? "" : "")}
                   />
                   Image
                   {#if !source.image_url}<span class="t-muted">aucune</span>{/if}
@@ -432,7 +438,7 @@
                     type="checkbox"
                     checked={takeGrapes}
                     disabled={noGrapes}
-                    on:change={(e) => (copyGrapes = e.currentTarget.checked)}
+                    onchange={(e) => (copyGrapes = e.currentTarget.checked)}
                   />
                   Cépages
                   <span class="t-muted">{sourceInfo ? sourceInfo.grapes || "aucun" : "…"}</span>
@@ -442,7 +448,7 @@
                     type="checkbox"
                     checked={takeNotes}
                     disabled={noNotes}
-                    on:change={(e) => (copyNotes = e.currentTarget.checked)}
+                    onchange={(e) => (copyNotes = e.currentTarget.checked)}
                   />
                   Notes de dégustation
                   <span class="t-muted">{sourceInfo ? sourceInfo.notes || "aucune" : "…"}</span>
@@ -540,14 +546,14 @@
       </div>
     </div>
   </form>
-  <svelte:fragment slot="footer">
-    <Button variant="ghost" on:click={closeForm}>Annuler</Button>
-    <Button variant="primary" type="submit" form="vintage-form" disabled={saving}>{editingVintage ? "Mettre à jour" : "Créer le millésime"}</Button>
-  </svelte:fragment>
+  {#snippet footer()}
+      <Button variant="ghost" onclick={closeForm}>Annuler</Button>
+      <Button variant="primary" type="submit" form="vintage-form" disabled={saving}>{editingVintage ? "Mettre à jour" : "Créer le millésime"}</Button>
+  {/snippet}
 </Modal>
 
 <!-- Cépages d'un millésime -->
-<Modal open={showGrapesModal} title="Cépages" maxWidth={520} on:close={closeGrapesModal}>
+<Modal open={showGrapesModal} title="Cépages" maxWidth={520} onclose={closeGrapesModal}>
   {#if error}<div class="error-message" role="alert">{error}</div>{/if}
   {#if selectedVintage}<p class="t-muted grapes-intro">{wineTitle(wine)} · {vintageYearLabel(selectedVintage)}</p>{/if}
   {#if vintageGrapes.length === 0}
@@ -557,7 +563,7 @@
       {#each vintageGrapes as vintageGrape (vintageGrape.grape_id)}
         <li>
           <span>{vintageGrape.grape.name}{#if vintageGrape.percentage}<span class="t-muted"> · {vintageGrape.percentage} %</span>{/if}</span>
-          <IconButton label="Retirer {vintageGrape.grape.name}" on:click={() => removeGrape(vintageGrape.grape_id)}>
+          <IconButton label="Retirer {vintageGrape.grape.name}" onclick={() => removeGrape(vintageGrape.grape_id)}>
             <IconX size={16} strokeWidth={1.75} />
           </IconButton>
         </li>
@@ -584,20 +590,20 @@
       bind:value={grapePercentage}
       disabled={!selectedGrapeId}
     />
-    <Button on:click={addGrape} disabled={!selectedGrapeId}><IconPlus size={16} strokeWidth={1.75} /> Ajouter</Button>
+    <Button onclick={addGrape} disabled={!selectedGrapeId}><IconPlus size={16} strokeWidth={1.75} /> Ajouter</Button>
   </div>
-  <svelte:fragment slot="footer">
-    <Button variant="primary" on:click={closeGrapesModal}>Terminé</Button>
-  </svelte:fragment>
+  {#snippet footer()}
+      <Button variant="primary" onclick={closeGrapesModal}>Terminé</Button>
+  {/snippet}
 </Modal>
 
 <ConfirmDialog
   open={!!deleteTarget}
   title="Supprimer ce millésime ?"
   message={deleteTarget ? `Le millésime ${vintageYearLabel(deleteTarget)} sera supprimé, avec ses cépages et notes, si aucune vente ni aucun mouvement de stock ne l’utilise.` : ""}
-  onConfirm={() => deleteVintage(deleteTarget!)}
-  on:cancel={() => (deleteTarget = null)}
-  on:done={() => (deleteTarget = null)}
+  action={() => deleteVintage(deleteTarget!)}
+  oncancel={() => (deleteTarget = null)}
+  ondone={() => (deleteTarget = null)}
 />
 
 <style>

@@ -1,20 +1,32 @@
 <script lang="ts">
-  /** Indicateur : libellé en haut, chiffre en Fraunces, une ligne de contexte, petite icône sur --mist. */
-  export let label: string;
-  export let value: string;
-  export let icon: any = null;
-  export let href: string | null = null;
+  import type { Snippet } from "svelte";
+  interface Props {
+    /** Indicateur : libellé en haut, chiffre en Fraunces, une ligne de contexte, petite icône sur --mist. */
+    label: string;
+    value: string;
+    icon?: any;
+    href?: string | null;
+    children?: Snippet;
+  }
+
+  let {
+    label,
+    value,
+    icon: Icon = null,
+    href = null,
+    children
+  }: Props = $props();
 </script>
 
 <svelte:element this={href ? "a" : "div"} {href} class="kpi" class:link={!!href}>
   <div class="kpi-top">
     <span class="kpi-label">{label}</span>
-    {#if icon}
-      <span class="kpi-icon" aria-hidden="true"><svelte:component this={icon} size={16} strokeWidth={1.75} /></span>
+    {#if Icon}
+      <span class="kpi-icon" aria-hidden="true"><Icon size={16} strokeWidth={1.75} /></span>
     {/if}
   </div>
   <span class="t-figure">{value}</span>
-  {#if $$slots.default}<div class="kpi-context"><slot /></div>{/if}
+  {#if children}<div class="kpi-context">{@render children?.()}</div>{/if}
 </svelte:element>
 
 <style>

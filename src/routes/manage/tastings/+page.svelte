@@ -1,4 +1,6 @@
 <script lang="ts">
+  import { preventDefault } from "$lib/ui/events";
+
   import { NEW_ROW, supabase } from "$lib/supabase";
   import { onMount } from "svelte";
   import type { Customer, Tasting } from "$lib/types";
@@ -9,6 +11,7 @@
   import CustomerAutocomplete from "$lib/components/manage/CustomerAutocomplete.svelte";
   import { customerDisplayLabel, sortCustomersByLabel } from "$lib/customerDisplay";
   import { fetchCustomers, fetchPickerVintages } from "$lib/manageData";
+  import { errorMessage, latestOnly } from "$lib/async";
   import { fetchTastingWithWines } from "$lib/publicData";
   import { todayIso } from "$lib/dates";
   import { formatDate } from "$lib/format";
@@ -29,23 +32,23 @@
     customer: Customer;
   };
 
-  let tastings: TastingRow[] = [];
-  let customers: Customer[] = [];
-  let wineVintages: any[] = [];
-  let loading = true;
-  let error = "";
-  let showModal = false;
-  let editingTasting: TastingRow | null = null;
-  let modalWines: ModalWineEntry[] = [];
-  let modalCustomers: ModalCustomerEntry[] = [];
+  let tastings = $state<TastingRow[]>([]);
+  let customers = $state.raw<Customer[]>([]);
+  let wineVintages = $state.raw<any[]>([]);
+  let loading = $state(true);
+  let error = $state("");
+  let showModal = $state(false);
+  let editingTasting = $state<TastingRow | null>(null);
+  let modalWines = $state<ModalWineEntry[]>([]);
+  let modalCustomers = $state<ModalCustomerEntry[]>([]);
   /** Participants à l'ouverture du formulaire : seuls les ajouts et retraits sont enregistrés. */
   let initialCustomerIds: string[] = [];
-  let selectedVintageId = "";
-  let selectedCustomerId = "";
-  let saving = false;
-  let cardsBusyId = "";
+  let selectedVintageId = $state("");
+  let selectedCustomerId = $state("");
+  let saving = $state(false);
+  let cardsBusyId = $state("");
 
-  let formData = {
+  let formData = $state({
     name: "",
     date: "",
     location: "",
@@ -55,10 +58,17 @@
     capacity: "",
     description: "",
     is_private: false,
-  };
+  });
 
   onMount(async () => {
-    [, wineVintages, customers] = await Promise.all([loadTastings(), fetchPickerVintages(), fetchCustomers()]);
+    /* Chaque liste est gardée même si une autre échoue. */
+    const results = await Promise.allSettled([
+      loadTastings(),
+      fetchPickerVintages().then((v) => (wineVintages = v)),
+      fetchCustomers().then((c) => (customers = c)),
+    ]);
+    const failed = results.find((r) => r.status === "rejected");
+    if (failed) error = errorMessage(failed.reason);
     loading = false;
   });
 
@@ -119,7 +129,9 @@
     }
   }
 
-  async function loadModalCustomers(tastingId: string): Promise<boolean> {
+  /* Les chargeurs de la modale lèvent leurs erreurs : save_tasting remplace vins et inscrits
+     par ceux de la modale, qui ne doit donc jamais s'ouvrir sans eux. */
+  async function loadModalCustomers(tastingId: string): Promise<{ entries: ModalCustomerEntry[]; ids: string[] }> {
     const { data, error: fetchError } = await supabase
       .from("tasting_customer")
       .select(
@@ -136,14 +148,8 @@
       )
       .eq("tasting_id", tastingId);
 
-    if (fetchError) {
-      error = fetchError.message;
-      modalCustomers = [];
-      return false;
-    }
-
-    initialCustomerIds = (data || []).map((r) => r.customer_id);
-    modalCustomers = (data || [])
+    if (fetchError) throw new Error(fetchError.message);
+    const entries = (data || [])
       .filter((r) => r.customer)
       .map((r) => ({
         customer_id: r.customer_id,
@@ -156,10 +162,10 @@
           { sensitivity: "base" },
         ),
       );
-    return true;
+    return { entries, ids: (data || []).map((r) => r.customer_id) };
   }
 
-  async function loadModalWines(tastingId: string): Promise<boolean> {
+  async function loadModalWines(tastingId: string): Promise<ModalWineEntry[]> {
     const { data, error: fetchError } = await supabase
       .from("tasting_wine_vintage")
       .select(
@@ -181,19 +187,13 @@
       .eq("tasting_id", tastingId)
       .order("order", { ascending: true });
 
-    if (fetchError) {
-      error = fetchError.message;
-      modalWines = [];
-      return false;
-    }
-
-    modalWines = (data || [])
+    if (fetchError) throw new Error(fetchError.message);
+    return (data || [])
       .filter((r) => r.wine_vintage)
       .map((r) => ({
         wine_vintage_id: r.wine_vintage_id,
         vintage: r.wine_vintage,
       }));
-    return true;
   }
 
   function resetForm() {
@@ -215,7 +215,10 @@
     selectedCustomerId = "";
   }
 
+  const formLoad = latestOnly((e) => (error = errorMessage(e)));
+
   function openCreateModal() {
+    formLoad.cancel();
     editingTasting = null;
     error = "";
     resetForm();
@@ -224,6 +227,15 @@
 
   async function openEditModal(tasting: TastingRow) {
     error = "";
+    const loaded = await formLoad.run(
+      () => Promise.all([loadModalWines(tasting.id), loadModalCustomers(tasting.id)]),
+    );
+    if (!loaded) return;
+
+    const [wines, registered] = loaded;
+    modalWines = wines;
+    modalCustomers = registered.entries;
+    initialCustomerIds = registered.ids;
     editingTasting = tasting;
     formData = {
       name: tasting.name || "",
@@ -238,9 +250,7 @@
     };
     selectedVintageId = "";
     selectedCustomerId = "";
-    /* Modale ouverte seulement si tout est chargé : save_tasting remplace la liste des vins par celle de la modale. */
-    const loaded = await Promise.all([loadModalWines(tasting.id), loadModalCustomers(tasting.id)]);
-    if (loaded.every(Boolean)) showModal = true;
+    showModal = true;
   }
 
   function closeModal() {
@@ -389,11 +399,11 @@
 </svelte:head>
 
 <ManagePageShell title="Dégustations">
-  <svelte:fragment slot="actions">
-    <button type="button" class="btn-primary" on:click={openCreateModal}>
-      + Nouvelle dégustation
-    </button>
-  </svelte:fragment>
+  {#snippet actions()}
+      <button type="button" class="btn-primary" onclick={openCreateModal}>
+        + Nouvelle dégustation
+      </button>
+  {/snippet}
 
   {#if error && !showModal}
     <div class="error-message">{error}</div>
@@ -404,7 +414,7 @@
   {:else if tastings.length === 0}
     <div class="empty-state">
       <p>Aucune dégustation enregistrée.</p>
-      <button type="button" class="btn-primary" on:click={openCreateModal}>
+      <button type="button" class="btn-primary" onclick={openCreateModal}>
         Créer la première dégustation
       </button>
     </div>
@@ -449,21 +459,21 @@
                     type="button"
                     class="ui-btn ui-btn--secondary ui-btn--sm"
                     disabled={cardsBusyId === tasting.id}
-                    on:click={() => downloadCards(tasting)}
+                    onclick={() => downloadCards(tasting)}
                   >
                     {cardsBusyId === tasting.id ? "…" : "Fiches de table"}
                   </button>
                   <button
                     type="button"
                     class="ui-btn ui-btn--secondary ui-btn--sm"
-                    on:click={() => openEditModal(tasting)}
+                    onclick={() => openEditModal(tasting)}
                   >
                     Modifier
                   </button>
                   <button
                     type="button"
                     class="ui-btn ui-btn--danger ui-btn--sm"
-                    on:click={() => deleteTasting(tasting)}
+                    onclick={() => deleteTasting(tasting)}
                   >
                     Supprimer
                   </button>
@@ -477,8 +487,8 @@
   {/if}
 </ManagePageShell>
 
-<Modal open={showModal} title={editingTasting ? "Modifier la dégustation" : "Nouvelle dégustation"} on:close={closeModal}>
-  <form id="tasting-form" on:submit|preventDefault={handleSubmit}>
+<Modal open={showModal} title={editingTasting ? "Modifier la dégustation" : "Nouvelle dégustation"} onclose={closeModal}>
+  <form id="tasting-form" onsubmit={preventDefault(handleSubmit)}>
     {#if error && showModal}
       <div class="error-message">{error}</div>
     {/if}
@@ -546,7 +556,7 @@
                   class="btn-icon"
                   title="Monter"
                   disabled={i === 0}
-                  on:click={() => moveWine(i, -1)}
+                  onclick={() => moveWine(i, -1)}
                   aria-label="Monter"
                 >
                   ↑
@@ -556,7 +566,7 @@
                   class="btn-icon"
                   title="Descendre"
                   disabled={i === modalWines.length - 1}
-                  on:click={() => moveWine(i, 1)}
+                  onclick={() => moveWine(i, 1)}
                   aria-label="Descendre"
                 >
                   ↓
@@ -565,7 +575,7 @@
                   type="button"
                   class="ui-remove"
                   title="Retirer"
-                  on:click={() => removeWineFromList(i)}
+                  onclick={() => removeWineFromList(i)}
                   aria-label="Retirer"
                 >
                   ×
@@ -577,23 +587,21 @@
       {/if}
 
       <div class="add-wine-row">
-        {#key modalWines.map((e) => e.wine_vintage_id).join("|")}
-          <ProductVintageAutocomplete
-            bind:value={selectedVintageId}
-            wineVintages={wineVintages.filter((v) => !isDiscontinued(v))}
-            includeTastingOption={false}
-            disableWhenNoStock={false}
-            isVintageAlreadyAdded={isVintageInModal}
-            formatLabel={vintageLabel}
-            getAvailableStock={() => 0}
-            placeholder="Rechercher un millésime…"
-          />
-        {/key}
+        <ProductVintageAutocomplete
+          bind:value={selectedVintageId}
+          wineVintages={wineVintages.filter((v) => !isDiscontinued(v))}
+          includeTastingOption={false}
+          disableWhenNoStock={false}
+          isVintageAlreadyAdded={isVintageInModal}
+          formatLabel={vintageLabel}
+          getAvailableStock={() => 0}
+          placeholder="Rechercher un millésime…"
+        />
         <button
           type="button"
           class="ui-btn ui-btn--secondary ui-btn--sm"
           disabled={!selectedVintageId}
-          on:click={addWineToTasting}
+          onclick={addWineToTasting}
         >
           Ajouter
         </button>
@@ -614,7 +622,7 @@
                   type="button"
                   class="ui-remove"
                   title="Retirer"
-                  on:click={() => removeCustomerFromList(i)}
+                  onclick={() => removeCustomerFromList(i)}
                   aria-label="Retirer"
                 >
                   ×
@@ -625,19 +633,17 @@
         {/if}
 
         <div class="add-customer-row">
-          {#key modalCustomers.map((e) => e.customer_id).join("|")}
-            <CustomerAutocomplete
-              bind:value={selectedCustomerId}
-              {customers}
-              isCustomerAlreadyAdded={isCustomerInModal}
-              placeholder="Rechercher un client…"
-            />
-          {/key}
+          <CustomerAutocomplete
+            bind:value={selectedCustomerId}
+            {customers}
+            isCustomerAlreadyAdded={isCustomerInModal}
+            placeholder="Rechercher un client…"
+          />
           <button
             type="button"
             class="ui-btn ui-btn--secondary ui-btn--sm"
             disabled={!selectedCustomerId}
-            on:click={addCustomerToTasting}
+            onclick={addCustomerToTasting}
           >
             Ajouter
           </button>
@@ -645,10 +651,10 @@
       </div>
     </div>
   </form>
-  <svelte:fragment slot="footer">
-    <Button variant="ghost" on:click={closeModal} disabled={saving}>Annuler</Button>
-    <Button variant="primary" type="submit" form="tasting-form" disabled={saving}>{saving ? "Enregistrement…" : editingTasting ? "Mettre à jour" : "Créer"}</Button>
-  </svelte:fragment>
+  {#snippet footer()}
+      <Button variant="ghost" onclick={closeModal} disabled={saving}>Annuler</Button>
+      <Button variant="primary" type="submit" form="tasting-form" disabled={saving}>{saving ? "Enregistrement…" : editingTasting ? "Mettre à jour" : "Créer"}</Button>
+  {/snippet}
 </Modal>
 
 <style>

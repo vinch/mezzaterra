@@ -1,6 +1,7 @@
 import { fetchAllRows, supabase } from "./supabase";
 import { addDaysIso, formatShortMonth, parseIsoDate, todayIso } from "./dates";
 import { toNumber } from "./format";
+import { fetchStockMap } from "./manageData";
 
 /**
  * Calculs de pilotage (marges, rotation du stock, rentabilité des dégustations).
@@ -67,14 +68,15 @@ function groupBy<T>(items: T[], key: (item: T) => string | null): Map<string, T[
 }
 
 export async function loadDataset(): Promise<Dataset> {
-  const [sales, items, vintages, inventory] = await Promise.all([
+  const [sales, items, vintages, stock] = await Promise.all([
     fetchAllRows<SaleRow>((a, b) =>
-      supabase.from("sale").select("id, date, status, total_price, customer_id, tasting_id").range(a, b),
+      supabase.from("sale").select("id, date, status, total_price, customer_id, tasting_id").order("id").range(a, b),
     ),
     fetchAllRows<SaleItemRow>((a, b) =>
       supabase
         .from("sale_item")
         .select("id, sale_id, wine_vintage_id, quantity, price, discount, discount_type, note")
+        .order("id")
         .range(a, b),
     ),
     fetchAllRows<VintageRow>((a, b) =>
@@ -83,15 +85,11 @@ export async function loadDataset(): Promise<Dataset> {
         .select(
           "*, wine ( id, name, winery ( id, name ), appelation ( name, label ( name ) ), wine_type ( name, category ) )",
         )
+        .order("id")
         .range(a, b),
     ),
-    fetchAllRows<{ wine_vintage_id: string | null; quantity_on_hand: number | null }>((a, b) =>
-      supabase.from("inventory").select("wine_vintage_id, quantity_on_hand").range(a, b),
-    ),
+    fetchStockMap(),
   ]);
-
-  const stock = new Map<string, number>();
-  for (const r of inventory) if (r.wine_vintage_id) stock.set(r.wine_vintage_id, r.quantity_on_hand ?? 0);
   return { sales, items, vintages, stock };
 }
 

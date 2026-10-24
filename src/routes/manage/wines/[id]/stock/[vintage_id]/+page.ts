@@ -1,4 +1,5 @@
 import { supabase } from "$lib/supabase";
+import { vintageStock } from "$lib/manageData";
 import type { PageLoad } from "./$types";
 
 export const load: PageLoad = async ({ params }) => {
@@ -6,7 +7,7 @@ export const load: PageLoad = async ({ params }) => {
   const [
     { data: vintage, error: vintageError },
     { data: stockMoves, error: stockMovesError },
-    { data: inventory, error: inventoryError },
+    currentStock,
   ] = await Promise.all([
     supabase
       .from("wine_vintage")
@@ -28,11 +29,7 @@ export const load: PageLoad = async ({ params }) => {
       .select("*")
       .eq("wine_vintage_id", params.vintage_id)
       .order("date", { ascending: false }),
-    supabase
-      .from("inventory")
-      .select("quantity_on_hand")
-      .eq("wine_vintage_id", params.vintage_id)
-      .maybeSingle(),
+    vintageStock(params.vintage_id),
   ]);
 
   if (vintageError) {
@@ -47,16 +44,9 @@ export const load: PageLoad = async ({ params }) => {
     );
   }
 
-  if (inventoryError) {
-    console.warn(
-      "Aucun stock trouvé pour ce millésime:",
-      inventoryError.message
-    );
-  }
-
   return {
     vintage,
     stockMoves: stockMoves || [],
-    currentStock: inventory?.quantity_on_hand || 0,
+    currentStock,
   };
 };

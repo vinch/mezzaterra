@@ -1,19 +1,20 @@
 <script lang="ts">
   import { onMount } from "svelte";
+  import { errorMessage } from "$lib/async";
   import { supabase } from "$lib/supabase";
   import ManagePageShell from "$lib/components/manage/ManagePageShell.svelte";
   import { vintageLabel } from "$lib/wine";
   import { formatDate, formatEUR } from "$lib/format";
   import { createSaleFromWish, setWishStatus, wishItems, wishTotal, type WishRequest } from "$lib/wishes";
 
-  let loading = true;
-  let error = "";
-  let wishes: WishRequest[] = [];
-  let vintages = new Map<string, any>();
+  let loading = $state(true);
+  let error = $state("");
+  let wishes = $state<WishRequest[]>([]);
+  let vintages = $state(new Map<string, any>());
   let tastings = new Map<string, any>();
   type Filter = "new" | "done" | "dismissed" | "all";
-  let filter: Filter = "new";
-  let busyId = "";
+  let filter = $state<Filter>("new");
+  let busyId = $state("");
 
   onMount(async () => {
     await load();
@@ -45,14 +46,14 @@
     wishes = (data || []) as unknown as WishRequest[];
   }
 
-  $: prices = new Map([...vintages.values()].map((v) => [v.id, Number(v.price ?? 0)]));
-  $: shown = filter === "all" ? wishes : wishes.filter((w) => w.status === filter);
-  $: counts = {
+  let prices = $derived(new Map([...vintages.values()].map((v) => [v.id, Number(v.price ?? 0)])));
+  let shown = $derived(filter === "all" ? wishes : wishes.filter((w) => w.status === filter));
+  let counts = $derived({
     new: wishes.filter((w) => w.status === "new").length,
     done: wishes.filter((w) => w.status === "done").length,
     dismissed: wishes.filter((w) => w.status === "dismissed").length,
     all: wishes.length,
-  };
+  });
 
   function tastingName(id: string | null): string {
     if (!id) return "Site";
@@ -67,7 +68,7 @@
       await action();
       await loadWishes();
     } catch (e) {
-      error = e instanceof Error ? e.message : String(e);
+      error = errorMessage(e);
     } finally {
       busyId = "";
     }
@@ -93,7 +94,7 @@
 
     <div class="tabs" role="tablist">
       {#each FILTERS as f}
-        <button type="button" role="tab" class:active={filter === f.key} aria-selected={filter === f.key} on:click={() => (filter = f.key)}>
+        <button type="button" role="tab" class:active={filter === f.key} aria-selected={filter === f.key} onclick={() => (filter = f.key)}>
           {f.label} <span class="count">{counts[f.key]}</span>
         </button>
       {/each}
@@ -132,15 +133,15 @@
             {#if w.message}<p class="message">« {w.message} »</p>{/if}
             <footer>
               {#if w.status === "new"}
-                <button type="button" class="btn-primary" disabled={busyId === w.id} on:click={() => run(w, () => createSaleFromWish(w, prices, tastingName(w.tasting_id)))}>
+                <button type="button" class="btn-primary" disabled={busyId === w.id} onclick={() => run(w, () => createSaleFromWish(w, prices, tastingName(w.tasting_id)))}>
                   {busyId === w.id ? "…" : "Créer la vente (en attente)"}
                 </button>
-                <button type="button" class="btn-secondary" disabled={busyId === w.id} on:click={() => run(w, () => setWishStatus(w.id, "dismissed"))}>Ignorer</button>
+                <button type="button" class="btn-secondary" disabled={busyId === w.id} onclick={() => run(w, () => setWishStatus(w.id, "dismissed"))}>Ignorer</button>
               {:else if w.status === "done"}
                 <a class="btn-secondary" href="/manage/sales">Voir les ventes</a>
                 <span class="meta">Client créé ou retrouvé automatiquement (email / téléphone).</span>
               {:else}
-                <button type="button" class="btn-secondary" disabled={busyId === w.id} on:click={() => run(w, () => setWishStatus(w.id, "new"))}>Remettre à traiter</button>
+                <button type="button" class="btn-secondary" disabled={busyId === w.id} onclick={() => run(w, () => setWishStatus(w.id, "new"))}>Remettre à traiter</button>
               {/if}
             </footer>
           </article>

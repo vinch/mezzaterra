@@ -1,19 +1,24 @@
 <script lang="ts">
+  import { preventDefault } from "$lib/ui/events";
   import { onMount } from "svelte";
   import { supabase } from "$lib/supabase";
   import { fetchSeats, type SeatInfo } from "$lib/publicData";
 
-  export let tastingId: string;
+  interface Props {
+    tastingId: string;
+  }
 
-  let seats: SeatInfo | null = null;
-  let firstName = "";
-  let lastName = "";
-  let email = "";
-  let phone = "";
-  let count = 2;
-  let submitting = false;
-  let result: "confirmed" | "waitlist" | "already_registered" | null = null;
-  let errorMsg = "";
+  let { tastingId }: Props = $props();
+
+  let seats = $state<SeatInfo | null>(null);
+  let firstName = $state("");
+  let lastName = $state("");
+  let email = $state("");
+  let phone = $state("");
+  let count = $state(2);
+  let submitting = $state(false);
+  let result = $state<"confirmed" | "waitlist" | "already_registered" | null>(null);
+  let errorMsg = $state("");
 
   const ERRORS: Record<string, string> = {
     invalid_email: "Cette adresse email ne semble pas valide.",
@@ -27,7 +32,7 @@
     seats = await fetchSeats(tastingId);
   });
 
-  $: full = seats?.seats_left != null && seats.seats_left <= 0;
+  let full = $derived(seats?.seats_left != null && seats.seats_left <= 0);
 
   async function submit() {
     errorMsg = "";
@@ -83,7 +88,7 @@
       {/if}
     </div>
   {:else}
-    <form on:submit|preventDefault={submit} class="form">
+    <form onsubmit={preventDefault(submit)} class="form">
       <div class="mz-field">
         <label for="reg-first">Prénom *</label>
         <input id="reg-first" bind:value={firstName} autocomplete="given-name" required />
@@ -103,9 +108,9 @@
       <div class="mz-field seats-field">
         <span class="mz-label" id="reg-seats-label">Places</span>
         <div class="stepper" role="group" aria-labelledby="reg-seats-label">
-          <button type="button" on:click={() => (count = Math.max(1, count - 1))} aria-label="Une place de moins">−</button>
+          <button type="button" onclick={() => (count = Math.max(1, count - 1))} aria-label="Une place de moins">−</button>
           <output aria-live="polite">{count}</output>
-          <button type="button" on:click={() => (count = Math.min(10, count + 1))} aria-label="Une place de plus">+</button>
+          <button type="button" onclick={() => (count = Math.min(10, count + 1))} aria-label="Une place de plus">+</button>
         </div>
       </div>
       <div class="submit">

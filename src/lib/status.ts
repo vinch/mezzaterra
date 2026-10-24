@@ -42,5 +42,13 @@ export const SALE_TRANSITIONS: Record<string, SaleStatus[]> = {
   delivered: ["paid", "closed"],
 };
 
-/** Ventes encore modifiables : leur badge devient un bouton. */
-export const EDITABLE_STATUSES = Object.keys(SALE_TRANSITIONS) as SaleStatus[];
+/**
+ * Vente encore modifiable ou supprimable : « En attente », son stock n'est pas encore sorti
+ * (mêmes règles que save_sale en base).
+ */
+export function isSaleEditable(status: string | null | undefined): boolean {
+  return status === "pending";
+}
+
+/** Ventes dont le statut peut encore changer : leur badge devient un bouton. */
+export const CHANGEABLE_STATUSES = Object.keys(SALE_TRANSITIONS) as SaleStatus[];
