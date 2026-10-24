@@ -66,16 +66,13 @@
   };
 
   onMount(async () => {
-    await Promise.all([
-      loadStock(),
-      loadWines(),
-      loadWineries(),
-      loadAppellations(),
-      loadWineTypes(),
-      loadAllPairings(),
-    ]);
+    void Promise.all([loadWineries(), loadAppellations(), loadWineTypes(), loadAllPairings()]);
     /* Fin du chargement une fois le stock aussi arrivé : sinon les vins s'affichent en rupture. */
-    loading = false;
+    try {
+      await Promise.all([loadStock(), loadWines()]);
+    } finally {
+      loading = false;
+    }
   });
 
   async function loadAllPairings() {
@@ -368,9 +365,12 @@
   function vintagesOf(wine: any): any[] {
     return wine.wine_vintage || [];
   }
-  /* Bouteilles en stock par vin, recalculées quand les vins ou le stock arrivent. */
-  $: totalById = new Map(
-    wines.map((w: any) => [w.id, vintagesOf(w).reduce((n, v) => n + Math.max(0, stock?.get(v.id) ?? 0), 0)]),
+  /* Bouteilles en stock et badge par vin, recalculés quand les vins ou le stock arrivent. */
+  $: stockById = new Map(
+    wines.map((w: any) => {
+      const total = vintagesOf(w).reduce((n, v) => n + Math.max(0, stock?.get(v.id) ?? 0), 0);
+      return [w.id, { total, badge: stockBadge(w, total, !!stock) }];
+    }),
   );
   /** Dernier millésime qu'on peut encore recommander au fournisseur. */
   function latestVintage(wine: any): any | null {
@@ -405,7 +405,7 @@
   /* Vins retirés en fin de liste : visibles, mais hors du chemin. */
   $: shownWines = filteredWines
     .filter((w: any) => !robeFilter || robeOf(w.wine_type) === robeFilter)
-    .filter((w: any) => !inStockOnly || !stock || (totalById.get(w.id) ?? 0) > 0)
+    .filter((w: any) => !inStockOnly || !stock || (stockById.get(w.id)?.total ?? 0) > 0)
     .sort((a: any, b: any) => Number(isRetired(a)) - Number(isRetired(b)));
   $: vintageCount = wines.reduce((n, w: any) => n + (w.wine_vintage?.length ?? 0), 0);
   $: bottleCount = stock ? [...stock.values()].reduce((n, q) => n + Math.max(0, q), 0) : null;
@@ -564,8 +564,7 @@
           </thead>
           <tbody>
             {#each shownWines as wine (wine.id)}
-              {@const total = totalById.get(wine.id) ?? 0}
-              {@const badge = stockBadge(wine, total, !!stock)}
+              {@const { total, badge } = stockById.get(wine.id) ?? { total: 0, badge: null }}
               {@const robe = robeOf(wine.wine_type)}
               {@const retired = isRetired(wine)}
               <tr class="is-clickable" class:retired on:click={(e) => openRow(wine, e)}>
@@ -614,8 +613,7 @@
 
       <ul class="cards mobile-only">
         {#each shownWines as wine (wine.id)}
-          {@const total = totalById.get(wine.id) ?? 0}
-          {@const badge = stockBadge(wine, total, !!stock)}
+          {@const { total, badge } = stockById.get(wine.id) ?? { total: 0, badge: null }}
           <li class="wine-card" class:retired={isRetired(wine)}>
             <a class="wine-card-main" href="/manage/wines/{wine.id}">
               <span class="wc-top">
