@@ -1572,6 +1572,8 @@
                   <!-- Stock du millésime ; null pour une ligne dégustation ou un stock illisible. -->
                   {@const stock = item.wine_vintage_id ? (v?.stock ?? null) : null}
                   {@const qty = parseInt(String(item.quantity), 10) || 1}
+                  <!-- Le stock ne borne que les ventes nouvelles ou en attente (pas encore sorties du stock). -->
+                  {@const bounded = !!item.wine_vintage_id && (!editingSale || editingSale.status === "pending")}
                   <tr>
                     <td>
                       <span class="wine-cell">
@@ -1592,11 +1594,7 @@
                       <Stepper
                         value={qty}
                         min={1}
-                        max={item.wine_vintage_id && stock == null
-                          ? qty
-                          : stock != null && (!editingSale || editingSale.status === "pending")
-                            ? stock
-                            : 9999}
+                        max={bounded ? (stock ?? qty) : 9999}
                         label="Quantité de {saleItemDescription(item)}"
                         on:change={(e) => setItemQuantity(index, e.detail)}
                       />
