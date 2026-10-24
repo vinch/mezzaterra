@@ -1326,14 +1326,14 @@ export type Database = {
         Returns: string
       }
       save_order: {
-        Args: { p_items: Json; p_order: Json; p_order_id: string | null }
+        Args: { p_items: Json; p_order: Json; p_order_id: string }
         Returns: string
       }
       save_sale: {
         Args: {
           p_items: Json
           p_sale: Json
-          p_sale_id: string | null
+          p_sale_id: string
           p_wish_id?: string
         }
         Returns: string
@@ -1343,7 +1343,7 @@ export type Database = {
           p_added_customer_ids: string[]
           p_removed_customer_ids: string[]
           p_tasting: Json
-          p_tasting_id: string | null
+          p_tasting_id: string
           p_wine_ids: string[]
         }
         Returns: string

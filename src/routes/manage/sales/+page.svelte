@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { supabase } from "$lib/supabase";
+  import { NEW_ROW, supabase } from "$lib/supabase";
   import { getContext, onMount } from "svelte";
   import type { PageData } from "./$types";
   import ManagePageShell from "$lib/components/manage/ManagePageShell.svelte";
@@ -389,7 +389,7 @@
     try {
       /* Vente et lignes enregistrées ensemble (fonction SQL save_sale) : tout ou rien. */
       const { error: saveError } = await supabase.rpc("save_sale", {
-        p_sale_id: editingSale?.id ?? null,
+        p_sale_id: editingSale?.id ?? NEW_ROW,
         p_sale: saleData,
         p_items: saleItems.map((item) => ({
           wine_vintage_id: item.wine_vintage_id ?? null,

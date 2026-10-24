@@ -1,4 +1,4 @@
-import { escapeLike, supabase } from "./supabase";
+import { NEW_ROW, escapeLike, supabase } from "./supabase";
 import { todayIso } from "./dates";
 
 /**
@@ -109,7 +109,7 @@ export async function createSaleFromWish(
 
   /* Vente, lignes et demande marquée « traitée » en une transaction (fonction SQL save_sale). */
   const { data: saleId, error } = await supabase.rpc("save_sale", {
-    p_sale_id: null,
+    p_sale_id: NEW_ROW,
     p_sale: {
       date: todayIso(),
       customer_id: customer.id,

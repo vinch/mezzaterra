@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { supabase } from "$lib/supabase";
+  import { NEW_ROW, supabase } from "$lib/supabase";
   import { onMount } from "svelte";
   import { invalidateAll } from "$app/navigation";
   import type { PageData } from "./$types";
@@ -219,7 +219,7 @@
 
     /* Commande et lignes enregistrées ensemble (fonction SQL save_order) : tout ou rien. */
     const { error: saveError } = await supabase.rpc("save_order", {
-      p_order_id: editingOrder?.id ?? null,
+      p_order_id: editingOrder?.id ?? NEW_ROW,
       p_order: orderData,
       p_items: orderItems.map((item) => ({
         wine_vintage_id: item.wine_vintage_id,

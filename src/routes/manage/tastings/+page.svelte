@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { supabase } from "$lib/supabase";
+  import { NEW_ROW, supabase } from "$lib/supabase";
   import { onMount } from "svelte";
   import type { Customer, Tasting } from "$lib/types";
   import Modal from "$lib/ui/Modal.svelte";
@@ -325,7 +325,7 @@
     try {
       /* Dégustation, vins (dans l'ordre) et participants en une transaction (fonction SQL save_tasting). */
       const { error: saveError } = await supabase.rpc("save_tasting", {
-        p_tasting_id: editingTasting?.id ?? null,
+        p_tasting_id: editingTasting?.id ?? NEW_ROW,
         p_tasting: payload,
         p_wine_ids: modalWines.map((e) => e.wine_vintage_id),
         p_added_customer_ids: modalCustomers.map((e) => e.customer_id).filter((id) => !initialCustomerIds.includes(id)),

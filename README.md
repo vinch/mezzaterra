@@ -36,7 +36,7 @@ transactionnelles : ventes et commandes avec leurs lignes (`save_sale`, `save_or
 statut avec leurs mouvements de stock (`set_sale_status`, `set_transport_status`), numéro de facture
 atomique et continu (`assign_invoice_number`), réassort, rattachement des commandes à un transport et
 enregistrement d'une dégustation. Le total d'une commande est tenu par un trigger sur ses lignes. Le
-code de l'admin appelle ces fonctions : la migration doit être appliquée avant de déployer ce code.
+code de l'admin appelle ces fonctions (migration appliquée en production le 24/10/2026).
 
 ```sh
 supabase link --project-ref wmerreifcpttrhxwmkmn
