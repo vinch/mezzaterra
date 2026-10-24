@@ -344,6 +344,14 @@
   resize: vertical;
 }
 
+/* Champ non modifiable : même rendu que .ui-control:disabled (app.css). */
+.app .form-group input:not([type="checkbox"]):not([type="radio"]):not(.ui-control):disabled,
+.app .form-group textarea:not(.ui-control):disabled {
+  background-color: var(--table-head);
+  color: var(--ink-2);
+  cursor: not-allowed;
+}
+
 .app .form-group input:focus,
 .app .form-group select:focus,
 .app .form-group textarea:focus,
