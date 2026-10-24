@@ -346,14 +346,15 @@
   }
 
   /* ——— Interface (refonte) ——— */
-  /** null : stock illisible, affiché « — » plutôt qu'en fausse rupture. */
+  /** null : stock illisible, affiché « — » plutôt qu'en fausse rupture (cause dans stockError). */
   let stock: Map<string, number> | null = new Map();
+  let stockError = "";
   async function loadStock() {
     try {
       stock = await fetchStockMap();
     } catch (e) {
       stock = null;
-      error = `Stock indisponible : ${errorMessage(e)}`;
+      stockError = `Stock indisponible : ${errorMessage(e)}`;
     }
   }
 
@@ -494,6 +495,9 @@
 
   {#if error}
     <div class="error-message" role="alert">{error}</div>
+  {/if}
+  {#if stockError}
+    <div class="error-message" role="alert">{stockError}</div>
   {/if}
   {#if notice}
     <div class="success-message" role="status">{notice}</div>
