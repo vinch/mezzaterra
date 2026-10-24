@@ -237,6 +237,8 @@
       wine_vintage: item.wine_vintage,
       wine_vintage_id: item.wine_vintage_id ?? null,
       quantity: item.quantity,
+      /* Plafond si le stock est illisible : on peut revenir à la quantité enregistrée. */
+      saved_quantity: item.quantity,
       price: toNumber(item.price),
       discount: toNumber(item.discount),
       discount_type: item.discount_type || null,
@@ -1594,11 +1596,11 @@
                       <Stepper
                         value={qty}
                         min={1}
-                        max={bounded ? (stock ?? qty) : 9999}
+                        max={bounded ? (stock ?? item.saved_quantity ?? qty) : 9999}
                         label="Quantité de {saleItemDescription(item)}"
                         on:change={(e) => setItemQuantity(index, e.detail)}
                       />
-                      {#if stock != null && (parseInt(String(item.quantity), 10) || 0) >= stock}
+                      {#if stock != null && qty >= stock}
                         <p class="t-caption t-warn stock-warn">Dernières bouteilles en stock</p>
                       {/if}
                     </td>
