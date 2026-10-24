@@ -1524,8 +1524,7 @@
               <tbody>
                 {#each saleItems as item, index}
                   {@const v = vintageById.get(item.wine_vintage_id) ?? item.wine_vintage}
-                  <!-- Stock connu du millésime ; null pour une ligne dégustation. -->
-                  {@const stock = item.wine_vintage_id ? (v?.stock ?? null) : null}
+                  {@const stock = v?.stock ?? null}
                   <tr>
                     <td>
                       <span class="wine-cell">
