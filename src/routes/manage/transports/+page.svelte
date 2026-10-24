@@ -3,7 +3,10 @@
   import { onMount } from "svelte";
   import { invalidateAll } from "$app/navigation";
   import type { PageData } from "./$types";
-  import Modal from "$lib/components/Modal.svelte";
+  import Modal from "$lib/ui/Modal.svelte";
+  import Button from "$lib/ui/Button.svelte";
+  import StatusBadge from "$lib/ui/StatusBadge.svelte";
+  import { KIND_META, statusMeta } from "$lib/status";
   import ManagePageShell from "$lib/components/manage/ManagePageShell.svelte";
   import { orderItemPrice as itemPrice, withOrderTotals } from "$lib/manageData";
   import { todayIso } from "$lib/dates";
@@ -452,7 +455,7 @@
                 </td>
                 <td>
                   <select
-                    class="status-select status-{transport.status}"
+                    class="status-select tone-{statusMeta("transport", transport.status).tone}"
                     value={transport.status}
                     on:change={async (e) => {
                       const target = e.target as HTMLSelectElement;
@@ -475,10 +478,7 @@
                       }
                     }}
                   >
-                    <option value="pending">En attente</option>
-                    <option value="in_transit">En transit</option>
-                    <option value="delivered">Livré</option>
-                    <option value="cancelled">Annulé</option>
+                    {#each Object.entries(KIND_META.transport) as [value, meta]}<option {value}>{meta.label}</option>{/each}
                   </select>
                 </td>
                 <td>
@@ -532,13 +532,8 @@
 </ManagePageShell>
 
 <!-- Modal de création / édition -->
-<Modal
-  show={formOpen}
-  title={editingTransport ? "Modifier le transport" : "Nouveau transport"}
-  modalId="modal-title-transport"
-  on:close={closeForm}
->
-  <form on:submit|preventDefault={submitForm}>
+<Modal open={formOpen} title={editingTransport ? "Modifier le transport" : "Nouveau transport"} on:close={closeForm}>
+  <form id="transport-form" on:submit|preventDefault={submitForm}>
     <div class="form-grid">
       <div class="form-group">
         <label for="transporter_id">Transporteur *</label>
@@ -596,23 +591,15 @@
         <textarea id="note" bind:value={formData.note} rows="3"></textarea>
       </div>
     </div>
-
-    <div class="modal-footer">
-      <button type="button" class="btn-secondary" on:click={closeForm}
-        >Annuler</button
-      >
-      <button type="submit" class="btn-primary" disabled={saving}>{editingTransport ? "Enregistrer" : "Créer le transport"}</button>
-    </div>
   </form>
+  <svelte:fragment slot="footer">
+    <Button variant="ghost" on:click={closeForm}>Annuler</Button>
+    <Button variant="primary" type="submit" form="transport-form" disabled={saving}>{editingTransport ? "Enregistrer" : "Créer le transport"}</Button>
+  </svelte:fragment>
 </Modal>
 
 <!-- Modal d'association de commandes -->
-<Modal
-  show={showOrdersModal}
-  title="Associer des commandes au transport"
-  modalId="modal-title-orders"
-  on:close={closeOrdersModal}
->
+<Modal open={showOrdersModal} title="Associer des commandes au transport" on:close={closeOrdersModal}>
   {#if selectedTransport}
     <div class="orders-modal-content">
       <p class="modal-description">
@@ -632,14 +619,7 @@
                       {formatDate(order.date)} - {order
                         .supplier.name}
                     </strong>
-                    <span
-                      class="order-status-badge status-{order.status ||
-                        'pending'}"
-                    >
-                      {order.status === "confirmed"
-                        ? "Confirmée"
-                        : "En attente"}
-                    </span>
+                    <StatusBadge kind="order" status={order.status} />
                   </div>
                   <span class="order-total">
                     {formatEUR(order.total_price ?? 0)}
@@ -685,14 +665,7 @@
                       {formatDate(order.date)} - {order
                         .supplier.name}
                     </strong>
-                    <span
-                      class="order-status-badge status-{order.status ||
-                        'pending'}"
-                    >
-                      {order.status === "confirmed"
-                        ? "Confirmée"
-                        : "En attente"}
-                    </span>
+                    <StatusBadge kind="order" status={order.status} />
                   </div>
                   <span class="order-total">
                     {formatEUR(order.total_price ?? 0)}
@@ -706,33 +679,16 @@
           {/each}
         </div>
       {/if}
-
-      <div class="modal-footer">
-        <button type="button" class="btn-secondary" on:click={closeOrdersModal}>
-          Annuler
-        </button>
-        <button
-          type="button"
-          class="btn-primary"
-          on:click={associateOrders}
-          disabled={selectedOrderIds.length === 0}
-        >
-          Associer {selectedOrderIds.length > 0
-            ? `(${selectedOrderIds.length})`
-            : ""}
-        </button>
-      </div>
     </div>
   {/if}
+  <svelte:fragment slot="footer">
+    <Button variant="ghost" on:click={closeOrdersModal}>Annuler</Button>
+    <Button variant="primary" on:click={associateOrders} disabled={selectedOrderIds.length === 0}>Associer {selectedOrderIds.length > 0 ? `(${selectedOrderIds.length})` : ""}</Button>
+  </svelte:fragment>
 </Modal>
 
 <!-- Modal de détails -->
-<Modal
-  show={showDetailsModal}
-  title="Détails du transport"
-  modalId="modal-title-details"
-  on:close={closeDetailsModal}
->
+<Modal open={showDetailsModal} title="Détails du transport" on:close={closeDetailsModal}>
   {#if detailsTransport}
     <div class="details-content">
       <div class="details-grid">
@@ -744,15 +700,7 @@
         <div class="details-group">
           <div class="details-label">Statut</div>
           <div>
-            <span class="status-badge status-{detailsTransport.status}">
-              {detailsTransport.status === "pending"
-                ? "En attente"
-                : detailsTransport.status === "in_transit"
-                  ? "En transit"
-                  : detailsTransport.status === "delivered"
-                    ? "Livré"
-                    : "Annulé"}
-            </span>
+            <StatusBadge kind="transport" status={detailsTransport.status} />
           </div>
         </div>
 
@@ -852,67 +800,8 @@
 </Modal>
 
 <style>
-  .status-badge {
-    padding: 0.25rem 0.5rem;
-    border-radius: 4px;
-    font-size: 0.85rem;
-    font-weight: 500;
-  }
-
-  .status-select {
-    padding: 0.25rem 0.5rem;
-    border-radius: 4px;
-    font-size: 0.85rem;
-    font-weight: 500;
-    border: 1px solid rgba(0, 0, 0, 0.1);
-    cursor: pointer;
-    min-width: 120px;
-  }
-
-  .status-select.status-pending {
-    background-color: var(--st-pending-bg);
-    color: var(--st-pending-fg);
-  }
-
-  .status-select.status-in_transit {
-    background-color: var(--st-delivered-bg);
-    color: var(--st-delivered-fg);
-  }
-
-  .status-select.status-delivered {
-    background-color: var(--st-paid-bg);
-    color: var(--st-paid-fg);
-  }
-
-  .status-select.status-cancelled {
-    background-color: var(--st-cancelled-bg);
-    color: var(--st-cancelled-fg);
-  }
-
-  .status-pending {
-    background: var(--st-pending-bg);
-    color: var(--st-pending-fg);
-  }
-
-  .status-in_transit {
-    background: var(--st-delivered-bg);
-    color: var(--st-delivered-fg);
-  }
-
-  .status-delivered {
-    background: var(--st-paid-bg);
-    color: var(--st-paid-fg);
-  }
-
-  .status-cancelled {
-    background: var(--st-cancelled-bg);
-    color: var(--st-cancelled-fg);
-  }
 
   /* Orders modal styles */
-  .orders-modal-content {
-    padding: 1.5rem;
-  }
 
   .modal-description {
     margin-bottom: 1.5rem;
@@ -978,25 +867,6 @@
     font-size: 0.95rem;
   }
 
-  .order-status-badge {
-    display: inline-block;
-    padding: 0.15rem 0.4rem;
-    border-radius: 3px;
-    font-size: 0.75rem;
-    font-weight: 500;
-    margin-top: 0.25rem;
-  }
-
-  .order-status-badge.status-pending {
-    background: var(--st-pending-bg);
-    color: var(--st-pending-fg);
-  }
-
-  .order-status-badge.status-confirmed {
-    background: var(--st-paid-bg);
-    color: var(--st-paid-fg);
-  }
-
   .order-total {
     color: var(--teal-600);
     font-weight: 600;
@@ -1056,9 +926,6 @@
   }
 
   /* Details modal styles */
-  .details-content {
-    padding: 1.5rem;
-  }
 
   .details-grid {
     display: grid;

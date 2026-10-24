@@ -3,7 +3,8 @@
   import { onMount } from "svelte";
   import type { Winery, WineType } from "$lib/types";
   import ManagePageShell from "$lib/components/manage/ManagePageShell.svelte";
-  import Modal from "$lib/components/Modal.svelte";
+  import Modal from "$lib/ui/Modal.svelte";
+  import Button from "$lib/ui/Button.svelte";
   import {
     fetchStockDocVintages,
     sortedStockForDocuments,
@@ -305,13 +306,7 @@
     {/if}
 </ManagePageShell>
 
-<Modal
-  show={showNotesModal}
-  title="Notes de dégustation"
-  modalId="notes-modal-title"
-  wide
-  on:close={closeNotesModal}
->
+<Modal open={showNotesModal} title="Notes de dégustation" maxWidth={820} on:close={closeNotesModal}>
   <div class="notes-modal-body">
     <p class="notes-modal-hint">
       Choisissez la date de la dégustation et l’ordre de passage des vins (du premier au
@@ -366,24 +361,12 @@
     </ol>
   </div>
 
-  <div class="modal-footer notes-modal-footer">
-    <button
-      type="button"
-      class="btn-secondary"
-      on:click={closeNotesModal}
-      disabled={notesPdfGenerating}
-    >
-      Annuler
-    </button>
-    <button
-      type="button"
-      class="btn-primary"
-      on:click={confirmNotesPdf}
-      disabled={notesPdfGenerating || notesModalRows.length === 0}
-    >
+  <svelte:fragment slot="footer">
+    <Button variant="ghost" on:click={closeNotesModal} disabled={notesPdfGenerating}>Annuler</Button>
+    <Button variant="primary" on:click={confirmNotesPdf} disabled={notesPdfGenerating || notesModalRows.length === 0}>
       {notesPdfGenerating ? "Génération…" : "Télécharger le PDF"}
-    </button>
-  </div>
+    </Button>
+  </svelte:fragment>
 </Modal>
 
 <style>
@@ -470,10 +453,6 @@
 
   .doc-filters .filter-actions {
     flex: 0 0 auto;
-  }
-
-  .notes-modal-body {
-    padding: 1.25rem 1.5rem 0.5rem;
   }
 
   .notes-modal-hint {
@@ -577,9 +556,5 @@
   .btn-icon:disabled {
     opacity: 0.35;
     cursor: not-allowed;
-  }
-
-  .notes-modal-footer {
-    padding: 1rem 1.5rem 1.25rem;
   }
 </style>

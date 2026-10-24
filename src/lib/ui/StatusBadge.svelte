@@ -1,36 +1,15 @@
-<script lang="ts" context="module">
-  /** Statuts de vente (valeurs en base) → libellé, icône, couleurs. */
-  export type SaleStatus = "pending" | "paid" | "delivered" | "closed" | "cancelled";
-
-  export const STATUS_META: Record<SaleStatus, { label: string; plural: string; tone: string }> = {
-    pending: { label: "En attente", plural: "En attente", tone: "pending" },
-    paid: { label: "Payée", plural: "Payées", tone: "paid" },
-    delivered: { label: "Livrée", plural: "Livrées", tone: "delivered" },
-    closed: { label: "Clôturée", plural: "Clôturées", tone: "closed" },
-    cancelled: { label: "Annulée", plural: "Annulées", tone: "cancelled" },
-  };
-
-  /** Statuts encore modifiables : le badge devient un bouton. */
-  export const EDITABLE_STATUSES: SaleStatus[] = ["pending", "paid", "delivered"];
-</script>
-
 <script lang="ts">
-  import { IconCheck, IconChevronDown, IconClock, IconLock, IconTruck, IconX } from "./icons";
+  import { statusMeta, type StatusKind } from "$lib/status";
+  import { IconChevronDown } from "./icons";
 
-  export let status: string;
+  export let status: string | null | undefined;
+  export let kind: StatusKind = "sale";
   /** Affiche un chevron et rend le badge cliquable (changement de statut). */
   export let interactive = false;
   export let expanded: boolean | undefined = undefined;
   export let el: HTMLElement | null = null;
 
-  $: meta = STATUS_META[status as SaleStatus] ?? { label: status, plural: status, tone: "closed" };
-  $: icon = {
-    pending: IconClock,
-    paid: IconCheck,
-    delivered: IconTruck,
-    closed: IconLock,
-    cancelled: IconX,
-  }[status as SaleStatus] ?? IconLock;
+  $: meta = statusMeta(kind, status);
 </script>
 
 {#if interactive}
@@ -44,13 +23,13 @@
     on:click
     on:keydown
   >
-    <svelte:component this={icon} size={14} strokeWidth={1.75} aria-hidden="true" />
+    <svelte:component this={meta.icon} size={14} strokeWidth={1.75} aria-hidden="true" />
     {meta.label}
     <IconChevronDown size={14} strokeWidth={1.75} aria-hidden="true" />
   </button>
 {:else}
   <span class="badge badge--{meta.tone}">
-    <svelte:component this={icon} size={14} strokeWidth={1.75} aria-hidden="true" />
+    <svelte:component this={meta.icon} size={14} strokeWidth={1.75} aria-hidden="true" />
     {meta.label}
   </span>
 {/if}

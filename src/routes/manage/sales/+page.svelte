@@ -6,7 +6,8 @@
   import Modal from "$lib/ui/Modal.svelte";
   import Button from "$lib/ui/Button.svelte";
   import IconButton from "$lib/ui/IconButton.svelte";
-  import StatusBadge, { EDITABLE_STATUSES, STATUS_META, type SaleStatus } from "$lib/ui/StatusBadge.svelte";
+  import StatusBadge from "$lib/ui/StatusBadge.svelte";
+  import { EDITABLE_STATUSES, STATUS_META, type SaleStatus } from "$lib/status";
   import Menu, { type MenuItem } from "$lib/ui/Menu.svelte";
   import RowMenu from "$lib/ui/RowMenu.svelte";
   import ConfirmDialog from "$lib/ui/ConfirmDialog.svelte";

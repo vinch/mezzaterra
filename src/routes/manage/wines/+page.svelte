@@ -557,7 +557,7 @@
                   <span class="wine-cell">
                     <WineDot {robe} />
                     <span class="wine-name">
-                      <a class="name-link" href="/manage/wines/{wine.id}">{wineTitle(wine)}</a>
+                      <a class="row-link" href="/manage/wines/{wine.id}">{wineTitle(wine)}</a>
                       <span class="t-caption">{wine.winery?.name ?? "—"}{wine.name && wine.appelation?.name ? ` · ${wine.appelation.name}` : ""}</span>
                     </span>
                   </span>
@@ -631,7 +631,7 @@
   on:confirm={confirmDelete}
 />
 
-<Modal open={showModal} title={editingWine ? "Modifier le vin" : "Nouveau vin"} maxWidth={640} on:close={closeModal}>
+<Modal open={showModal} title={editingWine ? "Modifier le vin" : "Nouveau vin"} on:close={closeModal}>
   <form id="wine-form" class="wine-form" on:submit|preventDefault={handleSubmit}>
     <Field id="wine-name" label="Nom du vin" help="Laisser vide pour utiliser le nom de l’appellation.">
       <input id="wine-name" class="ui-control" type="text" bind:value={formData.name} />
@@ -773,16 +773,7 @@
     line-height: 18px;
   }
 
-  .name-link {
-    color: var(--ink) !important;
-    font-weight: 600;
-    text-decoration: none;
-  }
 
-  .name-link:hover {
-    color: var(--teal-700) !important;
-    text-decoration: underline;
-  }
 
   .vintages {
     display: flex;

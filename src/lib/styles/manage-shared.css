@@ -155,11 +155,6 @@
   background: var(--row-hover);
 }
 
-.app .description-text {
-  font-size: 13px;
-  color: var(--ink-2);
-  cursor: help;
-}
 
 .app .actions {
   display: flex;
@@ -253,10 +248,6 @@
   background: #fbefef;
 }
 
-.app .language-selection {
-  padding: 24px;
-}
-
 .app .language-selection p {
   margin: 0 0 16px 0;
   color: var(--ink);
@@ -287,16 +278,11 @@
   background: var(--mist);
 }
 
-/* ——— Formulaires (modales des pages non migrées) ——— */
-.app .modal-content form {
-  padding: 20px 24px 24px;
-}
-
+/* ——— Formulaires des modales (grille .form-grid / .form-group) ——— */
 .app .form-grid {
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 16px;
-  margin-bottom: 20px;
 }
 
 .app .form-group {
@@ -309,8 +295,7 @@
   grid-column: 1 / -1;
 }
 
-.app .form-group > label,
-.app .modal-footer label {
+.app .form-group > label {
   font-weight: 500;
   font-size: 13px;
   line-height: 18px;
@@ -369,14 +354,6 @@
   box-shadow: 0 0 0 2px rgba(37, 97, 105, 0.18);
 }
 
-.app .modal-footer {
-  display: flex;
-  justify-content: flex-end;
-  gap: 12px;
-  padding-top: 16px;
-  border-top: 1px solid var(--border-soft);
-}
-
 .app .section-title {
   margin-bottom: 8px;
   font-weight: 500;
@@ -417,3 +394,25 @@
     min-width: 560px;
   }
 }
+
+/* ——— Liste de choix de statut (commandes, transports), aux tons des badges ——— */
+.app .status-select {
+  padding: 0.25rem 2em 0.25rem 0.5rem;
+  border-radius: 4px;
+  font-size: 0.85rem;
+  font-weight: 500;
+  border: 1px solid rgba(0, 0, 0, 0.1);
+  cursor: pointer;
+  min-width: 120px;
+}
+
+.app .status-select:disabled {
+  cursor: not-allowed;
+  opacity: 0.7;
+}
+
+.app .status-select.tone-pending { background-color: var(--st-pending-bg); color: var(--st-pending-fg); }
+.app .status-select.tone-paid { background-color: var(--st-paid-bg); color: var(--st-paid-fg); }
+.app .status-select.tone-delivered { background-color: var(--st-delivered-bg); color: var(--st-delivered-fg); }
+.app .status-select.tone-closed { background-color: var(--st-closed-bg); color: var(--st-closed-fg); }
+.app .status-select.tone-cancelled { background-color: var(--st-cancelled-bg); color: var(--st-cancelled-fg); }

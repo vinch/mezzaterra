@@ -2,7 +2,8 @@
   import { supabase } from "$lib/supabase";
   import { onMount } from "svelte";
   import type { Customer, Tasting } from "$lib/types";
-  import Modal from "$lib/components/Modal.svelte";
+  import Modal from "$lib/ui/Modal.svelte";
+  import Button from "$lib/ui/Button.svelte";
   import ManagePageShell from "$lib/components/manage/ManagePageShell.svelte";
   import ProductVintageAutocomplete from "$lib/components/manage/ProductVintageAutocomplete.svelte";
   import CustomerAutocomplete from "$lib/components/manage/CustomerAutocomplete.svelte";
@@ -528,12 +529,8 @@
   {/if}
 </ManagePageShell>
 
-<Modal
-  show={showModal}
-  title={editingTasting ? "Modifier la dégustation" : "Nouvelle dégustation"}
-  on:close={closeModal}
->
-  <form on:submit|preventDefault={handleSubmit}>
+<Modal open={showModal} title={editingTasting ? "Modifier la dégustation" : "Nouvelle dégustation"} on:close={closeModal}>
+  <form id="tasting-form" on:submit|preventDefault={handleSubmit}>
     {#if error && showModal}
       <div class="error-message">{error}</div>
     {/if}
@@ -699,25 +696,11 @@
         </div>
       </div>
     </div>
-
-    <div class="modal-footer">
-      <button
-        type="button"
-        class="btn-secondary"
-        on:click={closeModal}
-        disabled={saving}
-      >
-        Annuler
-      </button>
-      <button type="submit" class="btn-primary" disabled={saving}>
-        {saving
-          ? "Enregistrement…"
-          : editingTasting
-            ? "Mettre à jour"
-            : "Créer"}
-      </button>
-    </div>
   </form>
+  <svelte:fragment slot="footer">
+    <Button variant="ghost" on:click={closeModal} disabled={saving}>Annuler</Button>
+    <Button variant="primary" type="submit" form="tasting-form" disabled={saving}>{saving ? "Enregistrement…" : editingTasting ? "Mettre à jour" : "Créer"}</Button>
+  </svelte:fragment>
 </Modal>
 
 <style>

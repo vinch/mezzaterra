@@ -13,20 +13,38 @@
   export let confirmLabel = "Oui, supprimer";
   export let cancelLabel = "Annuler";
   export let busy = false;
+  /**
+   * Action confirmée. Si fournie, la boîte gère seule l'attente (impossible de l'annuler pendant)
+   * et se ferme à la fin en émettant `done` ; sinon, écouter `confirm`.
+   */
+  export let onConfirm: (() => Promise<unknown>) | null = null;
 
-  const dispatch = createEventDispatcher<{ confirm: void; cancel: void }>();
+  const dispatch = createEventDispatcher<{ confirm: void; cancel: void; done: void }>();
 
   function cancel() {
+    if (busy && onConfirm) return;
     open = false;
     dispatch("cancel");
+  }
+
+  async function confirm() {
+    if (!onConfirm) return dispatch("confirm");
+    busy = true;
+    try {
+      await onConfirm();
+    } finally {
+      busy = false;
+      open = false;
+      dispatch("done");
+    }
   }
 </script>
 
 <Modal {open} {title} maxWidth={460} role="alertdialog" on:close={cancel}>
   <p class="impact">{message}<slot /></p>
   <svelte:fragment slot="footer">
-    <Button variant="ghost" on:click={cancel}>{cancelLabel}</Button>
-    <Button variant="danger-solid" disabled={busy} on:click={() => dispatch("confirm")}>
+    <Button variant="ghost" disabled={busy && !!onConfirm} on:click={cancel}>{cancelLabel}</Button>
+    <Button variant="danger-solid" disabled={busy} on:click={confirm}>
       {busy ? "…" : confirmLabel}
     </Button>
   </svelte:fragment>

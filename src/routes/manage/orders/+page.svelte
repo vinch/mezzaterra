@@ -3,7 +3,10 @@
   import { onMount } from "svelte";
   import { invalidateAll } from "$app/navigation";
   import type { PageData } from "./$types";
-  import Modal from "$lib/components/Modal.svelte";
+  import Modal from "$lib/ui/Modal.svelte";
+  import Button from "$lib/ui/Button.svelte";
+  import StatusBadge from "$lib/ui/StatusBadge.svelte";
+  import { KIND_META, statusMeta } from "$lib/status";
   import ManagePageShell from "$lib/components/manage/ManagePageShell.svelte";
   import { fetchPickerVintages, orderItemPrice } from "$lib/manageData";
   import { parseIsoDate, todayIso } from "$lib/dates";
@@ -706,7 +709,7 @@
                 </td>
                 <td>
                   <select
-                    class="status-select status-{order.status}"
+                    class="status-select tone-{statusMeta("order", order.status).tone}"
                     value={order.status || "pending"}
                     disabled={order.status === "confirmed"}
                     on:change={async (e) => {
@@ -730,8 +733,7 @@
                       }
                     }}
                   >
-                    <option value="pending">En attente</option>
-                    <option value="confirmed">Confirmée</option>
+                    {#each Object.entries(KIND_META.order) as [value, meta]}<option {value}>{meta.label}</option>{/each}
                   </select>
                 </td>
                 <td>
@@ -778,13 +780,8 @@
 </ManagePageShell>
 
 <!-- Modal de création / édition -->
-<Modal
-  show={formOpen}
-  title={editingOrder ? "Modifier la commande" : "Nouvelle commande"}
-  modalId="modal-title-order"
-  on:close={closeForm}
->
-  <form on:submit|preventDefault={submitForm}>
+<Modal open={formOpen} title={editingOrder ? "Modifier la commande" : "Nouvelle commande"} on:close={closeForm}>
+  <form id="order-form" on:submit|preventDefault={submitForm}>
     <div class="form-grid">
       <div class="form-group">
         <label for="date">Date *</label>
@@ -868,23 +865,15 @@
         </div>
       </div>
     </div>
-
-    <div class="modal-footer">
-      <button type="button" class="btn-secondary" on:click={closeForm}>
-        Annuler
-      </button>
-      <button type="submit" class="btn-primary" disabled={saving}>{editingOrder ? "Enregistrer" : "Créer la commande"}</button>
-    </div>
   </form>
+  <svelte:fragment slot="footer">
+    <Button variant="ghost" on:click={closeForm}>Annuler</Button>
+    <Button variant="primary" type="submit" form="order-form" disabled={saving}>{editingOrder ? "Enregistrer" : "Créer la commande"}</Button>
+  </svelte:fragment>
 </Modal>
 
 <!-- Modal de détails -->
-<Modal
-  show={showDetailsModal}
-  title="Détails de la commande"
-  modalId="modal-title-details"
-  on:close={closeDetailsModal}
->
+<Modal open={showDetailsModal} title="Détails de la commande" on:close={closeDetailsModal}>
   {#if detailsOrder}
     <div class="details-content">
       <div class="details-grid">
@@ -900,11 +889,7 @@
           <div class="details-section">
             <strong>Statut:</strong>
             <p>
-              <span
-                class="status-badge status-{detailsOrder.status || 'pending'}"
-              >
-                {detailsOrder.status === "pending" ? "En attente" : "Confirmée"}
-              </span>
+              <StatusBadge kind="order" status={detailsOrder.status} />
             </p>
           </div>
           {#if detailsOrder.transport}
@@ -947,12 +932,7 @@
 </Modal>
 
 <!-- Modal de sélection de langue pour PDF -->
-<Modal
-  show={showLanguageModal}
-  title="Choisir la langue pour l'export PDF"
-  modalId="modal-title-language"
-  on:close={closeLanguageModal}
->
+<Modal open={showLanguageModal} title="Choisir la langue pour l'export PDF" on:close={closeLanguageModal}>
   <div class="language-selection">
     <p>Sélectionnez la langue dans laquelle vous souhaitez générer le PDF :</p>
     <div class="language-buttons">
@@ -1051,10 +1031,6 @@
     font-size: 1.1rem;
   }
 
-  .details-content {
-    padding: 1.5rem;
-  }
-
   .details-grid {
     display: grid;
     grid-template-columns: 1fr 1fr;
@@ -1114,90 +1090,4 @@
     margin-top: 1rem;
   }
 
-  .status-select {
-    padding: 0.25rem 0.5rem;
-    border-radius: 4px;
-    font-size: 0.85rem;
-    font-weight: 500;
-    border: 1px solid rgba(0, 0, 0, 0.1);
-    cursor: pointer;
-    transition: all 0.2s;
-  }
-
-  .status-select:hover:not(:disabled) {
-    opacity: 0.9;
-  }
-
-  .status-select:disabled {
-    cursor: not-allowed;
-    opacity: 0.7;
-  }
-
-  .status-select.status-pending {
-    background-color: var(--st-pending-bg);
-    color: var(--st-pending-fg);
-  }
-
-  .status-select.status-confirmed {
-    background-color: var(--st-paid-bg);
-    color: var(--st-paid-fg);
-  }
-
-  .status-badge {
-    display: inline-block;
-    padding: 0.25rem 0.5rem;
-    border-radius: 4px;
-    font-size: 0.85rem;
-    font-weight: 500;
-  }
-
-  .status-badge.status-pending {
-    background: var(--st-pending-bg);
-    color: var(--st-pending-fg);
-  }
-
-  .status-badge.status-confirmed {
-    background: var(--st-paid-bg);
-    color: var(--st-paid-fg);
-  }
-
-  .language-selection {
-    padding: 1.5rem;
-  }
-
-  .language-selection p {
-    margin: 0 0 1.5rem 0;
-    color: var(--ink);
-    font-size: 0.95rem;
-  }
-
-  .language-buttons {
-    display: flex;
-    flex-direction: column;
-    gap: 1rem;
-  }
-
-  .btn-language {
-    padding: 1rem;
-    background: var(--table-head);
-    border: 2px solid var(--border);
-    border-radius: 8px;
-    cursor: pointer;
-    font-size: 1rem;
-    text-align: left;
-    transition: all 0.2s;
-    display: flex;
-    align-items: center;
-    gap: 0.75rem;
-  }
-
-  .btn-language:hover {
-    background: var(--border-soft);
-    border-color: var(--teal-600);
-    transform: translateX(4px);
-  }
-
-  .btn-language:active {
-    transform: translateX(0);
-  }
 </style>

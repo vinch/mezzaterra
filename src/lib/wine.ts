@@ -127,6 +127,11 @@ export function compareVintages(a: SortableVintage, b: SortableVintage): number 
   return (b.year || b.production_year || 0) - (a.year || a.production_year || 0);
 }
 
+/** « 2019 », ou « Non millésimé (2021) » avec l'année de mise en bouteille. */
+export function vintageYearLabel(v: { year?: number | null; production_year?: number | null }): string {
+  return v.year ? String(v.year) : `Non millésimé (${v.production_year})`;
+}
+
 export function grapesText(
   grapes: { percentage?: number | null; grape?: { name?: string | null } | null }[] | null | undefined,
   withPercent = false,

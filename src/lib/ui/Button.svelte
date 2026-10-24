@@ -8,6 +8,8 @@
   export let size: "md" | "sm" | "lg" = "md";
   export let href: string | null = null;
   export let type: "button" | "submit" = "button";
+  /** Formulaire soumis par ce bouton quand il est placé hors du <form> (pied de modale). */
+  export let form: string | undefined = undefined;
   export let disabled = false;
   export let block = false;
   export let target: string | undefined = undefined;
@@ -32,6 +34,7 @@
 {:else}
   <button
     {type}
+    {form}
     {disabled}
     {title}
     aria-label={ariaLabel}
