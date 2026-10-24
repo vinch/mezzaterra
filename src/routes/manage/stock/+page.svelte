@@ -43,12 +43,10 @@
     <Button on:click={loadStockInHand} disabled={loading}>Actualiser</Button>
   </svelte:fragment>
 
-  {#if error}
-    <div class="error-message">{error}</div>
-  {/if}
-
   {#if loading}
     <div class="loading">Chargement…</div>
+  {:else if error}
+    <div class="error-message">{error}</div>
   {:else if stockInHandList.length === 0}
     <EmptyState icon={IconBox} title="Aucun vin avec du stock disponible" />
   {:else}
