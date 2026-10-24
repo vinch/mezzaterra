@@ -10,14 +10,17 @@ export function errorMessage(e: unknown): string {
 export function latestOnly() {
   let current = 0;
   return {
-    /** Résultat de `load`, ou `undefined` si une demande plus récente a été lancée entre-temps. */
-    async run<T>(load: () => Promise<T>): Promise<T | undefined> {
+    /**
+     * Résultat de `load`, ou `undefined` s'il a échoué (`onError` est alors appelé) ou si
+     * une demande plus récente a été lancée entre-temps (résultat et erreur ignorés).
+     */
+    async run<T>(load: () => Promise<T>, onError: (e: unknown) => void): Promise<T | undefined> {
       const request = ++current;
       try {
         const result = await load();
         return request === current ? result : undefined;
       } catch (e) {
-        if (request === current) throw e;
+        if (request === current) onError(e);
         return undefined;
       }
     },

@@ -111,16 +111,17 @@
       await Promise.all([
         fetchCustomers().then((c) => (customers = c)),
         loadTastings(),
-        fetchVintagesWithStock().then((v) => (wineVintages = v)),
+        formLoad.run(fetchVintagesWithStock, showError).then((v) => v && (wineVintages = v)),
       ]);
     } catch (e) {
-      error = errorMessage(e);
+      showError(e);
     } finally {
       loading = false;
     }
     if (params.has("nouvelle")) {
-      /* Stock tout juste chargé : pas besoin de le relire. */
-      showCreateForm();
+      /* Stock tout juste lu : relu seulement si le chargement a échoué. */
+      if (wineVintages.length) showCreateForm();
+      else await openCreateModal();
       const client = params.get("client");
       if (client) formData.customer_id = client;
     }
@@ -168,21 +169,25 @@
     return saleItems.some((item) => item.wine_vintage_id === vintageId);
   }
 
-  /** Millésimes du sélecteur, avec leur stock (relu à chaque ouverture du formulaire). */
+  /**
+   * Millésimes du sélecteur, avec leur stock (relu à chaque ouverture du formulaire).
+   * Stock illisible : erreur affichée et stock compté à 0. On ne peut plus ajouter de
+   * bouteilles, mais une vente reste modifiable (mode de paiement…).
+   */
   async function fetchVintagesWithStock(): Promise<any[]> {
-    const [list, stock] = await Promise.all([fetchPickerVintages(), fetchStockMap()]);
+    const [list, stock] = await Promise.all([
+      fetchPickerVintages(),
+      fetchStockMap().catch((e) => {
+        error = `Stock indisponible : ${errorMessage(e)}`;
+        return new Map<string, number>();
+      }),
+    ]);
     return list.map((v) => ({ ...v, stock: stock.get(v.id) ?? 0 }));
   }
 
+  /* Chargements des modales : le dernier clic gagne (deux « Modifier » enchaînés…). */
   const formLoad = latestOnly();
-  /** Chargement d'un formulaire : `undefined` s'il a échoué (erreur affichée) ou a été dépassé. */
-  async function loadForm<T>(load: () => Promise<T>): Promise<T | undefined> {
-    try {
-      return await formLoad.run(load);
-    } catch (e) {
-      error = errorMessage(e);
-    }
-  }
+  const showError = (e: unknown) => (error = errorMessage(e));
 
   function showCreateForm() {
     editingSale = null;
@@ -191,10 +196,11 @@
   }
 
   async function openCreateModal() {
+    /* Stock relu : des ventes ont pu être payées depuis l'ouverture de la page. */
+    const vintages = await formLoad.run(fetchVintagesWithStock, showError);
+    if (!vintages) return;
+    wineVintages = vintages;
     showCreateForm();
-    /* Stock relu en arrière-plan : des ventes ont pu être payées depuis l'ouverture de la page. */
-    const vintages = await loadForm(fetchVintagesWithStock);
-    if (vintages) wineVintages = vintages;
   }
 
   async function openEditModal(sale: any) {
@@ -204,7 +210,7 @@
     }
 
     /* Stock relu : il a pu bouger depuis l'ouverture de la page. */
-    const loaded = await loadForm(() => Promise.all([fetchVintagesWithStock(), loadSaleItems(sale.id)]));
+    const loaded = await formLoad.run(() => Promise.all([fetchVintagesWithStock(), loadSaleItems(sale.id)]), showError);
     if (!loaded) return;
     const [vintages, items] = loaded;
 
@@ -224,11 +230,9 @@
       payment_method: sale.payment_method ?? "",
       tasting_id: sale.tasting_id ?? "",
     };
-    const stock = new Map(wineVintages.map((v) => [v.id, v.stock]));
+    /* Le stock d'une ligne est lu dans vintageById (liste tout juste relue). */
     saleItems = items.map((item: any) => ({
-      wine_vintage: item.wine_vintage_id
-        ? { ...item.wine_vintage, stock: stock.get(item.wine_vintage_id) ?? 0 }
-        : null,
+      wine_vintage: item.wine_vintage_id ? item.wine_vintage : null,
       wine_vintage_id: item.wine_vintage_id ?? null,
       quantity: item.quantity,
       price: toNumber(item.price),
@@ -274,12 +278,9 @@
   }
 
   async function openDetailsModal(sale: any) {
-    try {
-      detailsSaleItems = await loadSaleItems(sale.id);
-    } catch (e) {
-      error = errorMessage(e);
-      return;
-    }
+    const items = await formLoad.run(() => loadSaleItems(sale.id), showError);
+    if (!items) return;
+    detailsSaleItems = items;
     detailsSale = sale;
     showDetailsModal = true;
   }
