@@ -640,12 +640,6 @@
   $: bottleCount = saleItems.reduce((n, it) => n + (it.wine_vintage_id ? parseInt(String(it.quantity), 10) || 0 : 0), 0);
 
   $: vintageById = new Map(wineVintages.map((v) => [v.id, v]));
-  /** Stock connu pour une ligne (millésime) ; null pour une ligne dégustation. */
-  function lineStock(item: any): number | null {
-    if (!item.wine_vintage_id) return null;
-    const v = vintageById.get(item.wine_vintage_id) ?? item.wine_vintage;
-    return v?.stock ?? null;
-  }
   function setItemQuantity(index: number, q: number) {
     saleItems = saleItems.map((it, i) => (i === index ? { ...it, quantity: q } : it));
   }
@@ -913,8 +907,9 @@
               </thead>
               <tbody>
                 {#each saleItems as item, index}
-                  {@const stock = lineStock(item)}
                   {@const v = vintageById.get(item.wine_vintage_id) ?? item.wine_vintage}
+                  <!-- Stock connu du millésime ; null pour une ligne dégustation. -->
+                  {@const stock = item.wine_vintage_id ? (v?.stock ?? null) : null}
                   <tr>
                     <td>
                       <span class="wine-cell">

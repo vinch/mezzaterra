@@ -42,6 +42,9 @@
     return { production_year: "", year: "", abv: "", purchase_price: "", price: "", image_url: "", organic: false };
   }
   let vintageFormData = emptyForm();
+  /** Image proposée à un nouveau millésime : celle du dernier millésime qui en a une. */
+  $: imageSource = vintages.find((v) => v.image_url);
+  $: imageReused = !editingVintage && !!imageSource && vintageFormData.image_url === imageSource.image_url;
 
   // Grapes modal state
   let showGrapesModal = false;
@@ -62,7 +65,7 @@
 
   function openCreateModal() {
     editingVintage = null;
-    vintageFormData = emptyForm();
+    vintageFormData = { ...emptyForm(), image_url: imageSource?.image_url ?? "" };
     formOpen = true;
   }
 
@@ -258,9 +261,7 @@
     grapePercentage = "";
   }
 
-  function isGrapeLinked(grapeId: string): boolean {
-    return vintageGrapes.some((vg) => vg.grape_id === grapeId);
-  }
+  $: linkedGrapeIds = new Set(vintageGrapes.map((vg) => vg.grape_id));
 </script>
 
 <svelte:head>
@@ -390,7 +391,15 @@
           type="url"
           id="image_url"
           bind:value={vintageFormData.image_url}
+          aria-describedby={imageReused ? "image-hint" : undefined}
         />
+        {#if imageReused && imageSource}
+          <span id="image-hint" class="t-muted image-hint">
+            <img src={imageSource.image_url} alt="" class="thumb" />
+            Reprise {imageSource.year ? `du millésime ${imageSource.year}` : `de la mise en bouteille ${imageSource.production_year}`} : remplacez
+            ou videz l’URL pour en mettre une autre.
+          </span>
+        {/if}
       </div>
 
       <div class="form-group full-width">
@@ -429,8 +438,8 @@
     <select class="ui-control" bind:value={selectedGrapeId} aria-label="Cépage à ajouter">
       <option value="">Choisir un cépage…</option>
       {#each allGrapes as grape (grape.id)}
-        <option value={grape.id} disabled={isGrapeLinked(grape.id)}>
-          {grape.name}{isGrapeLinked(grape.id) ? " (déjà ajouté)" : ""}
+        <option value={grape.id} disabled={linkedGrapeIds.has(grape.id)}>
+          {grape.name}{linkedGrapeIds.has(grape.id) ? " (déjà ajouté)" : ""}
         </option>
       {/each}
     </select>
@@ -484,6 +493,13 @@
     width: 28px;
     height: 40px;
     object-fit: contain;
+  }
+
+  .image-hint {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 13px;
   }
 
 
