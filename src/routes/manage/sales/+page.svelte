@@ -432,7 +432,11 @@
 
     if (newStatus === "paid") {
       /* Relu en base : le mode de paiement a pu être saisi ailleurs depuis le chargement de la page. */
-      const { data: fresh } = await supabase.from("sale").select("payment_method").eq("id", sale.id).single();
+      const { data: fresh, error: freshError } = await supabase.from("sale").select("payment_method").eq("id", sale.id).single();
+      if (freshError) {
+        error = freshError.message;
+        return false;
+      }
       if (!String(fresh?.payment_method ?? "").trim()) {
         error = "Indiquez le mode de paiement (Modifier la vente) avant de marquer comme payée.";
         return false;
