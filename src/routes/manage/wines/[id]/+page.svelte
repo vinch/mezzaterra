@@ -458,9 +458,12 @@
 
       <div class="form-group">
         <label for="production_year">Année de mise en bouteille *</label>
+        <!-- Focus à l'ouverture ici, pas sur la liste du millésime repris (la saisie de l'année y changerait le choix). -->
+        <!-- svelte-ignore a11y_autofocus -->
         <input
           type="number"
           id="production_year"
+          autofocus
           bind:value={vintageFormData.production_year}
           min="1900"
           max="2030"
