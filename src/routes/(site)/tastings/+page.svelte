@@ -4,14 +4,14 @@
   import { formatEUR } from "$lib/format";
   import { contactHref } from "$lib/contact";
 
-  export let data;
+  let { data } = $props();
 
-  $: ({ error } = data);
+  let { error } = $derived(data);
   /* Les dégustations privées (chez un client, en externe) ne sont pas listées. */
-  $: tastings = data.tastings.filter((t: any) => !isPrivateTasting(t));
+  let tastings = $derived(data.tastings.filter((t: any) => !isPrivateTasting(t)));
   /* À venir : la plus proche d'abord. Passées : la plus récente d'abord. */
-  $: upcoming = tastings.filter((t: any) => daysUntil(t.date) >= 0).reverse();
-  $: past = tastings.filter((t: any) => daysUntil(t.date) < 0);
+  let upcoming = $derived(tastings.filter((t: any) => daysUntil(t.date) >= 0).reverse());
+  let past = $derived(tastings.filter((t: any) => daysUntil(t.date) < 0));
 
   function wineCount(t: any): number {
     return t.tasting_wine_vintage?.length ?? 0;

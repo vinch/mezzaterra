@@ -1,16 +1,19 @@
 <script lang="ts">
+  import type { Snippet } from "svelte";
   import { IconArrowLeft } from "./icons";
 
   /** En-tête de page : retour optionnel, titre, ligne de contexte, actions à droite, bordure basse. */
-  export let title: string;
-  export let subtitle = "";
-  export let back: { href: string; label: string } | null = null;
-  /** Forcer la présence des zones (utile quand les slots sont relayés par un composant parent). */
-  export let hasActions: boolean | null = null;
-  export let hasTabs: boolean | null = null;
+  interface Props {
+    title: string;
+    subtitle?: string;
+    back?: { href: string; label: string } | null;
+    /** À côté du titre. */
+    badge?: Snippet;
+    actions?: Snippet;
+    tabs?: Snippet;
+  }
 
-  $: showActions = hasActions ?? $$slots.actions;
-  $: showTabs = hasTabs ?? $$slots.tabs;
+  let { title, subtitle = "", back = null, badge, actions, tabs }: Props = $props();
 </script>
 
 <header class="page-head">
@@ -20,18 +23,18 @@
     {/if}
     <div class="title-row">
       <h1 class="t-page-title">{title}</h1>
-      <slot name="badge" />
+      {@render badge?.()}
     </div>
-    {#if subtitle || $$slots.subtitle}
-      <p class="subtitle"><slot name="subtitle">{subtitle}</slot></p>
+    {#if subtitle}
+      <p class="subtitle">{subtitle}</p>
     {/if}
   </div>
-  {#if showActions}
-    <div class="page-head-actions"><slot name="actions" /></div>
+  {#if actions}
+    <div class="page-head-actions">{@render actions()}</div>
   {/if}
 </header>
-{#if showTabs}
-  <div class="page-tabs"><slot name="tabs" /></div>
+{#if tabs}
+  <div class="page-tabs">{@render tabs()}</div>
 {/if}
 
 <style>

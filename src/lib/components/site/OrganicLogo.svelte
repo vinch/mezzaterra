@@ -1,6 +1,10 @@
 <script lang="ts">
-  /** Hauteur du logo (le visuel est au format 3:2). */
-  export let height = "1.25rem";
+  interface Props {
+    /** Hauteur du logo (le visuel est au format 3:2). */
+    height?: string;
+  }
+
+  let { height = "1.25rem" }: Props = $props();
 </script>
 
 <img

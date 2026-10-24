@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { preventDefault } from "$lib/ui/events";
   import "$lib/styles/site.css";
   import { page } from "$app/stores";
   import SiteFooter from "$lib/components/SiteFooter.svelte";
@@ -6,14 +7,14 @@
   import AbruzzoMap from "$lib/components/site/AbruzzoMap.svelte";
   import { supabase } from "$lib/supabase";
 
-  export let data;
+  let { data } = $props();
 
-  $: wineryNames = data.wineries.map((w) => w.name);
+  let wineryNames = $derived(data.wineries.map((w) => w.name));
 
-  let email = "";
-  let isSubmitting = false;
-  let feedback = "";
-  let feedbackType: "success" | "error" = "success";
+  let email = $state("");
+  let isSubmitting = $state(false);
+  let feedback = $state("");
+  let feedbackType = $state<"success" | "error">("success");
 
   async function handleSubscribe() {
     const cleanedEmail = email.trim().toLowerCase();
@@ -48,7 +49,7 @@
     isSubmitting = false;
   }
 
-  let emailInput: HTMLInputElement;
+  let emailInput = $state<HTMLInputElement | undefined>();
 
   /** « Je veux en être ↓ » : défilement doux jusqu'au formulaire, puis focus dans le champ email. */
   function goToSignup(e: MouseEvent) {
@@ -58,7 +59,7 @@
     const reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
     target.scrollIntoView({ behavior: reduce ? "auto" : "smooth", block: "center" });
     history.replaceState(history.state, "", "#newsletter");
-    const focus = () => emailInput.focus({ preventScroll: true });
+    const focus = () => emailInput?.focus({ preventScroll: true });
     if (reduce || !("onscrollend" in window)) {
       setTimeout(focus, reduce ? 0 : 600);
     } else {
@@ -101,7 +102,7 @@
           mer Adriatique et le massif du Gran Sasso. Des vins de vignerons, encore confidentiels de ce
           côté des Alpes, que l’on prend le temps de faire découvrir.
         </p>
-        <a class="hero-link" href="#newsletter" on:click={goToSignup}>Je veux en être <span aria-hidden="true">↓</span></a>
+        <a class="hero-link" href="#newsletter" onclick={goToSignup}>Je veux en être <span aria-hidden="true">↓</span></a>
       </div>
       <div class="hero-map mz-rise" style="animation-delay: 120ms">
         <AbruzzoMap wineries={data.wineries} />
@@ -153,7 +154,7 @@
         Les dégustations se font en petit comité, sur invitation.<br />
         Laissez-nous votre email, on vous fera signe.
       </p>
-      <form on:submit|preventDefault={handleSubscribe} class="subscribe-form">
+      <form onsubmit={preventDefault(handleSubscribe)} class="subscribe-form">
         <input
           bind:this={emailInput}
           id="newsletter-email"

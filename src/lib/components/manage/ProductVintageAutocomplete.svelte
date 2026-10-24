@@ -1,24 +1,37 @@
 <script lang="ts">
-  import { createEventDispatcher } from "svelte";
   import Combobox, { type ComboOption } from "$lib/ui/Combobox.svelte";
   import { fold } from "$lib/format";
   import WineDot from "$lib/ui/WineDot.svelte";
   import { wineRobe } from "$lib/wine";
   import { formatEUR } from "$lib/format";
 
-  export let value = "";
-  export let wineVintages: any[] = [];
-  export let tastingValue = "__tasting__";
-  export let placeholder = "Rechercher un produit…";
-  export let getAvailableStock: (vintageId: string) => number = () => 0;
-  export let isVintageAlreadyAdded: (vintageId: string) => boolean = () => false;
-  export let formatLabel: (vintage: any, availableStock: number) => string = (_v, _s) => "";
-  /** Option « Dégustation » (lignes de vente sans millésime). */
-  export let includeTastingOption = true;
-  /** Désactiver les millésimes sans stock disponible. */
-  export let disableWhenNoStock = true;
+  interface Props {
+    onchange?: () => void;
+    value?: string;
+    wineVintages?: any[];
+    tastingValue?: string;
+    placeholder?: string;
+    getAvailableStock?: (vintageId: string) => number;
+    isVintageAlreadyAdded?: (vintageId: string) => boolean;
+    formatLabel?: (vintage: any, availableStock: number) => string;
+    /** Option « Dégustation » (lignes de vente sans millésime). */
+    includeTastingOption?: boolean;
+    /** Désactiver les millésimes sans stock disponible. */
+    disableWhenNoStock?: boolean;
+  }
 
-  const dispatch = createEventDispatcher<{ change: void }>();
+  let {
+    value = $bindable(""),
+    wineVintages = [],
+    tastingValue = "__tasting__",
+    placeholder = "Rechercher un produit…",
+    getAvailableStock = () => 0,
+    isVintageAlreadyAdded = () => false,
+    formatLabel = (_v, _s) => "",
+    includeTastingOption = true,
+    disableWhenNoStock = true,
+    onchange
+  }: Props = $props();
 
   function vintageSearchText(v: any): string {
     const w = v?.wine;
@@ -31,8 +44,6 @@
     const w = v?.wine;
     return (w?.name?.trim() || w?.appelation?.name?.trim() || "Vin").trim();
   }
-
-  $: options = buildOptions(wineVintages);
 
   function buildOptions(list: any[]): ComboOption[] {
     const wines: ComboOption[] = list.map((v) => {
@@ -57,22 +68,25 @@
       ...wines,
     ];
   }
+  let options = $derived(buildOptions(wineVintages));
 </script>
 
-<Combobox bind:value {options} {placeholder} emptyText="Aucun produit trouvé" on:change={() => dispatch("change")}>
-  <svelte:fragment slot="option" let:option>
-    {#if option.kind === "tasting"}
-      <span class="opt-main"><strong>Dégustation</strong><small>Ligne sans millésime (entrée, participation…)</small></span>
-    {:else}
-      <WineDot robe={option.robe} />
-      <span class="opt-main">
-        <strong>{option.name}</strong>
-        <small>{option.winery}{option.added ? " · déjà ajouté" : ""}</small>
-      </span>
-      <span class="opt-stock" class:low={option.stock <= 3}>{option.stock} bt.</span>
-      <span class="opt-price">{option.price != null ? formatEUR(option.price) : ""}</span>
-    {/if}
-  </svelte:fragment>
+<Combobox bind:value {options} {placeholder} emptyText="Aucun produit trouvé" {onchange}>
+  {#snippet option({ option })}
+
+      {#if option.kind === "tasting"}
+        <span class="opt-main"><strong>Dégustation</strong><small>Ligne sans millésime (entrée, participation…)</small></span>
+      {:else}
+        <WineDot robe={option.robe} />
+        <span class="opt-main">
+          <strong>{option.name}</strong>
+          <small>{option.winery}{option.added ? " · déjà ajouté" : ""}</small>
+        </span>
+        <span class="opt-stock" class:low={option.stock <= 3}>{option.stock} bt.</span>
+        <span class="opt-price">{option.price != null ? formatEUR(option.price) : ""}</span>
+      {/if}
+
+  {/snippet}
 </Combobox>
 
 <style>

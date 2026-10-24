@@ -1,12 +1,29 @@
 <script lang="ts">
-  /** Liste déroulante du design system. Options passées en slot (<option>). */
-  export let value: string | null = "";
-  export let id: string | undefined = undefined;
-  export let required = false;
-  export let disabled = false;
-  export let invalid = false;
-  export let describedby: string | undefined = undefined;
-  export let ariaLabel: string | undefined = undefined;
+  import type { Snippet } from "svelte";
+  /** Liste déroulante du design system. Options passées en contenu (<option>). */
+  interface Props {
+    onchange?: (e: Event) => void;
+    value?: string | null;
+    id?: string | undefined;
+    required?: boolean;
+    disabled?: boolean;
+    invalid?: boolean;
+    describedby?: string | undefined;
+    ariaLabel?: string | undefined;
+    children?: Snippet;
+  }
+
+  let {
+    value = $bindable(""),
+    id = undefined,
+    required = false,
+    disabled = false,
+    invalid = false,
+    describedby = undefined,
+    ariaLabel = undefined,
+    children,
+    onchange
+  }: Props = $props();
 </script>
 
 <select
@@ -18,7 +35,7 @@
   aria-invalid={invalid ? "true" : undefined}
   aria-describedby={describedby}
   aria-label={ariaLabel}
-  on:change
+  {onchange}
 >
-  <slot />
+  {@render children?.()}
 </select>

@@ -1,4 +1,4 @@
-<script lang="ts" context="module">
+<script lang="ts" module>
   export type ComboOption = {
     id: string;
     /** Texte affiché dans le champ une fois l'option choisie. */
@@ -12,50 +12,71 @@
 </script>
 
 <script lang="ts">
-  import { createEventDispatcher, onMount, tick } from "svelte";
+  import { preventDefault } from "$lib/ui/events";
+  import { onMount, tick, type Snippet } from "svelte";
   import { IconSearch } from "./icons";
   import { portal } from "./portal";
   import { fold } from "$lib/format";
 
   /**
    * Autocomplétion accessible (role=combobox) : taper, ↑ ↓ puis Entrée pour choisir, Échap ferme.
-   * La liste est rendue dans <body> (jamais rognée par une modale). Rendu riche via le slot `option`.
+   * La liste est rendue dans <body> (jamais rognée par une modale). Rendu riche via le snippet `option`.
    */
-  export let value = "";
-  export let options: ComboOption[] = [];
-  export let id = `combo-${Math.random().toString(36).slice(2, 9)}`;
-  export let placeholder = "Rechercher…";
-  export let emptyText = "Aucun résultat";
-  export let describedby: string | undefined = undefined;
-  export let invalid = false;
-  export let maxResults = 60;
+  interface Props {
+    onchange?: () => void;
+    value?: string;
+    options?: ComboOption[];
+    id?: any;
+    placeholder?: string;
+    emptyText?: string;
+    describedby?: string | undefined;
+    invalid?: boolean;
+    maxResults?: number;
+    option?: Snippet<[any]>;
+  }
 
-  const dispatch = createEventDispatcher<{ change: void }>();
+  let {
+    value = $bindable(""),
+    options = [],
+    id = `combo-${Math.random().toString(36).slice(2, 9)}`,
+    placeholder = "Rechercher…",
+    emptyText = "Aucun résultat",
+    describedby = undefined,
+    invalid = false,
+    maxResults = 60,
+    option,
+    onchange
+  }: Props = $props();
+
   const listId = `${id}-list`;
 
-  let query = "";
-  let open = false;
-  let active = -1;
-  let inputEl: HTMLInputElement;
-  let listStyle = "";
+  let query = $state("");
+  let open = $state(false);
+  let active = $state(-1);
+  let inputEl = $state<HTMLInputElement | undefined>();
+  let listStyle = $state("");
   let prevValue = value;
 
-  $: selected = value ? options.find((o) => o.id === value) ?? null : null;
-  $: tokens = fold(query.trim()).split(/\s+/).filter(Boolean);
-  $: filtered = (
+  let selected = $derived(value ? options.find((o) => o.id === value) ?? null : null);
+  let tokens = $derived(fold(query.trim()).split(/\s+/).filter(Boolean));
+  let filtered = $derived((
     selected && query === selected.label
       ? options
       : tokens.length
         ? options.filter((o) => tokens.every((t) => o.searchText.includes(t)))
         : options
-  ).slice(0, maxResults);
+  ).slice(0, maxResults));
 
   /* Valeur remise à zéro de l'extérieur → on vide le champ ; valeur choisie → on affiche son libellé. */
-  $: if (value !== prevValue) {
-    prevValue = value;
-    query = selected ? selected.label : "";
-  }
-  $: if (selected && !open && query !== selected.label) query = selected.label;
+  $effect.pre(() => {
+    if (value !== prevValue) {
+      prevValue = value;
+      query = selected ? selected.label : "";
+    }
+  });
+  $effect.pre(() => {
+    if (selected && !open && query !== selected.label) query = selected.label;
+  });
 
   function position() {
     if (!inputEl || !open) return;
@@ -91,7 +112,7 @@
     query = opt.label;
     open = false;
     active = -1;
-    dispatch("change");
+    onchange?.();
   }
 
   function move(delta: number) {
@@ -133,7 +154,7 @@
     if (value && selected && query !== selected.label) {
       value = "";
       prevValue = "";
-      dispatch("change");
+      onchange?.();
     }
     void show();
   }
@@ -165,11 +186,11 @@
     aria-invalid={invalid ? "true" : undefined}
     {placeholder}
     bind:value={query}
-    on:input={onInput}
-    on:focus={show}
-    on:click={show}
-    on:blur={onBlur}
-    on:keydown={onKeydown}
+    oninput={onInput}
+    onfocus={show}
+    onclick={show}
+    onblur={onBlur}
+    onkeydown={onKeydown}
   />
 </div>
 
@@ -187,10 +208,10 @@
         class="combo-opt"
         class:active={i === active}
         class:disabled={opt.disabled}
-        on:mousedown|preventDefault={() => choose(opt)}
-        on:mouseenter={() => (active = i)}
+        onmousedown={preventDefault(() => choose(opt))}
+        onmouseenter={() => (active = i)}
       >
-        <slot name="option" option={opt}>{opt.label}</slot>
+        {#if option}{@render option({ option: opt, })}{:else}{opt.label}{/if}
       </li>
     {/each}
   </ul>

@@ -8,7 +8,7 @@
     { href: "/vins", label: "Nos vins", also: ["/domaines"] },
   ];
 
-  $: path = $page.url.pathname;
+  let path = $derived($page.url.pathname);
 </script>
 
 <nav class="site-nav" aria-label="Navigation principale">

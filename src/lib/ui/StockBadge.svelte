@@ -1,26 +1,31 @@
 <script lang="ts">
   import { IconArchive, IconHourglass, IconSignal, IconTriangle } from "./icons";
 
-  /** « Rupture » (rouge), « Stock bas » (ambre), « Dormant · N j » (gris), « Plus disponible » (retiré). */
-  export let kind: "out" | "low" | "dormant" | "gone";
-  export let days: number | null = null;
-  /** Remplace le libellé par défaut (ex. « 2 bt. »). */
-  export let label: string | null = null;
+  interface Props {
+    /** « Rupture » (rouge), « Stock bas » (ambre), « Dormant · N j » (gris), « Plus disponible » (retiré). */
+    kind: "out" | "low" | "dormant" | "gone";
+    days?: number | null;
+    /** Remplace le libellé par défaut (ex. « 2 bt. »). */
+    label?: string | null;
+  }
 
-  $: text =
+  let { kind, days = null, label = null }: Props = $props();
+
+  let text = $derived(
     label ??
-    (kind === "out"
-      ? "Rupture"
-      : kind === "low"
-        ? "Stock bas"
-        : kind === "gone"
-          ? "Plus disponible"
-          : `Dormant${days != null ? ` · ${days} j` : ""}`);
-  $: icon = kind === "out" ? IconTriangle : kind === "low" ? IconSignal : kind === "gone" ? IconArchive : IconHourglass;
+      (kind === "out"
+        ? "Rupture"
+        : kind === "low"
+          ? "Stock bas"
+          : kind === "gone"
+            ? "Plus disponible"
+            : `Dormant${days != null ? ` · ${days} j` : ""}`),
+  );
+  let Icon = $derived(kind === "out" ? IconTriangle : kind === "low" ? IconSignal : kind === "gone" ? IconArchive : IconHourglass);
 </script>
 
 <span class="stock stock--{kind}">
-  <svelte:component this={icon} size={13} strokeWidth={1.75} aria-hidden="true" />
+  <Icon size={13} strokeWidth={1.75} aria-hidden="true" />
   {text}
 </span>
 

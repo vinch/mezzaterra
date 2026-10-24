@@ -1,20 +1,34 @@
 <script lang="ts">
+  import type { Snippet } from "svelte";
   import { IconTriangle } from "./icons";
 
   /**
    * Champ : libellé au-dessus, astérisque rouge si obligatoire, aide en 12 px dessous,
-   * erreur = message avec icône. Le contrôle reçoit `describedby` et `invalid` via let:.
+   * erreur = message avec icône. Le contrôle reçoit `describedby` et `invalid` en paramètres du snippet.
    */
-  export let id: string;
-  export let label: string;
-  export let required = false;
-  export let help = "";
-  export let error = "";
-  export let optional = false;
+  interface Props {
+    id: string;
+    label: string;
+    required?: boolean;
+    help?: string;
+    error?: string;
+    optional?: boolean;
+    children?: Snippet<[any]>;
+  }
 
-  $: helpId = help ? `${id}-help` : "";
-  $: errorId = error ? `${id}-error` : "";
-  $: describedby = [errorId, helpId].filter(Boolean).join(" ") || undefined;
+  let {
+    id,
+    label,
+    required = false,
+    help = "",
+    error = "",
+    optional = false,
+    children
+  }: Props = $props();
+
+  let helpId = $derived(help ? `${id}-help` : "");
+  let errorId = $derived(error ? `${id}-error` : "");
+  let describedby = $derived([errorId, helpId].filter(Boolean).join(" ") || undefined);
 </script>
 
 <div class="field">
@@ -22,7 +36,7 @@
     {label}{#if required}<span class="req" aria-hidden="true"> *</span><span class="sr-only"> (obligatoire)</span>{/if}
     {#if optional}<span class="opt">(optionnel)</span>{/if}
   </label>
-  <slot {describedby} invalid={!!error} />
+  {@render children?.({ describedby, invalid: !!error })}
   {#if error}
     <p id={errorId} class="error"><IconTriangle size={14} strokeWidth={1.75} aria-hidden="true" />{error}</p>
   {/if}

@@ -1,26 +1,35 @@
 <script lang="ts">
-  import { createEventDispatcher } from "svelte";
   import { IconMinus, IconPlus } from "./icons";
 
-  /** Quantité « − valeur + ». Taille md (40) ou lg (44, tactile). */
-  export let value = 0;
-  export let min = 0;
-  export let max = 9999;
-  export let label = "Quantité";
-  export let size: "md" | "lg" = "md";
+  interface Props {
+    onchange?: (value: number) => void;
+    /** Quantité « − valeur + ». Taille md (40) ou lg (44, tactile). */
+    value?: number;
+    min?: number;
+    max?: number;
+    label?: string;
+    size?: "md" | "lg";
+  }
 
-  const dispatch = createEventDispatcher<{ change: number }>();
+  let {
+    value = $bindable(0),
+    min = 0,
+    max = 9999,
+    label = "Quantité",
+    size = "md",
+    onchange
+  }: Props = $props();
 
   function set(v: number) {
     const next = Math.max(min, Math.min(max, Math.round(v)));
     if (next === value) return;
     value = next;
-    dispatch("change", next);
+    onchange?.(next);
   }
 </script>
 
 <div class="stepper stepper--{size}" role="group" aria-label={label}>
-  <button type="button" aria-label="Diminuer : {label}" disabled={value <= min} on:click={() => set(value - 1)}>
+  <button type="button" aria-label="Diminuer : {label}" disabled={value <= min} onclick={() => set(value - 1)}>
     <IconMinus size={16} strokeWidth={2} />
   </button>
   <input
@@ -28,9 +37,9 @@
     inputmode="numeric"
     aria-label={label}
     value={value}
-    on:change={(e) => set(parseInt(e.currentTarget.value, 10) || 0)}
+    onchange={(e) => set(parseInt(e.currentTarget.value, 10) || 0)}
   />
-  <button type="button" aria-label="Augmenter : {label}" disabled={value >= max} on:click={() => set(value + 1)}>
+  <button type="button" aria-label="Augmenter : {label}" disabled={value >= max} onclick={() => set(value + 1)}>
     <IconPlus size={16} strokeWidth={2} />
   </button>
 </div>

@@ -10,20 +10,20 @@
   import { formatEUR } from "$lib/format";
   import type { WineVintage } from "$lib/types";
 
-  export let data;
+  let { data } = $props();
 
-  $: ({ tasting, wineVintages, error } = data);
-  $: hiddenCount = (data as any).hiddenCount ?? 0;
-  $: t = tasting as any;
-  $: delta = t ? daysUntil(t.date) : 0;
-  $: isUpcoming = delta > 0;
-  $: isLive = t ? isLiveNow(t.date) : false;
+  let { tasting, wineVintages, error } = $derived(data);
+  let hiddenCount = $derived((data as any).hiddenCount ?? 0);
+  let t = $derived(tasting as any);
+  let delta = $derived(t ? daysUntil(t.date) : 0);
+  let isUpcoming = $derived(delta > 0);
+  let isLive = $derived(t ? isLiveNow(t.date) : false);
   /* Privée : accessible par lien (mode live, fiches de table) mais sans inscription en ligne. */
-  $: isPrivate = isPrivateTasting(t);
-  $: styles = wineVintages.map((v: any) => wineStyle(v.wine?.wine_type));
+  let isPrivate = $derived(isPrivateTasting(t));
+  let styles = $derived(wineVintages.map((v: any) => wineStyle(v.wine?.wine_type)));
 
-  let selected: WineVintage | null = null;
-  let availability: AvailabilityOf | null = null;
+  let selected = $state<WineVintage | null>(null);
+  let availability = $state<AvailabilityOf | null>(null);
 
   onMount(async () => {
     if (isUpcoming || isLive) availability = await fetchAvailability();
@@ -43,7 +43,7 @@
     downloadTextFile("degustation-mezzaterra.ics", ics, "text/calendar;charset=utf-8");
   }
 
-  $: statusLabel = isLive ? (delta === 0 ? "Aujourd’hui" : "En direct") : isUpcoming ? (delta === 1 ? "Demain" : `Dans ${delta} jours`) : "Dégustation passée";
+  let statusLabel = $derived(isLive ? (delta === 0 ? "Aujourd’hui" : "En direct") : isUpcoming ? (delta === 1 ? "Demain" : `Dans ${delta} jours`) : "Dégustation passée");
 </script>
 
 <svelte:head>
@@ -92,7 +92,7 @@
         {/if}
         {#if isUpcoming}
           {#if !isPrivate}<a class="mz-btn" href="#reserver">Réserver ma place</a>{/if}
-          <button type="button" class="mz-btn mz-btn--ghost" on:click={addToCalendar}>Ajouter à mon agenda</button>
+          <button type="button" class="mz-btn mz-btn--ghost" onclick={addToCalendar}>Ajouter à mon agenda</button>
         {/if}
       </div>
 
@@ -126,7 +126,7 @@
               vintage={v}
               position={i + 1}
               availability={availability?.(v.id) ?? null}
-              on:open={(e) => (selected = e.detail)}
+              onopen={(v) => (selected = v)}
             />
           </div>
         {/each}
@@ -166,7 +166,7 @@
 {/if}
 
 {#if selected}
-  <WineModal wineVintage={selected} on:close={() => (selected = null)} />
+  <WineModal wineVintage={selected} onclose={() => (selected = null)} />
 {/if}
 
 <style>

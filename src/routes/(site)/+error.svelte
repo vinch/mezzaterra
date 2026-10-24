@@ -3,8 +3,8 @@
   import ErrorView from "$lib/components/site/ErrorView.svelte";
 
   /* Liens adaptés à l'endroit où l'on s'est perdu. */
-  $: path = $page.url.pathname;
-  $: links = path.startsWith("/vins")
+  let path = $derived($page.url.pathname);
+  let links = $derived(path.startsWith("/vins")
     ? [
         { href: "/vins", label: "Toute la cave" },
         { href: "/", label: "Accueil" },
@@ -17,7 +17,7 @@
       : [
           { href: "/", label: "Retour à l’accueil" },
           { href: "/vins", label: "Nos vins" },
-        ];
+        ]);
 </script>
 
 <svelte:head>

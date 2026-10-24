@@ -1,22 +1,32 @@
 <script lang="ts">
   import type { WineStyle } from "$lib/wine";
 
-  /** Photo détourée de la bouteille (sinon silhouette teintée à la couleur de la robe). */
-  export let src: string | null | undefined = null;
-  export let alt = "";
-  export let wine: WineStyle;
-  /** Hauteur CSS de la bouteille. */
-  export let height = "12rem";
+  interface Props {
+    /** Photo détourée de la bouteille (sinon silhouette teintée à la couleur de la robe). */
+    src?: string | null | undefined;
+    alt?: string;
+    wine: WineStyle;
+    /** Hauteur CSS de la bouteille. */
+    height?: string;
+  }
 
-  let failed = false;
-  $: if (src) failed = false;
+  let {
+    src = null,
+    alt = "",
+    wine,
+    height = "12rem"
+  }: Props = $props();
+
+  /* Image en échec : on retombe sur la bouteille dessinée, jusqu'à ce que `src` change. */
+  let failedSrc = $state<string | null>(null);
+  let failed = $derived(failedSrc === src);
   /* Id déterministe (SSR/hydratation) : deux bouteilles de même robe partagent des dégradés identiques. */
-  $: gid = `mz-bottle-${wine.key}`;
+  let gid = $derived(`mz-bottle-${wine.key}`);
 </script>
 
 <div class="bottle" style="--bottle-h-default: {height}; --robe: {wine.color}; --robe-light: {wine.light};">
   {#if src && !failed}
-    <img {src} {alt} loading="lazy" on:error={() => (failed = true)} />
+    <img {src} {alt} loading="lazy" onerror={() => (failedSrc = src ?? null)} />
   {:else}
     <svg viewBox="0 0 71 200" role="img" aria-label={alt || wine.label}>
       <defs>

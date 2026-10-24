@@ -2,14 +2,28 @@
   import { statusMeta, type StatusKind } from "$lib/status";
   import { IconChevronDown } from "./icons";
 
-  export let status: string | null | undefined;
-  export let kind: StatusKind = "sale";
-  /** Affiche un chevron et rend le badge cliquable (changement de statut). */
-  export let interactive = false;
-  export let expanded: boolean | undefined = undefined;
-  export let el: HTMLElement | null = null;
+  interface Props {
+    onclick?: (e: MouseEvent) => void;
+    onkeydown?: (e: KeyboardEvent) => void;
+    status: string | null | undefined;
+    kind?: StatusKind;
+    /** Affiche un chevron et rend le badge cliquable (changement de statut). */
+    interactive?: boolean;
+    expanded?: boolean | undefined;
+    el?: HTMLElement | null;
+  }
 
-  $: meta = statusMeta(kind, status);
+  let {
+    status,
+    kind = "sale",
+    interactive = false,
+    expanded = undefined,
+    el = $bindable(),
+    onclick,
+    onkeydown
+  }: Props = $props();
+
+  let meta = $derived(statusMeta(kind, status));
 </script>
 
 {#if interactive}
@@ -20,16 +34,16 @@
     aria-haspopup="menu"
     aria-expanded={expanded}
     aria-label="Statut : {meta.label}. Changer le statut"
-    on:click
-    on:keydown
+    {onclick}
+    {onkeydown}
   >
-    <svelte:component this={meta.icon} size={14} strokeWidth={1.75} aria-hidden="true" />
+    <meta.icon size={14} strokeWidth={1.75} aria-hidden="true" />
     {meta.label}
     <IconChevronDown size={14} strokeWidth={1.75} aria-hidden="true" />
   </button>
 {:else}
   <span class="badge badge--{meta.tone}">
-    <svelte:component this={meta.icon} size={14} strokeWidth={1.75} aria-hidden="true" />
+    <meta.icon size={14} strokeWidth={1.75} aria-hidden="true" />
     {meta.label}
   </span>
 {/if}

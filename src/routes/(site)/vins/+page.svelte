@@ -16,23 +16,23 @@
     type WineStyleKey,
   } from "$lib/wine";
 
-  export let data;
+  let { data } = $props();
 
-  let availability: AvailabilityOf | null = null;
-  let styleFilter: WineStyleKey | "" = "";
-  let inStockOnly = false;
-  let query = "";
+  let availability = $state<AvailabilityOf | null>(null);
+  let styleFilter = $state<WineStyleKey | "">("");
+  let inStockOnly = $state(false);
+  let query = $state("");
 
   onMount(async () => {
     availability = await fetchAvailability();
   });
 
-  $: vintages = data.vintages as any[];
-  $: presentStyles = allWineStyles().filter((s) =>
+  let vintages = $derived(data.vintages as any[]);
+  let presentStyles = $derived(allWineStyles().filter((s) =>
     vintages.some((v) => wineStyle(v.wine?.wine_type).key === s.key),
-  );
+  ));
 
-  $: filtered = vintages
+  let filtered = $derived(vintages
     .filter((v) => !styleFilter || wineStyle(v.wine?.wine_type).key === styleFilter)
     .filter((v) => !inStockOnly || !availability || availability(v.id).in_stock)
     .filter((v) => {
@@ -57,7 +57,7 @@
       const sb = STYLE_ORDER.indexOf(wineStyle(b.wine?.wine_type).key);
       if (sa !== sb) return sa - sb;
       return wineTitle(a.wine).localeCompare(wineTitle(b.wine), "fr");
-    });
+    }));
 
   type WineryGroup = { winery: any; items: any[] };
 
@@ -75,9 +75,9 @@
     );
   }
 
-  $: groups = groupByWinery(filtered);
+  let groups = $derived(groupByWinery(filtered));
   /* Tous les domaines de la cave, indépendamment des filtres. */
-  $: wineries = groupByWinery(vintages).filter((g) => g.winery?.id);
+  let wineries = $derived(groupByWinery(vintages).filter((g) => g.winery?.id));
 </script>
 
 <svelte:head>
@@ -112,13 +112,13 @@
 <div class="mz-container">
   <div class="toolbar">
     <div class="chips" role="group" aria-label="Filtrer par couleur">
-      <button type="button" class="filter-chip" class:on={!styleFilter} on:click={() => (styleFilter = "")}>Tous</button>
+      <button type="button" class="filter-chip" class:on={!styleFilter} onclick={() => (styleFilter = "")}>Tous</button>
       {#each presentStyles as s}
         <button
           type="button"
           class="filter-chip"
           class:on={styleFilter === s.key}
-          on:click={() => (styleFilter = styleFilter === s.key ? "" : s.key)}
+          onclick={() => (styleFilter = styleFilter === s.key ? "" : s.key)}
           aria-pressed={styleFilter === s.key}
         >
           <span class="mz-dot" style="background: {s.color}"></span>{s.label}

@@ -1,5 +1,6 @@
 <script lang="ts">
-  import { tick } from "svelte";
+  import { self } from "$lib/ui/events";
+  import { tick, untrack } from "svelte";
   import { fade, scale } from "svelte/transition";
   import { goto } from "$app/navigation";
   import { supabase } from "$lib/supabase";
@@ -8,9 +9,13 @@
   import { fold, formatDate, formatEUR } from "$lib/format";
   import { IconClipboard, IconGlasses, IconReceipt, IconSearch, IconUsers, IconWine } from "$lib/ui/icons";
 
-  /** Pages de l'admin, injectées par le layout (même source que la sidebar). */
-  export let pages: { href: string; label: string; icon: any }[] = [];
-  export let open = false;
+  interface Props {
+    /** Pages de l'admin, injectées par le layout (même source que la sidebar). */
+    pages?: { href: string; label: string; icon: any }[];
+    open?: boolean;
+  }
+
+  let { pages = [], open = $bindable(false) }: Props = $props();
 
   type Item = {
     id: string;
@@ -22,12 +27,12 @@
     haystack: string;
   };
 
-  let query = "";
-  let input: HTMLInputElement;
-  let active = 0;
+  let query = $state("");
+  let input = $state<HTMLInputElement | undefined>();
+  let active = $state(0);
   let loaded = false;
-  let loadingData = false;
-  let dataItems: Item[] = [];
+  let loadingData = $state(false);
+  let dataItems = $state.raw<Item[]>([]);
 
   async function loadData() {
     if (loaded || loadingData) return;
@@ -116,37 +121,6 @@
     loadingData = false;
   }
 
-  $: pageItems = pages.map<Item>((p) => ({
-    id: `p-${p.href}`,
-    group: "Pages",
-    label: p.label,
-    href: p.href,
-    icon: p.icon,
-    haystack: fold(p.label),
-  }));
-
-  $: results = (() => {
-    const q = fold(query.trim());
-    if (!q) return pageItems.slice(0, 8);
-    const words = q.split(/\s+/);
-    const scored = [...pageItems, ...dataItems]
-      .filter((it) => words.every((w) => it.haystack.includes(w)))
-      .map((it) => ({ it, score: it.haystack.startsWith(words[0]) ? 0 : 1 }))
-      .sort((a, b) => a.score - b.score);
-    return scored.slice(0, 40).map((s) => s.it);
-  })();
-
-  $: if (results) active = Math.min(active, Math.max(0, results.length - 1));
-
-  $: grouped = results.reduce<{ group: string; items: { item: Item; index: number }[] }[]>((acc, item, index) => {
-    const last = acc[acc.length - 1];
-    if (last && last.group === item.group) last.items.push({ item, index });
-    else acc.push({ group: item.group, items: [{ item, index }] });
-    return acc;
-  }, []);
-
-  $: if (open) void onOpen();
-
   async function onOpen() {
     query = "";
     active = 0;
@@ -193,19 +167,50 @@
       open = !open;
     }
   }
+  let pageItems = $derived(pages.map<Item>((p) => ({
+    id: `p-${p.href}`,
+    group: "Pages",
+    label: p.label,
+    href: p.href,
+    icon: p.icon,
+    haystack: fold(p.label),
+  })));
+  let results = $derived((() => {
+    const q = fold(query.trim());
+    if (!q) return pageItems.slice(0, 8);
+    const words = q.split(/\s+/);
+    const scored = [...pageItems, ...dataItems]
+      .filter((it) => words.every((w) => it.haystack.includes(w)))
+      .map((it) => ({ it, score: it.haystack.startsWith(words[0]) ? 0 : 1 }))
+      .sort((a, b) => a.score - b.score);
+    return scored.slice(0, 40).map((s) => s.it);
+  })());
+  $effect.pre(() => {
+    if (results) active = Math.min(active, Math.max(0, results.length - 1));
+  });
+  let grouped = $derived(results.reduce<{ group: string; items: { item: Item; index: number }[] }[]>((acc, item, index) => {
+    const last = acc[acc.length - 1];
+    if (last && last.group === item.group) last.items.push({ item, index });
+    else acc.push({ group: item.group, items: [{ item, index }] });
+    return acc;
+  }, []));
+  /* Seule l'ouverture déclenche onOpen (pas ce qu'il lit ensuite). */
+  $effect.pre(() => {
+    if (open) untrack(() => void onOpen());
+  });
 </script>
 
-<svelte:window on:keydown={onGlobalKey} />
+<svelte:window onkeydown={onGlobalKey} />
 
 {#if open}
-  <div class="palette-backdrop" on:click|self={close} role="presentation" transition:fade={{ duration: 120 }}>
+  <div class="palette-backdrop" onclick={self(() => close())} role="presentation" transition:fade={{ duration: 120 }}>
     <div class="palette" role="dialog" aria-modal="true" aria-label="Recherche" transition:scale={{ start: 0.97, duration: 140 }}>
       <div class="search">
         <IconSearch size={20} strokeWidth={1.75} />
         <input
           bind:this={input}
           bind:value={query}
-          on:keydown={onKeydown}
+          onkeydown={onKeydown}
           placeholder="Rechercher un vin, un client, une vente, une page…"
           aria-label="Rechercher"
           role="combobox"
@@ -229,10 +234,10 @@
                 class:active={index === active}
                 role="option"
                 aria-selected={index === active}
-                on:mouseenter={() => (active = index)}
-                on:click={() => choose(item)}
+                onmouseenter={() => (active = index)}
+                onclick={() => choose(item)}
               >
-                <svelte:component this={item.icon} size={18} strokeWidth={1.75} />
+                <item.icon size={18} strokeWidth={1.75} />
                 <span class="label">{item.label}</span>
                 {#if item.hint}<span class="hint">{item.hint}</span>{/if}
               </button>

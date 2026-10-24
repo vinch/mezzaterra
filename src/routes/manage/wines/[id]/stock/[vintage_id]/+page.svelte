@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { preventDefault } from "$lib/ui/events";
   import { supabase } from "$lib/supabase";
   import type { PageData } from "./$types";
   import { todayIso } from "$lib/dates";
@@ -16,22 +17,26 @@
   import { IconBox, IconPencil, IconPlus, IconTrash } from "$lib/ui/icons";
   import { vintageYearLabel, wineTitle } from "$lib/wine";
 
-  export let data: PageData;
+  interface Props {
+    data: PageData;
+  }
+
+  let { data }: Props = $props();
 
   let vintage = data.vintage;
-  let stockMoves = data.stockMoves;
-  let currentStock = data.currentStock;
-  let loading = false;
-  let error = "";
+  let stockMoves = $state(data.stockMoves);
+  let currentStock = $state(data.currentStock);
+  let loading = $state(false);
+  let error = $state("");
   /** Modale unique création / édition (`editingMove` les distingue). */
-  let formOpen = false;
-  let saving = false;
-  let editingMove: any = null;
+  let formOpen = $state(false);
+  let saving = $state(false);
+  let editingMove = $state<any>(null);
 
   function emptyForm() {
     return { reason: "", quantity: "", date: todayIso(), note: "" };
   }
-  let formData = emptyForm();
+  let formData = $state(emptyForm());
 
   // Raisons de mouvement de stock (triées par ordre alphabétique)
   const stockReasons = [
@@ -104,7 +109,6 @@
     error = "";
   }
 
-
   /** Création ou modification (selon `editingMove`) du mouvement. */
   async function submitForm() {
     if (saving) return;
@@ -149,7 +153,7 @@
     await loadStockMoves();
   }
 
-  let deleteTarget: StockMove | null = null;
+  let deleteTarget = $state<StockMove | null>(null);
 
   async function deleteMove(move: StockMove) {
     const { error: deleteError } = await supabase.from("stock_move").delete().eq("id", move.id);
@@ -168,8 +172,8 @@
     ];
   }
 
-  $: title = `${wineTitle(vintage.wine)} ${vintageYearLabel(vintage)}`;
-  $: subtitle = `${currentStock} bouteille${Math.abs(currentStock) > 1 ? "s" : ""} en stock`;
+  let title = $derived(`${wineTitle(vintage.wine)} ${vintageYearLabel(vintage)}`);
+  let subtitle = $derived(`${currentStock} bouteille${Math.abs(currentStock) > 1 ? "s" : ""} en stock`);
 
   function getReasonLabel(reason: string) {
     const reasonObj = stockReasons.find((r) => r.value === reason);
@@ -198,12 +202,16 @@
 </svelte:head>
 
 <ManagePageShell {title} {subtitle} back={{ href: `/manage/wines/${vintage.wine.id}`, label: wineTitle(vintage.wine) }}>
-  <svelte:fragment slot="badge">
-    {#if currentStock < 0}<StockBadge kind="out" label="Stock négatif" />{/if}
-  </svelte:fragment>
-  <svelte:fragment slot="actions">
-    <Button variant="primary" on:click={openCreateModal}><IconPlus size={16} strokeWidth={1.75} /> Nouveau mouvement</Button>
-  </svelte:fragment>
+  {#snippet badge()}
+
+      {#if currentStock < 0}<StockBadge kind="out" label="Stock négatif" />{/if}
+
+  {/snippet}
+  {#snippet actions()}
+
+      <Button variant="primary" onclick={openCreateModal}><IconPlus size={16} strokeWidth={1.75} /> Nouveau mouvement</Button>
+
+  {/snippet}
 
   {#if error && !formOpen}
     <div class="error-message" role="alert">{error}</div>
@@ -213,7 +221,7 @@
     <div class="loading">Chargement…</div>
   {:else if stockMoves.length === 0}
     <EmptyState icon={IconBox} title="Aucun mouvement de stock" text="Les réceptions de transport et les ventes payées ou livrées s’inscrivent ici automatiquement.">
-      <Button on:click={openCreateModal}><IconPlus size={16} strokeWidth={1.75} /> Nouveau mouvement</Button>
+      <Button onclick={openCreateModal}><IconPlus size={16} strokeWidth={1.75} /> Nouveau mouvement</Button>
     </EmptyState>
   {:else}
     <DataTable caption="Mouvements de stock">
@@ -243,9 +251,9 @@
 </ManagePageShell>
 
 <!-- Modal de création / édition -->
-<Modal open={formOpen} title={editingMove ? "Modifier le mouvement de stock" : "Nouveau mouvement de stock"} on:close={closeForm}>
+<Modal open={formOpen} title={editingMove ? "Modifier le mouvement de stock" : "Nouveau mouvement de stock"} onclose={closeForm}>
   {#if error}<div class="error-message" role="alert">{error}</div>{/if}
-  <form id="move-form" on:submit|preventDefault={submitForm}>
+  <form id="move-form" onsubmit={preventDefault(submitForm)}>
     <div class="form-grid">
       <div class="form-group">
         <label for="reason">Raison *</label>
@@ -285,19 +293,21 @@
       </div>
     </div>
   </form>
-  <svelte:fragment slot="footer">
-    <Button variant="ghost" on:click={closeForm}>Annuler</Button>
-    <Button variant="primary" type="submit" form="move-form" disabled={saving}>{editingMove ? "Mettre à jour" : "Créer le mouvement"}</Button>
-  </svelte:fragment>
+  {#snippet footer()}
+
+      <Button variant="ghost" onclick={closeForm}>Annuler</Button>
+      <Button variant="primary" type="submit" form="move-form" disabled={saving}>{editingMove ? "Mettre à jour" : "Créer le mouvement"}</Button>
+
+  {/snippet}
 </Modal>
 
 <ConfirmDialog
   open={!!deleteTarget}
   title="Supprimer ce mouvement ?"
   message={deleteTarget ? `Le mouvement du ${formatDate(deleteTarget.date)} (${getReasonLabel(deleteTarget.reason)}, ${Math.abs(deleteTarget.quantity)} bt.) sera supprimé et le stock recalculé.` : ""}
-  onConfirm={() => deleteMove(deleteTarget!)}
-  on:cancel={() => (deleteTarget = null)}
-  on:done={() => (deleteTarget = null)}
+  action={() => deleteMove(deleteTarget!)}
+  oncancel={() => (deleteTarget = null)}
+  ondone={() => (deleteTarget = null)}
 />
 
 <style>

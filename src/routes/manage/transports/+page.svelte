@@ -1,4 +1,6 @@
 <script lang="ts">
+  import { preventDefault } from "$lib/ui/events";
+
   import { supabase } from "$lib/supabase";
   import { onMount } from "svelte";
   import { invalidateAll } from "$app/navigation";
@@ -11,28 +13,31 @@
   import { formatDate, formatEUR } from "$lib/format";
   import { vintageProductLabel } from "$lib/wine";
 
-  export let data: PageData;
+  interface Props {
+    data: PageData;
+  }
 
-  let transports: any[];
+  let { data }: Props = $props();
+
+  let transports: any[] = $derived(data.transports);
   /* Rechargé par invalidateAll() après une création, une modification ou une suppression. */
-  $: transports = data.transports;
-  let transporters: any[] = [];
-  let loading = true;
-  let error = "";
+  let transporters = $state<any[]>([]);
+  let loading = $state(true);
+  let error = $state("");
   /** Modale unique création / édition (`editingTransport` les distingue). */
-  let formOpen = false;
-  let saving = false;
-  let showOrdersModal = false;
-  let showDetailsModal = false;
-  let editingTransport: any = null;
-  let selectedTransport: any = null;
-  let detailsTransport: any = null;
-  let detailsOrders: any[] = [];
-  let availableOrders: any[] = [];
-  let associatedOrders: any[] = [];
-  let selectedOrderIds: string[] = [];
+  let formOpen = $state(false);
+  let saving = $state(false);
+  let showOrdersModal = $state(false);
+  let showDetailsModal = $state(false);
+  let editingTransport = $state<any>(null);
+  let selectedTransport = $state<any>(null);
+  let detailsTransport = $state<any>(null);
+  let detailsOrders = $state<any[]>([]);
+  let availableOrders = $state<any[]>([]);
+  let associatedOrders = $state<any[]>([]);
+  let selectedOrderIds = $state<string[]>([]);
 
-  let formData = {
+  let formData = $state({
     transporter_id: "",
     departure_date: "",
     arrival_date: "",
@@ -40,7 +45,7 @@
     pallets_number: "",
     price: "",
     note: "",
-  };
+  });
 
   onMount(async () => {
     await loadTransporters();
@@ -188,12 +193,8 @@
       return false;
     }
 
-    // Update the local state
-    const transportIndex = transports.findIndex((t) => t.id === transportId);
-    if (transportIndex !== -1) {
-      transports[transportIndex].status = newStatus;
-      transports = [...transports];
-    }
+    /* Objet neuf pour la ligne : la liste ($derived, sans proxy) ne suit pas les mutations. */
+    transports = transports.map((t) => (t.id === transportId ? { ...t, status: newStatus } : t));
 
     return true;
   }
@@ -333,9 +334,11 @@
 </svelte:head>
 
 <ManagePageShell title="Transports">
-  <svelte:fragment slot="actions">
-    <button class="btn-primary" on:click={openCreateModal}>+ Nouveau transport</button>
-  </svelte:fragment>
+  {#snippet actions()}
+
+      <button class="btn-primary" onclick={openCreateModal}>+ Nouveau transport</button>
+
+  {/snippet}
 
   {#if error}
       <div class="error-message">{error}</div>
@@ -346,7 +349,7 @@
     {:else if transports.length === 0}
       <div class="empty-state">
         <p>Aucun transport trouvé</p>
-        <button class="btn-primary" on:click={openCreateModal}>
+        <button class="btn-primary" onclick={openCreateModal}>
           Créer le premier transport
         </button>
       </div>
@@ -389,7 +392,7 @@
                     value={transport.status}
                     disabled={transport.status === "delivered"}
                     title={transport.status === "delivered" ? "Livré : le stock est entré, le statut est définitif" : undefined}
-                    on:change={async (e) => {
+                    onchange={async (e) => {
                       const target = e.target as HTMLSelectElement;
                       const previousStatus = transport.status;
                       const newStatus = target.value;
@@ -404,9 +407,6 @@
                       // If update failed (user cancelled or error), restore select value
                       if (!success) {
                         target.value = previousStatus;
-                        // Force reactivity by triggering a small delay
-                        await new Promise((resolve) => setTimeout(resolve, 0));
-                        transports = [...transports];
                       }
                     }}
                   >
@@ -429,26 +429,26 @@
                     {#if transport.status === "delivered" || transport.status === "cancelled"}
                       <button
                         class="ui-btn ui-btn--secondary ui-btn--sm"
-                        on:click={() => openDetailsModal(transport)}
+                        onclick={() => openDetailsModal(transport)}
                       >
                         Détails
                       </button>
                     {:else}
                       <button
                         class="ui-btn ui-btn--secondary ui-btn--sm"
-                        on:click={() => openOrdersModal(transport)}
+                        onclick={() => openOrdersModal(transport)}
                       >
                         Associer des commandes
                       </button>
                       <button
                         class="ui-btn ui-btn--secondary ui-btn--sm"
-                        on:click={() => openEditModal(transport)}
+                        onclick={() => openEditModal(transport)}
                       >
                         Modifier
                       </button>
                       <button
                         class="ui-btn ui-btn--danger ui-btn--sm"
-                        on:click={() => deleteTransport(transport.id)}
+                        onclick={() => deleteTransport(transport.id)}
                       >
                         Supprimer
                       </button>
@@ -464,8 +464,8 @@
 </ManagePageShell>
 
 <!-- Modal de création / édition -->
-<Modal open={formOpen} title={editingTransport ? "Modifier le transport" : "Nouveau transport"} on:close={closeForm}>
-  <form id="transport-form" on:submit|preventDefault={submitForm}>
+<Modal open={formOpen} title={editingTransport ? "Modifier le transport" : "Nouveau transport"} onclose={closeForm}>
+  <form id="transport-form" onsubmit={preventDefault(submitForm)}>
     <div class="form-grid">
       <div class="form-group">
         <label for="transporter_id">Transporteur *</label>
@@ -524,14 +524,16 @@
       </div>
     </div>
   </form>
-  <svelte:fragment slot="footer">
-    <Button variant="ghost" on:click={closeForm}>Annuler</Button>
-    <Button variant="primary" type="submit" form="transport-form" disabled={saving}>{editingTransport ? "Enregistrer" : "Créer le transport"}</Button>
-  </svelte:fragment>
+  {#snippet footer()}
+
+      <Button variant="ghost" onclick={closeForm}>Annuler</Button>
+      <Button variant="primary" type="submit" form="transport-form" disabled={saving}>{editingTransport ? "Enregistrer" : "Créer le transport"}</Button>
+
+  {/snippet}
 </Modal>
 
 <!-- Modal d'association de commandes -->
-<Modal open={showOrdersModal} title="Associer des commandes au transport" on:close={closeOrdersModal}>
+<Modal open={showOrdersModal} title="Associer des commandes au transport" onclose={closeOrdersModal}>
   {#if selectedTransport}
     <div class="orders-modal-content">
       <p class="modal-description">
@@ -588,7 +590,7 @@
               <input
                 type="checkbox"
                 checked={selectedOrderIds.includes(order.id)}
-                on:change={() => toggleOrderSelection(order.id)}
+                onchange={() => toggleOrderSelection(order.id)}
               />
               <div class="order-info">
                 <div class="order-header">
@@ -613,14 +615,16 @@
       {/if}
     </div>
   {/if}
-  <svelte:fragment slot="footer">
-    <Button variant="ghost" on:click={closeOrdersModal}>Annuler</Button>
-    <Button variant="primary" on:click={associateOrders} disabled={selectedOrderIds.length === 0}>Associer {selectedOrderIds.length > 0 ? `(${selectedOrderIds.length})` : ""}</Button>
-  </svelte:fragment>
+  {#snippet footer()}
+
+      <Button variant="ghost" onclick={closeOrdersModal}>Annuler</Button>
+      <Button variant="primary" onclick={associateOrders} disabled={selectedOrderIds.length === 0}>Associer {selectedOrderIds.length > 0 ? `(${selectedOrderIds.length})` : ""}</Button>
+
+  {/snippet}
 </Modal>
 
 <!-- Modal de détails -->
-<Modal open={showDetailsModal} title="Détails du transport" on:close={closeDetailsModal}>
+<Modal open={showDetailsModal} title="Détails du transport" onclose={closeDetailsModal}>
   {#if detailsTransport}
     <div class="details-content">
       <div class="details-grid">

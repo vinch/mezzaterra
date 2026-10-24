@@ -1,5 +1,6 @@
 <script lang="ts">
   import { onMount } from "svelte";
+  import { errorMessage } from "$lib/async";
   import ManagePageShell from "$lib/components/manage/ManagePageShell.svelte";
   import {
     BOTTLES_PER_TASTED_WINE,
@@ -14,12 +15,12 @@
   import WineDot from "$lib/ui/WineDot.svelte";
   import { formatDate, formatEUR } from "$lib/format";
 
-  let loading = true;
-  let error = "";
-  let stats: VintageStats[] = [];
-  let roi: TastingRoi[] = [];
-  let tab: "margins" | "rotation" | "tastings" = "margins";
-  let sortKey: "margin" | "unitMarginPct" | "revenue" | "sold" | "stock" = "margin";
+  let loading = $state(true);
+  let error = $state("");
+  let stats = $state.raw<VintageStats[]>([]);
+  let roi = $state<TastingRoi[]>([]);
+  let tab = $state<"margins" | "rotation" | "tastings">("margins");
+  let sortKey = $state<"margin" | "unitMarginPct" | "revenue" | "sold" | "stock">("margin");
 
   onMount(async () => {
     try {
@@ -28,18 +29,18 @@
       stats = vintageStats(ds, lines);
       roi = await tastingRoi(ds, lines);
     } catch (e) {
-      error = e instanceof Error ? e.message : String(e);
+      error = errorMessage(e);
     } finally {
       loading = false;
     }
   });
 
-  $: sorted = [...stats].sort((a, b) => ((b[sortKey] as number) ?? -Infinity) - ((a[sortKey] as number) ?? -Infinity));
-  $: totals = stats.reduce(
+  let sorted = $derived([...stats].sort((a, b) => ((b[sortKey] as number) ?? -Infinity) - ((a[sortKey] as number) ?? -Infinity)));
+  let totals = $derived(stats.reduce(
     (t, s) => ({ revenue: t.revenue + s.revenue, cost: t.cost + s.cost, sold: t.sold + s.sold }),
     { revenue: 0, cost: 0, sold: 0 },
-  );
-  $: rotation = stats
+  ));
+  let rotation = $derived(stats
     .filter((s) => s.stock > 0)
     .map((s) => ({
       ...s,
@@ -47,7 +48,7 @@
       /* Ventes mensuelles moyennes sur la période observée → mois de stock restants. */
       monthsLeft: s.sold > 0 && s.lastSale ? s.stock / Math.max(0.25, s.sold / 12) : null,
     }))
-    .sort((a, b) => (b.idleDays ?? 9999) - (a.idleDays ?? 9999));
+    .sort((a, b) => (b.idleDays ?? 9999) - (a.idleDays ?? 9999)));
 
   function pct(n: number | null): string {
     return n == null ? "—" : `${Math.round(n)} %`;
@@ -79,9 +80,9 @@
     </div>
 
     <div class="tabs" role="tablist">
-      <button type="button" role="tab" class:active={tab === "margins"} aria-selected={tab === "margins"} on:click={() => (tab = "margins")}>Marges par vin</button>
-      <button type="button" role="tab" class:active={tab === "rotation"} aria-selected={tab === "rotation"} on:click={() => (tab = "rotation")}>Rotation du stock</button>
-      <button type="button" role="tab" class:active={tab === "tastings"} aria-selected={tab === "tastings"} on:click={() => (tab = "tastings")}>Rentabilité des dégustations</button>
+      <button type="button" role="tab" class:active={tab === "margins"} aria-selected={tab === "margins"} onclick={() => (tab = "margins")}>Marges par vin</button>
+      <button type="button" role="tab" class:active={tab === "rotation"} aria-selected={tab === "rotation"} onclick={() => (tab = "rotation")}>Rotation du stock</button>
+      <button type="button" role="tab" class:active={tab === "tastings"} aria-selected={tab === "tastings"} onclick={() => (tab = "tastings")}>Rentabilité des dégustations</button>
     </div>
 
     {#if tab === "margins"}
@@ -96,11 +97,11 @@
               <th>Vin</th>
               <th class="num">Achat</th>
               <th class="num">Vente</th>
-              <th class="num sortable" class:on={sortKey === "unitMarginPct"} on:click={() => (sortKey = "unitMarginPct")}>Marge unit.</th>
-              <th class="num sortable" class:on={sortKey === "sold"} on:click={() => (sortKey = "sold")}>Vendues</th>
-              <th class="num sortable" class:on={sortKey === "revenue"} on:click={() => (sortKey = "revenue")}>CA</th>
-              <th class="num sortable" class:on={sortKey === "margin"} on:click={() => (sortKey = "margin")}>Marge réalisée</th>
-              <th class="num sortable" class:on={sortKey === "stock"} on:click={() => (sortKey = "stock")}>Stock</th>
+              <th class="num sortable" class:on={sortKey === "unitMarginPct"} onclick={() => (sortKey = "unitMarginPct")}>Marge unit.</th>
+              <th class="num sortable" class:on={sortKey === "sold"} onclick={() => (sortKey = "sold")}>Vendues</th>
+              <th class="num sortable" class:on={sortKey === "revenue"} onclick={() => (sortKey = "revenue")}>CA</th>
+              <th class="num sortable" class:on={sortKey === "margin"} onclick={() => (sortKey = "margin")}>Marge réalisée</th>
+              <th class="num sortable" class:on={sortKey === "stock"} onclick={() => (sortKey = "stock")}>Stock</th>
             </tr>
           </thead>
           <tbody>

@@ -1,5 +1,6 @@
 <script lang="ts">
   import { supabase } from "$lib/supabase";
+  import { errorMessage } from "$lib/async";
   import { getContext, onMount } from "svelte";
   import ManagePageShell from "$lib/components/manage/ManagePageShell.svelte";
   import ColumnChart from "$lib/components/manage/ColumnChart.svelte";
@@ -36,20 +37,20 @@
 
   const { user: userStore } = getContext<any>("auth");
 
-  let email = "";
-  let error = "";
-  let loading = false;
-  let magicLinkSent = false;
+  let email = $state("");
+  let error = $state("");
+  let loading = $state(false);
+  let magicLinkSent = $state(false);
 
-  let statsLoading = true;
-  let statsError = "";
+  let statsLoading = $state(true);
+  let statsError = $state("");
 
   /** Seuil « stock bas » (aligné sur l'ancien indicateur). */
   const LOW_STOCK = 3;
   /** Jours sans vente au-delà desquels un vin en stock est « dormant ». */
   const DORMANT_DAYS = 90;
 
-  let kpi = {
+  let kpi = $state({
     revenueAll: 0,
     revenueMonth: 0,
     pendingSales: 0,
@@ -62,18 +63,18 @@
     vintages: 0,
     customers: 0,
     tastings: 0,
-  };
-  let months: { key: string; label: string; value: number }[] = [];
-  let topWines: VintageStats[] = [];
-  let outOfStock: VintageStats[] = [];
-  let lowStock: VintageStats[] = [];
-  let dormant: VintageStats[] = [];
-  let nextTasting: any = null;
-  let lastTasting: any = null;
-  let nextTastingSeats: number | null = null;
-  let newRequests = 0;
-  let reorderBusy = "";
-  let reorderMsg = "";
+  });
+  let months = $state<{ key: string; label: string; value: number }[]>([]);
+  let topWines = $state<VintageStats[]>([]);
+  let outOfStock = $state<VintageStats[]>([]);
+  let lowStock = $state<VintageStats[]>([]);
+  let dormant = $state<VintageStats[]>([]);
+  let nextTasting = $state<any>(null);
+  let lastTasting = $state<any>(null);
+  let nextTastingSeats = $state<number | null>(null);
+  let newRequests = $state(0);
+  let reorderBusy = $state("");
+  let reorderMsg = $state("");
 
   const today = formatDateLong(todayIso());
 
@@ -156,7 +157,7 @@
     try {
       reorderMsg = (await promptReorder(vintageShortLabel(s.vintage), s.vintage)) ?? reorderMsg;
     } catch (e) {
-      reorderMsg = e instanceof Error ? e.message : String(e);
+      reorderMsg = errorMessage(e);
     } finally {
       reorderBusy = "";
     }
@@ -200,10 +201,10 @@
     }
   }
 
-  $: stockAlerts = [...outOfStock, ...lowStock];
-  $: chartLabel = `Chiffre d'affaires encaissé par mois sur les 12 derniers mois. ${months
+  let stockAlerts = $derived([...outOfStock, ...lowStock]);
+  let chartLabel = $derived(`Chiffre d'affaires encaissé par mois sur les 12 derniers mois. ${months
     .map((m) => `${m.label} : ${formatEUR(m.value)}`)
-    .join(", ")}.`;
+    .join(", ")}.`);
 </script>
 
 <svelte:head>
@@ -225,9 +226,9 @@
           autocomplete="email"
           bind:value={email}
           placeholder="vous@exemple.be"
-          on:keydown={handleKeydown}
+          onkeydown={handleKeydown}
         />
-        <Button variant="primary" block disabled={loading} on:click={handleMagicLink}>
+        <Button variant="primary" block disabled={loading} onclick={handleMagicLink}>
           {loading ? "Envoi…" : "Envoyer le lien de connexion"}
         </Button>
         {#if error}
@@ -236,16 +237,18 @@
       {:else}
         <p role="status">Un lien de connexion a été envoyé à <strong>{email}</strong>.</p>
         <p class="t-muted">Vérifiez votre boîte mail et cliquez sur le lien pour vous connecter.</p>
-        <Button on:click={() => (magicLinkSent = false)}>Envoyer un nouveau lien</Button>
+        <Button onclick={() => (magicLinkSent = false)}>Envoyer un nouveau lien</Button>
       {/if}
     </div>
   </div>
 {:else}
   <ManagePageShell title="Tableau de bord" subtitle={today}>
-    <svelte:fragment slot="actions">
-      <Button href="/manage/tastings">Planifier une dégustation</Button>
-      <Button variant="primary" href="/manage/sales?nouvelle=1"><IconPlus size={18} strokeWidth={1.75} /> Nouvelle vente</Button>
-    </svelte:fragment>
+    {#snippet actions()}
+
+        <Button href="/manage/tastings">Planifier une dégustation</Button>
+        <Button variant="primary" href="/manage/sales?nouvelle=1"><IconPlus size={18} strokeWidth={1.75} /> Nouvelle vente</Button>
+
+      {/snippet}
 
     {#if statsError}
       <div class="error-message" role="alert">{statsError}</div>
@@ -294,7 +297,9 @@
       </div>
 
       <Card title="Chiffre d’affaires encaissé" id="ca-card">
-        <span slot="actions" class="t-caption">12 derniers mois</span>
+        {#snippet actions()}
+                <span  class="t-caption">12 derniers mois</span>
+              {/snippet}
         <ColumnChart
           data={months}
           ariaLabel={chartLabel}
@@ -334,7 +339,9 @@
         </Card>
 
         <Card title="Top 5 des vins" id="top-wines">
-          <span slot="actions" class="t-caption">par chiffre d’affaires</span>
+          {#snippet actions()}
+                    <span  class="t-caption">par chiffre d’affaires</span>
+                  {/snippet}
           {#if topWines.length === 0}
             <EmptyState icon={IconWine} title="Pas encore de ventes encaissées" compact />
           {:else}
@@ -354,7 +361,9 @@
         </Card>
 
         <Card title="Stock bas et ruptures" id="stock-alerts">
-          <svelte:fragment slot="actions"><Button size="sm" href="/manage/orders">Préparer une commande</Button></svelte:fragment>
+          {#snippet actions()}
+                    <Button size="sm" href="/manage/orders">Préparer une commande</Button>
+                  {/snippet}
           {#if reorderMsg}<p class="notice" role="status">{reorderMsg}</p>{/if}
           {#if stockAlerts.length === 0}
             <EmptyState icon={IconBox} title="Rien à signaler" text="Aucun millésime en rupture ni presque épuisé." compact />
@@ -372,7 +381,7 @@
                   {:else}
                     <StockBadge kind="low" label="{s.stock} bt." />
                   {/if}
-                  <Button size="sm" variant="ghost" disabled={reorderBusy === s.vintage.id} on:click={() => reorder(s)}>
+                  <Button size="sm" variant="ghost" disabled={reorderBusy === s.vintage.id} onclick={() => reorder(s)}>
                     {reorderBusy === s.vintage.id ? "…" : "Réassort"}
                   </Button>
                 </li>
@@ -382,7 +391,9 @@
         </Card>
 
         <Card title="Stock dormant" id="stock-dormant">
-          <span slot="actions" class="t-caption">plus de {DORMANT_DAYS} j sans vente</span>
+          {#snippet actions()}
+                    <span  class="t-caption">plus de {DORMANT_DAYS} j sans vente</span>
+                  {/snippet}
           {#if dormant.length === 0}
             <EmptyState icon={IconBox} title="Tout tourne bien" compact />
           {:else}

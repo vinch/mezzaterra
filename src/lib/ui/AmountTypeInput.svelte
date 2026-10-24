@@ -1,13 +1,30 @@
 <script lang="ts">
-  /** Un montant et un sélecteur €/% collés dans un seul contrôle. */
-  export let amount: string | number = "";
-  export let type: "amount" | "percent" = "amount";
-  export let id: string | undefined = undefined;
-  export let placeholder = "0";
-  export let describedby: string | undefined = undefined;
-  export let amountLabel = "€";
-  export let percentLabel = "%";
-  export let ariaLabel = "Montant";
+  interface Props {
+    oninput?: (e: Event) => void;
+    onchange?: (e: Event) => void;
+    /** Un montant et un sélecteur €/% collés dans un seul contrôle. */
+    amount?: string | number;
+    type?: "amount" | "percent";
+    id?: string | undefined;
+    placeholder?: string;
+    describedby?: string | undefined;
+    amountLabel?: string;
+    percentLabel?: string;
+    ariaLabel?: string;
+  }
+
+  let {
+    amount = $bindable(""),
+    type = $bindable("amount"),
+    id = undefined,
+    placeholder = "0",
+    describedby = undefined,
+    amountLabel = "€",
+    percentLabel = "%",
+    ariaLabel = "Montant",
+    oninput,
+    onchange
+  }: Props = $props();
 </script>
 
 <div class="amount-type">
@@ -20,9 +37,9 @@
     aria-label={id ? undefined : ariaLabel}
     aria-describedby={describedby}
     bind:value={amount}
-    on:input
+    {oninput}
   />
-  <select class="ui-control" bind:value={type} aria-label="Type de remise" on:change>
+  <select class="ui-control" bind:value={type} aria-label="Type de remise" {onchange}>
     <option value="amount">{amountLabel}</option>
     <option value="percent">{percentLabel}</option>
   </select>

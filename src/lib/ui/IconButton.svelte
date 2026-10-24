@@ -1,20 +1,42 @@
 <script lang="ts">
-  /** Bouton icône 36×36 (44 sur mobile). `label` est obligatoire (aria-label). */
-  export let label: string;
-  export let href: string | null = null;
-  export let variant: "ghost" | "outline" | "dark" = "ghost";
-  export let disabled = false;
-  export let pressed: boolean | undefined = undefined;
-  export let expanded: boolean | undefined = undefined;
-  export let haspopup: "menu" | "dialog" | undefined = undefined;
-  export let controls: string | undefined = undefined;
-  export let target: string | undefined = undefined;
-  export let el: HTMLElement | null = null;
+  import type { Snippet } from "svelte";
+  interface Props {
+    onclick?: (e: MouseEvent) => void;
+    onkeydown?: (e: KeyboardEvent) => void;
+    /** Bouton icône 36×36 (44 sur mobile). `label` est obligatoire (aria-label). */
+    label: string;
+    href?: string | null;
+    variant?: "ghost" | "outline" | "dark";
+    disabled?: boolean;
+    pressed?: boolean | undefined;
+    expanded?: boolean | undefined;
+    haspopup?: "menu" | "dialog" | undefined;
+    controls?: string | undefined;
+    target?: string | undefined;
+    el?: HTMLElement | null;
+    children?: Snippet;
+  }
+
+  let {
+    label,
+    href = null,
+    variant = "ghost",
+    disabled = false,
+    pressed = undefined,
+    expanded = undefined,
+    haspopup = undefined,
+    controls = undefined,
+    target = undefined,
+    el = $bindable(),
+    children,
+    onclick,
+    onkeydown
+  }: Props = $props();
 </script>
 
 {#if href}
-  <a bind:this={el} {href} {target} class="icon-btn icon-btn--{variant}" aria-label={label} title={label} on:click>
-    <slot />
+  <a bind:this={el} {href} {target} class="icon-btn icon-btn--{variant}" aria-label={label} title={label} {onclick}>
+    {@render children?.()}
   </a>
 {:else}
   <button
@@ -28,10 +50,10 @@
     aria-haspopup={haspopup}
     aria-controls={controls}
     {disabled}
-    on:click
-    on:keydown
+    {onclick}
+    {onkeydown}
   >
-    <slot />
+    {@render children?.()}
   </button>
 {/if}
 

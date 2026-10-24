@@ -9,9 +9,9 @@
     type StockDocVintage,
   } from "$lib/stockDocuments";
 
-  let loading = true;
-  let error = "";
-  let stockInHandList: StockDocVintage[] = [];
+  let loading = $state(true);
+  let error = $state("");
+  let stockInHandList = $state<StockDocVintage[]>([]);
 
   onMount(() => loadStockInHand());
 
@@ -35,16 +35,18 @@
 </svelte:head>
 
 <ManagePageShell title="Stock">
-  <svelte:fragment slot="actions">
-    <button
-      type="button"
-      class="btn-secondary"
-      on:click={loadStockInHand}
-      disabled={loading}
-    >
-      Actualiser
-    </button>
-  </svelte:fragment>
+  {#snippet actions()}
+
+      <button
+        type="button"
+        class="btn-secondary"
+        onclick={loadStockInHand}
+        disabled={loading}
+      >
+        Actualiser
+      </button>
+
+  {/snippet}
 
   {#if error}
     <div class="error-message">{error}</div>

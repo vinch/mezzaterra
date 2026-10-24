@@ -25,17 +25,17 @@
 
   const customerId = $page.params.id ?? "";
 
-  let loading = true;
-  let error = "";
-  let customer: any = null;
-  let sales: any[] = [];
-  let tastings: any[] = [];
-  let feedback: any[] = [];
-  let vintages: any[] = [];
+  let loading = $state(true);
+  let error = $state("");
+  let customer = $state<any>(null);
+  let sales = $state<any[]>([]);
+  let tastings = $state<any[]>([]);
+  let feedback = $state<any[]>([]);
+  let vintages = $state.raw<any[]>([]);
   /** Lectures secondaires en échec (millésimes, stock, dégustations) : fiche affichée, incomplète. */
-  let warnings: string[] = [];
+  let warnings = $state<string[]>([]);
   /** null : stock illisible, les suggestions (vins en stock) ne peuvent pas être calculées. */
-  let stock: Map<string, number> | null = new Map();
+  let stock = $state<Map<string, number> | null>(new Map());
 
   onMount(async () => {
     try {
@@ -97,14 +97,14 @@
     }
   });
 
-  $: vintageById = new Map(vintages.map((v) => [v.id, v]));
-  $: paidSales = sales.filter((s) => REVENUE_STATUSES.includes(s.status));
-  $: revenue = paidSales.reduce((s, x) => s + Number(x.total_price || 0), 0);
-  $: avgBasket = paidSales.length ? revenue / paidSales.length : 0;
-  $: lastSale = sales.find((s) => s.status !== "cancelled") ?? null;
+  let vintageById = $derived(new Map(vintages.map((v) => [v.id, v])));
+  let paidSales = $derived(sales.filter((s) => REVENUE_STATUSES.includes(s.status)));
+  let revenue = $derived(paidSales.reduce((s, x) => s + Number(x.total_price || 0), 0));
+  let avgBasket = $derived(paidSales.length ? revenue / paidSales.length : 0);
+  let lastSale = $derived(sales.find((s) => s.status !== "cancelled") ?? null);
 
   /* Vins achetés (agrégés par millésime, ventes non annulées). */
-  $: bought = (() => {
+  let bought = $derived((() => {
     const map = new Map<string, { vintage: any; qty: number; spent: number; last: string }>();
     for (const s of sales) {
       if (s.status === "cancelled") continue;
@@ -120,31 +120,31 @@
       }
     }
     return [...map.values()].sort((a, b) => b.qty - a.qty);
-  })();
+  })());
 
-  $: totalBottles = bought.reduce((s, b) => s + b.qty, 0);
+  let totalBottles = $derived(bought.reduce((s, b) => s + b.qty, 0));
 
   /* Préférences : répartition par robe (toujours rouge / blanc / rosé) et domaine préféré. */
   const ROBES: WineStyleKey[] = ["white", "red", "rose"];
-  $: robeQty = (() => {
+  let robeQty = $derived((() => {
     const map: Record<WineStyleKey, number> = { red: 0, white: 0, rose: 0, orange: 0, sparkling: 0, other: 0 };
     for (const b of bought) map[wineRobe(b.vintage.wine?.wine_type).key] += b.qty;
     return map;
-  })();
-  $: robeOrder = [...ROBES].sort((a, b) => robeQty[b] - robeQty[a]);
-  $: favRobe = robeOrder[0] && robeQty[robeOrder[0]] > 0 ? robeOrder[0] : null;
+  })());
+  let robeOrder = $derived([...ROBES].sort((a, b) => robeQty[b] - robeQty[a]));
+  let favRobe = $derived(robeOrder[0] && robeQty[robeOrder[0]] > 0 ? robeOrder[0] : null);
 
-  $: favoriteWinery = (() => {
+  let favoriteWinery = $derived((() => {
     const map = new Map<string, number>();
     for (const b of bought) {
       const n = b.vintage.wine?.winery?.name || "—";
       map.set(n, (map.get(n) ?? 0) + b.qty);
     }
     return [...map.entries()].sort((a, b) => b[1] - a[1])[0] ?? null;
-  })();
+  })());
 
   /* Suggestions de relance. */
-  $: suggestions = (() => {
+  let suggestions = $derived((() => {
     const boughtIds = new Set(bought.map((b) => b.vintage.id));
     const out: { vintage: any; reason: string }[] = [];
     const seen = new Set<string>();
@@ -172,11 +172,11 @@
       }
     }
     return out.slice(0, 6);
-  })();
+  })());
 
   /* Cases « À lui proposer » : toutes cochées par défaut. */
-  let unchecked = new Set<string>();
-  $: selectedSuggestions = suggestions.filter((sg) => !unchecked.has(sg.vintage.id));
+  let unchecked = $state(new Set<string>());
+  let selectedSuggestions = $derived(suggestions.filter((sg) => !unchecked.has(sg.vintage.id)));
   function toggleSuggestion(id: string) {
     const next = new Set(unchecked);
     if (next.has(id)) next.delete(id);
@@ -191,11 +191,11 @@
     return `mailto:${customer.email}?subject=${encodeURIComponent("Quelques vins pour vous")}&body=${encodeURIComponent(body)}`;
   }
 
-  $: lastSaleDays = lastSale ? -daysUntil(lastSale.date) : null;
+  let lastSaleDays = $derived(lastSale ? -daysUntil(lastSale.date) : null);
 
   /* Suppression (même opération que dans la liste des clients). */
-  let confirmOpen = false;
-  let deleting = false;
+  let confirmOpen = $state(false);
+  let deleting = $state(false);
   async function deleteCustomer() {
     deleting = true;
     const { error: delErr } = await supabase.from("customer").delete().eq("id", customerId);
@@ -208,10 +208,10 @@
     await goto("/manage/customers");
   }
 
-  $: menuItems = [
+  let menuItems = $derived([
     { label: "Modifier", icon: IconPencil, href: `/manage/customers?modifier=${customerId}` },
     { label: "Supprimer…", icon: IconTrash, danger: true, separator: true, onSelect: () => (confirmOpen = true) },
-  ];
+  ]);
 </script>
 
 <svelte:head>
@@ -223,15 +223,17 @@
   subtitle={customer ? [`Client depuis le ${formatDate(customer.created_at)}`, customer.company_name, customer.city].filter(Boolean).join(" · ") : ""}
   back={{ href: "/manage/customers", label: "Clients" }}
 >
-  <svelte:fragment slot="actions">
-    {#if customer}
-      <Button href="/manage/sales?nouvelle=1&client={customerId}">Nouvelle vente</Button>
-      {#if customer.email && selectedSuggestions.length}
-        <Button variant="primary" href={mailto()}><IconSend size={16} strokeWidth={1.75} /> Envoyer des suggestions</Button>
+  {#snippet actions()}
+
+      {#if customer}
+        <Button href="/manage/sales?nouvelle=1&client={customerId}">Nouvelle vente</Button>
+        {#if customer.email && selectedSuggestions.length}
+          <Button variant="primary" href={mailto()}><IconSend size={16} strokeWidth={1.75} /> Envoyer des suggestions</Button>
+        {/if}
+        <RowMenu items={menuItems} label="Plus d’actions pour ce client" />
       {/if}
-      <RowMenu items={menuItems} label="Plus d’actions pour ce client" />
-    {/if}
-  </svelte:fragment>
+
+  {/snippet}
 
   {#if loading}
     <div class="loading">Chargement…</div>
@@ -301,7 +303,9 @@
       </Card>
 
       <Card title="À lui proposer" id="suggest">
-        <span slot="actions" class="t-caption">{selectedSuggestions.length} vin{selectedSuggestions.length > 1 ? "s" : ""} sélectionné{selectedSuggestions.length > 1 ? "s" : ""} pour l’envoi</span>
+        {#snippet actions()}
+                        <span  class="t-caption">{selectedSuggestions.length} vin{selectedSuggestions.length > 1 ? "s" : ""} sélectionné{selectedSuggestions.length > 1 ? "s" : ""} pour l’envoi</span>
+                      {/snippet}
         {#if suggestions.length === 0}
           <EmptyState
             icon={IconSparkle}
@@ -313,7 +317,7 @@
             {#each suggestions as sg (sg.vintage.id)}
               <li>
                 <label class="suggest">
-                  <input type="checkbox" checked={!unchecked.has(sg.vintage.id)} on:change={() => toggleSuggestion(sg.vintage.id)} />
+                  <input type="checkbox" checked={!unchecked.has(sg.vintage.id)} onchange={() => toggleSuggestion(sg.vintage.id)} />
                   <WineDot type={sg.vintage.wine?.wine_type} />
                   <span class="list-main">
                     <span><strong>{vintageShortLabel(sg.vintage)}</strong><span class="t-muted">&nbsp;· {sg.vintage.wine?.winery?.name ?? ""}</span></span>
@@ -447,7 +451,7 @@
   message={customer
     ? `${customer.first_name} ${customer.last_name} sera supprimé de vos clients. ${sales.length ? `Il a ${sales.length} vente(s) : la suppression sera refusée par la base si elles y sont liées.` : "Aucune vente n’est liée à ce client."}`
     : ""}
-  on:confirm={deleteCustomer}
+  onconfirm={deleteCustomer}
 />
 
 <style>

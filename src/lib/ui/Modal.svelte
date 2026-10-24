@@ -1,5 +1,6 @@
 <script lang="ts">
-  import { createEventDispatcher, onDestroy, tick } from "svelte";
+  import { self } from "$lib/ui/events";
+  import { tick, untrack, type Snippet } from "svelte";
   import { fade, fly } from "svelte/transition";
   import IconButton from "./IconButton.svelte";
   import { IconX } from "./icons";
@@ -8,16 +9,34 @@
    * Modale : en-tête (titre + fermer), corps défilant, pied fixe (ghost à gauche du primary).
    * Focus piégé à l'intérieur, Échap ferme, le focus revient à l'élément d'origine.
    */
-  export let open = false;
-  export let title = "";
-  export let maxWidth = 640;
-  export let closeOnBackdrop = true;
-  /** Rôle ARIA : `alertdialog` pour les confirmations. */
-  export let role: "dialog" | "alertdialog" = "dialog";
+  interface Props {
+    open?: boolean;
+    title?: string;
+    maxWidth?: number;
+    closeOnBackdrop?: boolean;
+    /** Rôle ARIA : `alertdialog` pour les confirmations. */
+    role?: "dialog" | "alertdialog";
+    onclose?: () => void;
+    /** À côté du titre (badge de statut…). */
+    titleExtra?: Snippet;
+    footer?: Snippet;
+    children?: Snippet;
+  }
 
-  const dispatch = createEventDispatcher<{ close: void }>();
+  let {
+    open = false,
+    title = "",
+    maxWidth = 640,
+    closeOnBackdrop = true,
+    role = "dialog",
+    onclose,
+    titleExtra,
+    footer,
+    children,
+  }: Props = $props();
+
   const titleId = `modal-title-${Math.random().toString(36).slice(2, 9)}`;
-  let dialog: HTMLElement;
+  let dialog = $state<HTMLElement | undefined>();
   let returnFocus: HTMLElement | null = null;
 
   const FOCUSABLE =
@@ -36,18 +55,15 @@
     returnFocus?.focus?.();
   }
 
-  let wasOpen = false;
-  $: if (open !== wasOpen) {
-    wasOpen = open;
-    if (open) void onOpen();
-    else onClose();
-  }
-  onDestroy(() => {
-    if (open) document.body.style.overflow = "";
+  /* Ouverture : défilement bloqué, focus dans la modale ; fermeture ou démontage : l'inverse. */
+  $effect(() => {
+    if (!open) return;
+    untrack(() => void onOpen());
+    return onClose;
   });
 
   function close() {
-    dispatch("close");
+    onclose?.();
   }
 
   /* Si le focus a quitté la modale (élément retiré du DOM…), Échap et Tab restent gérés. */
@@ -84,10 +100,15 @@
   }
 </script>
 
-<svelte:window on:keydown={onWindowKeydown} />
+<svelte:window onkeydown={onWindowKeydown} />
 
 {#if open}
-  <div class="backdrop" transition:fade={{ duration: 120 }} on:click|self={() => closeOnBackdrop && close()} role="presentation">
+  <div
+    class="backdrop"
+    transition:fade={{ duration: 120 }}
+    onclick={self(() => closeOnBackdrop && close())}
+    role="presentation"
+  >
     <div
       bind:this={dialog}
       class="modal"
@@ -96,23 +117,23 @@
       aria-modal="true"
       aria-labelledby={titleId}
       tabindex="-1"
-      on:keydown={onKeydown}
+      onkeydown={onKeydown}
       transition:fly={{ y: 12, duration: 160 }}
     >
       <header class="modal-head">
         <h2 id={titleId} class="modal-title">{title}</h2>
-        <slot name="title-extra" />
+        {@render titleExtra?.()}
         <span class="spacer"></span>
-        <IconButton label="Fermer" on:click={close}>
+        <IconButton label="Fermer" onclick={close}>
           <IconX size={18} strokeWidth={1.75} />
         </IconButton>
       </header>
       <div class="modal-body">
-        <slot />
+        {@render children?.()}
       </div>
-      {#if $$slots.footer}
+      {#if footer}
         <footer class="modal-foot">
-          <slot name="footer" />
+          {@render footer()}
         </footer>
       {/if}
     </div>

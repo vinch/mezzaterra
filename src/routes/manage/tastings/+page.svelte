@@ -1,4 +1,6 @@
 <script lang="ts">
+  import { preventDefault } from "$lib/ui/events";
+
   import { NEW_ROW, supabase } from "$lib/supabase";
   import { onMount } from "svelte";
   import type { Customer, Tasting } from "$lib/types";
@@ -30,23 +32,23 @@
     customer: Customer;
   };
 
-  let tastings: TastingRow[] = [];
-  let customers: Customer[] = [];
-  let wineVintages: any[] = [];
-  let loading = true;
-  let error = "";
-  let showModal = false;
-  let editingTasting: TastingRow | null = null;
-  let modalWines: ModalWineEntry[] = [];
-  let modalCustomers: ModalCustomerEntry[] = [];
+  let tastings = $state<TastingRow[]>([]);
+  let customers = $state.raw<Customer[]>([]);
+  let wineVintages = $state.raw<any[]>([]);
+  let loading = $state(true);
+  let error = $state("");
+  let showModal = $state(false);
+  let editingTasting = $state<TastingRow | null>(null);
+  let modalWines = $state<ModalWineEntry[]>([]);
+  let modalCustomers = $state<ModalCustomerEntry[]>([]);
   /** Participants à l'ouverture du formulaire : seuls les ajouts et retraits sont enregistrés. */
   let initialCustomerIds: string[] = [];
-  let selectedVintageId = "";
-  let selectedCustomerId = "";
-  let saving = false;
-  let cardsBusyId = "";
+  let selectedVintageId = $state("");
+  let selectedCustomerId = $state("");
+  let saving = $state(false);
+  let cardsBusyId = $state("");
 
-  let formData = {
+  let formData = $state({
     name: "",
     date: "",
     location: "",
@@ -56,7 +58,7 @@
     capacity: "",
     description: "",
     is_private: false,
-  };
+  });
 
   onMount(async () => {
     /* Chaque liste est gardée même si une autre échoue. */
@@ -397,11 +399,13 @@
 </svelte:head>
 
 <ManagePageShell title="Dégustations">
-  <svelte:fragment slot="actions">
-    <button type="button" class="btn-primary" on:click={openCreateModal}>
-      + Nouvelle dégustation
-    </button>
-  </svelte:fragment>
+  {#snippet actions()}
+
+      <button type="button" class="btn-primary" onclick={openCreateModal}>
+        + Nouvelle dégustation
+      </button>
+
+  {/snippet}
 
   {#if error && !showModal}
     <div class="error-message">{error}</div>
@@ -412,7 +416,7 @@
   {:else if tastings.length === 0}
     <div class="empty-state">
       <p>Aucune dégustation enregistrée.</p>
-      <button type="button" class="btn-primary" on:click={openCreateModal}>
+      <button type="button" class="btn-primary" onclick={openCreateModal}>
         Créer la première dégustation
       </button>
     </div>
@@ -457,21 +461,21 @@
                     type="button"
                     class="ui-btn ui-btn--secondary ui-btn--sm"
                     disabled={cardsBusyId === tasting.id}
-                    on:click={() => downloadCards(tasting)}
+                    onclick={() => downloadCards(tasting)}
                   >
                     {cardsBusyId === tasting.id ? "…" : "Fiches de table"}
                   </button>
                   <button
                     type="button"
                     class="ui-btn ui-btn--secondary ui-btn--sm"
-                    on:click={() => openEditModal(tasting)}
+                    onclick={() => openEditModal(tasting)}
                   >
                     Modifier
                   </button>
                   <button
                     type="button"
                     class="ui-btn ui-btn--danger ui-btn--sm"
-                    on:click={() => deleteTasting(tasting)}
+                    onclick={() => deleteTasting(tasting)}
                   >
                     Supprimer
                   </button>
@@ -485,8 +489,8 @@
   {/if}
 </ManagePageShell>
 
-<Modal open={showModal} title={editingTasting ? "Modifier la dégustation" : "Nouvelle dégustation"} on:close={closeModal}>
-  <form id="tasting-form" on:submit|preventDefault={handleSubmit}>
+<Modal open={showModal} title={editingTasting ? "Modifier la dégustation" : "Nouvelle dégustation"} onclose={closeModal}>
+  <form id="tasting-form" onsubmit={preventDefault(handleSubmit)}>
     {#if error && showModal}
       <div class="error-message">{error}</div>
     {/if}
@@ -554,7 +558,7 @@
                   class="btn-icon"
                   title="Monter"
                   disabled={i === 0}
-                  on:click={() => moveWine(i, -1)}
+                  onclick={() => moveWine(i, -1)}
                   aria-label="Monter"
                 >
                   ↑
@@ -564,7 +568,7 @@
                   class="btn-icon"
                   title="Descendre"
                   disabled={i === modalWines.length - 1}
-                  on:click={() => moveWine(i, 1)}
+                  onclick={() => moveWine(i, 1)}
                   aria-label="Descendre"
                 >
                   ↓
@@ -573,7 +577,7 @@
                   type="button"
                   class="ui-remove"
                   title="Retirer"
-                  on:click={() => removeWineFromList(i)}
+                  onclick={() => removeWineFromList(i)}
                   aria-label="Retirer"
                 >
                   ×
@@ -585,23 +589,21 @@
       {/if}
 
       <div class="add-wine-row">
-        {#key modalWines.map((e) => e.wine_vintage_id).join("|")}
-          <ProductVintageAutocomplete
-            bind:value={selectedVintageId}
-            wineVintages={wineVintages.filter((v) => !isDiscontinued(v))}
-            includeTastingOption={false}
-            disableWhenNoStock={false}
-            isVintageAlreadyAdded={isVintageInModal}
-            formatLabel={vintageLabel}
-            getAvailableStock={() => 0}
-            placeholder="Rechercher un millésime…"
-          />
-        {/key}
+        <ProductVintageAutocomplete
+          bind:value={selectedVintageId}
+          wineVintages={wineVintages.filter((v) => !isDiscontinued(v))}
+          includeTastingOption={false}
+          disableWhenNoStock={false}
+          isVintageAlreadyAdded={isVintageInModal}
+          formatLabel={vintageLabel}
+          getAvailableStock={() => 0}
+          placeholder="Rechercher un millésime…"
+        />
         <button
           type="button"
           class="ui-btn ui-btn--secondary ui-btn--sm"
           disabled={!selectedVintageId}
-          on:click={addWineToTasting}
+          onclick={addWineToTasting}
         >
           Ajouter
         </button>
@@ -622,7 +624,7 @@
                   type="button"
                   class="ui-remove"
                   title="Retirer"
-                  on:click={() => removeCustomerFromList(i)}
+                  onclick={() => removeCustomerFromList(i)}
                   aria-label="Retirer"
                 >
                   ×
@@ -633,19 +635,17 @@
         {/if}
 
         <div class="add-customer-row">
-          {#key modalCustomers.map((e) => e.customer_id).join("|")}
-            <CustomerAutocomplete
-              bind:value={selectedCustomerId}
-              {customers}
-              isCustomerAlreadyAdded={isCustomerInModal}
-              placeholder="Rechercher un client…"
-            />
-          {/key}
+          <CustomerAutocomplete
+            bind:value={selectedCustomerId}
+            {customers}
+            isCustomerAlreadyAdded={isCustomerInModal}
+            placeholder="Rechercher un client…"
+          />
           <button
             type="button"
             class="ui-btn ui-btn--secondary ui-btn--sm"
             disabled={!selectedCustomerId}
-            on:click={addCustomerToTasting}
+            onclick={addCustomerToTasting}
           >
             Ajouter
           </button>
@@ -653,10 +653,12 @@
       </div>
     </div>
   </form>
-  <svelte:fragment slot="footer">
-    <Button variant="ghost" on:click={closeModal} disabled={saving}>Annuler</Button>
-    <Button variant="primary" type="submit" form="tasting-form" disabled={saving}>{saving ? "Enregistrement…" : editingTasting ? "Mettre à jour" : "Créer"}</Button>
-  </svelte:fragment>
+  {#snippet footer()}
+
+      <Button variant="ghost" onclick={closeModal} disabled={saving}>Annuler</Button>
+      <Button variant="primary" type="submit" form="tasting-form" disabled={saving}>{saving ? "Enregistrement…" : editingTasting ? "Mettre à jour" : "Créer"}</Button>
+
+  {/snippet}
 </Modal>
 
 <style>
