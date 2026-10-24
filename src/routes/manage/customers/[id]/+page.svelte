@@ -1,7 +1,8 @@
 <script lang="ts">
   import { onMount } from "svelte";
   import { page } from "$app/stores";
-  import { escapeLike, supabase } from "$lib/supabase";
+  import { escapeLike, fetchAllRows, supabase } from "$lib/supabase";
+  import { errorMessage } from "$lib/async";
   import { fetchStockMap } from "$lib/manageData";
   import { goto } from "$app/navigation";
   import ManagePageShell from "$lib/components/manage/ManagePageShell.svelte";
@@ -32,6 +33,8 @@
   let feedback: any[] = [];
   let vintages: any[] = [];
   let stock = new Map<string, number>();
+  /** Stock illisible : les suggestions (vins en stock) ne peuvent pas être calculées. */
+  let stockFailed = false;
 
   onMount(async () => {
     try {
@@ -46,22 +49,30 @@
           .from("tasting_customer")
           .select("tasting ( id, name, date, location )")
           .eq("customer_id", customerId),
-        supabase
-          .from("wine_vintage")
-          .select(
-            "id, wine_id, year, production_year, price, purchase_price, wine ( id, name, winery ( name ), appelation ( name, label ( name ) ), wine_type ( name, category ) )",
-          ),
-        /* Le stock ne sert qu'aux suggestions : sans lui, la fiche reste lisible. */
-        fetchStockMap().catch(() => new Map<string, number>()),
+        fetchAllRows<any>((from, to) =>
+          supabase
+            .from("wine_vintage")
+            .select(
+              "id, wine_id, year, production_year, price, purchase_price, wine ( id, name, winery ( name ), appelation ( name, label ( name ) ), wine_type ( name, category ) )",
+            )
+            .order("id")
+            .range(from, to),
+        ),
+        /* Le stock ne sert qu'aux suggestions : sans lui, le reste de la fiche reste lisible. */
+        fetchStockMap().catch(() => {
+          stockFailed = true;
+          return new Map<string, number>();
+        }),
       ]);
-      if (cRes.error) throw new Error(cRes.error.message);
+      const failed = [cRes, sRes, tRes].find((r) => r.error);
+      if (failed?.error) throw new Error(failed.error.message);
       customer = cRes.data;
       sales = sRes.data || [];
       tastings = ((tRes.data || []) as any[])
         .map((r) => r.tasting)
         .filter(Boolean)
         .sort((a, b) => b.date.localeCompare(a.date));
-      vintages = vRes.data || [];
+      vintages = vRes;
       stock = iRes;
 
       if (customer?.email) {
@@ -75,7 +86,7 @@
         feedback = [...latest.values()].filter((f) => f.rating || f.comment);
       }
     } catch (e) {
-      error = e instanceof Error ? e.message : String(e);
+      error = errorMessage(e);
     } finally {
       loading = false;
     }
@@ -286,7 +297,11 @@
       <Card title="À lui proposer" id="suggest">
         <span slot="actions" class="t-caption">{selectedSuggestions.length} vin{selectedSuggestions.length > 1 ? "s" : ""} sélectionné{selectedSuggestions.length > 1 ? "s" : ""} pour l’envoi</span>
         {#if suggestions.length === 0}
-          <EmptyState icon={IconSparkle} title="Pas de suggestion pour l’instant" compact />
+          <EmptyState
+            icon={IconSparkle}
+            title={stockFailed ? "Stock indisponible : suggestions impossibles" : "Pas de suggestion pour l’instant"}
+            compact
+          />
         {:else}
           <ul class="list">
             {#each suggestions as sg (sg.vintage.id)}
