@@ -37,12 +37,16 @@ export async function fetchStockMap(): Promise<Map<string, number>> {
   return new Map((data || []).map((r) => [r.wine_vintage_id as string, r.quantity_on_hand ?? 0]));
 }
 
-/** Prix d'une ligne de commande : le sien, sinon le prix d'achat du millésime. */
+/** Lignes d'articles (vente ou commande) : de quoi les libeller et les chiffrer. */
+export const LINE_ITEMS_SELECT =
+  "price, quantity, wine_vintage_id, wine_vintage ( year, production_year, purchase_price, wine ( name, winery ( name ), appelation ( name ) ) )";
+
+/** Prix d'une ligne de commande : le sien (0 compris, ex. bouteilles offertes), sinon le prix d'achat du millésime. */
 export function orderItemPrice(item: {
   price: number | null;
   wine_vintage?: { purchase_price?: number | null } | null;
 }): number {
-  return item.price || item.wine_vintage?.purchase_price || 0;
+  return item.price ?? item.wine_vintage?.purchase_price ?? 0;
 }
 
 /**

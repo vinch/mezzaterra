@@ -3,7 +3,7 @@ import type { Database } from "./database.types";
 
 /**
  * Stock disponible mis en forme pour les documents (tarifs, feuilles de notes) et la page Stock.
- * Sans jsPDF : les générateurs PDF vivent dans manageDocumentPdfs.ts, chargé à la demande.
+ * Sans jsPDF : les générateurs PDF vivent dans pdf/stockDocumentsPdf.ts, chargé à la demande.
  */
 
 export type StockDocVintage = {

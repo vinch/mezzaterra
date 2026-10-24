@@ -122,7 +122,7 @@
     }
     try {
       /* jsPDF n'est chargé qu'au moment de générer un document. */
-      const { downloadPricesPdf } = await import("$lib/manageDocumentPdfs");
+      const { downloadPricesPdf } = await import("$lib/pdf/stockDocumentsPdf");
       await downloadPricesPdf(rows, new Set(selectedVintageIds));
     } catch (e) {
       docError = e instanceof Error ? e.message : "Erreur PDF";
@@ -164,7 +164,7 @@
     }
     notesPdfGenerating = true;
     try {
-      const { downloadNotesPdf } = await import("$lib/manageDocumentPdfs");
+      const { downloadNotesPdf } = await import("$lib/pdf/stockDocumentsPdf");
       await downloadNotesPdf(notesModalRows, {
         tastingDate: notesTastingDate || todayIso(),
       });
