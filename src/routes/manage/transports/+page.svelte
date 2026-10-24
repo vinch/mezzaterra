@@ -8,8 +8,7 @@
   import StatusBadge from "$lib/ui/StatusBadge.svelte";
   import { KIND_META, statusMeta } from "$lib/status";
   import ManagePageShell from "$lib/components/manage/ManagePageShell.svelte";
-  import { orderItemPrice as itemPrice, withOrderTotals } from "$lib/manageData";
-  import { todayIso } from "$lib/dates";
+  import { orderItemPrice as itemPrice } from "$lib/manageData";
   import { formatDate, formatEUR } from "$lib/format";
   import { vintageProductLabel } from "$lib/wine";
 
@@ -179,60 +178,15 @@
       }
     }
 
-    const { error: updateError } = await supabase
-      .from("transport")
-      .update({ status: newStatus })
-      .eq("id", transportId);
+    /* Statut et entrée en stock à la livraison en une transaction (fonction SQL set_transport_status). */
+    const { error: statusError } = await supabase.rpc("set_transport_status", {
+      p_transport_id: transportId,
+      p_status: newStatus,
+    });
 
-    if (updateError) {
-      error = updateError.message;
+    if (statusError) {
+      error = statusError.message;
       return false;
-    }
-
-    // If status is changed to "delivered", create stock_move records
-    if (newStatus === "delivered" && currentStatus !== "delivered") {
-      // Load all orders associated with this transport
-      const { data: orders, error: ordersError } = await supabase
-        .from("order")
-        .select("id")
-        .eq("transport_id", transportId);
-
-      if (ordersError) {
-        error = `Erreur lors du chargement des commandes: ${ordersError.message}`;
-        return false;
-      }
-
-      if (orders && orders.length > 0) {
-        // Load all order items for all orders
-        const orderIds = orders.map((o) => o.id);
-        const { data: orderItems, error: itemsError } = await supabase
-          .from("order_item")
-          .select("wine_vintage_id, quantity")
-          .in("order_id", orderIds);
-
-        if (itemsError) {
-          error = `Erreur lors du chargement des articles: ${itemsError.message}`;
-          return false;
-        }
-
-        // One stock_move per item, inserted together
-        if (orderItems?.length) {
-          const { error: stockMoveError } = await supabase.from("stock_move").insert(
-            orderItems.map((item) => ({
-              wine_vintage_id: item.wine_vintage_id,
-              reason: "purchase_in",
-              quantity: Math.abs(item.quantity), // Positive for in
-              date: todayIso(),
-              note: "Réception transport",
-            })),
-          );
-
-          if (stockMoveError) {
-            error = `Erreur lors de la création du mouvement de stock: ${stockMoveError.message}`;
-            return false;
-          }
-        }
-      }
     }
 
     // Update the local state
@@ -303,9 +257,7 @@
     detailsOrders = (orders || []).map(({ order_item: items, ...order }) => ({
       ...order,
       items,
-      // Calculate total if missing
-      total_price:
-        order.total_price || items.reduce((sum, item) => sum + itemPrice(item) * item.quantity, 0),
+      total_price: order.total_price,
     }));
   }
 
@@ -327,7 +279,7 @@
       return;
     }
 
-    availableOrders = await withOrderTotals(data || []);
+    availableOrders = data || [];
   }
 
   async function loadAssociatedOrders(transportId: string) {
@@ -347,7 +299,7 @@
       return;
     }
 
-    associatedOrders = await withOrderTotals(data || []);
+    associatedOrders = data || [];
   }
 
   function toggleOrderSelection(orderId: string) {

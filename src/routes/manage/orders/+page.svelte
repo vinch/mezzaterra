@@ -218,61 +218,25 @@
       note: formData.note || null,
     };
 
-    let orderId: string;
-    if (editingOrder) {
-      orderId = editingOrder.id;
-      const { error: updateError } = await supabase
-        .from("order")
-        .update(orderData)
-        .eq("id", orderId);
-
-      if (updateError) {
-        error = updateError.message;
-        return;
-      }
-
-      // Delete existing order items
-      const { error: deleteError } = await supabase
-        .from("order_item")
-        .delete()
-        .eq("order_id", orderId);
-
-      if (deleteError) {
-        error = deleteError.message;
-        return;
-      }
-    } else {
-      const { data: newOrder, error: insertError } = await supabase
-        .from("order")
-        .insert({ ...orderData, transport_id: null })
-        .select("id")
-        .single();
-
-      if (insertError) {
-        error = insertError.message;
-        return;
-      }
-      orderId = newOrder.id;
-    }
-
-    const { error: itemError } = await supabase.from("order_item").insert(
-      orderItems.map((item) => ({
-        order_id: orderId,
+    /* Commande et lignes enregistrées ensemble (fonction SQL save_order) : tout ou rien. */
+    const { error: saveError } = await supabase.rpc("save_order", {
+      p_order_id: editingOrder?.id ?? null,
+      p_order: orderData,
+      p_items: orderItems.map((item) => ({
         wine_vintage_id: item.wine_vintage_id,
         quantity: item.quantity,
         price: item.price,
         note: item.note || null,
       })),
-    );
+    });
 
-    if (itemError) {
-      error = itemError.message;
+    if (saveError) {
+      error = saveError.message;
       return;
     }
 
     error = "";
     closeForm();
-    error = "";
     await invalidateAll();
   }
 

@@ -40,7 +40,6 @@
   import {
     PAYMENT_METHOD_OPTIONS,
     TASTING_LINE_NOTE,
-    ensureInvoiceNumber,
     itemsSubtotal,
     paymentMethodLabel,
     saleItemDescription,
@@ -366,11 +365,6 @@
       return;
     }
 
-    if (editingSale?.status === "closed" || editingSale?.status === "cancelled") {
-      error = "Impossible de modifier une vente clôturée ou annulée";
-      return;
-    }
-
     const gGlobal = toNumber(formData.global_discount);
     if (
       gGlobal > 0 &&
@@ -384,7 +378,6 @@
     const saleData = {
       date: formData.date,
       customer_id: formData.customer_id,
-      status: editingSale ? editingSale.status : "pending", // Keep the original status
       total_price: total,
       note: formData.note || null,
       global_discount: gGlobal > 0 ? gGlobal : null,
@@ -397,46 +390,11 @@
 
     saving = true;
     try {
-      let saleId: string;
-      if (editingSale) {
-        saleId = editingSale.id;
-        const { error: updateError } = await supabase
-          .from("sale")
-          .update(saleData)
-          .eq("id", saleId);
-
-        if (updateError) {
-          error = updateError.message;
-          return;
-        }
-
-        // Delete existing sale items
-        const { error: deleteError } = await supabase
-          .from("sale_item")
-          .delete()
-          .eq("sale_id", saleId);
-
-        if (deleteError) {
-          error = deleteError.message;
-          return;
-        }
-      } else {
-        const { data: newSale, error: insertError } = await supabase
-          .from("sale")
-          .insert(saleData)
-          .select("id")
-          .single();
-
-        if (insertError) {
-          error = insertError.message;
-          return;
-        }
-        saleId = newSale.id;
-      }
-
-      const { error: itemError } = await supabase.from("sale_item").insert(
-        saleItems.map((item) => ({
-          sale_id: saleId,
+      /* Vente et lignes enregistrées ensemble (fonction SQL save_sale) : tout ou rien. */
+      const { error: saveError } = await supabase.rpc("save_sale", {
+        p_sale_id: editingSale?.id ?? null,
+        p_sale: saleData,
+        p_items: saleItems.map((item) => ({
           wine_vintage_id: item.wine_vintage_id ?? null,
           quantity: item.quantity,
           price: toNumber(item.price),
@@ -444,10 +402,10 @@
           discount_type: item.discount_type || null,
           note: item.note || null,
         })),
-      );
+      });
 
-      if (itemError) {
-        error = itemError.message;
+      if (saveError) {
+        error = saveError.message;
         return;
       }
 
@@ -460,6 +418,11 @@
     }
   }
 
+  /**
+   * Changement de statut. Les règles (transitions permises, mode de paiement obligatoire), le
+   * déstockage et le numéro de facture sont appliqués par la fonction SQL set_sale_status, en une
+   * transaction ; ici, seulement les confirmations et un rappel du mode de paiement avant de demander.
+   */
   async function updateSaleStatus(
     saleId: string,
     newStatus: string,
@@ -469,149 +432,41 @@
       return true;
     }
 
-    if (currentStatus === "cancelled") {
-      error = "Impossible de modifier le statut d'une vente annulée.";
+    const stockHint =
+      currentStatus === "pending" ? "\n\nLe stock sera débité (hors lignes dégustation)." : "";
+
+    if (newStatus === "paid" && !String(sales.find((s) => s.id === saleId)?.payment_method ?? "").trim()) {
+      error = "Indiquez le mode de paiement (Modifier la vente) avant de marquer comme payée.";
       return false;
     }
 
-    if (currentStatus === "closed") {
-      error = "Impossible de modifier le statut d'une vente clôturée.";
+    const question =
+      newStatus === "closed"
+        ? "Clôturer cette vente ?\n\nElle ne pourra plus être modifiée ni changer de statut."
+        : newStatus === "delivered"
+          ? `Marquer cette vente comme livrée ?${stockHint}`
+          : newStatus === "paid"
+            ? `Marquer cette vente comme payée ?${stockHint}\n\nUn numéro de facture sera attribué si besoin.`
+            : null;
+    if (question && !confirm(question)) {
       return false;
     }
 
-    if (
-      newStatus === "pending" &&
-      (currentStatus === "paid" ||
-        currentStatus === "delivered" ||
-        currentStatus === "closed")
-    ) {
-      error =
-        "Impossible de repasser en « En attente » une fois la vente engagée (payée, livrée ou clôturée).";
+    const { data: invoiceNumber, error: statusError } = await supabase.rpc("set_sale_status", {
+      p_sale_id: saleId,
+      p_status: newStatus,
+    });
+
+    if (statusError) {
+      error = statusError.message;
       return false;
-    }
-
-    if (newStatus === "closed") {
-      if (currentStatus !== "paid" && currentStatus !== "delivered") {
-        error =
-          "Une vente ne peut être clôturée qu’à partir des statuts « Payée » ou « Livrée ».";
-        return false;
-      }
-      if (
-        !confirm(
-          "Clôturer cette vente ?\n\nElle ne pourra plus être modifiée ni changer de statut.",
-        )
-      ) {
-        return false;
-      }
-    }
-
-    if (newStatus === "delivered") {
-      const stockHint =
-        currentStatus === "pending"
-          ? "\n\nLe stock sera débité (hors lignes dégustation)."
-          : "";
-      if (!confirm(`Marquer cette vente comme livrée ?${stockHint}`)) {
-        return false;
-      }
-    }
-
-    if (newStatus === "paid") {
-      if (currentStatus !== "paid") {
-        const { data: salePm, error: pmErr } = await supabase
-          .from("sale")
-          .select("payment_method")
-          .eq("id", saleId)
-          .single();
-        if (pmErr || !String(salePm?.payment_method ?? "").trim()) {
-          error =
-            "Indiquez le mode de paiement (Modifier la vente) avant de marquer comme payée.";
-          return false;
-        }
-      }
-      const stockHint =
-        currentStatus === "pending"
-          ? "\n\nLe stock sera débité (hors lignes dégustation)."
-          : "";
-      if (
-        !confirm(
-          `Marquer cette vente comme payée ?${stockHint}\n\nUn numéro de facture sera attribué si besoin.`,
-        )
-      ) {
-        return false;
-      }
-    }
-
-    const { error: updateError } = await supabase
-      .from("sale")
-      .update({ status: newStatus })
-      .eq("id", saleId);
-
-    if (updateError) {
-      error = updateError.message;
-      return false;
-    }
-
-    /* Déstockage uniquement quand on quitte « En attente » vers Payée ou Livrée. */
-    const shouldApplyStockOut =
-      currentStatus === "pending" &&
-      (newStatus === "paid" || newStatus === "delivered");
-
-    if (shouldApplyStockOut) {
-      const [{ data: sale, error: saleError }, { data: items, error: itemsError }] = await Promise.all([
-        supabase.from("sale").select("customer ( first_name, last_name )").eq("id", saleId).single(),
-        supabase.from("sale_item").select("wine_vintage_id, quantity").eq("sale_id", saleId),
-      ]);
-
-      if (saleError) {
-        error = `Erreur lors du chargement de la vente: ${saleError.message}`;
-        return false;
-      }
-
-      if (itemsError) {
-        error = `Erreur lors du chargement des articles: ${itemsError.message}`;
-        return false;
-      }
-
-      const customerName = sale.customer
-        ? `${sale.customer.first_name} ${sale.customer.last_name}`
-        : "Client inconnu";
-      const note = `Vente à ${customerName}`;
-
-      const moves = (items || [])
-        .filter((item) => item.wine_vintage_id)
-        .map((item) => ({
-          wine_vintage_id: item.wine_vintage_id!,
-          reason: "sale_out",
-          quantity: -Math.abs(item.quantity),
-          date: todayIso(),
-          note: note,
-        }));
-      if (moves.length) {
-        const { error: stockMoveError } = await supabase.from("stock_move").insert(moves);
-        if (stockMoveError) {
-          error = `Erreur lors de la création du mouvement de stock: ${stockMoveError.message}`;
-          return false;
-        }
-      }
-    }
-
-    /* Numéro de facture attribué au passage en « Payée » ou à la clôture, s'il n'en a pas déjà un. */
-    if ((newStatus === "paid" && currentStatus !== "paid") || newStatus === "closed") {
-      const { data: saleForInv } = await supabase
-        .from("sale")
-        .select("id, date, invoice_number")
-        .eq("id", saleId)
-        .single();
-
-      if (saleForInv) {
-        await ensureInvoiceNumber(saleForInv).catch((err) => console.error("Numéro de facture :", err));
-      }
     }
 
     // Update the local state
     const saleIndex = sales.findIndex((s) => s.id === saleId);
     if (saleIndex !== -1) {
       sales[saleIndex].status = newStatus;
+      sales[saleIndex].invoice_number = invoiceNumber ?? sales[saleIndex].invoice_number;
       sales = [...sales];
     }
 
