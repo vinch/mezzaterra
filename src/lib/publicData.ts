@@ -1,4 +1,4 @@
-import { supabase } from "./supabase";
+import { fetchAllRows, supabase } from "./supabase";
 import { VINTAGE_PUBLIC_SELECT } from "./wine";
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -21,11 +21,11 @@ const SOLD_OUT: Availability = { in_stock: false, low_stock: false };
  */
 export async function fetchAvailability(): Promise<AvailabilityOf | null> {
   try {
-    const { data, error } = await supabase.rpc("public_wine_availability");
-    if (error || !data) return null;
-    const byVintage = new Map(
-      data.map((r) => [r.wine_vintage_id, { in_stock: r.in_stock, low_stock: r.low_stock }]),
+    /* Paginé : une ligne tronquée par la limite PostgREST passerait pour épuisée. */
+    const rows = await fetchAllRows<{ wine_vintage_id: string; in_stock: boolean; low_stock: boolean }>((a, b) =>
+      supabase.rpc("public_wine_availability").order("wine_vintage_id").range(a, b),
     );
+    const byVintage = new Map(rows.map((r) => [r.wine_vintage_id, { in_stock: r.in_stock, low_stock: r.low_stock }]));
     return (vintageId) => byVintage.get(vintageId) ?? SOLD_OUT;
   } catch {
     return null;
