@@ -124,7 +124,7 @@
     display: flex;
     flex-direction: column;
     line-height: 1;
-    color: #fff !important;
+    color: #fff;
     text-decoration: none;
   }
 
@@ -188,7 +188,7 @@
     border: none;
     border-radius: var(--r-sm);
     background: none;
-    color: rgba(255, 255, 255, 0.86) !important;
+    color: rgba(255, 255, 255, 0.86);
     font: inherit;
     text-align: left;
     text-decoration: none;
@@ -197,12 +197,12 @@
 
   .nav-item:hover {
     background: rgba(255, 255, 255, 0.07);
-    color: #fff !important;
+    color: #fff;
   }
 
   .nav-item.active {
     background: var(--night-active);
-    color: #fff !important;
+    color: #fff;
     font-weight: 600;
   }
 

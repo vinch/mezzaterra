@@ -408,7 +408,7 @@
       display: flex;
       align-items: baseline;
       gap: 8px;
-      color: #fff !important;
+      color: #fff;
       text-decoration: none;
     }
 
@@ -448,7 +448,7 @@
       min-height: 44px;
       border: none;
       background: none;
-      color: rgba(255, 255, 255, 0.78) !important;
+      color: rgba(255, 255, 255, 0.78);
       font: inherit;
       font-size: 11px;
       font-weight: 500;
@@ -457,7 +457,7 @@
     }
 
     .tab.active {
-      color: var(--gold) !important;
+      color: var(--gold);
       font-weight: 600;
     }
 

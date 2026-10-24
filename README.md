@@ -31,6 +31,13 @@ page et son mode live restent accessibles par lien.
 « plus jamais disponible » disparaît du site public (catalogue, domaine, fiche en 404), est grisé dans
 la gestion et n'est plus proposé au réassort ni dans les commandes fournisseur et dégustations.
 
+`20261024130000_sales_stock_transactions.sql` fait passer les écritures liées par des fonctions SQL
+transactionnelles : ventes et commandes avec leurs lignes (`save_sale`, `save_order`), changements de
+statut avec leurs mouvements de stock (`set_sale_status`, `set_transport_status`), numéro de facture
+atomique et continu (`assign_invoice_number`), réassort, rattachement des commandes à un transport et
+enregistrement d'une dégustation. Le total d'une commande est tenu par un trigger sur ses lignes. Le
+code de l'admin appelle ces fonctions (migration appliquée en production le 24/10/2026).
+
 `20261024140000_wine_vintage_reuse_image.sql` donne aux millésimes sans image celle d'un autre
 millésime du même vin (le plus proche, de préférence plus ancien). Un nouveau millésime propose de
 même de reprendre l'image du dernier millésime qui en a une.

@@ -8,7 +8,7 @@
   import KpiCard from "$lib/ui/KpiCard.svelte";
   import EmptyState from "$lib/ui/EmptyState.svelte";
   import StockBadge from "$lib/ui/StockBadge.svelte";
-  import WineDot, { robeOf } from "$lib/ui/WineDot.svelte";
+  import WineDot from "$lib/ui/WineDot.svelte";
   import {
     IconBox,
     IconCalendar,
@@ -342,7 +342,7 @@
               {#each topWines as w}
                 <li>
                   <span class="rank-name">
-                    <WineDot robe={robeOf(w.vintage.wine?.wine_type)} />
+                    <WineDot type={w.vintage.wine?.wine_type} />
                     <span><strong>{vintageShortLabel(w.vintage)}</strong><span class="t-muted">&nbsp;· {w.vintage.wine?.winery?.name ?? ""}</span></span>
                   </span>
                   <span class="rank-value"><strong>{formatEUR(w.revenue)}</strong><span class="t-muted">{w.sold} bt.</span></span>
@@ -362,7 +362,7 @@
             <ul class="list">
               {#each stockAlerts.slice(0, 8) as s}
                 <li>
-                  <WineDot robe={robeOf(s.vintage.wine?.wine_type)} />
+                  <WineDot type={s.vintage.wine?.wine_type} />
                   <span class="list-main">
                     <span><strong>{vintageShortLabel(s.vintage)}</strong><span class="t-muted">&nbsp;· {s.vintage.wine?.winery?.name ?? ""}</span></span>
                     <span class="t-caption">{s.sold ? `${s.sold} vendue${s.sold > 1 ? "s" : ""}` : "aucune vente"}</span>
@@ -389,7 +389,7 @@
             <ul class="list">
               {#each dormant.slice(0, 6) as s}
                 <li>
-                  <WineDot robe={robeOf(s.vintage.wine?.wine_type)} />
+                  <WineDot type={s.vintage.wine?.wine_type} />
                   <span class="list-main">
                     <span><strong>{vintageShortLabel(s.vintage)}</strong><span class="t-muted">&nbsp;· {s.vintage.wine?.winery?.name ?? ""}</span></span>
                     <span class="t-caption">

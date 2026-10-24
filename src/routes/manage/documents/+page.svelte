@@ -9,10 +9,10 @@
     fetchStockDocVintages,
     sortedStockForDocuments,
     stockVintageLabel as vintageLabel,
-    wineTypeLabelFr,
     type StockDocVintage,
   } from "$lib/stockDocuments";
   import { todayIso } from "$lib/dates";
+  import { wineTypeLabel } from "$lib/wine";
 
   let rows: StockDocVintage[] = [];
   let loading = true;
@@ -122,7 +122,7 @@
     }
     try {
       /* jsPDF n'est chargé qu'au moment de générer un document. */
-      const { downloadPricesPdf } = await import("$lib/manageDocumentPdfs");
+      const { downloadPricesPdf } = await import("$lib/pdf/stockDocumentsPdf");
       await downloadPricesPdf(rows, new Set(selectedVintageIds));
     } catch (e) {
       docError = e instanceof Error ? e.message : "Erreur PDF";
@@ -164,7 +164,7 @@
     }
     notesPdfGenerating = true;
     try {
-      const { downloadNotesPdf } = await import("$lib/manageDocumentPdfs");
+      const { downloadNotesPdf } = await import("$lib/pdf/stockDocumentsPdf");
       await downloadNotesPdf(notesModalRows, {
         tastingDate: notesTastingDate || todayIso(),
       });
@@ -288,7 +288,7 @@
                 </td>
                 <td>{r.wineryName}</td>
                 <td><strong>{r.wineName}</strong></td>
-                <td>{wineTypeLabelFr(r.wineTypeName)}</td>
+                <td>{wineTypeLabel({ name: r.wineTypeName })}</td>
                 <td>{vintageLabel(r)}</td>
                 <td class="num">
                   {r.price != null ? `${r.price.toFixed(2)}` : "—"}
@@ -331,7 +331,7 @@
             <strong>{row.wineryName}</strong>
             <span class="notes-order-wine">{row.wineName}</span>
             <span class="notes-order-meta"
-              >{wineTypeLabelFr(row.wineTypeName)} · {vintageLabel(row)}</span
+              >{wineTypeLabel({ name: row.wineTypeName })} · {vintageLabel(row)}</span
             >
           </div>
           <div class="notes-order-actions">

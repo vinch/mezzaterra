@@ -35,5 +35,12 @@ export function statusMeta(kind: StatusKind, status: string | null | undefined):
   return KIND_META[kind][status ?? "pending"] ?? { label: status ?? "", tone: "closed", icon: IconLock };
 }
 
+/** Transitions de statut d'une vente proposées dans les menus (mêmes règles que set_sale_status en base). */
+export const SALE_TRANSITIONS: Record<string, SaleStatus[]> = {
+  pending: ["paid", "delivered"],
+  paid: ["delivered", "closed"],
+  delivered: ["paid", "closed"],
+};
+
 /** Ventes encore modifiables : leur badge devient un bouton. */
-export const EDITABLE_STATUSES: SaleStatus[] = ["pending", "paid", "delivered"];
+export const EDITABLE_STATUSES = Object.keys(SALE_TRANSITIONS) as SaleStatus[];

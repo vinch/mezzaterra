@@ -1285,6 +1285,25 @@ export type Database = {
       }
     }
     Functions: {
+      add_to_supplier_order: {
+        Args: {
+          p_price: number
+          p_quantity: number
+          p_supplier_id: string
+          p_vintage_id: string
+        }
+        Returns: {
+          created: boolean
+          order_id: string
+        }[]
+      }
+      assert_admin: { Args: never; Returns: undefined }
+      assign_invoice_number: { Args: { p_sale_id: string }; Returns: string }
+      attach_orders_to_transport: {
+        Args: { p_order_ids: string[]; p_transport_id: string }
+        Returns: undefined
+      }
+      brussels_today: { Args: never; Returns: string }
       is_admin: { Args: never; Returns: boolean }
       my_notebook: { Args: never; Returns: Json }
       public_wine_availability: {
@@ -1305,6 +1324,37 @@ export type Database = {
           p_tasting_id: string
         }
         Returns: string
+      }
+      save_order: {
+        Args: { p_items: Json; p_order: Json; p_order_id: string }
+        Returns: string
+      }
+      save_sale: {
+        Args: {
+          p_items: Json
+          p_sale: Json
+          p_sale_id: string
+          p_wish_id?: string
+        }
+        Returns: string
+      }
+      save_tasting: {
+        Args: {
+          p_added_customer_ids: string[]
+          p_removed_customer_ids: string[]
+          p_tasting: Json
+          p_tasting_id: string
+          p_wine_ids: string[]
+        }
+        Returns: string
+      }
+      set_sale_status: {
+        Args: { p_sale_id: string; p_status: string }
+        Returns: string
+      }
+      set_transport_status: {
+        Args: { p_status: string; p_transport_id: string }
+        Returns: undefined
       }
       tasting_availability: {
         Args: { p_tasting_id: string }

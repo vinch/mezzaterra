@@ -44,7 +44,7 @@
     display: inline-flex;
     align-items: center;
     gap: 0.65rem;
-    color: var(--mz-teal, #256169);
+    color: var(--mz-teal);
     text-decoration: none;
     font-weight: 600;
     padding: 0.75rem 1rem;
@@ -56,12 +56,12 @@
   }
 
   .footer-link:hover {
-    background-color: var(--mz-teal-wash, rgba(37, 97, 105, 0.08));
+    background-color: var(--mz-teal-wash);
     transform: translateY(-1px);
   }
 
   .footer-link.active {
-    background-color: var(--mz-teal-wash, rgba(37, 97, 105, 0.08));
+    background-color: var(--mz-teal-wash);
   }
 
   svg.footer-icon {

@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { supabase } from "$lib/supabase";
+  import { NEW_ROW, supabase } from "$lib/supabase";
   import { onMount } from "svelte";
   import { invalidateAll } from "$app/navigation";
   import type { PageData } from "./$types";
@@ -8,8 +8,9 @@
   import StatusBadge from "$lib/ui/StatusBadge.svelte";
   import { KIND_META, statusMeta } from "$lib/status";
   import ManagePageShell from "$lib/components/manage/ManagePageShell.svelte";
-  import { fetchPickerVintages, orderItemPrice } from "$lib/manageData";
-  import { parseIsoDate, todayIso } from "$lib/dates";
+  import { fetchPickerVintages } from "$lib/manageData";
+  import { todayIso } from "$lib/dates";
+  import type { OrderPdfLanguage } from "$lib/pdf/purchaseOrderPdf";
   import { formatDate, formatEUR } from "$lib/format";
   import { isDiscontinued, vintageProductLabel } from "$lib/wine";
 
@@ -81,7 +82,7 @@
       wine_vintage: item.wine_vintage,
       wine_vintage_id: item.wine_vintage_id,
       quantity: item.quantity,
-      price: orderItemPrice(item),
+      price: item.price,
       note: item.note || "",
     }));
     formOpen = true;
@@ -212,66 +213,29 @@
     const orderData = {
       date: formData.date,
       supplier_id: formData.supplier_id,
-      status: formData.status || "pending",
-      total_price: total,
+      status: formData.status,
       note: formData.note || null,
     };
 
-    let orderId: string;
-    if (editingOrder) {
-      orderId = editingOrder.id;
-      const { error: updateError } = await supabase
-        .from("order")
-        .update(orderData)
-        .eq("id", orderId);
-
-      if (updateError) {
-        error = updateError.message;
-        return;
-      }
-
-      // Delete existing order items
-      const { error: deleteError } = await supabase
-        .from("order_item")
-        .delete()
-        .eq("order_id", orderId);
-
-      if (deleteError) {
-        error = deleteError.message;
-        return;
-      }
-    } else {
-      const { data: newOrder, error: insertError } = await supabase
-        .from("order")
-        .insert({ ...orderData, transport_id: null })
-        .select("id")
-        .single();
-
-      if (insertError) {
-        error = insertError.message;
-        return;
-      }
-      orderId = newOrder.id;
-    }
-
-    const { error: itemError } = await supabase.from("order_item").insert(
-      orderItems.map((item) => ({
-        order_id: orderId,
+    /* Commande et lignes enregistrées ensemble (fonction SQL save_order) : tout ou rien. */
+    const { error: saveError } = await supabase.rpc("save_order", {
+      p_order_id: editingOrder?.id ?? NEW_ROW,
+      p_order: orderData,
+      p_items: orderItems.map((item) => ({
         wine_vintage_id: item.wine_vintage_id,
         quantity: item.quantity,
         price: item.price,
         note: item.note || null,
       })),
-    );
+    });
 
-    if (itemError) {
-      error = itemError.message;
+    if (saveError) {
+      error = saveError.message;
       return;
     }
 
     error = "";
     closeForm();
-    error = "";
     await invalidateAll();
   }
 
@@ -286,13 +250,16 @@
       return false;
     }
 
-    const { error: updateError } = await supabase
+    /* Filtré sur « non confirmée » : une commande confirmée entre-temps ailleurs ne bouge plus. */
+    const { data: updated, error: updateError } = await supabase
       .from("order")
       .update({ status: newStatus })
-      .eq("id", orderId);
+      .eq("id", orderId)
+      .neq("status", "confirmed")
+      .select("id");
 
-    if (updateError) {
-      error = updateError.message;
+    if (updateError || !updated?.length) {
+      error = updateError?.message ?? "Impossible de modifier le statut d'une commande confirmée";
       return false;
     }
 
@@ -318,79 +285,21 @@
       return;
     }
 
-    const { error: deleteError } = await supabase
+    const { data: deleted, error: deleteError } = await supabase
       .from("order")
       .delete()
-      .eq("id", id);
+      .eq("id", id)
+      .neq("status", "confirmed")
+      .select("id");
 
-    if (deleteError) {
-      error = deleteError.message;
+    if (deleteError || !deleted?.length) {
+      error = deleteError?.message ?? "Impossible de supprimer une commande confirmée";
       return;
     }
 
     error = "";
     await invalidateAll();
   }
-
-  // Translations for PDF
-  const translations = {
-    fr: {
-      documentTitleConfirmed: "COMMANDE",
-      documentTitlePending: "DEVIS",
-      date: "Date",
-      status: "Statut",
-      statusConfirmed: "Confirmée",
-      statusPending: "En attente",
-      description: "Description",
-      quantity: "Qté",
-      unitPrice: "Prix unitaire",
-      total: "Total",
-      totalLabel: "TOTAL",
-      transport: "Transport",
-      transporter: "Transporteur",
-      departureDate: "Date de départ",
-      arrivalDate: "Date d'arrivée",
-      note: "Note",
-    },
-    en: {
-      documentTitleConfirmed: "ORDER",
-      documentTitlePending: "QUOTE",
-      date: "Date",
-      status: "Status",
-      statusConfirmed: "Confirmed",
-      statusPending: "Pending",
-      description: "Description",
-      quantity: "Qty",
-      unitPrice: "Unit Price",
-      total: "Total",
-      totalLabel: "TOTAL",
-      transport: "Transport",
-      transporter: "Transporter",
-      departureDate: "Departure Date",
-      arrivalDate: "Arrival Date",
-      note: "Note",
-    },
-    it: {
-      documentTitleConfirmed: "ORDINE",
-      documentTitlePending: "PREVENTIVO",
-      date: "Data",
-      status: "Stato",
-      statusConfirmed: "Confermato",
-      statusPending: "In attesa",
-      description: "Descrizione",
-      quantity: "Qtà",
-      unitPrice: "Prezzo unitario",
-      total: "Totale",
-      totalLabel: "TOTALE",
-      transport: "Trasporto",
-      transporter: "Trasportatore",
-      departureDate: "Data di partenza",
-      arrivalDate: "Data di arrivo",
-      note: "Nota",
-    },
-  };
-
-  type Language = "fr" | "en" | "it";
 
   function openLanguageModal(orderId: string) {
     orderIdForPDF = orderId;
@@ -402,242 +311,13 @@
     orderIdForPDF = null;
   }
 
-  async function downloadOrderPDF(orderId: string, lang: Language = "fr") {
+  async function downloadOrderPDF(orderId: string, lang: OrderPdfLanguage) {
     try {
       /* jsPDF n'est chargé qu'au moment de générer le document. */
-      const { default: jsPDF } = await import("jspdf");
-      // Load order with supplier info
-      const { data: order, error: orderError } = await supabase
-        .from("order")
-        .select(
-          `
-          *,
-          supplier (*),
-          transport (
-            *,
-            transporter (*)
-          )
-        `
-        )
-        .eq("id", orderId)
-        .single();
-
-      if (orderError || !order) {
-        error = `Erreur lors du chargement de la commande: ${orderError?.message}`;
-        return;
-      }
-
-      // Load order items with wine info
-      const { data: items, error: itemsError } = await supabase
-        .from("order_item")
-        .select(
-          `
-          *,
-          wine_vintage (
-            *,
-            wine (
-              *,
-              winery (*),
-              appelation (*)
-            )
-          )
-        `
-        )
-        .eq("order_id", orderId);
-
-      if (itemsError || !items) {
-        error = `Erreur lors du chargement des articles: ${itemsError?.message}`;
-        return;
-      }
-
-      // Create PDF
-      const doc = new jsPDF();
-      const pageWidth = doc.internal.pageSize.getWidth();
-      const margin = 20;
-      let yPos = margin;
-
-      const t = translations[lang];
-      const localeMap = { fr: "fr-FR", en: "en-US", it: "it-IT" };
-      const locale = localeMap[lang];
-
-      // Header - use translated title based on status
-      const documentTitle =
-        order.status === "confirmed"
-          ? t.documentTitleConfirmed
-          : t.documentTitlePending;
-      doc.setFontSize(20);
-      doc.setFont("helvetica", "bold");
-      doc.text(documentTitle, pageWidth - margin, yPos, { align: "right" });
-      yPos += 12;
-
-      doc.setFontSize(10);
-      doc.setFont("helvetica", "normal");
-      doc.text(
-        `${t.date}: ${parseIsoDate(order.date).toLocaleDateString(locale)}`,
-        pageWidth - margin,
-        yPos,
-        { align: "right" }
-      );
-      yPos += 6;
-      doc.text(
-        `${t.status}: ${order.status === "confirmed" ? t.statusConfirmed : t.statusPending}`,
-        pageWidth - margin,
-        yPos,
-        {
-          align: "right",
-        }
-      );
-      yPos += 15;
-
-      // Company info (left side) and Supplier info (right side)
-      const supplierX = pageWidth - margin;
-      let supplierY = yPos;
-
-      // Company info (left side)
-      doc.setFontSize(12);
-      doc.setFont("helvetica", "bold");
-      doc.text("Mezzaterra", margin, yPos);
-      yPos += 6;
-
-      doc.setFontSize(10);
-      doc.setFont("helvetica", "normal");
-
-      // Supplier info (right side)
-      doc.setFontSize(12);
-      doc.setFont("helvetica", "bold");
-      doc.text(order.supplier.name, supplierX, supplierY, { align: "right" });
-      supplierY += 6;
-
-      doc.setFontSize(10);
-      doc.setFont("helvetica", "normal");
-
-      // Use the maximum Y position
-      yPos = Math.max(yPos, supplierY);
-      yPos += 15;
-
-      // Items table header
-      const descColStart = margin + 2;
-      const numericColWidth = 22;
-      const colSpacing = 2;
-
-      const totalColX = pageWidth - margin - numericColWidth / 2;
-      const priceColX = totalColX - numericColWidth - colSpacing;
-      const qtyColX = priceColX - numericColWidth - colSpacing;
-      const descColWidth = qtyColX - descColStart - numericColWidth / 2 - 15;
-
-      doc.setFontSize(9);
-      doc.setFont("helvetica", "bold");
-      doc.line(margin, yPos, pageWidth - margin, yPos);
-      yPos += 6;
-      doc.text(t.description, descColStart, yPos);
-      doc.text(t.quantity, qtyColX, yPos, { align: "center" });
-      doc.text(t.unitPrice, priceColX, yPos, { align: "center" });
-      doc.text(t.total, totalColX, yPos, { align: "center" });
-      yPos += 3;
-      doc.line(margin, yPos, pageWidth - margin, yPos);
-      yPos += 6;
-
-      // Items
-      doc.setFont("helvetica", "normal");
-
-      for (const item of items) {
-        if (yPos > doc.internal.pageSize.getHeight() - 40) {
-          doc.addPage();
-          yPos = margin + 20;
-        }
-
-        const productName = vintageProductLabel(item.wine_vintage);
-        const quantity = item.quantity;
-        const unitPrice = item.price || 0;
-        const itemTotal = unitPrice * quantity;
-
-        // Description (with wrapping)
-        const descriptionLines = doc.splitTextToSize(productName, descColWidth);
-        const startY = yPos;
-        doc.text(descriptionLines, descColStart, startY);
-        const itemHeight = Math.max(descriptionLines.length * 4.2, 6);
-
-        // Quantity - centered in column
-        doc.text(quantity.toString(), qtyColX, startY, { align: "center" });
-
-        // Unit price - centered in column
-        doc.text(`€${unitPrice.toFixed(2)}`, priceColX, startY, {
-          align: "center",
-        });
-
-        // Total - centered in column
-        doc.text(`€${itemTotal.toFixed(2)}`, totalColX, startY, {
-          align: "center",
-        });
-
-        yPos += itemHeight + 2;
-      }
-
-      yPos += 5;
-      doc.line(margin, yPos, pageWidth - margin, yPos);
-      yPos += 10;
-
-      // Total
-      doc.setFontSize(12);
-      doc.setFont("helvetica", "bold");
-      doc.text(
-        `${t.totalLabel}: €${order.total_price?.toFixed(2) || "0.00"}`,
-        pageWidth - margin,
-        yPos,
-        { align: "right" }
-      );
-
-      // Transport info if present
-      if (order.transport) {
-        yPos += 15;
-        doc.setFontSize(10);
-        doc.setFont("helvetica", "normal");
-        doc.setFont("helvetica", "bold");
-        doc.text(`${t.transport}:`, margin, yPos);
-        yPos += 5;
-        doc.setFont("helvetica", "normal");
-        doc.text(
-          `${t.transporter}: ${order.transport.transporter.name}`,
-          margin,
-          yPos
-        );
-        yPos += 5;
-        if (order.transport.departure_date) {
-          doc.text(
-            `${t.departureDate}: ${parseIsoDate(order.transport.departure_date).toLocaleDateString(locale)}`,
-            margin,
-            yPos
-          );
-          yPos += 5;
-        }
-        if (order.transport.arrival_date) {
-          doc.text(
-            `${t.arrivalDate}: ${parseIsoDate(order.transport.arrival_date).toLocaleDateString(locale)}`,
-            margin,
-            yPos
-          );
-        }
-      }
-
-      // Note if present
-      if (order.note) {
-        yPos += 15;
-        doc.setFontSize(10);
-        doc.setFont("helvetica", "normal");
-        doc.setFont("helvetica", "italic");
-        const noteLines = doc.splitTextToSize(
-          `${t.note}: ${order.note}`,
-          pageWidth - 2 * margin
-        );
-        doc.text(noteLines, margin, yPos);
-      }
-
-      // Save PDF
-      const dateStr = order.date.slice(0, 10);
-      const fileName = `${documentTitle}_${order.supplier.name.replace(/[^a-zA-Z0-9]/g, "_")}_${dateStr}.pdf`;
-      doc.save(fileName);
+      const { downloadOrderPdf } = await import("$lib/pdf/purchaseOrderPdf");
+      await downloadOrderPdf(orderId, lang);
     } catch (err) {
-      error = `Erreur lors de la génération du PDF: ${err}`;
+      error = `Erreur lors de la génération du PDF : ${err instanceof Error ? err.message : err}`;
       console.error(err);
     }
   }
@@ -936,39 +616,19 @@
   <div class="language-selection">
     <p>Sélectionnez la langue dans laquelle vous souhaitez générer le PDF :</p>
     <div class="language-buttons">
-      <button
-        class="btn-language"
-        on:click={async () => {
-          if (orderIdForPDF) {
-            await downloadOrderPDF(orderIdForPDF, "fr");
-            closeLanguageModal();
-          }
-        }}
-      >
-        🇫🇷 Français
-      </button>
-      <button
-        class="btn-language"
-        on:click={async () => {
-          if (orderIdForPDF) {
-            await downloadOrderPDF(orderIdForPDF, "en");
-            closeLanguageModal();
-          }
-        }}
-      >
-        🇬🇧 English
-      </button>
-      <button
-        class="btn-language"
-        on:click={async () => {
-          if (orderIdForPDF) {
-            await downloadOrderPDF(orderIdForPDF, "it");
-            closeLanguageModal();
-          }
-        }}
-      >
-        🇮🇹 Italiano
-      </button>
+      {#each [["fr", "🇫🇷 Français"], ["en", "🇬🇧 English"], ["it", "🇮🇹 Italiano"]] as [lang, label]}
+        <button
+          class="btn-language"
+          on:click={async () => {
+            if (orderIdForPDF) {
+              await downloadOrderPDF(orderIdForPDF, lang as OrderPdfLanguage);
+              closeLanguageModal();
+            }
+          }}
+        >
+          {label}
+        </button>
+      {/each}
     </div>
   </div>
 </Modal>
