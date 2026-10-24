@@ -61,7 +61,7 @@
         </tr>
       </thead>
       <tbody>
-        {#each stockInHandList as row}
+        {#each stockInHandList as row (row.id)}
           <tr>
             <td>{row.wineryName}</td>
             <td><strong>{row.wineName}</strong></td>
