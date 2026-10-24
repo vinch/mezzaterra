@@ -46,7 +46,7 @@
   {#if loading}
     <div class="loading">Chargement…</div>
   {:else if error}
-    <div class="error-message">{error}</div>
+    <div class="error-message" role="alert">{error}</div>
   {:else if stockInHandList.length === 0}
     <EmptyState icon={IconBox} title="Aucun vin avec du stock disponible" />
   {:else}
