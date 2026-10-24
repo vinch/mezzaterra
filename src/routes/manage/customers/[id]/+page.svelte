@@ -224,7 +224,6 @@
   back={{ href: "/manage/customers", label: "Clients" }}
 >
   {#snippet actions()}
-
       {#if customer}
         <Button href="/manage/sales?nouvelle=1&client={customerId}">Nouvelle vente</Button>
         {#if customer.email && selectedSuggestions.length}
@@ -232,7 +231,6 @@
         {/if}
         <RowMenu items={menuItems} label="Plus d’actions pour ce client" />
       {/if}
-
   {/snippet}
 
   {#if loading}
@@ -304,7 +302,7 @@
 
       <Card title="À lui proposer" id="suggest">
         {#snippet actions()}
-                        <span  class="t-caption">{selectedSuggestions.length} vin{selectedSuggestions.length > 1 ? "s" : ""} sélectionné{selectedSuggestions.length > 1 ? "s" : ""} pour l’envoi</span>
+                        <span class="t-caption">{selectedSuggestions.length} vin{selectedSuggestions.length > 1 ? "s" : ""} sélectionné{selectedSuggestions.length > 1 ? "s" : ""} pour l’envoi</span>
                       {/snippet}
         {#if suggestions.length === 0}
           <EmptyState

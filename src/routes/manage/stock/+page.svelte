@@ -36,7 +36,6 @@
 
 <ManagePageShell title="Stock">
   {#snippet actions()}
-
       <button
         type="button"
         class="btn-secondary"
@@ -45,7 +44,6 @@
       >
         Actualiser
       </button>
-
   {/snippet}
 
   {#if error}

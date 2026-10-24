@@ -72,6 +72,7 @@
   const formLoad = latestOnly((e) => (error = errorMessage(e)));
 
   function openCreateModal() {
+    error = "";
     formLoad.cancel();
     editingOrder = null;
     resetForm();
@@ -79,13 +80,17 @@
   }
 
   async function openEditModal(order: any) {
+    error = "";
     if (order.status === "confirmed") {
       error = "Impossible de modifier une commande confirmée";
       formLoad.cancel();
       return;
     }
 
-    const loaded = await formLoad.run(() => Promise.all([fetchPickerVintages(), loadOrderItems(order.id)]));
+    /* Catalogue lu au chargement de la page : relu seulement s'il avait échoué. */
+    const loaded = await formLoad.run(() =>
+      Promise.all([wineVintages.length ? wineVintages : fetchPickerVintages(), loadOrderItems(order.id)]),
+    );
     if (!loaded) return;
     const [vintages, items] = loaded;
 
@@ -348,9 +353,7 @@
 
 <ManagePageShell title="Commandes">
   {#snippet actions()}
-
       <button class="btn-primary" onclick={openCreateModal}>+ Nouvelle commande</button>
-
   {/snippet}
 
   {#if error}
@@ -563,10 +566,8 @@
     </div>
   </form>
   {#snippet footer()}
-
       <Button variant="ghost" onclick={closeForm}>Annuler</Button>
       <Button variant="primary" type="submit" form="order-form" disabled={saving}>{editingOrder ? "Enregistrer" : "Créer la commande"}</Button>
-
   {/snippet}
 </Modal>
 

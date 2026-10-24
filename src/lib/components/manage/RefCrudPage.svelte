@@ -173,9 +173,7 @@
 
 <ManagePageShell {title}>
   {#snippet actions()}
-
       <Button variant="primary" onclick={() => openForm()}><IconPlus size={16} strokeWidth={1.75} /> {newLabel}</Button>
-
   {/snippet}
 
   {#if error && !formOpen}
@@ -262,10 +260,8 @@
     {/each}
   </form>
   {#snippet footer()}
-
       <Button variant="ghost" onclick={closeForm}>Annuler</Button>
       <Button variant="primary" type="submit" form={formId} disabled={saving}>{editing ? "Enregistrer" : "Créer"}</Button>
-
   {/snippet}
 </Modal>
 

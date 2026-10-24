@@ -276,9 +276,7 @@
 
 <ManagePageShell title={wineTitle(wine)} {subtitle} back={{ href: "/manage/wines", label: "Vins" }}>
   {#snippet actions()}
-
       <Button variant="primary" onclick={openCreateModal}><IconPlus size={16} strokeWidth={1.75} /> Nouveau millésime</Button>
-
   {/snippet}
 
   {#if wine.description}
@@ -419,10 +417,8 @@
     </div>
   </form>
   {#snippet footer()}
-
       <Button variant="ghost" onclick={closeForm}>Annuler</Button>
       <Button variant="primary" type="submit" form="vintage-form" disabled={saving}>{editingVintage ? "Mettre à jour" : "Créer le millésime"}</Button>
-
   {/snippet}
 </Modal>
 
@@ -467,9 +463,7 @@
     <Button onclick={addGrape} disabled={!selectedGrapeId}><IconPlus size={16} strokeWidth={1.75} /> Ajouter</Button>
   </div>
   {#snippet footer()}
-
       <Button variant="primary" onclick={closeGrapesModal}>Terminé</Button>
-
   {/snippet}
 </Modal>
 

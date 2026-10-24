@@ -49,13 +49,11 @@
   {onchange}
 >
   {#snippet option({ option })}
-
       <span class="avatar" aria-hidden="true">{option.initials}</span>
       <span class="name">
         <strong>{option.name}</strong>
         {#if option.detail}<small>{option.detail}</small>{/if}
       </span>
-
   {/snippet}
 </Combobox>
 

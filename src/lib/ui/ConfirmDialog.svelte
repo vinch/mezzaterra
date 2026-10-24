@@ -61,12 +61,10 @@
 <Modal {open} {title} maxWidth={460} role="alertdialog" onclose={cancel}>
   <p class="impact">{message}{@render children?.()}</p>
   {#snippet footer()}
-
       <Button variant="ghost" disabled={busy && !!action} onclick={cancel}>{cancelLabel}</Button>
       <Button variant="danger-solid" disabled={busy} onclick={confirm}>
         {busy ? "…" : confirmLabel}
       </Button>
-
   {/snippet}
 </Modal>
 

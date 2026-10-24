@@ -239,7 +239,11 @@
         </IconButton>
       </header>
       <main class="main-content">
-        {@render children?.()}
+        <!-- Une page par chemin : sans ce key, aller d'un client, d'un millésime ou d'une
+             dégustation à un autre (⌘K) réutilisait la page, encore liée au précédent. -->
+        {#key $page.url.pathname}
+          {@render children?.()}
+        {/key}
       </main>
     </div>
 
@@ -275,7 +279,11 @@
   </div>
   <CommandPalette bind:open={paletteOpen} pages={allLinks} />
 {:else}
-  <div class="app">{@render children?.()}</div>
+  <div class="app">
+    {#key $page.url.pathname}
+      {@render children?.()}
+    {/key}
+  </div>
 {/if}
 
 <style>

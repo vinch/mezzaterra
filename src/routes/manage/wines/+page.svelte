@@ -490,9 +490,7 @@
 
 <ManagePageShell title="Vins" subtitle={loading ? "" : subtitle}>
   {#snippet actions()}
-
       <Button variant="primary" onclick={openCreateModal}><IconPlus size={18} strokeWidth={1.75} /> Nouveau vin</Button>
-
   {/snippet}
 
   {#if error}
@@ -684,10 +682,8 @@
     </Field>
   </form>
   {#snippet footer()}
-
       <Button variant="ghost" onclick={closeModal}>Annuler</Button>
       <Button variant="primary" onclick={handleSubmit}>{editingWine ? "Enregistrer" : "Créer le vin"}</Button>
-
   {/snippet}
 </Modal>
 
@@ -719,9 +715,7 @@
     <Button onclick={addPairing} disabled={!selectedPairingId}><IconPlus size={16} strokeWidth={1.75} /> Ajouter</Button>
   </div>
   {#snippet footer()}
-
       <Button variant="primary" onclick={closePairingsModal}>Terminé</Button>
-
   {/snippet}
 </Modal>
 

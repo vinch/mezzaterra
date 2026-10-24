@@ -203,14 +203,10 @@
 
 <ManagePageShell {title} {subtitle} back={{ href: `/manage/wines/${vintage.wine.id}`, label: wineTitle(vintage.wine) }}>
   {#snippet badge()}
-
       {#if currentStock < 0}<StockBadge kind="out" label="Stock négatif" />{/if}
-
   {/snippet}
   {#snippet actions()}
-
       <Button variant="primary" onclick={openCreateModal}><IconPlus size={16} strokeWidth={1.75} /> Nouveau mouvement</Button>
-
   {/snippet}
 
   {#if error && !formOpen}
@@ -294,10 +290,8 @@
     </div>
   </form>
   {#snippet footer()}
-
       <Button variant="ghost" onclick={closeForm}>Annuler</Button>
       <Button variant="primary" type="submit" form="move-form" disabled={saving}>{editingMove ? "Mettre à jour" : "Créer le mouvement"}</Button>
-
   {/snippet}
 </Modal>
 

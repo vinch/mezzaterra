@@ -335,9 +335,7 @@
 
 <ManagePageShell title="Transports">
   {#snippet actions()}
-
       <button class="btn-primary" onclick={openCreateModal}>+ Nouveau transport</button>
-
   {/snippet}
 
   {#if error}
@@ -525,10 +523,8 @@
     </div>
   </form>
   {#snippet footer()}
-
       <Button variant="ghost" onclick={closeForm}>Annuler</Button>
       <Button variant="primary" type="submit" form="transport-form" disabled={saving}>{editingTransport ? "Enregistrer" : "Créer le transport"}</Button>
-
   {/snippet}
 </Modal>
 
@@ -616,10 +612,8 @@
     </div>
   {/if}
   {#snippet footer()}
-
       <Button variant="ghost" onclick={closeOrdersModal}>Annuler</Button>
       <Button variant="primary" onclick={associateOrders} disabled={selectedOrderIds.length === 0}>Associer {selectedOrderIds.length > 0 ? `(${selectedOrderIds.length})` : ""}</Button>
-
   {/snippet}
 </Modal>
 

@@ -7,8 +7,13 @@ const config = {
 	// for more information about preprocessors
 	preprocess: vitePreprocess(),
 
-	// Mode runes partout : `pnpm check` et la compilation refusent l'ancienne syntaxe.
+	// Mode runes pour le code du projet : `pnpm check` et la compilation refusent l'ancienne syntaxe.
 	compilerOptions: { runes: true },
+	// Les dépendances gardent leur propre mode (une bibliothèque en ancienne syntaxe compile).
+	vitePlugin: {
+		dynamicCompileOptions: ({ filename }) =>
+			filename.split(/[/\\]/).includes('node_modules') ? { runes: undefined } : undefined
+	},
 
 	kit: {
 		// adapter-auto only supports some environments, see https://svelte.dev/docs/kit/adapter-auto for a list.

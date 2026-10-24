@@ -327,16 +327,13 @@
     back={{ href: "/manage/tastings", label: "Dégustations" }}
   >
     {#snippet badge()}
-
         {#if tasting && isLiveDay}
           <span class="live-badge" class:off={!connected}>
             <span class="dot" aria-hidden="true"></span>{connected ? "En direct" : "Connexion…"}
           </span>
         {/if}
-
       {/snippet}
     {#snippet actions()}
-
         {#if tasting}
           <Button variant="ghost" href="/tastings/{tastingId}/live" target="_blank" rel="noopener noreferrer">
             <IconExternal size={16} strokeWidth={1.75} /> Vue invité
@@ -345,7 +342,6 @@
             <IconMonitor size={16} strokeWidth={1.75} /> Projeter le visuel
           </Button>
         {/if}
-
       {/snippet}
 
     {#if loading}
@@ -384,7 +380,7 @@
         <div class="side">
           <Card title="Déroulé" id="deroule">
             {#snippet actions()}
-                                <a  class="edit-link" href="/manage/tastings">Modifier</a>
+                                <a class="edit-link" href="/manage/tastings">Modifier</a>
                               {/snippet}
             <ol class="steps">
               {#each wines as w, i (w.id)}
@@ -412,7 +408,7 @@
 
           <Card title="Invités" id="invites">
             {#snippet actions()}
-                                <span  class="t-caption"><IconUsers size={14} strokeWidth={1.75} aria-hidden="true" /> {guestCount} connecté{guestCount > 1 ? "s" : ""}</span>
+                                <span class="t-caption"><IconUsers size={14} strokeWidth={1.75} aria-hidden="true" /> {guestCount} connecté{guestCount > 1 ? "s" : ""}</span>
                               {/snippet}
             <div class="qr-row">
               {#if qr}<img src={qr} alt="QR code vers la vue invité" class="qr" />{/if}
@@ -449,7 +445,7 @@
 
           <Card title="Commandes des participants" id="orders" padded={false}>
             {#snippet actions()}
-                                <span  class="t-caption">Flèches ← → ou espace pour avancer</span>
+                                <span class="t-caption">Flèches ← → ou espace pour avancer</span>
                               {/snippet}
             {#if wishes.length === 0}
               <EmptyState icon={IconInbox} title="Aucune commande pour l’instant" text="Les invités commandent depuis leur téléphone (« J’en veux »)." compact />
@@ -497,11 +493,9 @@
           {#if registrations.length}
             <Card title="Inscrits en ligne" id="registrations">
               {#snippet actions()}
-
                   {#if registrations.some((r) => r.status === "confirmed" && !r.customer_id)}
                     <Button size="sm" onclick={addAllRegistrations}><IconUserCheck size={14} strokeWidth={1.75} /> Tous comme participants</Button>
                   {/if}
-
                                   {/snippet}
               <ul class="list">
                 {#each registrations as r (r.id)}

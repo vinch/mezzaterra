@@ -211,7 +211,7 @@
         onmousedown={preventDefault(() => choose(opt))}
         onmouseenter={() => (active = i)}
       >
-        {#if option}{@render option({ option: opt, })}{:else}{opt.label}{/if}
+        {#if option}{@render option({ option: opt })}{:else}{opt.label}{/if}
       </li>
     {/each}
   </ul>

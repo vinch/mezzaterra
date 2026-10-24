@@ -11,9 +11,10 @@
     wineVintages?: any[];
     tastingValue?: string;
     placeholder?: string;
-    getAvailableStock?: (vintageId: string) => number;
+    /** null : stock inconnu (option désactivée, « — »). */
+    getAvailableStock?: (vintageId: string) => number | null;
     isVintageAlreadyAdded?: (vintageId: string) => boolean;
-    formatLabel?: (vintage: any, availableStock: number) => string;
+    formatLabel?: (vintage: any, availableStock: number | null) => string;
     /** Option « Dégustation » (lignes de vente sans millésime). */
     includeTastingOption?: boolean;
     /** Désactiver les millésimes sans stock disponible. */
@@ -52,7 +53,7 @@
         id: v.id,
         label: formatLabel(v, stock) || `${wineName(v)} ${v.year ?? ""}`.trim(),
         searchText: vintageSearchText(v),
-        disabled: (disableWhenNoStock && stock === 0) || isVintageAlreadyAdded(v.id),
+        disabled: (disableWhenNoStock && !stock) || isVintageAlreadyAdded(v.id),
         kind: "wine",
         robe: wineRobe(v.wine?.wine_type).key,
         name: `${wineName(v)}${v.year ? ` ${v.year}` : ""}`,
@@ -73,7 +74,6 @@
 
 <Combobox bind:value {options} {placeholder} emptyText="Aucun produit trouvé" {onchange}>
   {#snippet option({ option })}
-
       {#if option.kind === "tasting"}
         <span class="opt-main"><strong>Dégustation</strong><small>Ligne sans millésime (entrée, participation…)</small></span>
       {:else}
@@ -82,10 +82,9 @@
           <strong>{option.name}</strong>
           <small>{option.winery}{option.added ? " · déjà ajouté" : ""}</small>
         </span>
-        <span class="opt-stock" class:low={option.stock <= 3}>{option.stock} bt.</span>
+        <span class="opt-stock" class:low={option.stock != null && option.stock <= 3}>{option.stock ?? "—"} bt.</span>
         <span class="opt-price">{option.price != null ? formatEUR(option.price) : ""}</span>
       {/if}
-
   {/snippet}
 </Combobox>
 

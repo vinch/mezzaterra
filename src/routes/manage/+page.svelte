@@ -244,10 +244,8 @@
 {:else}
   <ManagePageShell title="Tableau de bord" subtitle={today}>
     {#snippet actions()}
-
         <Button href="/manage/tastings">Planifier une dégustation</Button>
         <Button variant="primary" href="/manage/sales?nouvelle=1"><IconPlus size={18} strokeWidth={1.75} /> Nouvelle vente</Button>
-
       {/snippet}
 
     {#if statsError}
@@ -298,7 +296,7 @@
 
       <Card title="Chiffre d’affaires encaissé" id="ca-card">
         {#snippet actions()}
-                <span  class="t-caption">12 derniers mois</span>
+                <span class="t-caption">12 derniers mois</span>
               {/snippet}
         <ColumnChart
           data={months}
@@ -340,7 +338,7 @@
 
         <Card title="Top 5 des vins" id="top-wines">
           {#snippet actions()}
-                    <span  class="t-caption">par chiffre d’affaires</span>
+                    <span class="t-caption">par chiffre d’affaires</span>
                   {/snippet}
           {#if topWines.length === 0}
             <EmptyState icon={IconWine} title="Pas encore de ventes encaissées" compact />
@@ -392,7 +390,7 @@
 
         <Card title="Stock dormant" id="stock-dormant">
           {#snippet actions()}
-                    <span  class="t-caption">plus de {DORMANT_DAYS} j sans vente</span>
+                    <span class="t-caption">plus de {DORMANT_DAYS} j sans vente</span>
                   {/snippet}
           {#if dormant.length === 0}
             <EmptyState icon={IconBox} title="Tout tourne bien" compact />

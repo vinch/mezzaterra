@@ -400,11 +400,9 @@
 
 <ManagePageShell title="Dégustations">
   {#snippet actions()}
-
       <button type="button" class="btn-primary" onclick={openCreateModal}>
         + Nouvelle dégustation
       </button>
-
   {/snippet}
 
   {#if error && !showModal}
@@ -654,10 +652,8 @@
     </div>
   </form>
   {#snippet footer()}
-
       <Button variant="ghost" onclick={closeModal} disabled={saving}>Annuler</Button>
       <Button variant="primary" type="submit" form="tasting-form" disabled={saving}>{saving ? "Enregistrement…" : editingTasting ? "Mettre à jour" : "Créer"}</Button>
-
   {/snippet}
 </Modal>
 

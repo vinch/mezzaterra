@@ -176,11 +176,9 @@
 
 <ManagePageShell title="Documents">
   {#snippet actions()}
-
       <button type="button" class="btn-secondary" onclick={loadStockRows} disabled={loading}>
         Actualiser
       </button>
-
   {/snippet}
 
     {#if error}
@@ -357,12 +355,10 @@
   </div>
 
   {#snippet footer()}
-
       <Button variant="ghost" onclick={closeNotesModal} disabled={notesPdfGenerating}>Annuler</Button>
       <Button variant="primary" onclick={confirmNotesPdf} disabled={notesPdfGenerating || notesModalRows.length === 0}>
         {notesPdfGenerating ? "Génération…" : "Télécharger le PDF"}
       </Button>
-
   {/snippet}
 </Modal>
 

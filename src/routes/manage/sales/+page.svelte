@@ -133,18 +133,20 @@
     if (telecharger) void downloadInvoice(telecharger);
   });
 
-  function getProductDisplayNameWithStock(vintage: any, availableStock: number) {
-    return `${vintageProductLabel(vintage)} - Stock : ${availableStock}`;
+  function getProductDisplayNameWithStock(vintage: any, availableStock: number | null) {
+    return `${vintageProductLabel(vintage)} - Stock : ${availableStock ?? "indisponible"}`;
   }
 
-  function getAvailableStock(vintageId: string): number {
+  /** Bouteilles encore ajoutables ; null si le stock est illisible (rien d'ajoutable). */
+  function getAvailableStock(vintageId: string): number | null {
     if (vintageId === TASTING_SELECT_VALUE) {
       return 999999;
     }
     const vintage = vintageById.get(vintageId);
     if (!vintage) return 0;
+    if (vintage.stock == null) return null;
 
-    const stock = vintage.stock || 0;
+    const stock = vintage.stock;
     // Subtract quantities already in saleItems
     const alreadyAdded = saleItems
       .filter((item) => item.wine_vintage_id === vintageId)
@@ -187,6 +189,7 @@
   }
 
   async function openCreateModal() {
+    error = "";
     /* Stock relu : des ventes ont pu être payées depuis l'ouverture de la page. */
     const vintages = await formLoad.run(fetchVintagesWithStock);
     if (!vintages) return;
@@ -195,6 +198,7 @@
   }
 
   async function openEditModal(sale: any) {
+    error = "";
     if (sale.status === "closed" || sale.status === "cancelled") {
       error = "Impossible de modifier une vente clôturée ou annulée";
       formLoad.cancel();
@@ -367,6 +371,10 @@
 
     const availableStock = getAvailableStock(selectedVintageId);
 
+    if (availableStock == null) {
+      error = "Stock indisponible : impossible d’ajouter des bouteilles pour l’instant.";
+      return;
+    }
     if (quantity > availableStock) {
       error = `Stock insuffisant. Stock disponible: ${availableStock}`;
       return;
@@ -512,9 +520,7 @@
     }
 
     /* Objet neuf pour la ligne : la liste ($derived, sans proxy) ne suit pas les mutations. */
-    sale.status = newStatus;
-    sale.invoice_number = invoiceNumber;
-    sales = sales.map((s) => (s.id === sale.id ? { ...sale } : s));
+    sales = sales.map((s) => (s.id === sale.id ? { ...s, status: newStatus, invoice_number: invoiceNumber } : s));
 
     return true;
   }
@@ -737,15 +743,12 @@
 
 <ManagePageShell title="Ventes" {subtitle}>
   {#snippet actions()}
-
       <Button variant="primary" onclick={openCreateModal}>
         <IconPlus size={18} strokeWidth={1.75} /> <span class="label-long">Nouvelle vente</span><span class="label-short">Nouvelle</span>
       </Button>
-
   {/snippet}
 
   {#snippet tabs()}
-
       <div class="tabs" role="tablist" aria-label="Filtrer par statut">
         {#each TABS as t}
           <button
@@ -759,7 +762,6 @@
           </button>
         {/each}
       </div>
-
   {/snippet}
 
   {#if error}
@@ -1091,7 +1093,6 @@
   </form>
 
   {#snippet footer()}
-
       <div class="totals" aria-live="polite">
         <span>Sous-total <strong>{formatEUR(grossTotal)}</strong></span>
         <span>Remises <strong>{formatEUR(discountsTotal)}</strong></span>
@@ -1099,7 +1100,6 @@
       </div>
       <Button variant="ghost" onclick={closeForm}>Annuler</Button>
       <Button variant="primary" type="submit" disabled={saving} onclick={submitForm}>Enregistrer la vente</Button>
-
   {/snippet}
 </Modal>
 
@@ -1169,7 +1169,6 @@
     {/if}
   {/if}
   {#snippet footer()}
-
       {#if detailsSale?.status === "closed"}
         <Button onclick={() => downloadInvoice(detailsSale.id)}><IconDownload size={16} strokeWidth={1.75} /> Télécharger la facture</Button>
       {/if}
@@ -1183,7 +1182,6 @@
         >
       {/if}
       <Button variant="primary" onclick={closeDetailsModal}>Fermer</Button>
-
   {/snippet}
 </Modal>
 

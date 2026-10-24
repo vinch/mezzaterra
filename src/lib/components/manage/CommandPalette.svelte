@@ -3,7 +3,7 @@
   import { tick, untrack } from "svelte";
   import { fade, scale } from "svelte/transition";
   import { goto } from "$app/navigation";
-  import { supabase } from "$lib/supabase";
+  import { fetchAllRows, supabase } from "$lib/supabase";
   import { customerDisplayLabel } from "$lib/customerDisplay";
   import { vintageLabel } from "$lib/wine";
   import { fold, formatDate, formatEUR } from "$lib/format";
@@ -37,11 +37,18 @@
   async function loadData() {
     if (loaded || loadingData) return;
     loadingData = true;
+    /* Millésimes et clients lus en pages : au-delà de 1000, ils manqueraient à la recherche. */
     const [vintages, customers, sales, orders, tastings] = await Promise.all([
-      supabase
-        .from("wine_vintage")
-        .select("id, wine_id, year, production_year, wine ( name, winery ( name ), appelation ( name, label ( name ) ) )"),
-      supabase.from("customer").select("id, first_name, last_name, company_name, email, city"),
+      fetchAllRows<any>((from, to) =>
+        supabase
+          .from("wine_vintage")
+          .select("id, wine_id, year, production_year, wine ( name, winery ( name ), appelation ( name, label ( name ) ) )")
+          .order("id")
+          .range(from, to),
+      ).catch(() => []),
+      fetchAllRows<any>((from, to) =>
+        supabase.from("customer").select("id, first_name, last_name, company_name, email, city").order("id").range(from, to),
+      ).catch(() => []),
       supabase
         .from("sale")
         .select("id, date, total_price, invoice_number, status, customer ( first_name, last_name, company_name )")
@@ -56,7 +63,7 @@
     ]);
 
     const items: Item[] = [];
-    for (const v of (vintages.data || []) as any[]) {
+    for (const v of vintages) {
       const label = vintageLabel(v);
       items.push({
         id: `v-${v.id}`,
@@ -68,7 +75,7 @@
         haystack: fold(label),
       });
     }
-    for (const c of (customers.data || []) as any[]) {
+    for (const c of customers) {
       const label = customerDisplayLabel(c);
       items.push({
         id: `c-${c.id}`,
