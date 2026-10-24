@@ -35,6 +35,10 @@ la gestion et n'est plus proposé au réassort ni dans les commandes fournisseur
 millésime du même vin (le plus proche, de préférence plus ancien). Un nouveau millésime propose de
 même de reprendre l'image du dernier millésime qui en a une.
 
+`20261024150000_wine_vintage_images_storage.sql` fait pointer les images Filomusi Guelfi vers notre
+storage. Toutes les images des vins sont dans le bucket public `wines` : PNG détouré sur fond
+transparent, 1000 × 2000 px, bouteille d'environ 1 800 px de haut, centrée, pied à ~110 px du bas.
+
 ```sh
 supabase link --project-ref wmerreifcpttrhxwmkmn
 supabase db push
