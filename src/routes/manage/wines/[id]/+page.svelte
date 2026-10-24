@@ -99,12 +99,21 @@
     if (vintages.length) loadSourceDetails();
   }
 
+  let detailsRequest = 0;
+
   async function loadSourceDetails() {
     sourceDetails = null;
-    const { data } = await supabase
+    const request = ++detailsRequest;
+    const { data, error: loadError } = await supabase
       .from("wine_vintage")
       .select("id, wine_vintage_grape ( percentage, grape ( name ) ), note ( type, content )")
       .eq("wine_id", wine.id);
+    /* Une ouverture plus récente a relancé la lecture : sa réponse fait foi. */
+    if (request !== detailsRequest) return;
+    if (loadError) {
+      error = `Cépages et notes des millésimes illisibles : ${loadError.message}`;
+      return;
+    }
     sourceDetails = Object.fromEntries(
       (data || []).map((v) => [
         v.id,
