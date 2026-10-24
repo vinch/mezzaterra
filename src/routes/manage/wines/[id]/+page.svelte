@@ -403,7 +403,8 @@
         {#if !editingVintage && imageSource && vintageFormData.image_url === imageSource.image_url}
           <span class="t-muted image-hint">
             <img src={imageSource.image_url} alt="" class="thumb" />
-            Reprise du millésime {vintageYearLabel(imageSource)} : remplacez ou videz l’URL pour en mettre une autre.
+            Reprise {imageSource.year ? `du millésime ${imageSource.year}` : `de la mise en bouteille ${imageSource.production_year}`} : remplacez
+            ou videz l’URL pour en mettre une autre.
           </span>
         {/if}
       </div>
