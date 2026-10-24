@@ -1304,6 +1304,15 @@ export type Database = {
         Returns: undefined
       }
       brussels_today: { Args: never; Returns: string }
+      create_wine_vintage: {
+        Args: {
+          p_copy_grapes?: boolean
+          p_copy_notes?: boolean
+          p_source_id?: string
+          p_vintage: Json
+        }
+        Returns: string
+      }
       is_admin: { Args: never; Returns: boolean }
       my_notebook: { Args: never; Returns: Json }
       public_wine_availability: {

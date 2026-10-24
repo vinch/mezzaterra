@@ -15,6 +15,7 @@
   import RowMenu from "$lib/ui/RowMenu.svelte";
   import type { MenuItem } from "$lib/ui/Menu.svelte";
   import StockBadge from "$lib/ui/StockBadge.svelte";
+  import WineBottle from "$lib/components/site/WineBottle.svelte";
   import {
     IconArchive,
     IconArchiveRestore,
@@ -27,7 +28,16 @@
     IconX,
   } from "$lib/ui/icons";
   import { formatEUR } from "$lib/format";
-  import { appellationText, isDiscontinued, vintageYearLabel, wineTitle, wineTypeLabel } from "$lib/wine";
+  import {
+    appellationText,
+    grapesText,
+    isDiscontinued,
+    vintageNotes,
+    vintageYearLabel,
+    wineStyle,
+    wineTitle,
+    wineTypeLabel,
+  } from "$lib/wine";
 
   interface Props {
     data: PageData;
@@ -48,9 +58,26 @@
     return { production_year: "", year: "", abv: "", purchase_price: "", price: "", image_url: "", organic: false };
   }
   let vintageFormData = $state(emptyForm());
-  /** Image proposée à un nouveau millésime : celle du dernier millésime qui en a une. */
-  let imageSource = $derived(vintages.find((v) => v.image_url));
-  let imageReused = $derived(!editingVintage && !!imageSource && vintageFormData.image_url === imageSource.image_url);
+
+  /*
+   * Nouveau millésime d'un vin qui en a déjà : on reprend image, cépages et notes de dégustation
+   * d'un millésime existant (le plus récent par défaut). Les accords sont ceux du vin.
+   */
+  /** Millésime repris ; vide : « Ne rien reprendre ». */
+  let sourceId = $state("");
+  let copyGrapes = $state(true);
+  let copyNotes = $state(true);
+  /** Cépages et notes des millésimes, en texte, lus à l'ouverture de la création. */
+  let sourceDetails = $state<Record<string, { grapes: string; notes: string }> | null>(null);
+  let source = $derived(editingVintage ? null : vintages.find((v) => v.id === sourceId));
+  let sourceInfo = $derived(source && sourceDetails?.[source.id]);
+  /* Rien à reprendre : case décochée et grisée (tant que c'est en lecture, on ne sait pas). */
+  let noGrapes = $derived(!!sourceInfo && !sourceInfo.grapes);
+  let noNotes = $derived(!!sourceInfo && !sourceInfo.notes);
+  /* Ce que les cases annoncent est exactement ce qui est copié. */
+  let takeGrapes = $derived(copyGrapes && !noGrapes);
+  let takeNotes = $derived(copyNotes && !noNotes);
+  let imageReused = $derived(!!source?.image_url && vintageFormData.image_url === source.image_url);
 
   // Grapes modal state
   let showGrapesModal = $state(false);
@@ -71,22 +98,70 @@
 
   function openCreateModal() {
     editingVintage = null;
-    vintageFormData = { ...emptyForm(), image_url: imageSource?.image_url ?? "" };
+    sourceId = vintages[0]?.id ?? "";
+    copyGrapes = copyNotes = true;
+    vintageFormData = { ...emptyForm(), image_url: vintages[0]?.image_url ?? "" };
     formOpen = true;
+    if (vintages.length) loadSourceDetails();
+  }
+
+  let detailsRequest = 0;
+
+  async function loadSourceDetails() {
+    sourceDetails = null;
+    const request = ++detailsRequest;
+    const { data, error: loadError } = await supabase
+      .from("wine_vintage")
+      .select("id, wine_vintage_grape ( percentage, grape ( name ) ), note ( type, content )")
+      .eq("wine_id", wine.id);
+    /* Une ouverture plus récente a relancé la lecture : sa réponse fait foi. */
+    if (request !== detailsRequest) return;
+    if (loadError) {
+      error = `Cépages et notes des millésimes illisibles : ${loadError.message}`;
+      return;
+    }
+    sourceDetails = Object.fromEntries(
+      (data || []).map((v) => [
+        v.id,
+        { grapes: grapesText(v.wine_vintage_grape, true), notes: vintageNotes(v.note).map((n) => n.label).join(", ") },
+      ]),
+    );
+  }
+
+  /** Changement de millésime repris (ou aucun) : l'image suit, sauf si on en a mis une autre. */
+  function pickSource(id: string) {
+    if (imageReused || !vintageFormData.image_url) vintageFormData.image_url = vintages.find((v) => v.id === id)?.image_url ?? "";
+    sourceId = id;
+  }
+
+  /** Création via la base : le millésime et ses reprises en une transaction, puis la ligne créée. */
+  async function createVintage(vintageData: Record<string, unknown>) {
+    const { data: id, error: rpcError } = await supabase.rpc("create_wine_vintage", {
+      p_vintage: { ...vintageData, wine_id: wine.id },
+      p_source_id: source?.id,
+      p_copy_grapes: takeGrapes,
+      p_copy_notes: takeNotes,
+    });
+    if (rpcError) return { data: null, error: rpcError };
+    const read = await supabase.from("wine_vintage").select().eq("id", id).single();
+    /* Le millésime existe : on ferme le formulaire, un second clic le créerait en double. */
+    if (read.error) {
+      closeForm();
+      error = `Millésime créé, mais la liste n’a pas pu être relue : rechargez la page (${read.error.message}).`;
+    }
+    return read;
   }
 
   function openEditModal(vintage: WineVintage) {
     editingVintage = vintage;
+    /* `!= null` et non un test de vérité : un prix ou un degré à 0 reste 0 (et non vide, donc null). */
+    const text = (v: number | null) => (v != null ? String(v) : "");
     vintageFormData = {
-      production_year: vintage.production_year
-        ? vintage.production_year.toString()
-        : "",
-      year: vintage.year ? vintage.year.toString() : "",
-      abv: vintage.abv ? vintage.abv.toString() : "",
-      purchase_price: vintage.purchase_price
-        ? vintage.purchase_price.toString()
-        : "",
-      price: vintage.price ? vintage.price.toString() : "",
+      production_year: text(vintage.production_year),
+      year: text(vintage.year),
+      abv: text(vintage.abv),
+      purchase_price: text(vintage.purchase_price),
+      price: text(vintage.price),
       image_url: vintage.image_url || "",
       organic: vintage.organic || false,
     };
@@ -127,11 +202,12 @@
     saving = true;
     const { data: saved, error: saveError } = editingVintage
       ? await supabase.from("wine_vintage").update(vintageData).eq("id", editingVintage.id).select().single()
-      : await supabase.from("wine_vintage").insert({ ...vintageData, wine_id: wine.id }).select().single();
+      : await createVintage(vintageData);
     saving = false;
 
-    if (saveError) {
-      error = saveError.message;
+    if (saveError || !saved) {
+      /* Formulaire déjà fermé : createVintage a posé son propre message. */
+      if (formOpen) error = saveError?.message ?? "Millésime introuvable après l’enregistrement";
       return;
     }
 
@@ -331,11 +407,67 @@
   {#if error}<div class="error-message" role="alert">{error}</div>{/if}
   <form id="vintage-form" onsubmit={preventDefault(submitForm)}>
     <div class="form-grid">
+      {#if !editingVintage && vintages.length}
+        <fieldset class="form-group full-width reuse">
+          <legend class="section-title">Reprendre d’un millésime existant</legend>
+          <select aria-label="Millésime repris" value={sourceId} onchange={(e) => pickSource(e.currentTarget.value)}>
+            <option value="">Ne rien reprendre</option>
+            {#each vintages as v (v.id)}
+              <option value={v.id}>{vintageYearLabel(v)}</option>
+            {/each}
+          </select>
+          {#if source}
+            <div class="reuse-items">
+              <!-- Aperçu de la bouteille à côté des cases (silhouette du site sans image) : lignes de même hauteur. -->
+              <div class="reuse-preview" class:off={!imageReused} aria-hidden="true">
+                <WineBottle src={source.image_url} wine={wineStyle(wine.wine_type)} height="80px" />
+              </div>
+              <div class="reuse-checks">
+                <label class="checkbox-label">
+                  <input
+                    type="checkbox"
+                    checked={imageReused}
+                    disabled={!source.image_url}
+                    onchange={(e) => (vintageFormData.image_url = e.currentTarget.checked ? source?.image_url ?? "" : "")}
+                  />
+                  Image
+                  {#if !source.image_url}<span class="t-muted">aucune</span>{/if}
+                </label>
+                <label class="checkbox-label">
+                  <input
+                    type="checkbox"
+                    checked={takeGrapes}
+                    disabled={noGrapes}
+                    onchange={(e) => (copyGrapes = e.currentTarget.checked)}
+                  />
+                  Cépages
+                  <span class="t-muted">{sourceInfo ? sourceInfo.grapes || "aucun" : "…"}</span>
+                </label>
+                <label class="checkbox-label">
+                  <input
+                    type="checkbox"
+                    checked={takeNotes}
+                    disabled={noNotes}
+                    onchange={(e) => (copyNotes = e.currentTarget.checked)}
+                  />
+                  Notes de dégustation
+                  <span class="t-muted">{sourceInfo ? sourceInfo.notes || "aucune" : "…"}</span>
+                </label>
+              </div>
+            </div>
+          {/if}
+          <p class="t-caption reuse-hint">Les accords mets-vins sont ceux du vin : ils valent déjà pour tous ses millésimes.</p>
+        </fieldset>
+      {/if}
+
       <div class="form-group">
         <label for="production_year">Année de mise en bouteille *</label>
+        <!-- Focus à l'ouverture ici, pas sur la liste du millésime repris (la saisie de l'année y changerait le choix). -->
+        <!-- svelte-ignore a11y_autofocus -->
         <input
           type="number"
           id="production_year"
+          autofocus
           bind:value={vintageFormData.production_year}
           min="1900"
           max="2030"
@@ -397,14 +529,12 @@
           type="url"
           id="image_url"
           bind:value={vintageFormData.image_url}
+          disabled={imageReused}
           aria-describedby={imageReused ? "image-hint" : undefined}
         />
-        {#if imageReused && imageSource}
-          <span id="image-hint" class="t-muted image-hint">
-            <img src={imageSource.image_url} alt="" class="thumb" />
-            Reprise {imageSource.year ? `du millésime ${imageSource.year}` : `de la mise en bouteille ${imageSource.production_year}`} : remplacez
-            ou videz l’URL pour en mettre une autre.
-          </span>
+        <!-- Image reprise : on la change en décochant « Image » plus haut. -->
+        {#if imageReused}
+          <span id="image-hint" class="t-caption">Décochez « Image » pour en mettre une autre.</span>
         {/if}
       </div>
 
@@ -501,11 +631,51 @@
     object-fit: contain;
   }
 
-  .image-hint {
+  .reuse {
+    margin: 0;
+    padding: 12px 14px;
+    border: 1px solid var(--border-soft);
+    border-radius: var(--r-sm);
+    gap: 10px;
+  }
+
+  .reuse legend {
+    margin: 0;
+    padding: 0 4px;
+  }
+
+  .reuse-items {
     display: flex;
     align-items: center;
+    gap: 14px;
+  }
+
+  .reuse-preview {
+    flex: none;
+    display: flex;
+    justify-content: center;
+    width: 44px;
+    transition: opacity 0.15s;
+  }
+
+  /* Image non reprise : l'aperçu s'efface. */
+  .reuse-preview.off {
+    opacity: 0.3;
+  }
+
+  .reuse-checks {
+    display: flex;
+    flex-direction: column;
     gap: 8px;
-    font-size: 13px;
+    min-width: 0;
+  }
+
+  .reuse .checkbox-label {
+    flex-wrap: wrap;
+  }
+
+  .reuse-hint {
+    margin: 0;
   }
 
 
