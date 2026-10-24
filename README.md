@@ -31,6 +31,10 @@ page et son mode live restent accessibles par lien.
 « plus jamais disponible » disparaît du site public (catalogue, domaine, fiche en 404), est grisé dans
 la gestion et n'est plus proposé au réassort ni dans les commandes fournisseur et dégustations.
 
+`20261024130000_wine_vintage_reuse_image.sql` donne aux millésimes sans image celle d'un autre
+millésime du même vin (le plus proche, de préférence plus ancien). Un nouveau millésime propose de
+même de reprendre l'image du dernier millésime qui en a une.
+
 ```sh
 supabase link --project-ref wmerreifcpttrhxwmkmn
 supabase db push

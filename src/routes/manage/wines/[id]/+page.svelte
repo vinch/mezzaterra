@@ -42,6 +42,8 @@
     return { production_year: "", year: "", abv: "", purchase_price: "", price: "", image_url: "", organic: false };
   }
   let vintageFormData = emptyForm();
+  /** Image proposée à un nouveau millésime : celle du dernier millésime qui en a une. */
+  $: imageSource = vintages.find((v) => v.image_url);
 
   // Grapes modal state
   let showGrapesModal = false;
@@ -69,7 +71,7 @@
 
   function openCreateModal() {
     editingVintage = null;
-    vintageFormData = emptyForm();
+    vintageFormData = { ...emptyForm(), image_url: imageSource?.image_url ?? "" };
     formOpen = true;
   }
 
@@ -398,6 +400,12 @@
           id="image_url"
           bind:value={vintageFormData.image_url}
         />
+        {#if !editingVintage && imageSource && vintageFormData.image_url === imageSource.image_url}
+          <span class="t-muted image-hint">
+            <img src={imageSource.image_url} alt="" class="thumb" />
+            Reprise du millésime {vintageYearLabel(imageSource)} : remplacez ou videz l’URL pour en mettre une autre.
+          </span>
+        {/if}
       </div>
 
       <div class="form-group full-width">
@@ -491,6 +499,13 @@
     width: 28px;
     height: 40px;
     object-fit: contain;
+  }
+
+  .image-hint {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 13px;
   }
 
 
