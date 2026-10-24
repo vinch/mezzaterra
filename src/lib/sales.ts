@@ -58,6 +58,6 @@ export function saleTotal(items: any[], globalDiscount: unknown, globalDiscountT
 export async function ensureInvoiceNumber(sale: { id: string; invoice_number: string | null }): Promise<string> {
   if (sale.invoice_number) return sale.invoice_number;
   const { data, error } = await supabase.rpc("assign_invoice_number", { p_sale_id: sale.id });
-  if (error || !data) throw new Error(`Numéro de facture non attribué : ${error?.message ?? "réponse vide"}`);
+  if (error) throw new Error(`Numéro de facture non attribué : ${error.message}`);
   return data;
 }

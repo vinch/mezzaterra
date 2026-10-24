@@ -107,41 +107,22 @@ export async function createSaleFromWish(
     wish.message?.trim(),
   ].filter(Boolean);
 
-  const { data: sale, error } = await supabase
-    .from("sale")
-    .insert({
+  /* Vente, lignes et demande marquée « traitée » en une transaction (fonction SQL save_sale). */
+  const { data: saleId, error } = await supabase.rpc("save_sale", {
+    p_sale_id: null,
+    p_sale: {
       date: todayIso(),
       customer_id: customer.id,
-      status: "pending",
       total_price: total,
       note: noteParts.join("\n"),
       tasting_id: wish.tasting_id,
-    })
-    .select("id")
-    .single();
+    },
+    p_items: lines,
+    p_wish_id: wish.id,
+  });
+  if (error || !saleId) throw new Error(error?.message || "Création de la vente impossible");
 
-  if (error || !sale) throw new Error(error?.message || "Création de la vente impossible");
-
-  const { error: itemsError } = await supabase.from("sale_item").insert(
-    lines.map((l) => ({
-      sale_id: sale.id,
-      wine_vintage_id: l.wine_vintage_id,
-      quantity: l.quantity,
-      price: l.price,
-      discount: null,
-      discount_type: null,
-      note: null,
-    })),
-  );
-  if (itemsError) throw new Error(itemsError.message);
-
-  const { error: updError } = await supabase
-    .from("wish_request")
-    .update({ status: "done", sale_id: sale.id })
-    .eq("id", wish.id);
-  if (updError) throw new Error(updError.message);
-
-  return sale.id;
+  return saleId;
 }
 
 export async function setWishStatus(id: string, status: "new" | "done" | "dismissed") {

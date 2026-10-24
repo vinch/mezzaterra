@@ -1,5 +1,4 @@
 import { supabase } from "./supabase";
-import { todayIso } from "./dates";
 
 /**
  * « Ajouter à la prochaine commande fournisseur » :
@@ -41,67 +40,17 @@ export async function addToNextSupplierOrder(
   }
   const price = supplier.lastPrice ?? fallbackPrice;
 
-  const { data: pending } = await supabase
-    .from("order")
-    .select("id")
-    .eq("supplier_id", supplier.supplierId)
-    .eq("status", "pending")
-    .is("transport_id", null)
-    .order("date", { ascending: false })
-    .limit(1);
+  /* Commande « En attente » du fournisseur complétée (ou créée) en une transaction, total compris. */
+  const { data, error } = await supabase.rpc("add_to_supplier_order", {
+    p_supplier_id: supplier.supplierId,
+    p_vintage_id: vintageId,
+    p_quantity: quantity,
+    p_price: price,
+  });
+  const row = data?.[0];
+  if (error || !row) throw new Error(error?.message || "Ajout à la commande impossible");
 
-  let orderId = (pending || [])[0]?.id as string | undefined;
-  let created = false;
-
-  if (!orderId) {
-    const { data: order, error } = await supabase
-      .from("order")
-      .insert({
-        date: todayIso(),
-        supplier_id: supplier.supplierId,
-        status: "pending",
-        transport_id: null,
-        total_price: 0,
-        note: "Réassort préparé depuis le tableau de bord",
-      })
-      .select("id")
-      .single();
-    if (error || !order) throw new Error(error?.message || "Création de la commande impossible");
-    orderId = order.id;
-    created = true;
-  }
-
-  /* Même millésime déjà dans la commande : on augmente la quantité. */
-  const { data: existing } = await supabase
-    .from("order_item")
-    .select("id, quantity")
-    .eq("order_id", orderId!)
-    .eq("wine_vintage_id", vintageId)
-    .limit(1);
-
-  if (existing?.length) {
-    const { error } = await supabase
-      .from("order_item")
-      .update({ quantity: existing[0].quantity + quantity })
-      .eq("id", existing[0].id);
-    if (error) throw new Error(error.message);
-  } else {
-    const { error } = await supabase.from("order_item").insert({
-      order_id: orderId!,
-      wine_vintage_id: vintageId,
-      quantity,
-      price,
-      note: null,
-    });
-    if (error) throw new Error(error.message);
-  }
-
-  /* Total recalculé comme dans /manage/orders. */
-  const { data: items } = await supabase.from("order_item").select("price, quantity").eq("order_id", orderId!);
-  const total = (items || []).reduce((s, it) => s + Number(it.price || 0) * Number(it.quantity || 0), 0);
-  await supabase.from("order").update({ total_price: Math.round(total * 100) / 100 }).eq("id", orderId!);
-
-  return { orderId: orderId!, supplierName: supplier.supplierName, created };
+  return { orderId: row.order_id, supplierName: supplier.supplierName, created: row.created };
 }
 
 /** Demande le nombre de bouteilles, puis complète la commande ; renvoie le message à afficher (null si annulé). */

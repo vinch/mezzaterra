@@ -8,7 +8,7 @@
   import StatusBadge from "$lib/ui/StatusBadge.svelte";
   import { KIND_META, statusMeta } from "$lib/status";
   import ManagePageShell from "$lib/components/manage/ManagePageShell.svelte";
-  import { fetchPickerVintages, orderItemPrice } from "$lib/manageData";
+  import { fetchPickerVintages } from "$lib/manageData";
   import { todayIso } from "$lib/dates";
   import type { OrderPdfLanguage } from "$lib/pdf/purchaseOrderPdf";
   import { formatDate, formatEUR } from "$lib/format";
@@ -82,7 +82,7 @@
       wine_vintage: item.wine_vintage,
       wine_vintage_id: item.wine_vintage_id,
       quantity: item.quantity,
-      price: orderItemPrice(item),
+      price: item.price,
       note: item.note || "",
     }));
     formOpen = true;
@@ -213,8 +213,7 @@
     const orderData = {
       date: formData.date,
       supplier_id: formData.supplier_id,
-      status: formData.status || "pending",
-      total_price: total,
+      status: formData.status,
       note: formData.note || null,
     };
 
@@ -251,13 +250,16 @@
       return false;
     }
 
-    const { error: updateError } = await supabase
+    /* Filtré sur « non confirmée » : une commande confirmée entre-temps ailleurs ne bouge plus. */
+    const { data: updated, error: updateError } = await supabase
       .from("order")
       .update({ status: newStatus })
-      .eq("id", orderId);
+      .eq("id", orderId)
+      .neq("status", "confirmed")
+      .select("id");
 
-    if (updateError) {
-      error = updateError.message;
+    if (updateError || !updated?.length) {
+      error = updateError?.message ?? "Impossible de modifier le statut d'une commande confirmée";
       return false;
     }
 
@@ -283,13 +285,15 @@
       return;
     }
 
-    const { error: deleteError } = await supabase
+    const { data: deleted, error: deleteError } = await supabase
       .from("order")
       .delete()
-      .eq("id", id);
+      .eq("id", id)
+      .neq("status", "confirmed")
+      .select("id");
 
-    if (deleteError) {
-      error = deleteError.message;
+    if (deleteError || !deleted?.length) {
+      error = deleteError?.message ?? "Impossible de supprimer une commande confirmée";
       return;
     }
 

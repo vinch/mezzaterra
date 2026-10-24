@@ -8,8 +8,7 @@
   import StatusBadge from "$lib/ui/StatusBadge.svelte";
   import { KIND_META, statusMeta } from "$lib/status";
   import ManagePageShell from "$lib/components/manage/ManagePageShell.svelte";
-  import { orderItemPrice as itemPrice } from "$lib/manageData";
-  import { formatDate, formatEUR } from "$lib/format";
+    import { formatDate, formatEUR } from "$lib/format";
   import { vintageProductLabel } from "$lib/wine";
 
   export let data: PageData;
@@ -257,7 +256,6 @@
     detailsOrders = (orders || []).map(({ order_item: items, ...order }) => ({
       ...order,
       items,
-      total_price: order.total_price,
     }));
   }
 
@@ -316,36 +314,29 @@
       return;
     }
 
-    // Verify that all selected orders are confirmed
-    const { data: selected, error: fetchError } = await supabase
-      .from("order")
-      .select("id, status")
-      .in("id", selectedOrderIds);
-
-    if (fetchError || !selected || selected.length !== selectedOrderIds.length) {
-      error = `Erreur lors de la vérification de la commande: ${fetchError?.message || "Commande introuvable"}`;
+    if (selectedTransport.status === "delivered" || selectedTransport.status === "cancelled") {
+      error = "Ce transport est livré ou annulé : on ne peut plus y associer de commandes.";
       return;
     }
 
-    if (selected.some((order) => order.status !== "confirmed")) {
-      error =
-        "Seules les commandes confirmées peuvent être associées à un transport";
-      return;
-    }
-
-    // Associate orders to transport
-    const { error: updateError } = await supabase
+    /* Une seule requête filtrée : seules les commandes confirmées et encore libres sont rattachées. */
+    const { data: attached, error: updateError } = await supabase
       .from("order")
       .update({ transport_id: selectedTransport.id })
-      .in("id", selectedOrderIds);
+      .in("id", selectedOrderIds)
+      .eq("status", "confirmed")
+      .is("transport_id", null)
+      .select("id");
 
     if (updateError) {
       error = `Erreur lors de l'association de la commande: ${updateError.message}`;
       return;
     }
+    if ((attached?.length ?? 0) < selectedOrderIds.length) {
+      error = "Certaines commandes n'ont pas été associées : seules les commandes confirmées et sans transport peuvent l'être.";
+    }
 
     closeOrdersModal();
-    error = "";
     await invalidateAll();
   }
 </script>
@@ -409,6 +400,8 @@
                   <select
                     class="status-select tone-{statusMeta("transport", transport.status).tone}"
                     value={transport.status}
+                    disabled={transport.status === "delivered"}
+                    title={transport.status === "delivered" ? "Livré : le stock est entré, le statut est définitif" : undefined}
                     on:change={async (e) => {
                       const target = e.target as HTMLSelectElement;
                       const previousStatus = transport.status;
@@ -733,9 +726,9 @@
                         </div>
                         <div class="details-order-item-details">
                           <span>x{item.quantity}</span>
-                          {#if itemPrice(item)}
-                            <span>@ {formatEUR(itemPrice(item))}</span>
-                            <strong>= {formatEUR(itemPrice(item) * item.quantity)}</strong>
+                          {#if item.price}
+                            <span>@ {formatEUR(item.price)}</span>
+                            <strong>= {formatEUR(item.price * item.quantity)}</strong>
                           {/if}
                         </div>
                       </div>
