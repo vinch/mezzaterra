@@ -9,7 +9,7 @@
   import CustomerAutocomplete from "$lib/components/manage/CustomerAutocomplete.svelte";
   import { customerDisplayLabel, sortCustomersByLabel } from "$lib/customerDisplay";
   import { fetchCustomers, fetchPickerVintages } from "$lib/manageData";
-  import { errorMessage } from "$lib/async";
+  import { errorMessage, latestOnly } from "$lib/async";
   import { fetchTastingWithWines } from "$lib/publicData";
   import { todayIso } from "$lib/dates";
   import { formatDate } from "$lib/format";
@@ -57,13 +57,15 @@
   };
 
   onMount(async () => {
-    try {
-      [, wineVintages, customers] = await Promise.all([loadTastings(), fetchPickerVintages(), fetchCustomers()]);
-    } catch (e) {
-      error = errorMessage(e);
-    } finally {
-      loading = false;
-    }
+    /* Chaque liste est gardée même si une autre échoue. */
+    const results = await Promise.allSettled([
+      loadTastings(),
+      fetchPickerVintages().then((v) => (wineVintages = v)),
+      fetchCustomers().then((c) => (customers = c)),
+    ]);
+    const failed = results.find((r) => r.status === "rejected");
+    if (failed) showError(failed.reason);
+    loading = false;
   });
 
   async function downloadCards(tasting: TastingRow) {
@@ -123,7 +125,9 @@
     }
   }
 
-  async function loadModalCustomers(tastingId: string) {
+  /* Les chargeurs de la modale lèvent leurs erreurs : une dégustation ouverte sans ses
+     vins ou ses inscrits les effacerait à l'enregistrement. */
+  async function loadModalCustomers(tastingId: string): Promise<ModalCustomerEntry[]> {
     const { data, error: fetchError } = await supabase
       .from("tasting_customer")
       .select(
@@ -140,13 +144,8 @@
       )
       .eq("tasting_id", tastingId);
 
-    if (fetchError) {
-      error = fetchError.message;
-      modalCustomers = [];
-      return;
-    }
-
-    modalCustomers = (data || [])
+    if (fetchError) throw new Error(fetchError.message);
+    return (data || [])
       .filter((r) => r.customer)
       .map((r) => ({
         customer_id: r.customer_id,
@@ -161,7 +160,7 @@
       );
   }
 
-  async function loadModalWines(tastingId: string) {
+  async function loadModalWines(tastingId: string): Promise<ModalWineEntry[]> {
     const { data, error: fetchError } = await supabase
       .from("tasting_wine_vintage")
       .select(
@@ -183,13 +182,8 @@
       .eq("tasting_id", tastingId)
       .order("order", { ascending: true });
 
-    if (fetchError) {
-      error = fetchError.message;
-      modalWines = [];
-      return;
-    }
-
-    modalWines = (data || [])
+    if (fetchError) throw new Error(fetchError.message);
+    return (data || [])
       .filter((r) => r.wine_vintage)
       .map((r) => ({
         wine_vintage_id: r.wine_vintage_id,
@@ -215,7 +209,11 @@
     selectedCustomerId = "";
   }
 
+  const formLoad = latestOnly();
+  const showError = (e: unknown) => (error = errorMessage(e));
+
   function openCreateModal() {
+    formLoad.cancel();
     editingTasting = null;
     error = "";
     resetForm();
@@ -224,6 +222,13 @@
 
   async function openEditModal(tasting: TastingRow) {
     error = "";
+    const loaded = await formLoad.run(
+      () => Promise.all([loadModalWines(tasting.id), loadModalCustomers(tasting.id)]),
+      showError,
+    );
+    if (!loaded) return;
+
+    [modalWines, modalCustomers] = loaded;
     editingTasting = tasting;
     formData = {
       name: tasting.name || "",
@@ -238,10 +243,6 @@
     };
     selectedVintageId = "";
     selectedCustomerId = "";
-    await Promise.all([
-      loadModalWines(tasting.id),
-      loadModalCustomers(tasting.id),
-    ]);
     showModal = true;
   }
 
