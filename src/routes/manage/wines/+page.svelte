@@ -73,6 +73,8 @@
       loadWineTypes(),
       loadAllPairings(),
     ]);
+    /* Fin du chargement une fois le stock aussi arrivé : sinon les vins s'affichent en rupture. */
+    loading = false;
   });
 
   async function loadAllPairings() {
@@ -84,7 +86,6 @@
   }
 
   async function loadWines() {
-    loading = true;
     const { data, error: fetchError } = await supabase
       .from("wine")
       .select("*, winery (*), appelation ( *, label (*) ), wine_type (*), wine_vintage (*)")
@@ -115,7 +116,6 @@
         return wineNameA.localeCompare(wineNameB);
       });
     }
-    loading = false;
   }
 
   async function loadWineries() {
