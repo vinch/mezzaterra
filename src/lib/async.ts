@@ -6,15 +6,13 @@ export function errorMessage(e: unknown): string {
 /**
  * Garde « la dernière demande gagne » : si l'on ouvre une autre fiche pendant un
  * chargement, la réponse la plus ancienne est ignorée au lieu d'écraser la nouvelle.
+ * `onError` reçoit l'erreur de la dernière demande seulement.
  */
-export function latestOnly() {
+export function latestOnly(onError: (e: unknown) => void) {
   let current = 0;
   return {
-    /**
-     * Résultat de `load`, ou `undefined` s'il a échoué (`onError` est alors appelé) ou si
-     * une demande plus récente a été lancée entre-temps (résultat et erreur ignorés).
-     */
-    async run<T>(load: () => Promise<T>, onError: (e: unknown) => void): Promise<T | undefined> {
+    /** Résultat de `load`, ou `undefined` s'il a échoué ou a été dépassé par une demande plus récente. */
+    async run<T>(load: () => Promise<T>): Promise<T | undefined> {
       const request = ++current;
       try {
         const result = await load();

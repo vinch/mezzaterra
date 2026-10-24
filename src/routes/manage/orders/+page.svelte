@@ -51,7 +51,7 @@
     try {
       await Promise.all([loadSuppliers(), fetchPickerVintages().then((v) => (wineVintages = v))]);
     } catch (e) {
-      showError(e);
+      error = errorMessage(e);
     } finally {
       loading = false;
     }
@@ -63,8 +63,7 @@
   }
 
   /* Chargements des modales : le dernier clic gagne (deux « Modifier » enchaînés…). */
-  const formLoad = latestOnly();
-  const showError = (e: unknown) => (error = errorMessage(e));
+  const formLoad = latestOnly((e) => (error = errorMessage(e)));
 
   function openCreateModal() {
     formLoad.cancel();
@@ -79,7 +78,7 @@
       return;
     }
 
-    const loaded = await formLoad.run(() => Promise.all([fetchPickerVintages(), loadOrderItems(order.id)]), showError);
+    const loaded = await formLoad.run(() => Promise.all([fetchPickerVintages(), loadOrderItems(order.id)]));
     if (!loaded) return;
     const [vintages, items] = loaded;
 
@@ -131,7 +130,7 @@
   }
 
   async function openDetailsModal(order: any) {
-    const items = await formLoad.run(() => loadOrderItems(order.id), showError);
+    const items = await formLoad.run(() => loadOrderItems(order.id));
     if (!items) return;
     detailsOrderItems = items;
     detailsOrder = order;

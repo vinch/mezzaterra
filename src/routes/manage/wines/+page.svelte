@@ -382,6 +382,13 @@
     const list = vintagesOf(wine);
     return list.length > 0 && list.every(isDiscontinued);
   }
+  /** Badge de stock d'un vin (aucun si le stock est illisible, sauf pour un vin retiré). */
+  function stockBadge(wine: any, total: number, stockKnown: boolean): "gone" | "out" | "low" | null {
+    if (isRetired(wine)) return "gone";
+    if (!stockKnown) return null;
+    if (vintagesOf(wine).length && total <= 0) return "out";
+    return total > 0 && total <= 3 ? "low" : null;
+  }
   function priceText(wine: any): string {
     const prices = vintagesOf(wine)
       .map((v) => (v.price != null ? Number(v.price) : null))
@@ -558,6 +565,7 @@
           <tbody>
             {#each shownWines as wine (wine.id)}
               {@const total = totalById.get(wine.id) ?? 0}
+              {@const badge = stockBadge(wine, total, !!stock)}
               {@const robe = robeOf(wine.wine_type)}
               {@const retired = isRetired(wine)}
               <tr class="is-clickable" class:retired on:click={(e) => openRow(wine, e)}>
@@ -591,15 +599,7 @@
                 </td>
                 <td class="num">
                   <span class="stock-cell">
-                    {#if retired}
-                      <StockBadge kind="gone" />
-                    {:else if !stock}
-                      <!-- Stock illisible : pas de badge. -->
-                    {:else if vintagesOf(wine).length && total <= 0}
-                      <StockBadge kind="out" />
-                    {:else if total > 0 && total <= 3}
-                      <StockBadge kind="low" />
-                    {/if}
+                    {#if badge}<StockBadge kind={badge} />{/if}
                     <strong>{stock ? `${total} bt.` : "—"}</strong>
                   </span>
                 </td>
@@ -615,6 +615,7 @@
       <ul class="cards mobile-only">
         {#each shownWines as wine (wine.id)}
           {@const total = totalById.get(wine.id) ?? 0}
+          {@const badge = stockBadge(wine, total, !!stock)}
           <li class="wine-card" class:retired={isRetired(wine)}>
             <a class="wine-card-main" href="/manage/wines/{wine.id}">
               <span class="wc-top">
@@ -623,7 +624,7 @@
               </span>
               <span class="wc-bottom">
                 <span class="t-muted">{wine.winery?.name ?? ""}</span>
-                {#if isRetired(wine)}<StockBadge kind="gone" />{:else if !stock}<!-- Stock illisible -->{:else if vintagesOf(wine).length && total <= 0}<StockBadge kind="out" />{:else if total > 0 && total <= 3}<StockBadge kind="low" />{/if}
+                {#if badge}<StockBadge kind={badge} />{/if}
               </span>
             </a>
             <RowMenu items={rowItems(wine)} label="Actions pour {wineTitle(wine)}" />

@@ -64,7 +64,7 @@
       fetchCustomers().then((c) => (customers = c)),
     ]);
     const failed = results.find((r) => r.status === "rejected");
-    if (failed) showError(failed.reason);
+    if (failed) error = errorMessage(failed.reason);
     loading = false;
   });
 
@@ -209,8 +209,7 @@
     selectedCustomerId = "";
   }
 
-  const formLoad = latestOnly();
-  const showError = (e: unknown) => (error = errorMessage(e));
+  const formLoad = latestOnly((e) => (error = errorMessage(e)));
 
   function openCreateModal() {
     formLoad.cancel();
@@ -224,7 +223,6 @@
     error = "";
     const loaded = await formLoad.run(
       () => Promise.all([loadModalWines(tasting.id), loadModalCustomers(tasting.id)]),
-      showError,
     );
     if (!loaded) return;
 

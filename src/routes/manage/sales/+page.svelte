@@ -111,10 +111,10 @@
       await Promise.all([
         fetchCustomers().then((c) => (customers = c)),
         loadTastings(),
-        formLoad.run(fetchVintagesWithStock, showError).then((v) => v && (wineVintages = v)),
+        formLoad.run(fetchVintagesWithStock).then((v) => v && (wineVintages = v)),
       ]);
     } catch (e) {
-      showError(e);
+      error = errorMessage(e);
     } finally {
       loading = false;
     }
@@ -186,8 +186,7 @@
   }
 
   /* Chargements des modales : le dernier clic gagne (deux « Modifier » enchaînés…). */
-  const formLoad = latestOnly();
-  const showError = (e: unknown) => (error = errorMessage(e));
+  const formLoad = latestOnly((e) => (error = errorMessage(e)));
 
   function showCreateForm() {
     editingSale = null;
@@ -197,7 +196,7 @@
 
   async function openCreateModal() {
     /* Stock relu : des ventes ont pu être payées depuis l'ouverture de la page. */
-    const vintages = await formLoad.run(fetchVintagesWithStock, showError);
+    const vintages = await formLoad.run(fetchVintagesWithStock);
     if (!vintages) return;
     wineVintages = vintages;
     showCreateForm();
@@ -210,7 +209,7 @@
     }
 
     /* Stock relu : il a pu bouger depuis l'ouverture de la page. */
-    const loaded = await formLoad.run(() => Promise.all([fetchVintagesWithStock(), loadSaleItems(sale.id)]), showError);
+    const loaded = await formLoad.run(() => Promise.all([fetchVintagesWithStock(), loadSaleItems(sale.id)]));
     if (!loaded) return;
     const [vintages, items] = loaded;
 
@@ -278,7 +277,7 @@
   }
 
   async function openDetailsModal(sale: any) {
-    const items = await formLoad.run(() => loadSaleItems(sale.id), showError);
+    const items = await formLoad.run(() => loadSaleItems(sale.id));
     if (!items) return;
     detailsSaleItems = items;
     detailsSale = sale;

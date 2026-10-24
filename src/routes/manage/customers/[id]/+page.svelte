@@ -32,9 +32,8 @@
   let tastings: any[] = [];
   let feedback: any[] = [];
   let vintages: any[] = [];
-  let stock = new Map<string, number>();
-  /** Stock illisible : les suggestions (vins en stock) ne peuvent pas être calculées. */
-  let stockFailed = false;
+  /** null : stock illisible, les suggestions (vins en stock) ne peuvent pas être calculées. */
+  let stock: Map<string, number> | null = new Map();
 
   onMount(async () => {
     try {
@@ -59,10 +58,7 @@
             .range(from, to),
         ),
         /* Le stock ne sert qu'aux suggestions : sans lui, le reste de la fiche reste lisible. */
-        fetchStockMap().catch(() => {
-          stockFailed = true;
-          return new Map<string, number>();
-        }),
+        fetchStockMap().catch(() => null),
       ]);
       const failed = [cRes, sRes, tRes].find((r) => r.error);
       if (failed?.error) throw new Error(failed.error.message);
@@ -144,7 +140,7 @@
     const out: { vintage: any; reason: string }[] = [];
     const seen = new Set<string>();
     const push = (v: any, reason: string) => {
-      if (!v || seen.has(v.id) || boughtIds.has(v.id) || (stock.get(v.id) ?? 0) <= 0) return;
+      if (!v || seen.has(v.id) || boughtIds.has(v.id) || (stock?.get(v.id) ?? 0) <= 0) return;
       seen.add(v.id);
       out.push({ vintage: v, reason });
     };
@@ -299,7 +295,7 @@
         {#if suggestions.length === 0}
           <EmptyState
             icon={IconSparkle}
-            title={stockFailed ? "Stock indisponible : suggestions impossibles" : "Pas de suggestion pour l’instant"}
+            title={!stock ? "Stock indisponible : suggestions impossibles" : "Pas de suggestion pour l’instant"}
             compact
           />
         {:else}
@@ -311,8 +307,8 @@
                   <WineDot robe={robeOf(sg.vintage.wine?.wine_type)} />
                   <span class="list-main">
                     <span><strong>{vintageShortLabel(sg.vintage)}</strong><span class="t-muted">&nbsp;· {sg.vintage.wine?.winery?.name ?? ""}</span></span>
-                    <span class="t-caption" class:t-warn={(stock.get(sg.vintage.id) ?? 0) <= 3}>
-                      {sg.reason}{(stock.get(sg.vintage.id) ?? 0) <= 3 ? ` · plus que ${stock.get(sg.vintage.id)} bt.` : ""}
+                    <span class="t-caption" class:t-warn={(stock?.get(sg.vintage.id) ?? 0) <= 3}>
+                      {sg.reason}{(stock?.get(sg.vintage.id) ?? 0) <= 3 ? ` · plus que ${stock?.get(sg.vintage.id)} bt.` : ""}
                     </span>
                   </span>
                   <span class="price">{formatEUR(sg.vintage.price)}</span>
