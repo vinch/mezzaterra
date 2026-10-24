@@ -7,10 +7,11 @@
   import ProductVintageAutocomplete from "$lib/components/manage/ProductVintageAutocomplete.svelte";
   import CustomerAutocomplete from "$lib/components/manage/CustomerAutocomplete.svelte";
   import { customerDisplayLabel, sortCustomersByLabel } from "$lib/customerDisplay";
-  import { hasTastingExtras, hasTastingPrivacy } from "$lib/features";
+  import { fetchCustomers, fetchPickerVintages } from "$lib/manageData";
   import { fetchTastingWithWines } from "$lib/publicData";
-  import { downloadTableCardsPdf } from "$lib/tableCards";
-  import { isDiscontinued } from "$lib/wine";
+  import { todayIso } from "$lib/dates";
+  import { formatDate } from "$lib/format";
+  import { isDiscontinued, vintageLabel } from "$lib/wine";
 
   type TastingRow = Tasting & {
     tasting_wine_vintage: { order: number; wine_vintage_id: string }[];
@@ -39,10 +40,6 @@
   let selectedVintageId = "";
   let selectedCustomerId = "";
   let saving = false;
-  /** Colonnes publiques (heure, prix, capacité, description) présentes en base ? */
-  let extras = false;
-  /** Colonne `is_private` présente en base ? */
-  let privacy = false;
   let cardsBusyId = "";
 
   let formData = {
@@ -58,15 +55,7 @@
   };
 
   onMount(async () => {
-    const [, , , hasExtras, hasPrivacy] = await Promise.all([
-      loadTastings(),
-      loadWineVintages(),
-      loadCustomers(),
-      hasTastingExtras(),
-      hasTastingPrivacy(),
-    ]);
-    extras = hasExtras;
-    privacy = hasPrivacy;
+    [, wineVintages, customers] = await Promise.all([loadTastings(), fetchPickerVintages(), fetchCustomers()]);
     loading = false;
   });
 
@@ -79,6 +68,8 @@
         error = "Ajoutez des vins à la dégustation pour générer les fiches.";
         return;
       }
+      /* jsPDF et qrcode ne sont chargés qu'au moment de générer les fiches. */
+      const { downloadTableCardsPdf } = await import("$lib/tableCards");
       await downloadTableCardsPdf(res.tasting, res.wineVintages, window.location.origin);
     } catch (e) {
       error = e instanceof Error ? e.message : "Génération des fiches impossible";
@@ -96,46 +87,9 @@
     return modalCustomers.some((e) => e.customer_id === customerId);
   }
 
-  function todayIsoDate(): string {
-    const d = new Date();
-    const y = d.getFullYear();
-    const m = String(d.getMonth() + 1).padStart(2, "0");
-    const day = String(d.getDate()).padStart(2, "0");
-    return `${y}-${m}-${day}`;
-  }
-
-  function formatDateFr(iso: string): string {
-    try {
-      return new Date(iso).toLocaleDateString("fr-FR");
-    } catch {
-      return iso;
-    }
-  }
-
   function isoDateOnly(value: string): string {
     if (!value) return "";
     return value.includes("T") ? value.split("T")[0] : value;
-  }
-
-  function getProductDisplayName(vintage: any): string {
-    const w = vintage?.wine;
-    if (!w) return "—";
-    const winery = w.winery?.name || "—";
-    const wineName = w.name;
-    const appelation = w.appelation?.name;
-    if (wineName) return `${winery} — ${wineName}`;
-    if (appelation) return `${winery} — ${appelation}`;
-    return winery;
-  }
-
-  function getProductDisplayNameWithYear(vintage: any): string {
-    const base = getProductDisplayName(vintage);
-    if (vintage.year) return `${base} — ${vintage.year}`;
-    return `${base} (${vintage.production_year})`;
-  }
-
-  function formatVintageLabel(vintage: any, _stock = 0): string {
-    return getProductDisplayNameWithYear(vintage);
   }
 
   function isVintageInModal(vintageId: string): boolean {
@@ -160,44 +114,6 @@
     } else {
       tastings = (data || []) as TastingRow[];
     }
-  }
-
-  async function loadCustomers() {
-    const { data } = await supabase.from("customer").select("*");
-    customers = sortCustomersByLabel((data || []) as Customer[]);
-  }
-
-  async function loadWineVintages() {
-    const { data } = await supabase
-      .from("wine_vintage")
-      .select(
-        `
-        *,
-        wine (
-          *,
-          winery (*),
-          appelation (*)
-        )
-      `,
-      )
-      .order("production_year", { ascending: false });
-
-    if (!data) {
-      wineVintages = [];
-      return;
-    }
-
-    wineVintages = [...data].sort((a, b) => {
-      const wineryA = a.wine?.winery?.name?.toLowerCase() || "";
-      const wineryB = b.wine?.winery?.name?.toLowerCase() || "";
-      if (wineryA !== wineryB) return wineryA.localeCompare(wineryB);
-      const nameA =
-        a.wine?.name?.toLowerCase() || a.wine?.appelation?.name?.toLowerCase() || "";
-      const nameB =
-        b.wine?.name?.toLowerCase() || b.wine?.appelation?.name?.toLowerCase() || "";
-      if (nameA !== nameB) return nameA.localeCompare(nameB);
-      return b.production_year - a.production_year;
-    });
   }
 
   async function loadModalCustomers(tastingId: string) {
@@ -277,7 +193,7 @@
   function resetForm() {
     formData = {
       name: "",
-      date: todayIsoDate(),
+      date: todayIso(),
       location: "",
       notes: "",
       start_time: "",
@@ -433,43 +349,39 @@
     saving = true;
     error = "";
 
-    const payload: Record<string, unknown> = {
+    const capacity = numOrNull(formData.capacity);
+    const payload = {
       name: formData.name.trim() || null,
       date: formData.date,
       location: formData.location.trim() || null,
       notes: formData.notes.trim() || null,
+      start_time: formData.start_time || null,
+      price: numOrNull(formData.price),
+      capacity: capacity != null ? Math.max(0, Math.round(capacity)) : null,
+      description: formData.description.trim() || null,
+      is_private: formData.is_private,
     };
-    if (extras) {
-      const capacity = numOrNull(formData.capacity);
-      payload.start_time = formData.start_time || null;
-      payload.price = numOrNull(formData.price);
-      payload.capacity = capacity != null ? Math.max(0, Math.round(capacity)) : null;
-      payload.description = formData.description.trim() || null;
-    }
-    if (privacy) payload.is_private = formData.is_private;
 
     try {
       if (editingTasting) {
         const { error: updateError } = await supabase
           .from("tasting")
-          .update(payload as any)
+          .update(payload)
           .eq("id", editingTasting.id);
 
         if (updateError) throw new Error(updateError.message);
-        await saveTastingWines(editingTasting.id);
-        await saveTastingCustomers(editingTasting.id);
+        await Promise.all([saveTastingWines(editingTasting.id), saveTastingCustomers(editingTasting.id)]);
       } else {
         const { data: created, error: insertError } = await supabase
           .from("tasting")
-          .insert(payload as any)
+          .insert(payload)
           .select("id")
           .single();
 
         if (insertError || !created) {
           throw new Error(insertError?.message || "Création impossible");
         }
-        await saveTastingWines(created.id);
-        await saveTastingCustomers(created.id);
+        await Promise.all([saveTastingWines(created.id), saveTastingCustomers(created.id)]);
       }
 
       closeModal();
@@ -482,7 +394,7 @@
   }
 
   async function deleteTasting(tasting: TastingRow) {
-    const label = tasting.name || formatDateFr(tasting.date);
+    const label = tasting.name || formatDate(tasting.date);
     if (
       !confirm(
         `Supprimer la dégustation « ${label} » et toutes les données associées ?`,
@@ -491,23 +403,13 @@
       return;
     }
 
-    const { error: customersErr } = await supabase
-      .from("tasting_customer")
-      .delete()
-      .eq("tasting_id", tasting.id);
+    const [{ error: customersErr }, { error: linkErr }] = await Promise.all([
+      supabase.from("tasting_customer").delete().eq("tasting_id", tasting.id),
+      supabase.from("tasting_wine_vintage").delete().eq("tasting_id", tasting.id),
+    ]);
 
-    if (customersErr) {
-      error = customersErr.message;
-      return;
-    }
-
-    const { error: linkErr } = await supabase
-      .from("tasting_wine_vintage")
-      .delete()
-      .eq("tasting_id", tasting.id);
-
-    if (linkErr) {
-      error = linkErr.message;
+    if (customersErr || linkErr) {
+      error = (customersErr || linkErr)!.message;
       return;
     }
 
@@ -573,7 +475,7 @@
         <tbody>
           {#each tastings as tasting (tasting.id)}
             <tr>
-              <td>{formatDateFr(tasting.date)}</td>
+              <td>{formatDate(tasting.date)}</td>
               <td>
                 <strong>{tasting.name || "—"}</strong>
                 {#if tasting.is_private}<span class="private-badge" title="Non listée sur le site public">Privée</span>{/if}
@@ -649,35 +551,31 @@
         <label for="tasting-location">Lieu</label>
         <input type="text" id="tasting-location" bind:value={formData.location} />
       </div>
-      {#if privacy}
-        <div class="form-group full-width">
-          <label class="checkbox-label">
-            <input type="checkbox" bind:checked={formData.is_private} />
-            Dégustation privée (chez un client, en externe)
-          </label>
-          <small class="field-hint">
-            Non listée sur le site et sans inscription en ligne. La page et le mode live restent accessibles par lien.
-          </small>
-        </div>
-      {/if}
-      {#if extras}
-        <div class="form-group">
-          <label for="tasting-time">Heure</label>
-          <input type="time" id="tasting-time" bind:value={formData.start_time} />
-        </div>
-        <div class="form-group">
-          <label for="tasting-price">Prix / personne (€)</label>
-          <input type="text" inputmode="decimal" id="tasting-price" bind:value={formData.price} />
-        </div>
-        <div class="form-group">
-          <label for="tasting-capacity">Places (inscriptions en ligne)</label>
-          <input type="number" min="0" id="tasting-capacity" bind:value={formData.capacity} placeholder="Illimité" />
-        </div>
-        <div class="form-group full-width">
-          <label for="tasting-description">Description publique</label>
-          <textarea id="tasting-description" rows="3" bind:value={formData.description} placeholder="Affichée sur le site (thème, vigneron invité, menu…)"></textarea>
-        </div>
-      {/if}
+      <div class="form-group full-width">
+        <label class="checkbox-label">
+          <input type="checkbox" bind:checked={formData.is_private} />
+          Dégustation privée (chez un client, en externe)
+        </label>
+        <small class="field-hint">
+          Non listée sur le site et sans inscription en ligne. La page et le mode live restent accessibles par lien.
+        </small>
+      </div>
+      <div class="form-group">
+        <label for="tasting-time">Heure</label>
+        <input type="time" id="tasting-time" bind:value={formData.start_time} />
+      </div>
+      <div class="form-group">
+        <label for="tasting-price">Prix / personne (€)</label>
+        <input type="text" inputmode="decimal" id="tasting-price" bind:value={formData.price} />
+      </div>
+      <div class="form-group">
+        <label for="tasting-capacity">Places (inscriptions en ligne)</label>
+        <input type="number" min="0" id="tasting-capacity" bind:value={formData.capacity} placeholder="Illimité" />
+      </div>
+      <div class="form-group full-width">
+        <label for="tasting-description">Description publique</label>
+        <textarea id="tasting-description" rows="3" bind:value={formData.description} placeholder="Affichée sur le site (thème, vigneron invité, menu…)"></textarea>
+      </div>
       <div class="form-group full-width">
         <label for="tasting-notes">Notes internes</label>
         <textarea id="tasting-notes" rows="3" bind:value={formData.notes}></textarea>
@@ -695,7 +593,7 @@
             <li class="wine-order-item">
               <span class="wine-order-num" aria-hidden="true">{i + 1}</span>
               <span class="wine-order-label"
-                >{getProductDisplayNameWithYear(entry.vintage)}</span
+                >{vintageLabel(entry.vintage)}</span
               >
               <div class="wine-order-actions">
                 <button
@@ -741,7 +639,7 @@
             includeTastingOption={false}
             disableWhenNoStock={false}
             isVintageAlreadyAdded={isVintageInModal}
-            formatLabel={formatVintageLabel}
+            formatLabel={vintageLabel}
             getAvailableStock={() => 0}
             placeholder="Rechercher un millésime…"
           />

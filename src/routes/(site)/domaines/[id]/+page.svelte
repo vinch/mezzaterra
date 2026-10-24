@@ -11,6 +11,7 @@
     wineStyle,
     wineTitle,
     wineryFlag,
+    wineryMapEmbedUrl,
     wineryMapUrl,
     wineryPlace,
   } from "$lib/wine";
@@ -51,10 +52,7 @@
   }
 
   $: pins = [winery, ...data.others].filter(onMainMap);
-  $: mapEmbed =
-    winery.latitude != null && winery.longitude != null && !onMainMap(winery)
-      ? `https://www.openstreetmap.org/export/embed.html?bbox=${winery.longitude - 0.12}%2C${winery.latitude - 0.07}%2C${winery.longitude + 0.12}%2C${winery.latitude + 0.07}&layer=mapnik&marker=${winery.latitude}%2C${winery.longitude}`
-      : null;
+  $: mapEmbed = onMainMap(winery) ? null : wineryMapEmbedUrl(winery);
 
   $: ogDescription = (
     winery.description?.trim() ||

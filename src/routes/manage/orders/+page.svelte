@@ -1,21 +1,27 @@
 <script lang="ts">
   import { supabase } from "$lib/supabase";
   import { onMount } from "svelte";
+  import { invalidateAll } from "$app/navigation";
   import type { PageData } from "./$types";
   import Modal from "$lib/components/Modal.svelte";
   import ManagePageShell from "$lib/components/manage/ManagePageShell.svelte";
-  import { isDiscontinued } from "$lib/wine";
-  import jsPDF from "jspdf";
+  import { fetchPickerVintages, orderItemPrice } from "$lib/manageData";
+  import { parseIsoDate, todayIso } from "$lib/dates";
+  import { formatDate, formatEUR } from "$lib/format";
+  import { isDiscontinued, vintageProductLabel } from "$lib/wine";
 
   export let data: PageData;
 
-  let orders: any[] = data.orders;
+  let orders: any[];
+  /* Rechargé par invalidateAll() après une création, une modification ou une suppression. */
+  $: orders = data.orders;
   let suppliers: any[] = [];
   let wineVintages: any[] = [];
   let loading = true;
   let error = "";
-  let showModal = false;
-  let showEditModal = false;
+  /** Modale unique création / édition (`editingOrder` les distingue). */
+  let formOpen = false;
+  let saving = false;
   let showDetailsModal = false;
   let showLanguageModal = false;
   let editingOrder: any = null;
@@ -25,10 +31,9 @@
 
   // Form fields
   let formData = {
-    date: new Date().toISOString().split("T")[0],
+    date: todayIso(),
     supplier_id: "",
     status: "pending",
-    total_price: 0,
     note: "",
   };
 
@@ -39,89 +44,19 @@
   let selectedPrice = "";
 
   onMount(async () => {
-    await loadSuppliers();
-    await loadWineVintages();
+    await Promise.all([loadSuppliers(), fetchPickerVintages().then((v) => (wineVintages = v))]);
     loading = false;
   });
-
-  function getProductDisplayName(vintage: any) {
-    const winery = vintage.wine.winery.name;
-    const wineName = vintage.wine.name;
-    const appelation = vintage.wine.appelation?.name;
-
-    if (wineName) {
-      return `${winery} - ${wineName}`;
-    } else if (appelation) {
-      return `${winery} - ${appelation}`;
-    } else {
-      return winery;
-    }
-  }
-
-  function getProductDisplayNameWithYear(vintage: any) {
-    const baseName = getProductDisplayName(vintage);
-    if (vintage.year) {
-      return `${baseName} - ${vintage.year}`;
-    } else {
-      return `${baseName} (${vintage.production_year})`;
-    }
-  }
 
   async function loadSuppliers() {
     const { data } = await supabase.from("supplier").select("*").order("name");
     if (data) suppliers = data;
   }
 
-  async function loadWineVintages() {
-    const { data } = await supabase
-      .from("wine_vintage")
-      .select(
-        `
-        *,
-        wine (
-          *,
-          winery (*),
-          appelation (*)
-        )
-      `
-      )
-      .order("production_year", { ascending: false });
-    if (data) {
-      // Sort by winery, then wine name/appellation, then year
-      wineVintages = data.sort((a, b) => {
-        // First: sort by winery name
-        const wineryA = a.wine.winery.name.toLowerCase();
-        const wineryB = b.wine.winery.name.toLowerCase();
-        if (wineryA !== wineryB) {
-          return wineryA.localeCompare(wineryB);
-        }
-
-        // Second: sort by wine name or appellation
-        const wineNameA =
-          a.wine.name?.toLowerCase() ||
-          a.wine.appelation?.name?.toLowerCase() ||
-          "";
-        const wineNameB =
-          b.wine.name?.toLowerCase() ||
-          b.wine.appelation?.name?.toLowerCase() ||
-          "";
-        if (wineNameA !== wineNameB) {
-          return wineNameA.localeCompare(wineNameB);
-        }
-
-        // Third: sort by year (year if exists, else production_year)
-        const yearA = a.year || a.production_year;
-        const yearB = b.year || b.production_year;
-        return yearB - yearA; // Descending order (newest first)
-      });
-    }
-  }
-
   function openCreateModal() {
     editingOrder = null;
     resetForm();
-    orderItems = [];
-    showModal = true;
+    formOpen = true;
   }
 
   async function openEditModal(order: any) {
@@ -135,26 +70,21 @@
       date: order.date.split("T")[0],
       supplier_id: order.supplier_id || "",
       status: order.status || "pending",
-      total_price: order.total_price || 0,
       note: order.note || "",
     };
-    await loadWineVintages();
-    await loadOrderItems(order.id);
-    // Update orderItems format to match what the form expects
-    orderItems = orderItems.map((item: any) => {
-      return {
-        wine_vintage: item.wine_vintage,
-        wine_vintage_id: item.wine_vintage_id,
-        quantity: item.quantity,
-        price: item.price || item.wine_vintage?.purchase_price || 0,
-        note: item.note || "",
-      };
-    });
-    formData.total_price = calculateTotal();
-    showEditModal = true;
+    const [vintages, items] = await Promise.all([fetchPickerVintages(), loadOrderItems(order.id)]);
+    wineVintages = vintages;
+    orderItems = items.map((item: any) => ({
+      wine_vintage: item.wine_vintage,
+      wine_vintage_id: item.wine_vintage_id,
+      quantity: item.quantity,
+      price: orderItemPrice(item),
+      note: item.note || "",
+    }));
+    formOpen = true;
   }
 
-  async function loadOrderItems(orderId: string) {
+  async function loadOrderItems(orderId: string): Promise<any[]> {
     const { data } = await supabase
       .from("order_item")
       .select(
@@ -172,27 +102,18 @@
       )
       .eq("order_id", orderId);
 
-    orderItems = data || [];
+    return data || [];
   }
 
-  function closeModal() {
-    showModal = false;
+  function closeForm() {
+    formOpen = false;
     editingOrder = null;
     resetForm();
-    orderItems = [];
-  }
-
-  function closeEditModal() {
-    showEditModal = false;
-    editingOrder = null;
-    resetForm();
-    orderItems = [];
   }
 
   async function openDetailsModal(order: any) {
     detailsOrder = order;
-    await loadOrderItems(order.id);
-    detailsOrderItems = orderItems;
+    detailsOrderItems = await loadOrderItems(order.id);
     showDetailsModal = true;
   }
 
@@ -204,10 +125,9 @@
 
   function resetForm() {
     formData = {
-      date: new Date().toISOString().split("T")[0],
+      date: todayIso(),
       supplier_id: "",
       status: "pending",
-      total_price: 0,
       note: "",
     };
     orderItems = [];
@@ -222,13 +142,7 @@
     return price * quantity;
   }
 
-  function calculateTotal() {
-    let total = 0;
-    for (const item of orderItems) {
-      total += calculateItemTotal(item);
-    }
-    return total;
-  }
+  $: total = orderItems.reduce((sum, item) => sum + calculateItemTotal(item), 0);
 
   /* On ne recommande pas un millésime « plus jamais disponible ». */
   $: orderableVintages = wineVintages.filter((v) => !isDiscontinued(v));
@@ -266,121 +180,96 @@
       selectedVintageId = "";
       selectedQuantity = "";
       selectedPrice = "";
-      formData.total_price = calculateTotal();
       error = ""; // Clear any previous errors
     }
   }
 
   function removeOrderItem(index: number) {
     orderItems = orderItems.filter((_, i) => i !== index);
-    formData.total_price = calculateTotal();
     selectedVintageId = "";
   }
 
-  async function handleSubmit() {
-    if (!formData.supplier_id || orderItems.length === 0) {
-      error = "Le fournisseur et au moins un article sont obligatoires";
-      return;
+  /** Création ou modification (selon `editingOrder`) de la commande et de ses lignes. */
+  async function submitForm() {
+    if (saving) return;
+    saving = true;
+    try {
+      await saveForm();
+    } finally {
+      saving = false;
     }
-
-    const calculatedTotal = calculateTotal();
-    const orderData = {
-      date: formData.date,
-      supplier_id: formData.supplier_id,
-      status: formData.status || "pending",
-      transport_id: null,
-      total_price: calculatedTotal,
-      note: formData.note || null,
-    };
-
-    const { data: newOrder, error: insertError } = await supabase
-      .from("order")
-      .insert(orderData)
-      .select()
-      .single();
-
-    if (insertError) {
-      error = insertError.message;
-      return;
-    }
-
-    // Insert order items
-    for (const item of orderItems) {
-      const { error: itemError } = await supabase.from("order_item").insert({
-        order_id: newOrder.id,
-        wine_vintage_id: item.wine_vintage_id,
-        quantity: item.quantity,
-        price: item.price,
-        note: item.note || null,
-      });
-
-      if (itemError) {
-        error = itemError.message;
-        return;
-      }
-    }
-
-    closeModal();
-    window.location.reload();
   }
 
-  async function handleUpdate() {
+  async function saveForm() {
     if (!formData.supplier_id || orderItems.length === 0) {
       error = "Le fournisseur et au moins un article sont obligatoires";
       return;
     }
 
-    if (!editingOrder) return;
-
-    const calculatedTotal = calculateTotal();
     const orderData = {
       date: formData.date,
       supplier_id: formData.supplier_id,
       status: formData.status || "pending",
-      transport_id: null,
-      total_price: calculatedTotal,
+      total_price: total,
       note: formData.note || null,
     };
 
-    const { error: updateError } = await supabase
-      .from("order")
-      .update(orderData)
-      .eq("id", editingOrder.id);
+    let orderId: string;
+    if (editingOrder) {
+      orderId = editingOrder.id;
+      const { error: updateError } = await supabase
+        .from("order")
+        .update(orderData)
+        .eq("id", orderId);
 
-    if (updateError) {
-      error = updateError.message;
-      return;
+      if (updateError) {
+        error = updateError.message;
+        return;
+      }
+
+      // Delete existing order items
+      const { error: deleteError } = await supabase
+        .from("order_item")
+        .delete()
+        .eq("order_id", orderId);
+
+      if (deleteError) {
+        error = deleteError.message;
+        return;
+      }
+    } else {
+      const { data: newOrder, error: insertError } = await supabase
+        .from("order")
+        .insert({ ...orderData, transport_id: null })
+        .select("id")
+        .single();
+
+      if (insertError) {
+        error = insertError.message;
+        return;
+      }
+      orderId = newOrder.id;
     }
 
-    // Delete existing order items
-    const { error: deleteError } = await supabase
-      .from("order_item")
-      .delete()
-      .eq("order_id", editingOrder.id);
-
-    if (deleteError) {
-      error = deleteError.message;
-      return;
-    }
-
-    // Insert updated order items
-    for (const item of orderItems) {
-      const { error: itemError } = await supabase.from("order_item").insert({
-        order_id: editingOrder.id,
+    const { error: itemError } = await supabase.from("order_item").insert(
+      orderItems.map((item) => ({
+        order_id: orderId,
         wine_vintage_id: item.wine_vintage_id,
         quantity: item.quantity,
         price: item.price,
         note: item.note || null,
-      });
+      })),
+    );
 
-      if (itemError) {
-        error = itemError.message;
-        return;
-      }
+    if (itemError) {
+      error = itemError.message;
+      return;
     }
 
-    closeEditModal();
-    window.location.reload();
+    error = "";
+    closeForm();
+    error = "";
+    await invalidateAll();
   }
 
   async function updateOrderStatus(
@@ -436,7 +325,8 @@
       return;
     }
 
-    window.location.reload();
+    error = "";
+    await invalidateAll();
   }
 
   // Translations for PDF
@@ -511,6 +401,8 @@
 
   async function downloadOrderPDF(orderId: string, lang: Language = "fr") {
     try {
+      /* jsPDF n'est chargé qu'au moment de générer le document. */
+      const { default: jsPDF } = await import("jspdf");
       // Load order with supplier info
       const { data: order, error: orderError } = await supabase
         .from("order")
@@ -578,7 +470,7 @@
       doc.setFontSize(10);
       doc.setFont("helvetica", "normal");
       doc.text(
-        `${t.date}: ${new Date(order.date).toLocaleDateString(locale)}`,
+        `${t.date}: ${parseIsoDate(order.date).toLocaleDateString(locale)}`,
         pageWidth - margin,
         yPos,
         { align: "right" }
@@ -651,7 +543,7 @@
           yPos = margin + 20;
         }
 
-        const productName = getProductDisplayNameWithYear(item.wine_vintage);
+        const productName = vintageProductLabel(item.wine_vintage);
         const quantity = item.quantity;
         const unitPrice = item.price || 0;
         const itemTotal = unitPrice * quantity;
@@ -709,7 +601,7 @@
         yPos += 5;
         if (order.transport.departure_date) {
           doc.text(
-            `${t.departureDate}: ${new Date(order.transport.departure_date).toLocaleDateString(locale)}`,
+            `${t.departureDate}: ${parseIsoDate(order.transport.departure_date).toLocaleDateString(locale)}`,
             margin,
             yPos
           );
@@ -717,7 +609,7 @@
         }
         if (order.transport.arrival_date) {
           doc.text(
-            `${t.arrivalDate}: ${new Date(order.transport.arrival_date).toLocaleDateString(locale)}`,
+            `${t.arrivalDate}: ${parseIsoDate(order.transport.arrival_date).toLocaleDateString(locale)}`,
             margin,
             yPos
           );
@@ -738,7 +630,7 @@
       }
 
       // Save PDF
-      const dateStr = new Date(order.date).toISOString().split("T")[0];
+      const dateStr = order.date.slice(0, 10);
       const fileName = `${documentTitle}_${order.supplier.name.replace(/[^a-zA-Z0-9]/g, "_")}_${dateStr}.pdf`;
       doc.save(fileName);
     } catch (err) {
@@ -786,7 +678,7 @@
           <tbody>
             {#each orders as order}
               <tr>
-                <td>{new Date(order.date).toLocaleDateString("fr-FR")}</td>
+                <td>{formatDate(order.date)}</td>
                 <td><strong>{order.supplier.name}</strong></td>
                 <td>
                   {#if order.transport}
@@ -798,17 +690,13 @@
                         <div
                           style="font-size: 0.85rem; color: #666; margin-top: 0.15rem; line-height: 1.2;"
                         >
-                          {new Date(
-                            order.transport.departure_date
-                          ).toLocaleDateString("fr-FR")}
+                          {formatDate(order.transport.departure_date)}
                         </div>
                       {:else if order.transport.arrival_date}
                         <div
                           style="font-size: 0.85rem; color: #666; margin-top: 0.15rem; line-height: 1.2;"
                         >
-                          {new Date(
-                            order.transport.arrival_date
-                          ).toLocaleDateString("fr-FR")}
+                          {formatDate(order.transport.arrival_date)}
                         </div>
                       {/if}
                     </div>
@@ -847,7 +735,7 @@
                   </select>
                 </td>
                 <td>
-                  <strong>€{order.total_price?.toFixed(2) || "0.00"}</strong>
+                  <strong>{formatEUR(order.total_price ?? 0)}</strong>
                 </td>
                 <td>
                   <div class="actions">
@@ -889,14 +777,14 @@
     {/if}
 </ManagePageShell>
 
-<!-- Modal de création -->
+<!-- Modal de création / édition -->
 <Modal
-  show={showModal}
-  title="Nouvelle commande"
-  modalId="modal-title-create"
-  on:close={closeModal}
+  show={formOpen}
+  title={editingOrder ? "Modifier la commande" : "Nouvelle commande"}
+  modalId="modal-title-order"
+  on:close={closeForm}
 >
-  <form on:submit|preventDefault={handleSubmit}>
+  <form on:submit|preventDefault={submitForm}>
     <div class="form-grid">
       <div class="form-group">
         <label for="date">Date *</label>
@@ -928,10 +816,8 @@
               {#each orderItems as item, index}
                 <div class="order-item">
                   <span>
-                    {getProductDisplayNameWithYear(item.wine_vintage)} - x{item.quantity}
-                    @ €{item.price.toFixed(2)} = €{calculateItemTotal(
-                      item
-                    ).toFixed(2)}
+                    {vintageProductLabel(item.wine_vintage)} - x{item.quantity}
+                    @ {formatEUR(item.price)} = {formatEUR(calculateItemTotal(item))}
                   </span>
                   <button
                     type="button"
@@ -954,7 +840,7 @@
                 {#each orderableVintages as vintage}
                   {@const alreadyAdded = isVintageAlreadyAdded(vintage.id)}
                   <option value={vintage.id} disabled={alreadyAdded}>
-                    {getProductDisplayNameWithYear(vintage)}
+                    {vintageProductLabel(vintage)}
                   </option>
                 {/each}
               </select>
@@ -977,124 +863,17 @@
             </button>
           </div>
           <div class="total-display">
-            <strong>Total: €{formData.total_price.toFixed(2)}</strong>
+            <strong>Total : {formatEUR(total)}</strong>
           </div>
         </div>
       </div>
     </div>
 
     <div class="modal-footer">
-      <button type="button" class="btn-secondary" on:click={closeModal}>
+      <button type="button" class="btn-secondary" on:click={closeForm}>
         Annuler
       </button>
-      <button type="submit" class="btn-primary">Créer la commande</button>
-    </div>
-  </form>
-</Modal>
-
-<!-- Modal d'édition -->
-<Modal
-  show={showEditModal}
-  title="Modifier la commande"
-  modalId="modal-title-edit"
-  on:close={closeEditModal}
->
-  <form on:submit|preventDefault={handleUpdate}>
-    <div class="form-grid">
-      <div class="form-group">
-        <label for="edit-date">Date *</label>
-        <input type="date" id="edit-date" bind:value={formData.date} required />
-      </div>
-
-      <div class="form-group">
-        <label for="edit-supplier_id">Fournisseur *</label>
-        <select
-          id="edit-supplier_id"
-          bind:value={formData.supplier_id}
-          required
-        >
-          <option value="">Sélectionner un fournisseur</option>
-          {#each suppliers as supplier}
-            <option value={supplier.id}>{supplier.name}</option>
-          {/each}
-        </select>
-      </div>
-
-      <div class="form-group full-width">
-        <label for="edit-note">Note</label>
-        <textarea id="edit-note" bind:value={formData.note} rows="2"></textarea>
-      </div>
-
-      <div class="form-group full-width">
-        <div class="section-title">Articles *</div>
-        <div class="order-items-container">
-          {#if orderItems.length === 0}
-            <p class="empty-text">Aucun article ajouté</p>
-          {:else}
-            <div class="order-items-list">
-              {#each orderItems as item, index}
-                <div class="order-item">
-                  <span>
-                    {getProductDisplayNameWithYear(item.wine_vintage)} - x{item.quantity}
-                    @ €{item.price.toFixed(2)} = €{calculateItemTotal(
-                      item
-                    ).toFixed(2)}
-                  </span>
-                  <button
-                    type="button"
-                    class="ui-remove"
-                    on:click={() => removeOrderItem(index)}
-                  >
-                    ×
-                  </button>
-                </div>
-              {/each}
-            </div>
-          {/if}
-          <div class="add-item-form">
-            {#key orderItems.map((i) => i.wine_vintage_id).join("|")}
-              <select
-                bind:value={selectedVintageId}
-                on:change={handleVintageChange}
-              >
-                <option value="">Sélectionner un produit</option>
-                {#each orderableVintages as vintage}
-                  {@const alreadyAdded = isVintageAlreadyAdded(vintage.id)}
-                  <option value={vintage.id} disabled={alreadyAdded}>
-                    {getProductDisplayNameWithYear(vintage)}
-                  </option>
-                {/each}
-              </select>
-            {/key}
-            <input
-              type="number"
-              min="1"
-              placeholder="Qté"
-              bind:value={selectedQuantity}
-            />
-            <input
-              type="number"
-              step="0.01"
-              min="0"
-              placeholder="Prix d'achat"
-              bind:value={selectedPrice}
-            />
-            <button type="button" class="ui-btn ui-btn--secondary ui-btn--sm" on:click={addOrderItem}>
-              Ajouter
-            </button>
-          </div>
-          <div class="total-display">
-            <strong>Total: €{formData.total_price.toFixed(2)}</strong>
-          </div>
-        </div>
-      </div>
-    </div>
-
-    <div class="modal-footer">
-      <button type="button" class="btn-secondary" on:click={closeEditModal}>
-        Annuler
-      </button>
-      <button type="submit" class="btn-primary">Enregistrer</button>
+      <button type="submit" class="btn-primary" disabled={saving}>{editingOrder ? "Enregistrer" : "Créer la commande"}</button>
     </div>
   </form>
 </Modal>
@@ -1116,7 +895,7 @@
           </div>
           <div class="details-section">
             <strong>Date:</strong>
-            <p>{new Date(detailsOrder.date).toLocaleDateString("fr-FR")}</p>
+            <p>{formatDate(detailsOrder.date)}</p>
           </div>
           <div class="details-section">
             <strong>Statut:</strong>
@@ -1143,12 +922,10 @@
           {#each detailsOrderItems as item}
             <div class="details-item">
               <div class="details-item-name">
-                {getProductDisplayNameWithYear(item.wine_vintage)}
+                {vintageProductLabel(item.wine_vintage)}
               </div>
               <div class="details-item-details">
-                x{item.quantity} @ €{item.price?.toFixed(2) || "0.00"} = €{(
-                  (item.price || 0) * item.quantity
-                ).toFixed(2)}
+                x{item.quantity} @ {formatEUR(item.price ?? 0)} = {formatEUR((item.price || 0) * item.quantity)}
               </div>
             </div>
           {/each}
@@ -1156,8 +933,7 @@
       </div>
 
       <div class="details-total">
-        <strong>Total: €{detailsOrder.total_price?.toFixed(2) || "0.00"}</strong
-        >
+        <strong>Total : {formatEUR(detailsOrder.total_price ?? 0)}</strong>
       </div>
 
       {#if detailsOrder.note}

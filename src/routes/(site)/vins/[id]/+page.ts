@@ -1,12 +1,11 @@
 import { error } from "@sveltejs/kit";
+import { isUuid } from "$lib/publicData";
 import { supabase } from "$lib/supabase";
 import { isDiscontinued, publicVintages, VINTAGE_PUBLIC_SELECT } from "$lib/wine";
 import type { PageLoad } from "./$types";
 
-const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-
 export const load: PageLoad = async ({ params }) => {
-  if (!UUID.test(params.id)) throw error(404, "Page introuvable");
+  if (!isUuid(params.id)) throw error(404, "Page introuvable");
   const { data: vintage, error: fetchError } = await supabase
     .from("wine_vintage")
     .select(VINTAGE_PUBLIC_SELECT)

@@ -7,28 +7,29 @@
   import GlassProgress from "$lib/components/site/GlassProgress.svelte";
   import StarRating from "$lib/components/site/StarRating.svelte";
   import { tastingTitle } from "$lib/publicData";
-  import { daysUntil, formatDateLong, isLiveNow } from "$lib/dates";
+  import { daysUntil, formatDateLong, winesRevealed } from "$lib/dates";
   import {
-    NOTE_TYPES,
-    findNote,
-    formatEur,
     grapesText,
+    vintageNotes,
+    winePairings,
     wineStyle,
     wineSubtitle,
     wineTitle,
   } from "$lib/wine";
+  import { formatEUR } from "$lib/format";
   import {
     getCart,
     getGuestId,
     getProfile,
     getRatings,
+    getServed,
     joinLiveChannel,
     pushFeedback,
     requestSync,
     saveCart,
     saveProfile,
     saveRatings,
-    upsertNotebook,
+    saveServed,
     type GuestProfile,
     type LocalRating,
   } from "$lib/live";
@@ -74,7 +75,7 @@
     getGuestId();
     showWelcome = !profile.firstName;
 
-    maxServed = readServed();
+    maxServed = getServed(tasting.id);
     if (typeof tasting.live_position === "number") {
       hostPosition = clamp(tasting.live_position);
       markServed(hostPosition);
@@ -104,27 +105,15 @@
     return Math.max(0, Math.min(Math.max(0, total - 1), Math.round(p)));
   }
 
-  /* Progression mémorisée sur le téléphone : un rechargement ne perd pas les vins déjà servis. */
-  function readServed(): number {
-    try {
-      return Number(localStorage.getItem(`mz-served:${tasting.id}`)) || 0;
-    } catch {
-      return 0;
-    }
-  }
   function markServed(p: number) {
     if (p <= maxServed) return;
     maxServed = p;
-    try {
-      localStorage.setItem(`mz-served:${tasting.id}`, String(p));
-    } catch {
-      /* navigation privée */
-    }
+    saveServed(tasting.id, p);
   }
 
   /* Avant la soirée : rien. Pendant : jusqu'au vin servi. Après : tout. */
   $: upcoming = tasting ? daysUntil(tasting.date) > 0 : false;
-  $: finished = tasting ? daysUntil(tasting.date) < 0 && !isLiveNow(tasting.date) : false;
+  $: finished = tasting ? winesRevealed(tasting.date) : false;
   $: unlocked = finished ? Math.max(0, total - 1) : Math.min(maxServed, Math.max(0, total - 1));
 
   function goTo(i: number, manual = true) {
@@ -145,8 +134,8 @@
   $: current = wines[index];
   $: style = wineStyle(current?.wine?.wine_type);
   $: currentRating = current ? ratings[current.id] : undefined;
-  $: notes = NOTE_TYPES.map((t) => ({ ...t, content: findNote(current?.note, t.key) })).filter((n) => n.content);
-  $: pairings = (current?.wine?.wine_pairing || []).map((wp: any) => wp.pairing?.description).filter(Boolean);
+  $: notes = vintageNotes(current?.note);
+  $: pairings = winePairings(current?.wine);
   $: cartLines = wines.filter((w) => (cart[w.id] ?? 0) > 0).map((w) => ({ wine: w, qty: cart[w.id] }));
   $: cartCount = cartLines.reduce((s, l) => s + l.qty, 0);
   $: cartTotal = cartLines.reduce((s, l) => s + l.qty * Number(l.wine.price ?? 0), 0);
@@ -157,17 +146,6 @@
     const next = { ...prev, ...patch, updatedAt: new Date().toISOString() };
     ratings = { ...ratings, [vintage.id]: next };
     saveRatings(tasting.id, ratings);
-    upsertNotebook({
-      tastingId: tasting.id,
-      tastingName: tastingTitle(tasting),
-      tastingDate: tasting.date,
-      vintageId: vintage.id,
-      wineTitle: wineTitle(vintage.wine),
-      year: vintage.year ?? null,
-      rating: next.rating,
-      comment: next.comment,
-      updatedAt: next.updatedAt,
-    });
     return next;
   }
 
@@ -377,7 +355,7 @@
           <div class="panel want">
             <div>
               <span class="want-title">J’en veux !</span>
-              {#if current.price}<span class="want-price">{formatEur(current.price)} la bouteille</span>{/if}
+              {#if current.price}<span class="want-price">{formatEUR(current.price)} la bouteille</span>{/if}
             </div>
             <div class="stepper" role="group" aria-label="Nombre de bouteilles">
               <button type="button" on:click={() => setQty(current.id, (cart[current.id] ?? 0) - 1)} disabled={!cart[current.id]} aria-label="Une bouteille de moins">−</button>
@@ -421,7 +399,7 @@
     {#if cartCount > 0}
       <button type="button" class="cart-bar" on:click={() => (showCart = true)} transition:fly={{ y: 40, duration: 250 }}>
         <span>🛒 {cartCount} bouteille{cartCount > 1 ? "s" : ""}</span>
-        <strong>{formatEur(cartTotal)} →</strong>
+        <strong>{formatEUR(cartTotal)} →</strong>
       </button>
     {/if}
   {/if}
@@ -465,11 +443,11 @@
                 <output>{l.qty}</output>
                 <button type="button" on:click={() => setQty(l.wine.id, l.qty + 1)} aria-label="Plus">+</button>
               </div>
-              <span class="cart-price">{formatEur(l.qty * Number(l.wine.price ?? 0))}</span>
+              <span class="cart-price">{formatEUR(l.qty * Number(l.wine.price ?? 0))}</span>
             </li>
           {/each}
         </ul>
-        <p class="cart-total">Total indicatif <strong>{formatEur(cartTotal)}</strong></p>
+        <p class="cart-total">Total indicatif <strong>{formatEUR(cartTotal)}</strong></p>
 
         {#if sendResult === "offline"}
           <p class="offline">

@@ -1,0 +1,19 @@
+"$schema" = "https://conductor.build/schemas/settings.repo.schema.json"
+
+[prompts]
+create_pr = """
+Avant d'ouvrir la PR, si la branche touche du code : dérouler la section \
+« Avant de pousser du code » d'AGENTS.md si `/simplify` n'est pas passé \
+depuis la dernière modification, puis la section « Revue de code avant la \
+pull request » si `/code-review` n'est pas passé depuis. Indiquer dans la \
+description de la PR le niveau de revue utilisé et les findings non corrigés.
+"""
+
+code_review = """
+Lancer `/code-review` sur la branche par rapport à `main`, au niveau défini \
+dans la section « Revue de code avant la pull request » d'AGENTS.md selon ce \
+que touche le diff. Rapporter chaque finding vérifié en commentaire de diff \
+(outil DiffComment) pour qu'il apparaisse dans le panneau Checks, sans rien \
+poster sur GitHub. Ne rien corriger sans accord : terminer par la liste des \
+findings classés par gravité et la correction proposée pour chacun.
+"""

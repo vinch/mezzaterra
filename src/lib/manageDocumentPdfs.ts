@@ -1,25 +1,11 @@
 import { base } from "$app/paths";
 import jsPDF from "jspdf";
-import type { SupabaseClient } from "@supabase/supabase-js";
-import type { Database } from "./database.types";
-
-export type StockDocVintage = {
-  id: string;
-  wine_id: string;
-  wine_type_id: string | null;
-  winery_id: string;
-  quantity_on_hand: number;
-  production_year: number;
-  year: number | null;
-  price: number | null;
-  abv: number | null;
-  wineName: string;
-  wineryName: string;
-  wineTypeName: string;
-  wineTypeCategory: string | null;
-  appellationLine: string;
-  grapeNames: string[];
-};
+import {
+  sortedStockForDocuments,
+  stockVintageLabel,
+  wineTypeLabelFr,
+  type StockDocVintage,
+} from "./stockDocuments";
 
 const YELLOW: [number, number, number] = [255, 235, 120];
 
@@ -34,190 +20,46 @@ function arrayBufferToBase64(buffer: ArrayBuffer): string {
   return btoa(binary);
 }
 
-/** Roboto (Identity-H) : €, accents, etc. — Helvetica WinAnsi corrompt l’Unicode. */
-export async function attachRobotoPdf(doc: jsPDF): Promise<boolean> {
-  if (typeof fetch === "undefined") return false;
+async function fetchRobotoBase64(): Promise<[string, string] | null> {
   try {
     const [regRes, boldRes] = await Promise.all([
       fetch(`${base}/fonts/Roboto-Regular.ttf`),
       fetch(`${base}/fonts/Roboto-Bold.ttf`),
     ]);
-    if (!regRes.ok || !boldRes.ok) return false;
+    if (!regRes.ok || !boldRes.ok) return null;
     const [regBuf, boldBuf] = await Promise.all([
       regRes.arrayBuffer(),
       boldRes.arrayBuffer(),
     ]);
-    const regName = "Roboto-Regular.ttf";
-    const boldName = "Roboto-Bold.ttf";
-    doc.addFileToVFS(regName, arrayBufferToBase64(regBuf));
-    doc.addFont(regName, "Roboto", "normal");
-    doc.addFileToVFS(boldName, arrayBufferToBase64(boldBuf));
-    doc.addFont(boldName, "Roboto", "bold");
-    return true;
+    return [arrayBufferToBase64(regBuf), arrayBufferToBase64(boldBuf)];
   } catch {
-    return false;
+    return null;
   }
 }
 
-function wineDisplayName(wine: {
-  name: string | null;
-  appelation?: { name: string | null; label?: { name: string | null } | null } | null;
-}): string {
-  if (wine.name?.trim()) return wine.name.trim();
-  const ap = wine.appelation;
-  const parts = [ap?.label?.name, ap?.name].filter(Boolean) as string[];
-  return parts.join(" ").trim() || "Sans nom";
-}
+/** Polices téléchargées et encodées une seule fois par session (nouvel essai après un échec). */
+let robotoBase64: Promise<[string, string] | null> | null = null;
 
-function appellationLine(wine: {
-  appelation?: { name: string | null; label?: { name: string | null } | null } | null;
-}): string {
-  const ap = wine.appelation;
-  if (!ap) return "";
-  const parts = [ap.label?.name, ap.name].filter(Boolean) as string[];
-  return parts.join(" ");
-}
-
-function collectGrapeNames(
-  rows: { grape?: { name: string } | null; percentage: number | null }[] | null | undefined,
-): string[] {
-  if (!rows?.length) return [];
-  const sorted = [...rows].sort((a, b) => {
-    const pa = a.percentage ?? 0;
-    const pb = b.percentage ?? 0;
-    if (pa !== pb) return pb - pa;
-    return (a.grape?.name || "").localeCompare(b.grape?.name || "");
+function loadRobotoBase64(): Promise<[string, string] | null> {
+  robotoBase64 ??= fetchRobotoBase64().then((fonts) => {
+    if (!fonts) robotoBase64 = null;
+    return fonts;
   });
-  return sorted
-    .map((r) => r.grape?.name)
-    .filter((n): n is string => Boolean(n?.trim()));
+  return robotoBase64;
 }
 
-export function mapInventoryToDocVintages(
-  invRows: {
-    quantity_on_hand: number | null;
-    wine_vintage: {
-      id: string;
-      production_year: number;
-      year: number | null;
-      price: number | null;
-      abv: number | null;
-      wine: {
-        id: string;
-        winery_id: string;
-        name: string | null;
-        wine_type_id: string | null;
-        winery?: { name: string | null } | null;
-        appelation?: {
-          name: string | null;
-          label?: { name: string | null } | null;
-        } | null;
-        wine_type?: { name: string; category?: string | null } | null;
-      } | null;
-      wine_vintage_grape?: {
-        percentage: number | null;
-        grape: { name: string } | null;
-      }[] | null;
-    } | null;
-  }[],
-): StockDocVintage[] {
-  const out: StockDocVintage[] = [];
-  for (const row of invRows) {
-    const v = row.wine_vintage;
-    const w = v?.wine;
-    if (!v || !w || (row.quantity_on_hand ?? 0) <= 0) continue;
-    out.push({
-      id: v.id,
-      wine_id: w.id,
-      wine_type_id: w.wine_type_id ?? null,
-      winery_id: w.winery_id,
-      quantity_on_hand: row.quantity_on_hand ?? 0,
-      production_year: v.production_year,
-      year: v.year,
-      price: v.price,
-      abv: v.abv,
-      wineName: wineDisplayName(w),
-      wineryName: w.winery?.name?.trim() || "—",
-      wineTypeName: w.wine_type?.name?.trim() || "Autre",
-      wineTypeCategory: w.wine_type?.category ?? null,
-      appellationLine: appellationLine(w),
-      grapeNames: collectGrapeNames(v.wine_vintage_grape),
-    });
-  }
-  return out;
-}
-
-export async function fetchStockDocVintages(
-  supabase: SupabaseClient<Database>,
-): Promise<{ data: StockDocVintage[]; error: string | null }> {
-  const { data: invRows, error: invErr } = await supabase
-    .from("inventory")
-    .select("wine_vintage_id, quantity_on_hand")
-    .gt("quantity_on_hand", 0);
-
-  if (invErr) {
-    return { data: [], error: invErr.message };
-  }
-
-  /** Plusieurs lignes inventaire pour le même millésime → une seule ligne doc (quantités additionnées). */
-  const qtyByVintage = new Map<string, number>();
-  for (const r of invRows || []) {
-    const vid = r.wine_vintage_id;
-    if (vid == null) continue;
-    const q = r.quantity_on_hand ?? 0;
-    if (q <= 0) continue;
-    qtyByVintage.set(vid, (qtyByVintage.get(vid) ?? 0) + q);
-  }
-
-  if (qtyByVintage.size === 0) {
-    return { data: [], error: null };
-  }
-
-  const ids = [...qtyByVintage.keys()];
-
-  const { data: vintages, error: vErr } = await supabase
-    .from("wine_vintage")
-    .select(
-      `
-      id,
-      production_year,
-      year,
-      price,
-      abv,
-      wine (
-        id,
-        winery_id,
-        name,
-        wine_type_id,
-        winery (name),
-        appelation (name, label (name)),
-        wine_type (name, category)
-      ),
-      wine_vintage_grape (
-        percentage,
-        grape (name)
-      )
-    `,
-    )
-    .in("id", ids);
-
-  if (vErr) {
-    return { data: [], error: vErr.message };
-  }
-
-  const vintageMap = new Map((vintages || []).map((v) => [v.id, v]));
-
-  const merged: Parameters<typeof mapInventoryToDocVintages>[0] = [];
-  for (const [wine_vintage_id, quantity_on_hand] of qtyByVintage) {
-    const v = vintageMap.get(wine_vintage_id);
-    if (!v?.wine) continue;
-    merged.push({
-      quantity_on_hand,
-      wine_vintage: v,
-    } as Parameters<typeof mapInventoryToDocVintages>[0][number]);
-  }
-
-  return { data: mapInventoryToDocVintages(merged), error: null };
+/** Roboto (Identity-H) : €, accents, etc. — Helvetica WinAnsi corrompt l’Unicode. */
+export async function attachRobotoPdf(doc: jsPDF): Promise<boolean> {
+  if (typeof fetch === "undefined") return false;
+  const fonts = await loadRobotoBase64();
+  if (!fonts) return false;
+  const regName = "Roboto-Regular.ttf";
+  const boldName = "Roboto-Bold.ttf";
+  doc.addFileToVFS(regName, fonts[0]);
+  doc.addFont(regName, "Roboto", "normal");
+  doc.addFileToVFS(boldName, fonts[1]);
+  doc.addFont(boldName, "Roboto", "bold");
+  return true;
 }
 
 function priceGroupKey(v: StockDocVintage): "blancs" | "roses" | "rouges" {
@@ -246,46 +88,9 @@ const GROUP_LABEL: Record<"blancs" | "roses" | "rouges", string> = {
   rouges: "Rouges",
 };
 
-/** Même ordre que les listes Vins / Stock : vignoble, nom (ou appellation), millésime ↓. */
-function sortDocVintages(a: StockDocVintage, b: StockDocVintage): number {
-  const wineryA = a.wineryName.toLowerCase();
-  const wineryB = b.wineryName.toLowerCase();
-  if (wineryA !== wineryB) return wineryA.localeCompare(wineryB);
-  const nameA = a.wineName.toLowerCase();
-  const nameB = b.wineName.toLowerCase();
-  if (nameA !== nameB) return nameA.localeCompare(nameB);
-  return b.production_year - a.production_year;
-}
-
-export function sortedStockForDocuments(rows: StockDocVintage[]): StockDocVintage[] {
-  return [...rows].sort(sortDocVintages);
-}
-
 function formatEur(n: number | null): string {
   if (n == null || Number.isNaN(n)) return "—";
   return `${n.toFixed(2).replace(".", ",")} €`;
-}
-
-/** Libellé type de vin en français pour les PDF / UI documents. */
-export function wineTypeLabelFr(name: string): string {
-  const n = name.trim().toLowerCase();
-  if (n === "white") return "Blanc";
-  if (n === "red") return "Rouge";
-  if (n === "rose" || n === "rosé") return "Rosé";
-  if (n === "blanc") return "Blanc";
-  if (n === "rouge") return "Rouge";
-  return name;
-}
-
-export function stockVintageLabel(v: StockDocVintage): string {
-  if (v.year != null && v.year !== v.production_year) {
-    return `${v.year} (${v.production_year})`;
-  }
-  return String(v.production_year);
-}
-
-function displayYear(v: StockDocVintage): string {
-  return stockVintageLabel(v);
 }
 
 /** Numérotation lisible en PDF (① etc. → $ / lettres avec Helvetica). */
@@ -318,19 +123,18 @@ function fitLine(
   return Array.isArray(lines) ? lines : [lines];
 }
 
-/** jsPDF n’accepte pas le SVG ; rasterisation côté navigateur pour `static/logo-black.svg`. */
-async function loadBlackLogoPngForPdf(): Promise<{
-  dataUrl: string;
-  aspect: number;
-} | null> {
+/** jsPDF n’accepte pas le SVG : rasterisation côté navigateur, assez large pour rester net une fois réduit en mm. */
+export async function svgToPng(
+  url: string,
+  widthPx = 1600,
+): Promise<{ dataUrl: string; aspect: number } | null> {
   if (typeof fetch === "undefined" || typeof document === "undefined") {
     return null;
   }
   try {
-    const res = await fetch(`${base}/logo-black.svg`);
+    const res = await fetch(url);
     if (!res.ok) return null;
-    const svgText = await res.text();
-    const blob = new Blob([svgText], {
+    const blob = new Blob([await res.text()], {
       type: "image/svg+xml;charset=utf-8",
     });
     const objectUrl = URL.createObjectURL(blob);
@@ -338,26 +142,22 @@ async function loadBlackLogoPngForPdf(): Promise<{
       const img = new Image();
       await new Promise<void>((resolve, reject) => {
         img.onload = () => resolve();
-        img.onerror = () => reject(new Error("logo"));
+        img.onerror = () => reject(new Error("svg"));
         img.src = objectUrl;
       });
       const iw = img.naturalWidth || img.width;
       const ih = img.naturalHeight || img.height;
       if (!iw || !ih) return null;
-      /** Raster large pour un logo net une fois réduit en mm dans le PDF. */
-      const targetPxW = 3000;
-      const targetPxH = Math.max(1, Math.round(targetPxW * (ih / iw)));
-      img.width = targetPxW;
-      img.height = targetPxH;
+      const heightPx = Math.max(1, Math.round(widthPx * (ih / iw)));
       const canvas = document.createElement("canvas");
-      canvas.width = targetPxW;
-      canvas.height = targetPxH;
+      canvas.width = widthPx;
+      canvas.height = heightPx;
       const ctx = canvas.getContext("2d");
       if (!ctx) return null;
       ctx.imageSmoothingEnabled = true;
       ctx.imageSmoothingQuality = "high";
-      ctx.drawImage(img, 0, 0, targetPxW, targetPxH);
-      return { dataUrl: canvas.toDataURL("image/png"), aspect: targetPxH / targetPxW };
+      ctx.drawImage(img, 0, 0, widthPx, heightPx);
+      return { dataUrl: canvas.toDataURL("image/png"), aspect: heightPx / widthPx };
     } finally {
       URL.revokeObjectURL(objectUrl);
     }
@@ -426,7 +226,7 @@ async function drawPdfPricesHeader(
 ): Promise<number> {
   const headerTopY = startY;
   const [logo, qr] = await Promise.all([
-    loadBlackLogoPngForPdf(),
+    svgToPng(`${base}/logo-black.svg`, 3000),
     loadStaticPngDataUrl("/qr.png"),
   ]);
   const logoWmm = 48;
@@ -488,7 +288,7 @@ async function drawPdfNotesHeader(
 ): Promise<number> {
   const headerTopY = startY;
   const [logo, qr] = await Promise.all([
-    loadBlackLogoPngForPdf(),
+    svgToPng(`${base}/logo-black.svg`, 3000),
     loadStaticPngDataUrl("/qr.png"),
   ]);
   const logoWmm = 48;
@@ -692,7 +492,7 @@ export async function downloadNotesPdf(
     const title = `${noteEntryNumber(idx)} ${v.wineryName} ${v.wineName}`;
     const grapes = v.grapeNames.length ? v.grapeNames.join(", ") : "—";
     const abvStr = v.abv != null ? `${v.abv}%` : "—";
-    const detail = `${wineTypeLabelFr(v.wineTypeName)} / ${displayYear(v)} / ${abvStr} / Cépages : ${grapes} / ${v.appellationLine || "—"}`;
+    const detail = `${wineTypeLabelFr(v.wineTypeName)} / ${stockVintageLabel(v)} / ${abvStr} / Cépages : ${grapes} / ${v.appellationLine || "—"}`;
 
     const titleLines = fitLine(doc, title, textW - 2, 10.5);
     const detailLines = fitLine(doc, detail, textW, 9);

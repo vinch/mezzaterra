@@ -1,4 +1,5 @@
 import { base } from "$app/paths";
+import { formatTime } from "./dates";
 
 /** Visuel « Prochaine dégustation » (format portrait réseaux sociaux / WhatsApp). */
 export const FLYER_WIDTH = 960;
@@ -48,12 +49,8 @@ export function formatFlyerDate(date: string, time: string): string {
   if (!y || !m || !d) return "";
   const weekday = WEEKDAYS[new Date(y, m - 1, d).getDay()];
   const day = d === 1 ? "1er" : String(d);
-  let line = `${weekday} ${day} ${MONTHS[m - 1]}`;
-  const [hh, mm] = time.split(":");
-  if (hh) {
-    line += ` à ${Number(hh)}h${mm && mm !== "00" ? mm : ""}`;
-  }
-  return line;
+  const hour = formatTime(time);
+  return `${weekday} ${day} ${MONTHS[m - 1]}${hour ? ` à ${hour}` : ""}`;
 }
 
 /** « 20€ par personne » / « 22,50€ par personne ». */

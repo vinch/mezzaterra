@@ -1,6 +1,13 @@
 import { supabase } from "./supabase";
 import { VINTAGE_PUBLIC_SELECT } from "./wine";
 
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+/** Identifiant de page plausible (évite d'interroger la base pour une URL fantaisiste). */
+export function isUuid(id: string): boolean {
+  return UUID.test(id);
+}
+
 export type Availability = { in_stock: boolean; low_stock: boolean };
 
 /** Disponibilité publique par millésime ; `null` si la fonction SQL n'est pas (encore) déployée. */
@@ -30,11 +37,18 @@ export async function fetchSeats(tastingId: string): Promise<SeatInfo | null> {
 
 /** Dégustation + vins dans l'ordre de passage. */
 export async function fetchTastingWithWines(tastingId: string, opts: { reveal?: (date: string) => boolean } = {}) {
-  const { data: tasting, error } = await supabase
-    .from("tasting")
-    .select("*")
-    .eq("id", tastingId)
-    .maybeSingle();
+  const fetchLinks = () =>
+    supabase
+      .from("tasting_wine_vintage")
+      .select(`order, wine_vintage ( ${VINTAGE_PUBLIC_SELECT} )`)
+      .eq("tasting_id", tastingId)
+      .order("order");
+
+  /* Sans condition de dévoilement, les vins se lisent en même temps que la dégustation. */
+  const [{ data: tasting, error }, eagerLinks] = await Promise.all([
+    supabase.from("tasting").select("*").eq("id", tastingId).maybeSingle(),
+    opts.reveal ? null : fetchLinks(),
+  ]);
 
   if (error) return { tasting: null, wineVintages: [] as any[], error: error.message };
   if (!tasting) return { tasting: null, wineVintages: [] as any[], error: null };
@@ -48,11 +62,7 @@ export async function fetchTastingWithWines(tastingId: string, opts: { reveal?: 
     return { tasting, wineVintages: [] as any[], hiddenCount: count ?? 0, error: null };
   }
 
-  const { data: links, error: linksError } = await supabase
-    .from("tasting_wine_vintage")
-    .select(`order, wine_vintage ( ${VINTAGE_PUBLIC_SELECT} )`)
-    .eq("tasting_id", tastingId)
-    .order("order");
+  const { data: links, error: linksError } = eagerLinks ?? (await fetchLinks());
 
   if (linksError) console.error("Erreur chargement des vins :", linksError);
 

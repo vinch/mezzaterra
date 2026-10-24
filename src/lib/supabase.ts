@@ -10,3 +10,21 @@ if (!supabaseUrl || !supabaseAnonKey) {
 }
 
 export const supabase = createClient<Database>(supabaseUrl, supabaseAnonKey);
+
+/** Valeur littérale pour `.ilike()` (comparaison insensible à la casse, sans jokers `%` ni `_`). */
+export function escapeLike(value: string): string {
+  return value.replace(/[\\%_]/g, "\\$&");
+}
+
+/** Lecture paginée (PostgREST limite à 1000 lignes par défaut). */
+export async function fetchAllRows<T>(build: (from: number, to: number) => PromiseLike<{ data: any; error: any }>): Promise<T[]> {
+  const page = 1000;
+  const out: T[] = [];
+  for (let from = 0; ; from += page) {
+    const { data, error } = await build(from, from + page - 1);
+    if (error) throw new Error(error.message);
+    out.push(...((data || []) as T[]));
+    if (!data || data.length < page) break;
+  }
+  return out;
+}

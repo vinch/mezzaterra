@@ -321,19 +321,6 @@ select:disabled {
   padding-right: 12px;
 }
 
-/* Lien qui couvre la ligne entière (la ligne ouvre l'élément). */
-.row-link {
-  color: inherit !important;
-  text-decoration: none;
-  font-weight: 600;
-}
-
-.row-link::after {
-  content: "";
-  position: absolute;
-  inset: 0;
-}
-
 .ui-table tbody tr {
   position: relative;
 }
@@ -365,8 +352,7 @@ select:disabled {
   border-color: var(--teal-600);
 }
 
-.ui-chip[aria-pressed="true"],
-.ui-chip.is-active {
+.ui-chip[aria-pressed="true"] {
   background: var(--night);
   border-color: var(--night);
   color: #fff;

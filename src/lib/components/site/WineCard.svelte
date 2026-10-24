@@ -2,7 +2,8 @@
   import { createEventDispatcher } from "svelte";
   import OrganicLogo from "./OrganicLogo.svelte";
   import WineBottle from "./WineBottle.svelte";
-  import { formatEur, grapesText, wineStyle, wineSubtitle, wineTitle } from "$lib/wine";
+  import { grapesText, wineStyle, wineSubtitle, wineTitle } from "$lib/wine";
+  import { formatEUR } from "$lib/format";
 
   export let vintage: any;
   /** Numéro de passage (1-based) dans une dégustation. */
@@ -69,7 +70,7 @@
           <span class="year">{vintage.year}</span>
         {/if}
         {#if vintage?.price}
-          <span class="price">{formatEur(vintage.price)}</span>
+          <span class="price">{formatEUR(vintage.price)}</span>
         {/if}
       </div>
     </div>

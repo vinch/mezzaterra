@@ -4,31 +4,18 @@ import { supabase } from "./supabase";
 
 /**
  * Mode dégustation live.
- * - La position du vin servi est poussée par l'admin via Realtime Broadcast (aucune table requise)
- *   et, si la colonne existe, persistée dans `tasting.live_position` pour les retardataires.
- * - Les notes et le panier des invités vivent d'abord dans le localStorage (ça marche hors-ligne
- *   et sans migration), puis sont envoyés en base quand c'est possible.
+ * - La position du vin servi est poussée par l'admin via Realtime Broadcast
+ *   et persistée dans `tasting.live_position` pour les retardataires.
+ * - Les notes et le panier des invités vivent d'abord dans le localStorage (ça marche hors-ligne),
+ *   puis sont envoyés en base quand c’est possible.
  */
 
 export type GuestProfile = { firstName: string; lastName: string; email: string; phone: string };
 export type LocalRating = { rating: number | null; comment: string; updatedAt: string };
 
-/** Entrée du carnet local (notes conservées dans le navigateur). */
-export type NotebookEntry = {
-  tastingId: string;
-  tastingName: string;
-  tastingDate: string;
-  vintageId: string;
-  wineTitle: string;
-  year: number | null;
-  rating: number | null;
-  comment: string;
-  updatedAt: string;
-};
 
 const GUEST_ID_KEY = "mz-guest-id";
 const PROFILE_KEY = "mz-guest-profile";
-const NOTEBOOK_KEY = "mz-notebook";
 
 function read<T>(key: string, fallback: T): T {
   if (!browser) return fallback;
@@ -82,24 +69,21 @@ export function saveRatings(tastingId: string, ratings: Record<string, LocalRati
   write(`mz-ratings:${tastingId}`, ratings);
 }
 
+/** Dernier vin servi vu sur ce téléphone : un rechargement ne perd pas la progression. */
+export function getServed(tastingId: string): number {
+  return Number(read(`mz-served:${tastingId}`, 0)) || 0;
+}
+
+export function saveServed(tastingId: string, position: number) {
+  write(`mz-served:${tastingId}`, position);
+}
+
 export function getCart(tastingId: string): Record<string, number> {
   return read(`mz-cart:${tastingId}`, {});
 }
 
 export function saveCart(tastingId: string, cart: Record<string, number>) {
   write(`mz-cart:${tastingId}`, cart);
-}
-
-export function getNotebook(): NotebookEntry[] {
-  return read<NotebookEntry[]>(NOTEBOOK_KEY, []);
-}
-
-export function upsertNotebook(entry: NotebookEntry) {
-  const list = getNotebook().filter(
-    (e) => !(e.tastingId === entry.tastingId && e.vintageId === entry.vintageId),
-  );
-  list.push(entry);
-  write(NOTEBOOK_KEY, list);
 }
 
 /** Envoie une note en base (insert-only ; la plus récente fait foi). Silencieux en cas d'échec. */

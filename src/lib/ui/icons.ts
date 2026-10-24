@@ -3,8 +3,6 @@ export { default as IconArchive } from "@lucide/svelte/icons/archive";
 export { default as IconArchiveRestore } from "@lucide/svelte/icons/archive-restore";
 export { default as IconArrowLeft } from "@lucide/svelte/icons/arrow-left";
 export { default as IconArrowRight } from "@lucide/svelte/icons/arrow-right";
-export { default as IconBan } from "@lucide/svelte/icons/ban";
-export { default as IconBanknote } from "@lucide/svelte/icons/banknote";
 export { default as IconBox } from "@lucide/svelte/icons/package";
 export { default as IconCalendar } from "@lucide/svelte/icons/calendar";
 export { default as IconChart } from "@lucide/svelte/icons/chart-column";
@@ -56,6 +54,3 @@ export { default as IconUsers } from "@lucide/svelte/icons/users";
 export { default as IconWine } from "@lucide/svelte/icons/wine";
 export { default as IconX } from "@lucide/svelte/icons/x";
 export { default as IconCastle } from "@lucide/svelte/icons/castle";
-
-export const ICON_SIZE = 18;
-export const ICON_STROKE = 1.75;

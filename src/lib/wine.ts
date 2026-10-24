@@ -88,6 +88,45 @@ export function vintageLabel(v: {
   return parts.join(" — ");
 }
 
+/** « Riserva 2019 » : nom court, sans domaine (listes de l'admin). */
+export function vintageShortLabel(v: {
+  year?: number | null;
+  production_year?: number | null;
+  wine?: WineLike;
+} | null | undefined): string {
+  const name = v?.wine?.name?.trim() || v?.wine?.appelation?.name || "Vin";
+  const year = v?.year ?? v?.production_year;
+  return year ? `${name} ${year}` : name;
+}
+
+/**
+ * « Domaine - Cuvée - 2022 » (ou « Domaine - Cuvée (2021) » sans millésime) : libellé des lignes
+ * de vente, de commande et de transport, factures et bons de commande compris.
+ */
+export function vintageProductLabel(v: {
+  year?: number | null;
+  production_year?: number | null;
+  wine?: WineLike;
+}): string {
+  const winery = v.wine?.winery?.name;
+  const name = v.wine?.name || v.wine?.appelation?.name;
+  const base = name ? `${winery} - ${name}` : `${winery}`;
+  return v.year ? `${base} - ${v.year}` : `${base} (${v.production_year})`;
+}
+
+type SortableVintage = { year?: number | null; production_year?: number | null; wine?: WineLike };
+
+/** Tri des sélecteurs de l'admin : domaine, puis cuvée (ou appellation), puis année décroissante. */
+export function compareVintages(a: SortableVintage, b: SortableVintage): number {
+  const wineryA = a.wine?.winery?.name?.toLowerCase() || "";
+  const wineryB = b.wine?.winery?.name?.toLowerCase() || "";
+  if (wineryA !== wineryB) return wineryA.localeCompare(wineryB);
+  const nameA = a.wine?.name?.toLowerCase() || a.wine?.appelation?.name?.toLowerCase() || "";
+  const nameB = b.wine?.name?.toLowerCase() || b.wine?.appelation?.name?.toLowerCase() || "";
+  if (nameA !== nameB) return nameA.localeCompare(nameB);
+  return (b.year || b.production_year || 0) - (a.year || a.production_year || 0);
+}
+
 export function grapesText(
   grapes: { percentage?: number | null; grape?: { name?: string | null } | null }[] | null | undefined,
   withPercent = false,
@@ -113,17 +152,18 @@ export function findNote(
   return notes?.find((n) => n.type === key)?.content?.trim() || "";
 }
 
-const eurFmt = new Intl.NumberFormat("fr-FR", { style: "currency", currency: "EUR" });
-const eurFmtRound = new Intl.NumberFormat("fr-FR", {
-  style: "currency",
-  currency: "EUR",
-  maximumFractionDigits: 0,
-});
+/** Notes renseignées d'un millésime, dans l'ordre de `NOTE_TYPES`. */
+export function vintageNotes(
+  notes: { type: string; content: string }[] | null | undefined,
+): { key: string; label: string; content: string }[] {
+  return NOTE_TYPES.map((t) => ({ ...t, content: findNote(notes, t.key) })).filter((n) => n.content);
+}
 
-export function formatEur(n: number | string | null | undefined, round = false): string {
-  const v = typeof n === "string" ? parseFloat(n) : n;
-  if (v == null || !Number.isFinite(v)) return "—";
-  return (round ? eurFmtRound : eurFmt).format(v);
+/** Accords mets-vins d'un vin chargé avec `VINTAGE_PUBLIC_SELECT`. */
+export function winePairings(
+  wine: { wine_pairing?: { pairing?: { description?: string | null } | null }[] | null } | null | undefined,
+): string[] {
+  return (wine?.wine_pairing || []).map((wp) => wp.pairing?.description).filter((d): d is string => !!d);
 }
 
 /** Requête Supabase réutilisable : un millésime avec tout ce qu'il faut pour l'afficher. */
@@ -179,4 +219,11 @@ export function wineryFlag(w: WineryLike): string {
 export function wineryMapUrl(w: WineryLike): string | null {
   if (w?.latitude == null || w?.longitude == null) return null;
   return `https://www.openstreetmap.org/?mlat=${w.latitude}&mlon=${w.longitude}#map=12/${w.latitude}/${w.longitude}`;
+}
+
+/** Carte OpenStreetMap intégrable (iframe) centrée sur le domaine. */
+export function wineryMapEmbedUrl(w: WineryLike): string | null {
+  if (w?.latitude == null || w?.longitude == null) return null;
+  const { latitude: lat, longitude: lon } = w;
+  return `https://www.openstreetmap.org/export/embed.html?bbox=${lon - 0.12}%2C${lat - 0.07}%2C${lon + 0.12}%2C${lat + 0.07}&layer=mapnik&marker=${lat}%2C${lon}`;
 }

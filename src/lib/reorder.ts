@@ -103,3 +103,14 @@ export async function addToNextSupplierOrder(
 
   return { orderId: orderId!, supplierName: supplier.supplierName, created };
 }
+
+/** Demande le nombre de bouteilles, puis complète la commande ; renvoie le message à afficher (null si annulé). */
+export async function promptReorder(
+  label: string,
+  vintage: { id: string; purchase_price?: number | string | null },
+): Promise<string | null> {
+  const qty = parseInt(prompt(`Combien de bouteilles de « ${label} » ajouter à la commande fournisseur ?`, "12") ?? "", 10);
+  if (!Number.isFinite(qty) || qty < 1) return null;
+  const res = await addToNextSupplierOrder(vintage.id, qty, Number(vintage.purchase_price || 0));
+  return `${qty} bt. ajoutées à ${res.created ? "une nouvelle commande" : "la commande en attente"} chez ${res.supplierName}.`;
+}

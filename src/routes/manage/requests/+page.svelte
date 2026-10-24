@@ -2,12 +2,10 @@
   import { onMount } from "svelte";
   import { supabase } from "$lib/supabase";
   import ManagePageShell from "$lib/components/manage/ManagePageShell.svelte";
-  import { hasTable } from "$lib/features";
-  import { formatDateShort } from "$lib/dates";
-  import { formatEur, vintageLabel } from "$lib/wine";
-  import { createSaleFromWish, setWishStatus, wishItems, type WishRequest } from "$lib/wishes";
+  import { vintageLabel } from "$lib/wine";
+  import { formatDate, formatEUR } from "$lib/format";
+  import { createSaleFromWish, setWishStatus, wishItems, wishTotal, type WishRequest } from "$lib/wishes";
 
-  let available = true;
   let loading = true;
   let error = "";
   let wishes: WishRequest[] = [];
@@ -18,26 +16,33 @@
   let busyId = "";
 
   onMount(async () => {
-    available = await hasTable("wish_request");
-    if (available) await load();
+    await load();
     loading = false;
   });
 
   async function load() {
-    const [wRes, vRes, tRes] = await Promise.all([
-      supabase.from("wish_request").select("*").order("created_at", { ascending: false }),
+    const [, vRes, tRes] = await Promise.all([
+      loadWishes(),
       supabase
         .from("wine_vintage")
         .select("id, year, production_year, price, wine ( name, winery ( name ), appelation ( name, label ( name ) ) )"),
       supabase.from("tasting").select("id, name, date"),
     ]);
-    if (wRes.error) {
-      error = wRes.error.message;
-      return;
-    }
-    wishes = (wRes.data || []) as unknown as WishRequest[];
     vintages = new Map((vRes.data || []).map((v: any) => [v.id, v]));
     tastings = new Map((tRes.data || []).map((t: any) => [t.id, t]));
+  }
+
+  /** Seules les demandes changent après une action : millésimes et dégustations restent en mémoire. */
+  async function loadWishes() {
+    const { data, error: fetchError } = await supabase
+      .from("wish_request")
+      .select("*")
+      .order("created_at", { ascending: false });
+    if (fetchError) {
+      error = fetchError.message;
+      return;
+    }
+    wishes = (data || []) as unknown as WishRequest[];
   }
 
   $: prices = new Map([...vintages.values()].map((v) => [v.id, Number(v.price ?? 0)]));
@@ -49,14 +54,10 @@
     all: wishes.length,
   };
 
-  function total(w: WishRequest): number {
-    return wishItems(w.items).reduce((s, i) => s + i.quantity * (prices.get(i.wine_vintage_id) ?? 0), 0);
-  }
-
   function tastingName(id: string | null): string {
     if (!id) return "Site";
     const t = tastings.get(id);
-    return t ? t.name || `Dégustation du ${formatDateShort(t.date)}` : "Dégustation";
+    return t ? t.name || `Dégustation du ${formatDate(t.date)}` : "Dégustation";
   }
 
   async function run(w: WishRequest, action: () => Promise<unknown>) {
@@ -64,7 +65,7 @@
     busyId = w.id;
     try {
       await action();
-      await load();
+      await loadWishes();
     } catch (e) {
       error = e instanceof Error ? e.message : String(e);
     } finally {
@@ -87,13 +88,6 @@
 <ManagePageShell title="Demandes">
   {#if loading}
     <div class="loading">Chargement…</div>
-  {:else if !available}
-    <div class="empty-state">
-      <p>
-        Les demandes « J’en veux » envoyées pendant les dégustations live apparaîtront ici une fois la
-        migration <code>20261016120000_public_experience.sql</code> appliquée.
-      </p>
-    </div>
   {:else}
     {#if error}<div class="error-message">{error}</div>{/if}
 
@@ -127,12 +121,12 @@
                   <tr>
                     <td class="qty">{it.quantity} ×</td>
                     <td>{vintageLabel(vintages.get(it.wine_vintage_id))}</td>
-                    <td class="num">{formatEur(it.quantity * (prices.get(it.wine_vintage_id) ?? 0))}</td>
+                    <td class="num">{formatEUR(it.quantity * (prices.get(it.wine_vintage_id) ?? 0))}</td>
                   </tr>
                 {/each}
               </tbody>
               <tfoot>
-                <tr><td></td><td>Total au prix catalogue</td><td class="num"><strong>{formatEur(total(w))}</strong></td></tr>
+                <tr><td></td><td>Total au prix catalogue</td><td class="num"><strong>{formatEUR(wishTotal(w, prices))}</strong></td></tr>
               </tfoot>
             </table>
             {#if w.message}<p class="message">« {w.message} »</p>{/if}

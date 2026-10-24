@@ -11,11 +11,14 @@
   export let data: PageData;
 
   let wine = data.wine;
-  let vintages: WineVintage[] = [];
-  let loading = true;
+  /* Millésimes déjà chargés par +page.ts ; relus seulement après une modification. */
+  let vintages: WineVintage[] = [...(wine.wine_vintage || [])].sort(
+    (a, b) => b.production_year - a.production_year,
+  );
+  let loading = false;
   let error = "";
-  let showModal = false;
-  let showEditModal = false;
+  /** Modale unique création / édition (`editingVintage` les distingue). */
+  let formOpen = false;
   let editingVintage: any = null;
 
   // Vintage form fields
@@ -38,10 +41,9 @@
   let grapePercentage = "";
 
   onMount(async () => {
-    await loadVintages();
-    await loadAllGrapes();
     /* Lien « Ajouter un millésime » depuis la liste des vins. */
     if (new URLSearchParams(window.location.search).has("nouveau")) openCreateModal();
+    await loadAllGrapes();
   });
 
   async function loadAllGrapes() {
@@ -68,7 +70,7 @@
   function openCreateModal() {
     editingVintage = null;
     resetForm();
-    showModal = true;
+    formOpen = true;
   }
 
   function openEditModal(vintage: WineVintage) {
@@ -86,17 +88,11 @@
       image_url: vintage.image_url || "",
       organic: vintage.organic || false,
     };
-    showEditModal = true;
+    formOpen = true;
   }
 
-  function closeModal() {
-    showModal = false;
-    editingVintage = null;
-    resetForm();
-  }
-
-  function closeEditModal() {
-    showEditModal = false;
+  function closeForm() {
+    formOpen = false;
     editingVintage = null;
     resetForm();
   }
@@ -113,14 +109,14 @@
     };
   }
 
-  async function handleSubmit() {
+  /** Création ou modification (selon `editingVintage`) du millésime. */
+  async function submitForm() {
     if (!vintageFormData.production_year) {
       error = "L'année de mise en bouteille est obligatoire";
       return;
     }
 
     const vintageData = {
-      wine_id: wine.id,
       production_year: parseInt(vintageFormData.production_year),
       year: vintageFormData.year ? parseInt(vintageFormData.year) : null,
       abv: vintageFormData.abv ? parseFloat(vintageFormData.abv) : null,
@@ -132,48 +128,16 @@
       organic: vintageFormData.organic,
     };
 
-    const { error: insertError } = await supabase
-      .from("wine_vintage")
-      .insert(vintageData);
+    const { error: saveError } = editingVintage
+      ? await supabase.from("wine_vintage").update(vintageData).eq("id", editingVintage.id)
+      : await supabase.from("wine_vintage").insert({ ...vintageData, wine_id: wine.id });
 
-    if (insertError) {
-      error = insertError.message;
+    if (saveError) {
+      error = saveError.message;
       return;
     }
 
-    closeModal();
-    await loadVintages();
-  }
-
-  async function handleUpdate() {
-    if (!vintageFormData.production_year || !editingVintage) {
-      error = "L'année de mise en bouteille est obligatoire";
-      return;
-    }
-
-    const vintageData = {
-      production_year: parseInt(vintageFormData.production_year),
-      year: vintageFormData.year ? parseInt(vintageFormData.year) : null,
-      abv: vintageFormData.abv ? parseFloat(vintageFormData.abv) : null,
-      purchase_price: vintageFormData.purchase_price
-        ? parseFloat(vintageFormData.purchase_price)
-        : undefined,
-      price: vintageFormData.price ? parseFloat(vintageFormData.price) : null,
-      image_url: vintageFormData.image_url || null,
-      organic: vintageFormData.organic,
-    };
-
-    const { error: updateError } = await supabase
-      .from("wine_vintage")
-      .update(vintageData)
-      .eq("id", editingVintage.id);
-
-    if (updateError) {
-      error = updateError.message;
-      return;
-    }
-
-    closeEditModal();
+    closeForm();
     await loadVintages();
   }
 
@@ -494,14 +458,14 @@
   </div>
 </div>
 
-<!-- Modal de création -->
+<!-- Modal de création / édition -->
 <Modal
-  show={showModal}
-  title="Nouveau millésime - {wine.name}"
-  modalId="modal-title-create"
-  on:close={closeModal}
+  show={formOpen}
+  title="{editingVintage ? 'Modifier le millésime' : 'Nouveau millésime'} - {wine.name}"
+  modalId="modal-title-vintage"
+  on:close={closeForm}
 >
-  <form on:submit|preventDefault={handleSubmit}>
+  <form on:submit|preventDefault={submitForm}>
     <div class="form-grid">
       <div class="form-group">
         <label for="production_year">Année de mise en bouteille *</label>
@@ -581,105 +545,10 @@
     </div>
 
     <div class="modal-footer">
-      <button type="button" class="btn-secondary" on:click={closeModal}>
+      <button type="button" class="btn-secondary" on:click={closeForm}>
         Annuler
       </button>
-      <button type="submit" class="btn-primary"> Créer le millésime </button>
-    </div>
-  </form>
-</Modal>
-
-<!-- Modal d'édition -->
-<Modal
-  show={showEditModal && !!editingVintage}
-  title="Modifier le millésime - {wine.name}"
-  modalId="modal-title-edit"
-  on:close={closeEditModal}
->
-  <form on:submit|preventDefault={handleUpdate}>
-    <div class="form-grid">
-      <div class="form-group">
-        <label for="edit-production_year">Année de mise en bouteille *</label>
-        <input
-          type="number"
-          id="edit-production_year"
-          bind:value={vintageFormData.production_year}
-          min="1900"
-          max="2030"
-          required
-        />
-      </div>
-
-      <div class="form-group">
-        <label for="edit-year">Année millésime</label>
-        <input
-          type="number"
-          id="edit-year"
-          bind:value={vintageFormData.year}
-          min="1900"
-          max="2030"
-          placeholder="Si le vin est non millésimé, laissez vide"
-        />
-      </div>
-
-      <div class="form-group">
-        <label for="edit-purchase_price">Prix d'achat (€)</label>
-        <input
-          type="number"
-          step="0.01"
-          id="edit-purchase_price"
-          bind:value={vintageFormData.purchase_price}
-          min="0"
-          placeholder="Prix auquel vous achetez le vin"
-        />
-      </div>
-
-      <div class="form-group">
-        <label for="edit-price">Prix de vente (€)</label>
-        <input
-          type="number"
-          step="0.01"
-          id="edit-price"
-          bind:value={vintageFormData.price}
-          min="0"
-          placeholder="Prix auquel vous vendez le vin"
-        />
-      </div>
-
-      <div class="form-group">
-        <label for="edit-abv">Degré d'alcool (%)</label>
-        <input
-          type="number"
-          step="0.1"
-          id="edit-abv"
-          bind:value={vintageFormData.abv}
-          min="0"
-          max="20"
-        />
-      </div>
-
-      <div class="form-group">
-        <label for="edit-image_url">URL de l'image</label>
-        <input
-          type="url"
-          id="edit-image_url"
-          bind:value={vintageFormData.image_url}
-        />
-      </div>
-
-      <div class="form-group full-width">
-        <label class="checkbox-label">
-          <input type="checkbox" bind:checked={vintageFormData.organic} />
-          Vin biologique
-        </label>
-      </div>
-    </div>
-
-    <div class="modal-footer">
-      <button type="button" class="btn-secondary" on:click={closeEditModal}>
-        Annuler
-      </button>
-      <button type="submit" class="btn-primary">Mettre à jour</button>
+      <button type="submit" class="btn-primary">{editingVintage ? "Mettre à jour" : "Créer le millésime"}</button>
     </div>
   </form>
 </Modal>

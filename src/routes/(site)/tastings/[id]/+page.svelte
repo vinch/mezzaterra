@@ -6,7 +6,8 @@
   import RegistrationForm from "$lib/components/site/RegistrationForm.svelte";
   import { fetchAvailability, isPrivateTasting, tastingTitle, type Availability } from "$lib/publicData";
   import { buildIcs, daysUntil, downloadTextFile, formatDateLong, formatTime, isLiveNow } from "$lib/dates";
-  import { formatEur, wineStyle, wineTitle } from "$lib/wine";
+  import { wineStyle, wineTitle } from "$lib/wine";
+  import { formatEUR } from "$lib/format";
   import type { WineVintage } from "$lib/types";
 
   export let data;
@@ -78,7 +79,7 @@
         <li>{formatDateLong(t.date)}{t.start_time ? ` · ${formatTime(t.start_time)}` : ""}</li>
         {#if isPrivate}<li>Dégustation privée</li>{/if}
         {#if t.location}<li>{t.location}</li>{/if}
-        {#if t.price}<li>{formatEur(t.price)} / personne</li>{/if}
+        {#if t.price}<li>{formatEUR(t.price)} / personne</li>{/if}
         {#if wineVintages.length || hiddenCount}<li>{wineVintages.length || hiddenCount} vins</li>{/if}
       </ul>
       {#if t.description}

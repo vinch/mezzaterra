@@ -9,14 +9,13 @@
     [key: string]: any;
   };
 
-  export function fold(s: string): string {
-    return s.normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase();
-  }
 </script>
 
 <script lang="ts">
   import { createEventDispatcher, onMount, tick } from "svelte";
   import { IconSearch } from "./icons";
+  import { portal } from "./portal";
+  import { fold } from "$lib/format";
 
   /**
    * Autocomplétion accessible (role=combobox) : taper, ↑ ↓ puis Entrée pour choisir, Échap ferme.
@@ -57,11 +56,6 @@
     query = selected ? selected.label : "";
   }
   $: if (selected && !open && query !== selected.label) query = selected.label;
-
-  function portal(node: HTMLElement) {
-    document.body.appendChild(node);
-    return { destroy: () => node.remove() };
-  }
 
   function position() {
     if (!inputEl || !open) return;
@@ -151,19 +145,6 @@
       open = false;
       query = selected ? selected.label : value ? query : "";
     }, 120);
-  }
-
-  /** Vide le champ (utilisé par les puces « ✕ »). */
-  export function clear() {
-    value = "";
-    prevValue = "";
-    query = "";
-    dispatch("change");
-    inputEl?.focus();
-  }
-
-  export function focus() {
-    inputEl?.focus();
   }
 </script>
 

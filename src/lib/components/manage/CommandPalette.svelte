@@ -4,8 +4,8 @@
   import { goto } from "$app/navigation";
   import { supabase } from "$lib/supabase";
   import { customerDisplayLabel } from "$lib/customerDisplay";
-  import { formatDateShort } from "$lib/dates";
-  import { formatEur, vintageLabel } from "$lib/wine";
+  import { vintageLabel } from "$lib/wine";
+  import { fold, formatDate, formatEUR } from "$lib/format";
   import { IconClipboard, IconGlasses, IconReceipt, IconSearch, IconUsers, IconWine } from "$lib/ui/icons";
 
   /** Pages de l'admin, injectées par le layout (même source que la sidebar). */
@@ -28,10 +28,6 @@
   let loaded = false;
   let loadingData = false;
   let dataItems: Item[] = [];
-
-  function normalize(s: string): string {
-    return s.normalize("NFD").replace(/\p{Diacritic}/gu, "").toLowerCase();
-  }
 
   async function loadData() {
     if (loaded || loadingData) return;
@@ -64,7 +60,7 @@
         hint: "Stock",
         href: `/manage/wines/${v.wine_id}/stock/${v.id}`,
         icon: IconWine,
-        haystack: normalize(label),
+        haystack: fold(label),
       });
     }
     for (const c of (customers.data || []) as any[]) {
@@ -76,7 +72,7 @@
         hint: [c.email, c.city].filter(Boolean).join(" · "),
         href: `/manage/customers/${c.id}`,
         icon: IconUsers,
-        haystack: normalize(`${label} ${c.email || ""} ${c.city || ""}`),
+        haystack: fold(`${label} ${c.email || ""} ${c.city || ""}`),
       });
     }
     for (const s of (sales.data || []) as any[]) {
@@ -85,33 +81,33 @@
         id: `s-${s.id}`,
         group: "Ventes",
         label: `${s.invoice_number ? `${s.invoice_number} — ` : ""}${who}`,
-        hint: `${formatDateShort(s.date)} · ${formatEur(s.total_price)}`,
+        hint: `${formatDate(s.date)} · ${formatEUR(s.total_price)}`,
         href: `/manage/sales`,
         icon: IconReceipt,
-        haystack: normalize(`${s.invoice_number || ""} ${who} ${s.date}`),
+        haystack: fold(`${s.invoice_number || ""} ${who} ${s.date}`),
       });
     }
     for (const o of (orders.data || []) as any[]) {
       items.push({
         id: `o-${o.id}`,
         group: "Commandes",
-        label: `${o.supplier?.name || "Fournisseur"} — ${formatDateShort(o.date)}`,
-        hint: formatEur(o.total_price),
+        label: `${o.supplier?.name || "Fournisseur"} — ${formatDate(o.date)}`,
+        hint: formatEUR(o.total_price),
         href: `/manage/orders`,
         icon: IconClipboard,
-        haystack: normalize(`${o.supplier?.name || ""} ${o.date} commande`),
+        haystack: fold(`${o.supplier?.name || ""} ${o.date} commande`),
       });
     }
     for (const t of (tastings.data || []) as any[]) {
-      const label = t.name || `Dégustation du ${formatDateShort(t.date)}`;
+      const label = t.name || `Dégustation du ${formatDate(t.date)}`;
       items.push({
         id: `t-${t.id}`,
         group: "Dégustations",
         label,
-        hint: [formatDateShort(t.date), t.location].filter(Boolean).join(" · "),
+        hint: [formatDate(t.date), t.location].filter(Boolean).join(" · "),
         href: `/manage/tastings/${t.id}/live`,
         icon: IconGlasses,
-        haystack: normalize(`${label} ${t.location || ""} ${t.date}`),
+        haystack: fold(`${label} ${t.location || ""} ${t.date}`),
       });
     }
 
@@ -126,11 +122,11 @@
     label: p.label,
     href: p.href,
     icon: p.icon,
-    haystack: normalize(p.label),
+    haystack: fold(p.label),
   }));
 
   $: results = (() => {
-    const q = normalize(query.trim());
+    const q = fold(query.trim());
     if (!q) return pageItems.slice(0, 8);
     const words = q.split(/\s+/);
     const scored = [...pageItems, ...dataItems]

@@ -2,6 +2,7 @@ import { json, error } from "@sveltejs/kit";
 import { env } from "$env/dynamic/private";
 import type { RequestHandler } from "./$types";
 import { CONTACT_EMAIL, CONTACT_MIN_FILL_MS, contactReason } from "$lib/contact";
+import { escapeHtml, isValidEmail, resendPost } from "$lib/server/email";
 
 /**
  * Formulaire de contact public → email via Resend (https://resend.com).
@@ -12,7 +13,6 @@ import { CONTACT_EMAIL, CONTACT_MIN_FILL_MS, contactReason } from "$lib/contact"
  * Sans Resend, le formulaire propose d'ouvrir la messagerie (mailto) avec le message prérempli.
  */
 
-const EMAIL_RE = /^[^@\s]+@[^@\s]+\.[^@\s]+$/;
 const MAX_MESSAGE = 5000;
 
 function from(): string | undefined {
@@ -21,10 +21,6 @@ function from(): string | undefined {
 
 function enabled(): boolean {
   return Boolean(env.RESEND_API_KEY && from());
-}
-
-function escapeHtml(s: string): string {
-  return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
 }
 
 function clean(value: unknown, max = 200): string {
@@ -80,7 +76,7 @@ export const POST: RequestHandler = async ({ request, getClientAddress }) => {
   const message = clean(body.message, MAX_MESSAGE);
 
   if (!firstName) throw error(400, "Merci d’indiquer votre prénom.");
-  if (!EMAIL_RE.test(email)) throw error(400, "Cette adresse email ne semble pas valide.");
+  if (!isValidEmail(email)) throw error(400, "Cette adresse email ne semble pas valide.");
   if (!message) throw error(400, "Votre message est vide.");
 
   let ip = "";
@@ -109,17 +105,13 @@ export const POST: RequestHandler = async ({ request, getClientAddress }) => {
     .map(([k, v]) => `${k} : ${v}`)
     .join("\n")}\n\n${message}`;
 
-  const res = await fetch("https://api.resend.com/emails", {
-    method: "POST",
-    headers: { Authorization: `Bearer ${env.RESEND_API_KEY}`, "Content-Type": "application/json" },
-    body: JSON.stringify({
-      from: from(),
-      to: [env.CONTACT_TO || CONTACT_EMAIL],
-      reply_to: name ? `${name.replace(/[<>"]/g, "")} <${email}>` : email,
-      subject: `[Contact] ${reason.label}${subject ? ` — ${subject}` : ""} — ${name}`,
-      text,
-      html: renderHtml(rows, message),
-    }),
+  const res = await resendPost("/emails", {
+    from: from(),
+    to: [env.CONTACT_TO || CONTACT_EMAIL],
+    reply_to: name ? `${name.replace(/[<>"]/g, "")} <${email}>` : email,
+    subject: `[Contact] ${reason.label}${subject ? ` — ${subject}` : ""} — ${name}`,
+    text,
+    html: renderHtml(rows, message),
   }).catch(() => null);
 
   if (!res?.ok) throw error(502, "L’envoi a échoué. Merci de réessayer dans un instant.");

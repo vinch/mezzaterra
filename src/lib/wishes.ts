@@ -1,4 +1,4 @@
-import { supabase } from "./supabase";
+import { escapeLike, supabase } from "./supabase";
 import { todayIso } from "./dates";
 
 /**
@@ -31,13 +31,18 @@ export type WishRequest = {
   created_at: string;
 };
 
+/** Montant d'une demande au prix catalogue. */
+export function wishTotal(w: WishRequest, prices: Map<string, number>): number {
+  return wishItems(w.items).reduce((s, i) => s + i.quantity * (prices.get(i.wine_vintage_id) ?? 0), 0);
+}
+
 /** Client existant (même email, sinon même téléphone) ou nouveau client. */
 export async function findOrCreateCustomer(input: ContactInput): Promise<{ id: string; created: boolean }> {
   const email = input.email?.trim().toLowerCase() || null;
   const phone = input.phone?.trim() || null;
 
   if (email) {
-    const { data } = await supabase.from("customer").select("id").ilike("email", email.replace(/[\\%_]/g, "\\$&")).limit(1);
+    const { data } = await supabase.from("customer").select("id").ilike("email", escapeLike(email)).limit(1);
     if (data?.length) return { id: data[0].id, created: false };
   }
   if (phone) {

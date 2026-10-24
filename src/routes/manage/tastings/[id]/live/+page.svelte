@@ -19,26 +19,22 @@
     IconInbox,
     IconMonitor,
     IconPlay,
-    IconQr,
     IconUserCheck,
     IconUsers,
   } from "$lib/ui/icons";
   import { formatDate, formatEUR } from "$lib/format";
   import { formatTime, isLiveNow } from "$lib/dates";
   import WineBottle from "$lib/components/site/WineBottle.svelte";
-  import GlassProgress from "$lib/components/site/GlassProgress.svelte";
-  import StarRating from "$lib/components/site/StarRating.svelte";
   import { fetchTastingWithWines, tastingTitle } from "$lib/publicData";
   import { broadcastPosition, joinLiveChannel } from "$lib/live";
-  import { hasColumn, hasTable } from "$lib/features";
   import { qrDataUrl } from "$lib/qr";
-  import { formatDateLong } from "$lib/dates";
-  import { formatEur, wineStyle, wineSubtitle, wineTitle } from "$lib/wine";
+  import { vintageShortLabel, wineStyle, wineSubtitle, wineTitle } from "$lib/wine";
   import {
     confirmRegistrationAsGuest,
     createSaleFromWish,
     setWishStatus,
     wishItems,
+    wishTotal,
     type WishRequest,
   } from "$lib/wishes";
 
@@ -54,25 +50,23 @@
   let channel: RealtimeChannel | null = null;
   let connected = false;
   let guestCount = 0;
-  let canPersist = false;
 
   let guestUrl = "";
   let qr = "";
   let projecting = false;
   let copied = false;
 
-  /* Tables optionnelles (migration). */
-  let hasFeedback = false;
-  let hasWishes = false;
-  let hasRegistrations = false;
   let feedback: any[] = [];
   let wishes: WishRequest[] = [];
   let registrations: any[] = [];
   let busyId = "";
   let poll: ReturnType<typeof setInterval> | null = null;
+  /* onDestroy peut passer pendant les await d'onMount : on ne crée alors ni canal ni polling. */
+  let destroyed = false;
 
   onMount(async () => {
     const res = await fetchTastingWithWines(tastingId);
+    if (destroyed) return;
     tasting = res.tasting;
     wines = res.wineVintages;
     error = res.error || (!tasting ? "Dégustation introuvable." : "");
@@ -82,6 +76,7 @@
     position = typeof tasting.live_position === "number" ? clamp(tasting.live_position) : 0;
     guestUrl = `${window.location.origin}/tastings/${tastingId}/live`;
     qr = await qrDataUrl(guestUrl, { size: 640 });
+    if (destroyed) return;
 
     channel = joinLiveChannel(
       tastingId,
@@ -96,17 +91,14 @@
       "host",
     );
 
-    [canPersist, hasFeedback, hasWishes, hasRegistrations] = await Promise.all([
-      hasColumn("tasting", "live_position"),
-      hasTable("tasting_feedback"),
-      hasTable("wish_request"),
-      hasTable("tasting_registration"),
-    ]);
     await refresh();
-    poll = setInterval(refresh, 8000);
+    if (destroyed) return;
+    /* Pas de rafraîchissement quand l'onglet est caché. */
+    poll = setInterval(() => document.hidden || refresh(), 8000);
   });
 
   onDestroy(() => {
+    destroyed = true;
     if (channel) void supabase.removeChannel(channel);
     if (poll) clearInterval(poll);
   });
@@ -120,10 +112,8 @@
     if (next === position) return;
     position = next;
     if (channel) void broadcastPosition(channel, position);
-    if (canPersist) {
-      const { error: e } = await supabase.from("tasting").update({ live_position: position }).eq("id", tastingId);
-      if (e) console.warn("live_position non enregistrée :", e.message);
-    }
+    const { error: e } = await supabase.from("tasting").update({ live_position: position }).eq("id", tastingId);
+    if (e) console.warn("live_position non enregistrée :", e.message);
   }
 
   let participants: any[] = [];
@@ -132,7 +122,7 @@
   let eveningSales: any[] = [];
 
   async function refresh() {
-    const jobs: Promise<void>[] = [
+    await Promise.all([
       (async () => {
         const { data } = await supabase
           .from("sale")
@@ -153,44 +143,31 @@
         const { data } = await supabase.from("inventory").select("wine_vintage_id, quantity_on_hand").in("wine_vintage_id", ids);
         stockMap = new Map((data || []).map((r: any) => [r.wine_vintage_id, r.quantity_on_hand ?? 0]));
       })(),
-    ];
-    if (hasFeedback) {
-      jobs.push(
-        (async () => {
-          const { data } = await supabase
-            .from("tasting_feedback")
-            .select("*")
-            .eq("tasting_id", tastingId)
-            .order("created_at", { ascending: true });
-          feedback = data || [];
-        })(),
-      );
-    }
-    if (hasWishes) {
-      jobs.push(
-        (async () => {
-          const { data } = await supabase
-            .from("wish_request")
-            .select("*")
-            .eq("tasting_id", tastingId)
-            .order("created_at", { ascending: false });
-          wishes = (data || []) as unknown as WishRequest[];
-        })(),
-      );
-    }
-    if (hasRegistrations) {
-      jobs.push(
-        (async () => {
-          const { data } = await supabase
-            .from("tasting_registration")
-            .select("*")
-            .eq("tasting_id", tastingId)
-            .order("created_at", { ascending: true });
-          registrations = data || [];
-        })(),
-      );
-    }
-    await Promise.all(jobs);
+      (async () => {
+        const { data } = await supabase
+          .from("tasting_feedback")
+          .select("*")
+          .eq("tasting_id", tastingId)
+          .order("created_at", { ascending: true });
+        feedback = data || [];
+      })(),
+      (async () => {
+        const { data } = await supabase
+          .from("wish_request")
+          .select("*")
+          .eq("tasting_id", tastingId)
+          .order("created_at", { ascending: false });
+        wishes = (data || []) as unknown as WishRequest[];
+      })(),
+      (async () => {
+        const { data } = await supabase
+          .from("tasting_registration")
+          .select("*")
+          .eq("tasting_id", tastingId)
+          .order("created_at", { ascending: true });
+        registrations = data || [];
+      })(),
+    ]);
   }
 
   /* Dernière note par (invité, vin). */
@@ -200,17 +177,21 @@
     return [...map.values()];
   })();
 
+  /* Bouteilles demandées par vin (demandes non écartées). */
+  $: wantedByWine = (() => {
+    const m = new Map<string, number>();
+    for (const w of wishes) {
+      if (w.status === "dismissed") continue;
+      for (const i of wishItems(w.items)) m.set(i.wine_vintage_id, (m.get(i.wine_vintage_id) ?? 0) + i.quantity);
+    }
+    return m;
+  })();
+
   $: stats = new Map(
     wines.map((w) => {
-      const rows = latest.filter((f) => f.wine_vintage_id === w.id);
-      const rated = rows.filter((r) => r.rating);
+      const rated = latest.filter((f) => f.wine_vintage_id === w.id && f.rating);
       const avg = rated.length ? rated.reduce((s, r) => s + r.rating, 0) / rated.length : null;
-      const wanted = wishes
-        .filter((x) => x.status !== "dismissed")
-        .flatMap((x) => wishItems(x.items))
-        .filter((i) => i.wine_vintage_id === w.id)
-        .reduce((s, i) => s + i.quantity, 0);
-      return [w.id, { avg, count: rated.length, wanted }];
+      return [w.id, { avg, count: rated.length, wanted: wantedByWine.get(w.id) ?? 0 }];
     }),
   );
 
@@ -221,7 +202,6 @@
 
   $: prices = new Map(wines.map((w) => [w.id, Number(w.price ?? 0)]));
   $: wineById = new Map(wines.map((w) => [w.id, w]));
-  $: newWishes = wishes.filter((w) => w.status === "new");
   $: confirmedSeats = registrations.filter((r) => r.status === "confirmed").reduce((s, r) => s + r.seats, 0);
 
   $: current = wines[position];
@@ -266,9 +246,17 @@
   }
 
   async function addAllRegistrations() {
+    actionError = "";
     for (const r of registrations.filter((r) => r.status === "confirmed" && !r.customer_id)) {
-      await addAsGuest(r);
+      busyId = r.id;
+      try {
+        await confirmRegistrationAsGuest(r);
+      } catch (e) {
+        actionError = e instanceof Error ? e.message : String(e);
+      }
     }
+    busyId = "";
+    await refresh();
   }
 
   async function copyLink() {
@@ -288,10 +276,6 @@
     if (e.key === "Escape") projecting = false;
   }
 
-  function wishTotal(w: WishRequest): number {
-    return wishItems(w.items).reduce((s, i) => s + i.quantity * (prices.get(i.wine_vintage_id) ?? 0), 0);
-  }
-
   /* ——— Interface (refonte) ——— */
   $: activeWishes = wishes.filter((w) => w.status !== "dismissed");
   $: soldBottles = eveningSales.reduce(
@@ -305,7 +289,6 @@
     return m;
   })();
   $: orderedBottles = activeWishes.flatMap((w) => wishItems(w.items)).reduce((n, i) => n + i.quantity, 0);
-  $: orderedAmount = activeWishes.reduce((sum, w) => sum + wishTotal(w), 0);
   $: currentOrdered = current ? (stats.get(current.id)?.wanted ?? 0) : 0;
   $: currentStock = current ? stockMap.get(current.id) ?? null : null;
   $: robe = robeOf(current?.wine?.wine_type);
@@ -328,10 +311,6 @@
   }
   function wishBottles(w: WishRequest): number {
     return wishItems(w.items).reduce((n, i) => n + i.quantity, 0);
-  }
-  function wineLabel(w: any): string {
-    const name = w?.wine?.name?.trim() || w?.wine?.appelation?.name || "Vin";
-    return w?.year ? `${name} ${w.year}` : name;
   }
 </script>
 
@@ -381,11 +360,11 @@
       <section class="band" aria-label="La soirée en chiffres">
         <div class="band-item">
           <span class="t-caption">Participants</span>
-          <span class="band-v">{participantCount}{#if hasRegistrations && confirmedSeats}<small> · {confirmedSeats} places réservées</small>{/if}</span>
+          <span class="band-v">{participantCount}{#if confirmedSeats}<small> · {confirmedSeats} places réservées</small>{/if}</span>
         </div>
         <div class="band-item">
           <span class="t-caption">Bouteilles vendues</span>
-          <span class="band-v">{soldBottles} bt.{#if hasWishes && orderedBottles}<small> · {orderedBottles} demandées</small>{/if}</span>
+          <span class="band-v">{soldBottles} bt.{#if orderedBottles}<small> · {orderedBottles} demandées</small>{/if}</span>
         </div>
         <a class="band-item band-link" href="/manage/sales?degustation={tastingId}">
           <span class="t-caption">Ventes de la soirée</span>
@@ -409,7 +388,7 @@
                     <span class="step-num">{i + 1}</span>
                     <WineDot robe={robeOf(w.wine?.wine_type)} />
                     <span class="step-main">
-                      <strong>{wineLabel(w)}</strong>
+                      <strong>{vintageShortLabel(w)}</strong>
                       <span class="t-caption">
                         {w.wine?.winery?.name ?? ""}{soldByWine.get(w.id) ? ` · ${soldByWine.get(w.id)} bt. vendues` : ""}{st?.wanted ? ` · ${st.wanted} demandées` : ""}{st?.avg != null ? ` · ★ ${st.avg.toFixed(1)}` : ""}
                       </span>
@@ -434,9 +413,6 @@
                 <Button size="sm" on:click={copyLink}>
                   {#if copied}<IconCheck size={14} strokeWidth={1.75} /> Lien copié{:else}<IconCopy size={14} strokeWidth={1.75} /> Copier le lien{/if}
                 </Button>
-                {#if !canPersist}
-                  <p class="t-caption t-warn">Position non enregistrée en base : les retardataires la reçoivent à la connexion de l’animateur.</p>
-                {/if}
               </div>
             </div>
           </Card>
@@ -447,7 +423,7 @@
             <span class="bottle bottle--{robe}" aria-hidden="true"></span>
             <div class="now-text">
               <span class="now-eyebrow">Vin {position + 1} · {ROBE_LABEL[robe]}</span>
-              <h2 id="now-title" class="now-title">{wineLabel(current)}</h2>
+              <h2 id="now-title" class="now-title">{vintageShortLabel(current)}</h2>
               <p>{current.wine?.winery?.name ?? ""}{current.price ? " · " : ""}{#if current.price}<strong>{formatEUR(current.price)}</strong> la bouteille{/if}</p>
               <p class="t-caption">
                 Stock : <strong>{currentStock ?? "—"} bt.</strong> · vendues ce soir : <strong>{soldByWine.get(current.id) ?? 0} bt.</strong>{#if currentOrdered} · demandées : <strong>{currentOrdered} bt.</strong>{/if}
@@ -465,14 +441,7 @@
 
           <Card title="Commandes des participants" id="orders" padded={false}>
             <span slot="actions" class="t-caption">Flèches ← → ou espace pour avancer</span>
-            {#if !hasWishes}
-              <EmptyState
-                icon={IconInbox}
-                title="Commandes « J’en veux » indisponibles"
-                text="Elles apparaîtront ici une fois la migration 20261016120000_public_experience.sql appliquée."
-                compact
-              />
-            {:else if wishes.length === 0}
+            {#if wishes.length === 0}
               <EmptyState icon={IconInbox} title="Aucune commande pour l’instant" text="Les invités commandent depuis leur téléphone (« J’en veux »)." compact />
             {:else}
               <div class="orders-wrap">
@@ -480,7 +449,7 @@
                   <thead>
                     <tr>
                       <th scope="col">Participant</th>
-                      <th scope="col" class="num">{wineLabel(current)}</th>
+                      <th scope="col" class="num">{vintageShortLabel(current)}</th>
                       <th scope="col" class="num">Total de la soirée</th>
                       <th scope="col" class="col-actions"><span class="sr-only">Action</span></th>
                     </tr>
@@ -494,7 +463,7 @@
                           {#if w.message}<span class="t-caption block">« {w.message} »</span>{/if}
                         </td>
                         <td class="num">{wishFor(w, current.id) || "—"}</td>
-                        <td class="num"><span class="t-muted">{wishBottles(w)} bt.</span> <strong>{formatEUR(wishTotal(w))}</strong></td>
+                        <td class="num"><span class="t-muted">{wishBottles(w)} bt.</span> <strong>{formatEUR(wishTotal(w, prices))}</strong></td>
                         <td class="col-actions">
                           {#if w.status === "new"}
                             <span class="order-actions">
@@ -515,7 +484,7 @@
             {/if}
           </Card>
 
-          {#if hasRegistrations && registrations.length}
+          {#if registrations.length}
             <Card title="Inscrits en ligne" id="registrations">
               <svelte:fragment slot="actions">
                 {#if registrations.some((r) => r.status === "confirmed" && !r.customer_id)}
@@ -540,14 +509,14 @@
             </Card>
           {/if}
 
-          {#if hasFeedback && comments.length}
+          {#if comments.length}
             <Card title="Ce qu’ils en disent" id="comments">
               <ul class="list">
                 {#each comments as c (c.id)}
                   <li>
                     <span class="list-main">
                       <span>« {c.comment} »</span>
-                      <span class="t-caption">{c.guest_name || "Invité"} · {wineLabel(wineById.get(c.wine_vintage_id))}{c.rating ? ` · ${"★".repeat(c.rating)}` : ""}</span>
+                      <span class="t-caption">{c.guest_name || "Invité"} · {vintageShortLabel(wineById.get(c.wine_vintage_id))}{c.rating ? ` · ${"★".repeat(c.rating)}` : ""}</span>
                     </span>
                   </li>
                 {/each}
@@ -563,7 +532,7 @@
           <IconArrowLeft size={20} strokeWidth={1.75} />
         </IconButton>
         <button type="button" class="next-btn" disabled={position === wines.length - 1} on:click={() => setPosition(position + 1)}>
-          {position === wines.length - 1 ? "Dernier vin" : `Vin suivant : ${wineLabel(wines[position + 1])}`}
+          {position === wines.length - 1 ? "Dernier vin" : `Vin suivant : ${vintageShortLabel(wines[position + 1])}`}
           <IconArrowRight size={18} strokeWidth={1.75} aria-hidden="true" />
         </button>
       </div>

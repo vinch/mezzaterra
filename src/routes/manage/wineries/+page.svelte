@@ -1,5 +1,6 @@
 <script lang="ts">
   import { supabase } from "$lib/supabase";
+  import { fetchCountries, fetchRegions } from "$lib/manageData";
   import { onMount } from "svelte";
   import type { Winery, Country, Region } from "$lib/types";
   import Modal from "$lib/components/Modal.svelte";
@@ -26,9 +27,11 @@
   };
 
   onMount(async () => {
-    await loadWineries();
-    await loadCountries();
-    await loadRegions();
+    await Promise.all([
+      loadWineries(),
+      fetchCountries().then((c) => (countries = c)),
+      fetchRegions().then((r) => (regions = r)),
+    ]);
   });
 
   async function loadWineries() {
@@ -50,24 +53,6 @@
       wineries = data || [];
     }
     loading = false;
-  }
-
-  async function loadCountries() {
-    const { data } = await supabase.from("country").select("*").order("name");
-    if (data) countries = data;
-  }
-
-  async function loadRegions() {
-    const { data } = await supabase
-      .from("region")
-      .select(
-        `
-        *,
-        country (*)
-      `
-      )
-      .order("name");
-    if (data) regions = data;
   }
 
   function openCreateModal() {
@@ -124,10 +109,7 @@
       region_id: formData.region_id || null,
       latitude: formData.latitude ? parseFloat(formData.latitude) : null,
       longitude: formData.longitude ? parseFloat(formData.longitude) : null,
-      /* Colonne ajoutée par une migration : on ne l'envoie que si elle existe déjà. */
-      ...(wineries.some((w) => "description" in w)
-        ? { description: formData.description.trim() || null }
-        : {}),
+      description: formData.description.trim() || null,
     };
 
     if (editingWinery) {

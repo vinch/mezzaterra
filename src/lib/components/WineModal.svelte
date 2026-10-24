@@ -1,22 +1,20 @@
 <script lang="ts">
-  import { createEventDispatcher, onMount } from "svelte";
+  import { createEventDispatcher } from "svelte";
   import { fade, fly } from "svelte/transition";
-  import { supabase } from "$lib/supabase";
   import type { WineVintage } from "$lib/types";
   import WineBottle from "$lib/components/site/WineBottle.svelte";
   import {
-    NOTE_TYPES,
-    findNote,
-    formatEur,
     grapesText,
+    vintageNotes,
+    winePairings,
+    wineryFlag,
     wineStyle,
     wineSubtitle,
     wineTitle,
   } from "$lib/wine";
+  import { formatEUR } from "$lib/format";
 
   export let wineVintage: WineVintage | null = null;
-
-  let pairings: string[] = [];
 
   const dispatch = createEventDispatcher();
 
@@ -24,27 +22,11 @@
   $: wine = v?.wine;
   $: style = wineStyle(wine?.wine_type);
   $: region = wine?.winery?.region?.name || wine?.winery?.country?.name || "";
-  $: flag = wine?.winery?.region?.country?.flag || wine?.winery?.country?.flag || "";
+  $: flag = wineryFlag(wine?.winery);
   $: grapes = grapesText(v?.wine_vintage_grape, true);
-  $: notes = NOTE_TYPES.map((t) => ({ ...t, content: findNote(v?.note, t.key) })).filter(
-    (n) => n.content,
-  );
-
-  onMount(async () => {
-    const embedded = (wine?.wine_pairing || [])
-      .map((wp: any) => wp.pairing?.description)
-      .filter(Boolean);
-    if (embedded.length) {
-      pairings = embedded;
-      return;
-    }
-    if (!wine?.id) return;
-    const { data } = await supabase
-      .from("wine_pairing")
-      .select("pairing ( description )")
-      .eq("wine_id", wine.id);
-    pairings = (data || []).map((r: any) => r.pairing?.description).filter(Boolean);
-  });
+  $: notes = vintageNotes(v?.note);
+  /* Les millésimes du site sont chargés avec VINTAGE_PUBLIC_SELECT, accords compris. */
+  $: pairings = winePairings(wine);
 
   function closeModal() {
     dispatch("close");
@@ -102,7 +84,7 @@
               <div><dt>Alcool</dt><dd>{v.abv} % vol.</dd></div>
             {/if}
             {#if v.price}
-              <div><dt>Prix</dt><dd>{formatEur(v.price)}</dd></div>
+              <div><dt>Prix</dt><dd>{formatEUR(v.price)}</dd></div>
             {/if}
           </dl>
 
