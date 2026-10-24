@@ -68,6 +68,9 @@
   /* Rien à reprendre : case décochée et grisée (tant que c'est en lecture, on ne sait pas). */
   $: noGrapes = !!sourceInfo && !sourceInfo.grapes;
   $: noNotes = !!sourceInfo && !sourceInfo.notes;
+  /* Ce que les cases annoncent est exactement ce qui est copié. */
+  $: takeGrapes = copyGrapes && !noGrapes;
+  $: takeNotes = copyNotes && !noNotes;
   $: imageReused = !!source?.image_url && vintageFormData.image_url === source.image_url;
 
   // Grapes modal state
@@ -121,9 +124,8 @@
     const { data: id, error: rpcError } = await supabase.rpc("create_wine_vintage", {
       p_vintage: { ...vintageData, wine_id: wine.id },
       p_source_id: source?.id,
-      /* Comme les cases : rien n'est repris de ce qu'elles annoncent absent. */
-      p_copy_grapes: copyGrapes && !noGrapes,
-      p_copy_notes: copyNotes && !noNotes,
+      p_copy_grapes: takeGrapes,
+      p_copy_notes: takeNotes,
     });
     if (rpcError) return { data: null, error: rpcError };
     return supabase.from("wine_vintage").select().eq("id", id).single();
@@ -387,7 +389,7 @@
     <div class="form-grid">
       {#if !editingVintage && vintages.length}
         <fieldset class="form-group full-width reuse">
-          <legend>Reprendre d’un millésime existant</legend>
+          <legend class="section-title">Reprendre d’un millésime existant</legend>
           <select aria-label="Millésime repris" value={sourceId} on:change={(e) => pickSource(e.currentTarget.value)}>
             <option value="">Ne rien reprendre</option>
             {#each vintages as v (v.id)}
@@ -414,7 +416,7 @@
                 <label class="checkbox-label">
                   <input
                     type="checkbox"
-                    checked={copyGrapes && !noGrapes}
+                    checked={takeGrapes}
                     disabled={noGrapes}
                     on:change={(e) => (copyGrapes = e.currentTarget.checked)}
                   />
@@ -424,7 +426,7 @@
                 <label class="checkbox-label">
                   <input
                     type="checkbox"
-                    checked={copyNotes && !noNotes}
+                    checked={takeNotes}
                     disabled={noNotes}
                     on:change={(e) => (copyNotes = e.currentTarget.checked)}
                   />
@@ -434,7 +436,7 @@
               </div>
             </div>
           {/if}
-          <p class="t-muted reuse-hint">Les accords mets-vins sont ceux du vin : ils valent déjà pour tous ses millésimes.</p>
+          <p class="t-caption reuse-hint">Les accords mets-vins sont ceux du vin : ils valent déjà pour tous ses millésimes.</p>
         </fieldset>
       {/if}
 
@@ -509,7 +511,7 @@
         />
         <!-- Image reprise : on la change en décochant « Image » plus haut. -->
         {#if imageReused}
-          <span id="image-hint" class="t-muted reuse-hint">Décochez « Image » pour en mettre une autre.</span>
+          <span id="image-hint" class="t-caption">Décochez « Image » pour en mettre une autre.</span>
         {/if}
       </div>
 
@@ -615,9 +617,8 @@
   }
 
   .reuse legend {
+    margin: 0;
     padding: 0 4px;
-    font-weight: 500;
-    font-size: 13px;
   }
 
   .reuse-items {
@@ -652,7 +653,6 @@
 
   .reuse-hint {
     margin: 0;
-    font-size: 13px;
   }
 
 
