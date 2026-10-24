@@ -40,10 +40,20 @@ export async function fetchPickerVintages(): Promise<any[]> {
  * de renvoyer une carte vide : un échec afficherait sinon tout le catalogue en rupture.
  */
 export async function fetchStockMap(): Promise<Map<string, number>> {
-  const rows = await fetchAllRows<{ wine_vintage_id: string; quantity_on_hand: number | null }>((from, to) =>
-    supabase.from("inventory").select("wine_vintage_id, quantity_on_hand").order("wine_vintage_id").range(from, to),
+  const rows = await fetchAllRows<{ wine_vintage_id: string | null; quantity_on_hand: number | null }>((from, to) =>
+    supabase
+      .from("inventory")
+      .select("wine_vintage_id, quantity_on_hand")
+      .order("wine_vintage_id")
+      .order("quantity_on_hand")
+      .range(from, to),
   );
-  return new Map(rows.map((r) => [r.wine_vintage_id, r.quantity_on_hand ?? 0]));
+  /* Plusieurs lignes pour un millésime : quantités additionnées (comme stockDocuments). */
+  const stock = new Map<string, number>();
+  for (const r of rows) {
+    if (r.wine_vintage_id) stock.set(r.wine_vintage_id, (stock.get(r.wine_vintage_id) ?? 0) + (r.quantity_on_hand ?? 0));
+  }
+  return stock;
 }
 
 /** Prix d'une ligne de commande : le sien, sinon le prix d'achat du millésime. */
