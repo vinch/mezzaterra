@@ -292,7 +292,8 @@
   })());
   let orderedBottles = $derived(activeWishes.flatMap((w) => wishItems(w.items)).reduce((n, i) => n + i.quantity, 0));
   let currentOrdered = $derived(current ? (stats.get(current.id)?.wanted ?? 0) : 0);
-  let currentStock = $derived(current ? stockMap?.get(current.id) ?? null : null);
+  /* Absent de la vue : aucun mouvement, donc 0 bouteille (et non « inconnu »). */
+  let currentStock = $derived(current && stockMap ? (stockMap.get(current.id) ?? 0) : null);
   let isLiveDay = $derived(tasting ? isLiveNow(tasting.date) : false);
   let headerSubtitle = $derived(tasting
     ? [formatDate(tasting.date), tasting.location, tasting.start_time ? `depuis ${formatTime(tasting.start_time)}` : ""].filter(Boolean).join(" · ")
@@ -431,7 +432,7 @@
               <h2 id="now-title" class="now-title">{vintageShortLabel(current)}</h2>
               <p>{current.wine?.winery?.name ?? ""}{current.price ? " · " : ""}{#if current.price}<strong>{formatEUR(current.price)}</strong> la bouteille{/if}</p>
               <p class="t-caption">
-                Stock : <strong>{stockMap ? `${currentStock ?? "—"} bt.` : "indisponible"}</strong> · vendues ce soir : <strong>{soldByWine.get(current.id) ?? 0} bt.</strong>{#if currentOrdered} · demandées : <strong>{currentOrdered} bt.</strong>{/if}
+                Stock : <strong>{currentStock == null ? "indisponible" : `${currentStock} bt.`}</strong> · vendues ce soir : <strong>{soldByWine.get(current.id) ?? 0} bt.</strong>{#if currentOrdered} · demandées : <strong>{currentOrdered} bt.</strong>{/if}
               </p>
             </div>
             <div class="now-actions">
