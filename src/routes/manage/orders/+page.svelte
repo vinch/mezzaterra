@@ -9,6 +9,7 @@
   import { KIND_META, statusMeta } from "$lib/status";
   import ManagePageShell from "$lib/components/manage/ManagePageShell.svelte";
   import { fetchPickerVintages, orderItemPrice } from "$lib/manageData";
+  import { errorMessage, latestOnly } from "$lib/async";
   import { parseIsoDate, todayIso } from "$lib/dates";
   import { formatDate, formatEUR } from "$lib/format";
   import { isDiscontinued, vintageProductLabel } from "$lib/wine";
@@ -47,8 +48,13 @@
   let selectedPrice = "";
 
   onMount(async () => {
-    await Promise.all([loadSuppliers(), fetchPickerVintages().then((v) => (wineVintages = v))]);
-    loading = false;
+    try {
+      await Promise.all([loadSuppliers(), fetchPickerVintages().then((v) => (wineVintages = v))]);
+    } catch (e) {
+      error = errorMessage(e);
+    } finally {
+      loading = false;
+    }
   });
 
   async function loadSuppliers() {
@@ -56,7 +62,10 @@
     if (data) suppliers = data;
   }
 
+  const formLoad = latestOnly();
+
   function openCreateModal() {
+    formLoad.cancel();
     editingOrder = null;
     resetForm();
     formOpen = true;
@@ -68,6 +77,16 @@
       return;
     }
 
+    let loaded;
+    try {
+      loaded = await formLoad.run(() => Promise.all([fetchPickerVintages(), loadOrderItems(order.id)]));
+    } catch (e) {
+      error = errorMessage(e);
+      return;
+    }
+    if (!loaded) return;
+    const [vintages, items] = loaded;
+
     editingOrder = order;
     formData = {
       date: order.date.split("T")[0],
@@ -75,7 +94,6 @@
       status: order.status || "pending",
       note: order.note || "",
     };
-    const [vintages, items] = await Promise.all([fetchPickerVintages(), loadOrderItems(order.id)]);
     wineVintages = vintages;
     orderItems = items.map((item: any) => ({
       wine_vintage: item.wine_vintage,
@@ -87,8 +105,9 @@
     formOpen = true;
   }
 
+  /** Lève une erreur : une édition ouverte sans ses lignes les effacerait à l'enregistrement. */
   async function loadOrderItems(orderId: string): Promise<any[]> {
-    const { data } = await supabase
+    const { data, error: itemsError } = await supabase
       .from("order_item")
       .select(
         `
@@ -105,6 +124,7 @@
       )
       .eq("order_id", orderId);
 
+    if (itemsError) throw new Error(itemsError.message);
     return data || [];
   }
 
@@ -115,8 +135,13 @@
   }
 
   async function openDetailsModal(order: any) {
+    try {
+      detailsOrderItems = await loadOrderItems(order.id);
+    } catch (e) {
+      error = errorMessage(e);
+      return;
+    }
     detailsOrder = order;
-    detailsOrderItems = await loadOrderItems(order.id);
     showDetailsModal = true;
   }
 

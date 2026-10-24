@@ -38,6 +38,7 @@
   import { lineTotal } from "$lib/analytics";
   import { vintageProductLabel, vintageShortLabel } from "$lib/wine";
   import { fetchCustomers, fetchPickerVintages, fetchStockMap } from "$lib/manageData";
+  import { errorMessage, latestOnly } from "$lib/async";
   import { invalidateAll } from "$app/navigation";
   import ProductVintageAutocomplete from "$lib/components/manage/ProductVintageAutocomplete.svelte";
   import CustomerAutocomplete from "$lib/components/manage/CustomerAutocomplete.svelte";
@@ -107,14 +108,19 @@
     const t = params.get("degustation");
     if (t) tastingFilter = t;
     try {
-      await Promise.all([fetchCustomers().then((c) => (customers = c)), loadTastings(), loadWineVintages()]);
+      await Promise.all([
+        fetchCustomers().then((c) => (customers = c)),
+        loadTastings(),
+        fetchVintagesWithStock().then((v) => (wineVintages = v)),
+      ]);
     } catch (e) {
-      error = e instanceof Error ? e.message : String(e);
+      error = errorMessage(e);
     } finally {
       loading = false;
     }
     if (params.has("nouvelle")) {
-      openCreateModal();
+      /* Stock tout juste chargé : pas besoin de le relire. */
+      showCreateForm();
       const client = params.get("client");
       if (client) formData.customer_id = client;
     }
@@ -162,30 +168,33 @@
     return saleItems.some((item) => item.wine_vintage_id === vintageId);
   }
 
-  /** Millésimes du sélecteur, avec leur stock (relu à chaque ouverture du formulaire d'édition). */
-  async function loadWineVintages() {
+  /** Millésimes du sélecteur, avec leur stock (relu à chaque ouverture du formulaire). */
+  async function fetchVintagesWithStock(): Promise<any[]> {
     const [list, stock] = await Promise.all([fetchPickerVintages(), fetchStockMap()]);
-    wineVintages = list.map((v) => ({ ...v, stock: stock.get(v.id) ?? 0 }));
+    return list.map((v) => ({ ...v, stock: stock.get(v.id) ?? 0 }));
   }
 
-  /**
-   * Numéro du dernier formulaire demandé : si l'on clique sur une autre vente pendant
-   * un chargement, la réponse la plus ancienne est ignorée au lieu d'écraser les lignes.
-   */
-  let formRequest = 0;
+  const formLoad = latestOnly();
+  /** Chargement d'un formulaire : `undefined` s'il a échoué (erreur affichée) ou a été dépassé. */
+  async function loadForm<T>(load: () => Promise<T>): Promise<T | undefined> {
+    try {
+      return await formLoad.run(load);
+    } catch (e) {
+      error = errorMessage(e);
+    }
+  }
 
-  async function openCreateModal() {
-    const request = ++formRequest;
+  function showCreateForm() {
     editingSale = null;
     resetForm();
-    /* Stock relu : des ventes ont pu être payées depuis l'ouverture de la page. */
-    try {
-      await loadWineVintages();
-    } catch (e) {
-      if (request === formRequest) error = e instanceof Error ? e.message : String(e);
-      return;
-    }
-    if (request === formRequest) formOpen = true;
+    formOpen = true;
+  }
+
+  async function openCreateModal() {
+    showCreateForm();
+    /* Stock relu en arrière-plan : des ventes ont pu être payées depuis l'ouverture de la page. */
+    const vintages = await loadForm(fetchVintagesWithStock);
+    if (vintages) wineVintages = vintages;
   }
 
   async function openEditModal(sale: any) {
@@ -194,17 +203,12 @@
       return;
     }
 
-    const request = ++formRequest;
     /* Stock relu : il a pu bouger depuis l'ouverture de la page. */
-    let items: any[];
-    try {
-      [, items] = await Promise.all([loadWineVintages(), loadSaleItems(sale.id)]);
-    } catch (e) {
-      if (request === formRequest) error = e instanceof Error ? e.message : String(e);
-      return;
-    }
-    if (request !== formRequest) return;
+    const loaded = await loadForm(() => Promise.all([fetchVintagesWithStock(), loadSaleItems(sale.id)]));
+    if (!loaded) return;
+    const [vintages, items] = loaded;
 
+    wineVintages = vintages;
     editingSale = sale;
     formData = {
       date: sale.date.split("T")[0],
@@ -273,7 +277,7 @@
     try {
       detailsSaleItems = await loadSaleItems(sale.id);
     } catch (e) {
-      error = e instanceof Error ? e.message : String(e);
+      error = errorMessage(e);
       return;
     }
     detailsSale = sale;

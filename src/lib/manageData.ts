@@ -7,8 +7,8 @@ import type { Country, Customer, Region } from "./types";
 
 /** Clients triés par libellé (sélecteurs, autocomplétion). */
 export async function fetchCustomers(): Promise<Customer[]> {
-  const { data } = await supabase.from("customer").select("*");
-  return sortCustomersByLabel((data || []) as Customer[]);
+  const rows = await fetchAllRows<Customer>((from, to) => supabase.from("customer").select("*").order("id").range(from, to));
+  return sortCustomersByLabel(rows);
 }
 
 /** Pays triés par nom (sélecteurs des référentiels). */
@@ -25,10 +25,14 @@ export async function fetchRegions(): Promise<Region[]> {
 
 /** Millésimes des sélecteurs de produit, triés domaine → cuvée → année décroissante. */
 export async function fetchPickerVintages(): Promise<any[]> {
-  const { data } = await supabase
-    .from("wine_vintage")
-    .select("*, wine ( *, winery (*), appelation (*), wine_type (*) )");
-  return (data || []).sort(compareVintages);
+  const rows = await fetchAllRows<any>((from, to) =>
+    supabase
+      .from("wine_vintage")
+      .select("*, wine ( *, winery (*), appelation (*), wine_type (*) )")
+      .order("id")
+      .range(from, to),
+  );
+  return rows.sort(compareVintages);
 }
 
 /**

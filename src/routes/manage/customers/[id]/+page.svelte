@@ -51,7 +51,8 @@
           .select(
             "id, wine_id, year, production_year, price, purchase_price, wine ( id, name, winery ( name ), appelation ( name, label ( name ) ), wine_type ( name, category ) )",
           ),
-        fetchStockMap(),
+        /* Le stock ne sert qu'aux suggestions : sans lui, la fiche reste lisible. */
+        fetchStockMap().catch(() => new Map<string, number>()),
       ]);
       if (cRes.error) throw new Error(cRes.error.message);
       customer = cRes.data;

@@ -32,6 +32,7 @@
   import { promptReorder } from "$lib/reorder";
   import { isDiscontinued } from "$lib/wine";
   import { fetchStockMap } from "$lib/manageData";
+  import { errorMessage } from "$lib/async";
 
   let wines: Wine[] = [];
   let wineries: Winery[] = [];
@@ -353,7 +354,7 @@
     try {
       stock = await fetchStockMap();
     } catch (e) {
-      error = `Stock indisponible : ${e instanceof Error ? e.message : String(e)}`;
+      error = `Stock indisponible : ${errorMessage(e)}`;
     }
   }
 

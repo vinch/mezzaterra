@@ -9,6 +9,7 @@
   import CustomerAutocomplete from "$lib/components/manage/CustomerAutocomplete.svelte";
   import { customerDisplayLabel, sortCustomersByLabel } from "$lib/customerDisplay";
   import { fetchCustomers, fetchPickerVintages } from "$lib/manageData";
+  import { errorMessage } from "$lib/async";
   import { fetchTastingWithWines } from "$lib/publicData";
   import { todayIso } from "$lib/dates";
   import { formatDate } from "$lib/format";
@@ -56,8 +57,13 @@
   };
 
   onMount(async () => {
-    [, wineVintages, customers] = await Promise.all([loadTastings(), fetchPickerVintages(), fetchCustomers()]);
-    loading = false;
+    try {
+      [, wineVintages, customers] = await Promise.all([loadTastings(), fetchPickerVintages(), fetchCustomers()]);
+    } catch (e) {
+      error = errorMessage(e);
+    } finally {
+      loading = false;
+    }
   });
 
   async function downloadCards(tasting: TastingRow) {
