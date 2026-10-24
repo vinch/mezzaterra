@@ -1349,7 +1349,7 @@ export type Database = {
         Returns: string
       }
       set_sale_status: {
-        Args: { p_sale_id: string; p_status: string }
+        Args: { p_payment_method?: string; p_sale_id: string; p_status: string }
         Returns: string
       }
       set_transport_status: {

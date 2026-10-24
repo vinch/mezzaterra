@@ -9,7 +9,7 @@
   import Button from "$lib/ui/Button.svelte";
   import IconButton from "$lib/ui/IconButton.svelte";
   import StatusBadge from "$lib/ui/StatusBadge.svelte";
-  import { EDITABLE_STATUSES, SALE_TRANSITIONS, STATUS_META, type SaleStatus } from "$lib/status";
+  import { CHANGEABLE_STATUSES, SALE_TRANSITIONS, STATUS_META, type SaleStatus } from "$lib/status";
   import Menu, { type MenuItem } from "$lib/ui/Menu.svelte";
   import RowMenu from "$lib/ui/RowMenu.svelte";
   import ConfirmDialog from "$lib/ui/ConfirmDialog.svelte";
@@ -199,8 +199,9 @@
 
   async function openEditModal(sale: any) {
     error = "";
-    if (sale.status === "closed" || sale.status === "cancelled") {
-      error = "Impossible de modifier une vente clôturée ou annulée";
+    /* Payée ou livrée, la vente a sorti son stock : elle est figée (save_sale le refuse aussi). */
+    if (sale.status !== "pending") {
+      error = "Seule une vente en attente se modifie : son stock n’est pas encore sorti.";
       formLoad.cancel();
       return;
     }
@@ -484,6 +485,8 @@
     const stockHint =
       currentStatus === "pending" ? "\n\nLe stock sera débité (hors lignes dégustation)." : "";
 
+    /* Mode de paiement manquant : demandé ici (une vente livrée n'est plus modifiable). */
+    let paymentMethod: string | null = null;
     if (newStatus === "paid") {
       /* Relu en base : le mode de paiement a pu être saisi ailleurs depuis le chargement de la page. */
       const { data: fresh, error: freshError } = await supabase.from("sale").select("payment_method").eq("id", sale.id).single();
@@ -492,8 +495,8 @@
         return false;
       }
       if (!String(fresh?.payment_method ?? "").trim()) {
-        error = "Indiquez le mode de paiement (Modifier la vente) avant de marquer comme payée.";
-        return false;
+        paymentMethod = await askPaymentMethod();
+        if (!paymentMethod) return false;
       }
     }
 
@@ -505,13 +508,15 @@
           : newStatus === "paid"
             ? `Marquer cette vente comme payée ?${stockHint}\n\nUn numéro de facture sera attribué si besoin.`
             : null;
-    if (question && !confirm(question)) {
+    /* La fenêtre du mode de paiement vaut confirmation. */
+    if (question && !paymentMethod && !confirm(question)) {
       return false;
     }
 
     const { data: invoiceNumber, error: statusError } = await supabase.rpc("set_sale_status", {
       p_sale_id: sale.id,
       p_status: newStatus,
+      p_payment_method: paymentMethod ?? undefined,
     });
 
     if (statusError) {
@@ -520,9 +525,25 @@
     }
 
     /* Objet neuf pour la ligne : la liste ($derived, sans proxy) ne suit pas les mutations. */
-    sales = sales.map((s) => (s.id === sale.id ? { ...s, status: newStatus, invoice_number: invoiceNumber } : s));
+    sales = sales.map((s) =>
+      s.id === sale.id
+        ? { ...s, status: newStatus, invoice_number: invoiceNumber, payment_method: paymentMethod ?? s.payment_method }
+        : s,
+    );
 
     return true;
+  }
+
+  /* Fenêtre « Mode de paiement » : résolue par le choix, ou null si on annule. */
+  let paymentPrompt = $state<{ resolve: (method: string | null) => void } | null>(null);
+  let paymentChoice = $state("");
+  function askPaymentMethod(): Promise<string | null> {
+    paymentChoice = "";
+    return new Promise((resolve) => (paymentPrompt = { resolve }));
+  }
+  function answerPayment(method: string | null) {
+    paymentPrompt?.resolve(method);
+    paymentPrompt = null;
   }
 
   /** Appelée après confirmation via le ConfirmDialog. */
@@ -628,7 +649,7 @@
       return items;
     }
     items.push({ label: "Ouvrir", icon: IconEye, onSelect: () => openDetailsModal(sale) });
-    items.push({ label: "Modifier", icon: IconPencil, onSelect: () => openEditModal(sale) });
+    if (st === "pending") items.push({ label: "Modifier", icon: IconPencil, onSelect: () => openEditModal(sale) });
     items.push(...statusMenuItems(sale));
     if (st === "pending") {
       items.push({ label: "Supprimer…", icon: IconTrash, danger: true, separator: true, onSelect: () => askDelete(sale) });
@@ -828,7 +849,7 @@
                 {#if sale.tasting_id}<span class="tasting-tag" title={tastingLabel(sale.tasting_id)}><IconGlasses size={12} strokeWidth={1.75} aria-hidden="true" />{tastingById.get(sale.tasting_id)?.name || "Dégustation"}</span>{/if}
               </td>
               <td>
-                {#if EDITABLE_STATUSES.includes(sale.status)}
+                {#if CHANGEABLE_STATUSES.includes(sale.status)}
                   <StatusBadge
                     status={sale.status}
                     interactive
@@ -899,6 +920,23 @@
     : ""}
   onconfirm={confirmDelete}
 />
+
+<Modal open={!!paymentPrompt} title="Mode de paiement" maxWidth={440} onclose={() => answerPayment(null)}>
+  <Field id="paid-payment" label="Mode de paiement" help="Indispensable pour marquer la vente comme payée ; un numéro de facture sera attribué si besoin.">
+    {#snippet children({ describedby })}
+      <select id="paid-payment" class="ui-control" bind:value={paymentChoice} aria-describedby={describedby}>
+        <option value="">Choisir…</option>
+        {#each PAYMENT_METHOD_OPTIONS as opt}
+          <option value={opt.value}>{opt.label}</option>
+        {/each}
+      </select>
+    {/snippet}
+  </Field>
+  {#snippet footer()}
+    <Button variant="ghost" onclick={() => answerPayment(null)}>Annuler</Button>
+    <Button variant="primary" disabled={!paymentChoice} onclick={() => answerPayment(paymentChoice)}>Marquer comme payée</Button>
+  {/snippet}
+</Modal>
 
 <!-- Création / modification -->
 <Modal open={formOpen} title={editingSale ? "Modifier la vente" : "Nouvelle vente"} maxWidth={820} onclose={closeForm}>
@@ -971,8 +1009,6 @@
                   <!-- Stock du millésime ; null pour une ligne dégustation ou un stock illisible. -->
                   {@const stock = item.wine_vintage_id ? (v?.stock ?? null) : null}
                   {@const qty = parseInt(String(item.quantity), 10) || 1}
-                  <!-- Le stock ne borne que les ventes nouvelles ou en attente (pas encore sorties du stock). -->
-                  {@const bounded = !!item.wine_vintage_id && (!editingSale || editingSale.status === "pending")}
                   <tr>
                     <td>
                       <span class="wine-cell">
@@ -993,7 +1029,7 @@
                       <Stepper
                         value={qty}
                         min={1}
-                        max={bounded ? (stock ?? item.saved_quantity ?? qty) : 9999}
+                        max={item.wine_vintage_id ? (stock ?? item.saved_quantity ?? qty) : 9999}
                         label="Quantité de {saleItemDescription(item)}"
                         onchange={(q) => setItemQuantity(index, q)}
                       />
@@ -1053,7 +1089,7 @@
     </section>
 
     <div class="grid-2">
-      <Field id="sale-payment" label="Mode de paiement" help="Obligatoire avant de passer la vente en « Payée »." >
+      <Field id="sale-payment" label="Mode de paiement" help="Sinon, demandé au passage en « Payée ».">
         {#snippet children({ describedby })}
                 <select id="sale-payment" class="ui-control" bind:value={formData.payment_method} aria-describedby={describedby}>
             <option value="">— Non renseigné —</option>
@@ -1172,7 +1208,7 @@
       {#if detailsSale?.status === "closed"}
         <Button onclick={() => downloadInvoice(detailsSale.id)}><IconDownload size={16} strokeWidth={1.75} /> Télécharger la facture</Button>
       {/if}
-      {#if detailsSale && EDITABLE_STATUSES.includes(detailsSale.status)}
+      {#if detailsSale?.status === "pending"}
         <Button
           onclick={() => {
             const s = detailsSale;
