@@ -44,6 +44,7 @@
   let vintageFormData = emptyForm();
   /** Image proposée à un nouveau millésime : celle du dernier millésime qui en a une. */
   $: imageSource = vintages.find((v) => v.image_url);
+  $: imageReused = !editingVintage && !!imageSource && vintageFormData.image_url === imageSource.image_url;
 
   // Grapes modal state
   let showGrapesModal = false;
@@ -399,9 +400,10 @@
           type="url"
           id="image_url"
           bind:value={vintageFormData.image_url}
+          aria-describedby={imageReused ? "image-hint" : undefined}
         />
-        {#if !editingVintage && imageSource && vintageFormData.image_url === imageSource.image_url}
-          <span class="t-muted image-hint">
+        {#if imageReused && imageSource}
+          <span id="image-hint" class="t-muted image-hint">
             <img src={imageSource.image_url} alt="" class="thumb" />
             Reprise {imageSource.year ? `du millésime ${imageSource.year}` : `de la mise en bouteille ${imageSource.production_year}`} : remplacez
             ou videz l’URL pour en mettre une autre.
