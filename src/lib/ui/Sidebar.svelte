@@ -26,12 +26,10 @@
 
   const dispatch = createEventDispatcher<{ search: void; logout: void }>();
 
-  const isActive = (href: string) => isActiveLink(href, path);
-
   let expanded: Record<string, boolean> = {};
   $: for (const s of sections) {
     if (s.collapsible && expanded[s.collapsible] === undefined) {
-      expanded[s.collapsible] = s.links.some((l) => isActive(l.href));
+      expanded[s.collapsible] = s.links.some((l) => isActiveLink(l.href, path));
     }
   }
 </script>
@@ -66,7 +64,7 @@
           <ul id="nav-{section.collapsible}" class="nav-list sub">
             {#each section.links as link}
               <li>
-                <a href={link.href} class="nav-item" class:active={isActive(link.href)} aria-current={isActive(link.href) ? "page" : undefined}>
+                <a href={link.href} class="nav-item" class:active={isActiveLink(link.href, path)} aria-current={isActiveLink(link.href, path) ? "page" : undefined}>
                   <svelte:component this={link.icon} size={18} strokeWidth={1.75} aria-hidden="true" />
                   <span class="nav-label">{link.label}</span>
                 </a>
@@ -79,7 +77,7 @@
         <ul class="nav-list">
           {#each section.links as link}
             <li>
-              <a href={link.href} class="nav-item" class:active={isActive(link.href)} aria-current={isActive(link.href) ? "page" : undefined}>
+              <a href={link.href} class="nav-item" class:active={isActiveLink(link.href, path)} aria-current={isActiveLink(link.href, path) ? "page" : undefined}>
                 <svelte:component this={link.icon} size={18} strokeWidth={1.75} aria-hidden="true" />
                 <span class="nav-label">{link.label}</span>
                 {#if link.count}

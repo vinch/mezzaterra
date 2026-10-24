@@ -73,6 +73,8 @@
       loadWineTypes(),
       loadAllPairings(),
     ]);
+    /* Fin du chargement une fois le stock aussi arrivé : sinon les vins s'affichent en rupture. */
+    loading = false;
   });
 
   async function loadAllPairings() {
@@ -84,7 +86,6 @@
   }
 
   async function loadWines() {
-    loading = true;
     const { data, error: fetchError } = await supabase
       .from("wine")
       .select("*, winery (*), appelation ( *, label (*) ), wine_type (*), wine_vintage (*)")
@@ -115,7 +116,6 @@
         return wineNameA.localeCompare(wineNameB);
       });
     }
-    loading = false;
   }
 
   async function loadWineries() {
@@ -299,9 +299,7 @@
     selectedPairingId = "";
   }
 
-  function isPairingLinked(pairingId: string): boolean {
-    return winePairings.some((wp) => wp.pairing_id === pairingId);
-  }
+  $: linkedPairingIds = new Set(winePairings.map((wp) => wp.pairing_id));
 
   // Filter wines based on selected filters
   $: filteredWines = wines.filter((wine) => {
@@ -363,9 +361,10 @@
   function vintagesOf(wine: any): any[] {
     return wine.wine_vintage || [];
   }
-  function totalStock(wine: any): number {
-    return vintagesOf(wine).reduce((n, v) => n + Math.max(0, stock.get(v.id) ?? 0), 0);
-  }
+  /* Bouteilles en stock par vin, recalculées quand les vins ou le stock arrivent. */
+  $: totalById = new Map(
+    wines.map((w: any) => [w.id, vintagesOf(w).reduce((n, v) => n + Math.max(0, stock.get(v.id) ?? 0), 0)]),
+  );
   /** Dernier millésime qu'on peut encore recommander au fournisseur. */
   function latestVintage(wine: any): any | null {
     const list = vintagesOf(wine).filter((v) => !isDiscontinued(v));
@@ -392,7 +391,7 @@
   /* Vins retirés en fin de liste : visibles, mais hors du chemin. */
   $: shownWines = filteredWines
     .filter((w: any) => !robeFilter || robeOf(w.wine_type) === robeFilter)
-    .filter((w: any) => !inStockOnly || totalStock(w) > 0)
+    .filter((w: any) => !inStockOnly || (totalById.get(w.id) ?? 0) > 0)
     .sort((a: any, b: any) => Number(isRetired(a)) - Number(isRetired(b)));
   $: vintageCount = wines.reduce((n, w: any) => n + (w.wine_vintage?.length ?? 0), 0);
   $: bottleCount = [...stock.values()].reduce((n, q) => n + Math.max(0, q), 0);
@@ -549,7 +548,7 @@
           </thead>
           <tbody>
             {#each shownWines as wine (wine.id)}
-              {@const total = totalStock(wine)}
+              {@const total = totalById.get(wine.id) ?? 0}
               {@const robe = robeOf(wine.wine_type)}
               {@const retired = isRetired(wine)}
               <tr class="is-clickable" class:retired on:click={(e) => openRow(wine, e)}>
@@ -602,7 +601,7 @@
 
       <ul class="cards mobile-only">
         {#each shownWines as wine (wine.id)}
-          {@const total = totalStock(wine)}
+          {@const total = totalById.get(wine.id) ?? 0}
           <li class="wine-card" class:retired={isRetired(wine)}>
             <a class="wine-card-main" href="/manage/wines/{wine.id}">
               <span class="wc-top">
@@ -692,8 +691,8 @@
     <select class="ui-control" bind:value={selectedPairingId} aria-label="Accord à ajouter">
       <option value="">Choisir un plat…</option>
       {#each allPairings as pairing}
-        <option value={pairing.id} disabled={isPairingLinked(pairing.id)}>
-          {pairing.description}{isPairingLinked(pairing.id) ? " (déjà ajouté)" : ""}
+        <option value={pairing.id} disabled={linkedPairingIds.has(pairing.id)}>
+          {pairing.description}{linkedPairingIds.has(pairing.id) ? " (déjà ajouté)" : ""}
         </option>
       {/each}
     </select>
