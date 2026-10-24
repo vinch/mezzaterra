@@ -32,6 +32,8 @@ export async function downloadInvoicePdf(saleId: string): Promise<void> {
 
   if (saleError || !sale) throw new Error(`Erreur lors du chargement de la vente: ${saleError?.message}`);
   if (itemsError || !items) throw new Error(`Erreur lors du chargement des articles: ${itemsError?.message}`);
+  /* Seule une vente clôturée est facturée : un numéro attribué à une vente encore supprimable laisserait un trou. */
+  if (sale.status !== "closed") throw new Error("La facture n'est disponible que pour une vente clôturée.");
 
   const invoiceNumber = await ensureInvoiceNumber(sale);
 
