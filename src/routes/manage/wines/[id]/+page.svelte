@@ -128,7 +128,13 @@
       p_copy_notes: takeNotes,
     });
     if (rpcError) return { data: null, error: rpcError };
-    return supabase.from("wine_vintage").select().eq("id", id).single();
+    const read = await supabase.from("wine_vintage").select().eq("id", id).single();
+    /* Le millésime existe : on ferme le formulaire, un second clic le créerait en double. */
+    if (read.error) {
+      closeForm();
+      error = `Millésime créé, mais la liste n’a pas pu être relue : rechargez la page (${read.error.message}).`;
+    }
+    return read;
   }
 
   function openEditModal(vintage: WineVintage) {
@@ -187,7 +193,8 @@
     saving = false;
 
     if (saveError || !saved) {
-      error = saveError?.message ?? "Millésime introuvable après l’enregistrement";
+      /* Formulaire déjà fermé : createVintage a posé son propre message. */
+      if (formOpen) error = saveError?.message ?? "Millésime introuvable après l’enregistrement";
       return;
     }
 
