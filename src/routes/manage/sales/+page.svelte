@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { supabase } from "$lib/supabase";
+  import { NEW_ROW, supabase } from "$lib/supabase";
   import { getContext, onMount } from "svelte";
   import type { PageData } from "./$types";
   import ManagePageShell from "$lib/components/manage/ManagePageShell.svelte";
@@ -7,7 +7,7 @@
   import Button from "$lib/ui/Button.svelte";
   import IconButton from "$lib/ui/IconButton.svelte";
   import StatusBadge from "$lib/ui/StatusBadge.svelte";
-  import { EDITABLE_STATUSES, STATUS_META, type SaleStatus } from "$lib/status";
+  import { EDITABLE_STATUSES, SALE_TRANSITIONS, STATUS_META, type SaleStatus } from "$lib/status";
   import Menu, { type MenuItem } from "$lib/ui/Menu.svelte";
   import RowMenu from "$lib/ui/RowMenu.svelte";
   import ConfirmDialog from "$lib/ui/ConfirmDialog.svelte";
@@ -40,7 +40,6 @@
   import {
     PAYMENT_METHOD_OPTIONS,
     TASTING_LINE_NOTE,
-    ensureInvoiceNumber,
     itemsSubtotal,
     paymentMethodLabel,
     saleItemDescription,
@@ -77,7 +76,6 @@
   let formData = {
     date: todayIso(),
     customer_id: "",
-    status: "pending",
     note: "",
     global_discount: "",
     global_discount_type: "amount" as "amount" | "percent",
@@ -166,7 +164,6 @@
     formData = {
       date: sale.date.split("T")[0],
       customer_id: sale.customer_id || "",
-      status: sale.status || "pending",
       note: sale.note || "",
       global_discount:
         sale.global_discount != null && toNumber(sale.global_discount) > 0
@@ -253,7 +250,6 @@
     formData = {
       date: todayIso(),
       customer_id: "",
-      status: "pending",
       note: "",
       global_discount: "",
       global_discount_type: "amount",
@@ -366,11 +362,6 @@
       return;
     }
 
-    if (editingSale?.status === "closed" || editingSale?.status === "cancelled") {
-      error = "Impossible de modifier une vente clôturée ou annulée";
-      return;
-    }
-
     const gGlobal = toNumber(formData.global_discount);
     if (
       gGlobal > 0 &&
@@ -384,7 +375,6 @@
     const saleData = {
       date: formData.date,
       customer_id: formData.customer_id,
-      status: editingSale ? editingSale.status : "pending", // Keep the original status
       total_price: total,
       note: formData.note || null,
       global_discount: gGlobal > 0 ? gGlobal : null,
@@ -397,46 +387,11 @@
 
     saving = true;
     try {
-      let saleId: string;
-      if (editingSale) {
-        saleId = editingSale.id;
-        const { error: updateError } = await supabase
-          .from("sale")
-          .update(saleData)
-          .eq("id", saleId);
-
-        if (updateError) {
-          error = updateError.message;
-          return;
-        }
-
-        // Delete existing sale items
-        const { error: deleteError } = await supabase
-          .from("sale_item")
-          .delete()
-          .eq("sale_id", saleId);
-
-        if (deleteError) {
-          error = deleteError.message;
-          return;
-        }
-      } else {
-        const { data: newSale, error: insertError } = await supabase
-          .from("sale")
-          .insert(saleData)
-          .select("id")
-          .single();
-
-        if (insertError) {
-          error = insertError.message;
-          return;
-        }
-        saleId = newSale.id;
-      }
-
-      const { error: itemError } = await supabase.from("sale_item").insert(
-        saleItems.map((item) => ({
-          sale_id: saleId,
+      /* Vente et lignes enregistrées ensemble (fonction SQL save_sale) : tout ou rien. */
+      const { error: saveError } = await supabase.rpc("save_sale", {
+        p_sale_id: editingSale?.id ?? NEW_ROW,
+        p_sale: saleData,
+        p_items: saleItems.map((item) => ({
           wine_vintage_id: item.wine_vintage_id ?? null,
           quantity: item.quantity,
           price: toNumber(item.price),
@@ -444,10 +399,10 @@
           discount_type: item.discount_type || null,
           note: item.note || null,
         })),
-      );
+      });
 
-      if (itemError) {
-        error = itemError.message;
+      if (saveError) {
+        error = saveError.message;
         return;
       }
 
@@ -460,160 +415,55 @@
     }
   }
 
-  async function updateSaleStatus(
-    saleId: string,
-    newStatus: string,
-    currentStatus: string,
-  ): Promise<boolean> {
+  /**
+   * Changement de statut. Les règles (transitions permises, mode de paiement obligatoire), le
+   * déstockage et le numéro de facture sont appliqués par la fonction SQL set_sale_status, en une
+   * transaction ; ici, seulement les confirmations et un rappel du mode de paiement avant de demander.
+   */
+  async function updateSaleStatus(sale: any, newStatus: string): Promise<boolean> {
+    const currentStatus = sale.status;
     if (currentStatus === newStatus) {
       return true;
     }
 
-    if (currentStatus === "cancelled") {
-      error = "Impossible de modifier le statut d'une vente annulée.";
-      return false;
-    }
-
-    if (currentStatus === "closed") {
-      error = "Impossible de modifier le statut d'une vente clôturée.";
-      return false;
-    }
-
-    if (
-      newStatus === "pending" &&
-      (currentStatus === "paid" ||
-        currentStatus === "delivered" ||
-        currentStatus === "closed")
-    ) {
-      error =
-        "Impossible de repasser en « En attente » une fois la vente engagée (payée, livrée ou clôturée).";
-      return false;
-    }
-
-    if (newStatus === "closed") {
-      if (currentStatus !== "paid" && currentStatus !== "delivered") {
-        error =
-          "Une vente ne peut être clôturée qu’à partir des statuts « Payée » ou « Livrée ».";
-        return false;
-      }
-      if (
-        !confirm(
-          "Clôturer cette vente ?\n\nElle ne pourra plus être modifiée ni changer de statut.",
-        )
-      ) {
-        return false;
-      }
-    }
-
-    if (newStatus === "delivered") {
-      const stockHint =
-        currentStatus === "pending"
-          ? "\n\nLe stock sera débité (hors lignes dégustation)."
-          : "";
-      if (!confirm(`Marquer cette vente comme livrée ?${stockHint}`)) {
-        return false;
-      }
-    }
+    const stockHint =
+      currentStatus === "pending" ? "\n\nLe stock sera débité (hors lignes dégustation)." : "";
 
     if (newStatus === "paid") {
-      if (currentStatus !== "paid") {
-        const { data: salePm, error: pmErr } = await supabase
-          .from("sale")
-          .select("payment_method")
-          .eq("id", saleId)
-          .single();
-        if (pmErr || !String(salePm?.payment_method ?? "").trim()) {
-          error =
-            "Indiquez le mode de paiement (Modifier la vente) avant de marquer comme payée.";
-          return false;
-        }
-      }
-      const stockHint =
-        currentStatus === "pending"
-          ? "\n\nLe stock sera débité (hors lignes dégustation)."
-          : "";
-      if (
-        !confirm(
-          `Marquer cette vente comme payée ?${stockHint}\n\nUn numéro de facture sera attribué si besoin.`,
-        )
-      ) {
+      /* Relu en base : le mode de paiement a pu être saisi ailleurs depuis le chargement de la page. */
+      const { data: fresh } = await supabase.from("sale").select("payment_method").eq("id", sale.id).single();
+      if (!String(fresh?.payment_method ?? "").trim()) {
+        error = "Indiquez le mode de paiement (Modifier la vente) avant de marquer comme payée.";
         return false;
       }
     }
 
-    const { error: updateError } = await supabase
-      .from("sale")
-      .update({ status: newStatus })
-      .eq("id", saleId);
-
-    if (updateError) {
-      error = updateError.message;
+    const question =
+      newStatus === "closed"
+        ? "Clôturer cette vente ?\n\nElle ne pourra plus être modifiée ni changer de statut."
+        : newStatus === "delivered"
+          ? `Marquer cette vente comme livrée ?${stockHint}`
+          : newStatus === "paid"
+            ? `Marquer cette vente comme payée ?${stockHint}\n\nUn numéro de facture sera attribué si besoin.`
+            : null;
+    if (question && !confirm(question)) {
       return false;
     }
 
-    /* Déstockage uniquement quand on quitte « En attente » vers Payée ou Livrée. */
-    const shouldApplyStockOut =
-      currentStatus === "pending" &&
-      (newStatus === "paid" || newStatus === "delivered");
+    const { data: invoiceNumber, error: statusError } = await supabase.rpc("set_sale_status", {
+      p_sale_id: sale.id,
+      p_status: newStatus,
+    });
 
-    if (shouldApplyStockOut) {
-      const [{ data: sale, error: saleError }, { data: items, error: itemsError }] = await Promise.all([
-        supabase.from("sale").select("customer ( first_name, last_name )").eq("id", saleId).single(),
-        supabase.from("sale_item").select("wine_vintage_id, quantity").eq("sale_id", saleId),
-      ]);
-
-      if (saleError) {
-        error = `Erreur lors du chargement de la vente: ${saleError.message}`;
-        return false;
-      }
-
-      if (itemsError) {
-        error = `Erreur lors du chargement des articles: ${itemsError.message}`;
-        return false;
-      }
-
-      const customerName = sale.customer
-        ? `${sale.customer.first_name} ${sale.customer.last_name}`
-        : "Client inconnu";
-      const note = `Vente à ${customerName}`;
-
-      const moves = (items || [])
-        .filter((item) => item.wine_vintage_id)
-        .map((item) => ({
-          wine_vintage_id: item.wine_vintage_id!,
-          reason: "sale_out",
-          quantity: -Math.abs(item.quantity),
-          date: todayIso(),
-          note: note,
-        }));
-      if (moves.length) {
-        const { error: stockMoveError } = await supabase.from("stock_move").insert(moves);
-        if (stockMoveError) {
-          error = `Erreur lors de la création du mouvement de stock: ${stockMoveError.message}`;
-          return false;
-        }
-      }
-    }
-
-    /* Numéro de facture attribué au passage en « Payée » ou à la clôture, s'il n'en a pas déjà un. */
-    if ((newStatus === "paid" && currentStatus !== "paid") || newStatus === "closed") {
-      const { data: saleForInv } = await supabase
-        .from("sale")
-        .select("id, date, invoice_number")
-        .eq("id", saleId)
-        .single();
-
-      if (saleForInv) {
-        await ensureInvoiceNumber(saleForInv).catch((err) => console.error("Numéro de facture :", err));
-      }
+    if (statusError) {
+      error = statusError.message;
+      return false;
     }
 
     // Update the local state
-    const saleIndex = sales.findIndex((s) => s.id === saleId);
-    if (saleIndex !== -1) {
-      sales[saleIndex].status = newStatus;
-      sales = [...sales];
-    }
+    sale.status = newStatus;
+    sale.invoice_number = invoiceNumber;
+    sales = [...sales];
 
     return true;
   }
@@ -626,13 +476,16 @@
       return;
     }
 
-    const { error: deleteError } = await supabase
+    /* Filtrée sur « En attente » : une vente passée entre-temps ailleurs (stock déjà sorti) n'est pas supprimée. */
+    const { data: deleted, error: deleteError } = await supabase
       .from("sale")
       .delete()
-      .eq("id", id);
+      .eq("id", id)
+      .eq("status", "pending")
+      .select("id");
 
-    if (deleteError) {
-      error = deleteError.message;
+    if (deleteError || !deleted?.length) {
+      error = deleteError?.message ?? "Seules les ventes en attente peuvent être supprimées.";
       return;
     }
 
@@ -711,14 +564,11 @@
     closed: { label: "Clôturer et facturer", icon: IconLock },
   };
   function nextStatuses(cur: string): string[] {
-    if (cur === "pending") return ["paid", "delivered"];
-    if (cur === "paid") return ["delivered", "closed"];
-    if (cur === "delivered") return ["paid", "closed"];
-    return [];
+    return SALE_TRANSITIONS[cur] ?? [];
   }
   async function changeStatus(sale: any, next: string) {
     error = "";
-    const ok = await updateSaleStatus(sale.id, next, sale.status);
+    const ok = await updateSaleStatus(sale, next);
     if (ok) refreshCounts();
     else sales = [...sales];
   }
@@ -752,7 +602,7 @@
     }
     items.push({ label: "Ouvrir", icon: IconEye, onSelect: () => openDetailsModal(sale) });
     items.push({ label: "Modifier", icon: IconPencil, onSelect: () => openEditModal(sale) });
-    for (const next of st === "pending" ? ["paid"] : st === "paid" ? ["delivered", "closed"] : ["closed"]) {
+    for (const next of nextStatuses(st)) {
       items.push({ label: STATUS_ACTIONS[next].label, icon: STATUS_ACTIONS[next].icon, onSelect: () => changeStatus(sale, next) });
     }
     if (st === "pending") {

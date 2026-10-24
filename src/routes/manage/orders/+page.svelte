@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { supabase } from "$lib/supabase";
+  import { NEW_ROW, supabase } from "$lib/supabase";
   import { onMount } from "svelte";
   import { invalidateAll } from "$app/navigation";
   import type { PageData } from "./$types";
@@ -8,7 +8,7 @@
   import StatusBadge from "$lib/ui/StatusBadge.svelte";
   import { KIND_META, statusMeta } from "$lib/status";
   import ManagePageShell from "$lib/components/manage/ManagePageShell.svelte";
-  import { fetchPickerVintages, orderItemPrice } from "$lib/manageData";
+  import { fetchPickerVintages } from "$lib/manageData";
   import { todayIso } from "$lib/dates";
   import type { OrderPdfLanguage } from "$lib/pdf/purchaseOrderPdf";
   import { formatDate, formatEUR } from "$lib/format";
@@ -82,7 +82,7 @@
       wine_vintage: item.wine_vintage,
       wine_vintage_id: item.wine_vintage_id,
       quantity: item.quantity,
-      price: orderItemPrice(item),
+      price: item.price,
       note: item.note || "",
     }));
     formOpen = true;
@@ -213,66 +213,29 @@
     const orderData = {
       date: formData.date,
       supplier_id: formData.supplier_id,
-      status: formData.status || "pending",
-      total_price: total,
+      status: formData.status,
       note: formData.note || null,
     };
 
-    let orderId: string;
-    if (editingOrder) {
-      orderId = editingOrder.id;
-      const { error: updateError } = await supabase
-        .from("order")
-        .update(orderData)
-        .eq("id", orderId);
-
-      if (updateError) {
-        error = updateError.message;
-        return;
-      }
-
-      // Delete existing order items
-      const { error: deleteError } = await supabase
-        .from("order_item")
-        .delete()
-        .eq("order_id", orderId);
-
-      if (deleteError) {
-        error = deleteError.message;
-        return;
-      }
-    } else {
-      const { data: newOrder, error: insertError } = await supabase
-        .from("order")
-        .insert({ ...orderData, transport_id: null })
-        .select("id")
-        .single();
-
-      if (insertError) {
-        error = insertError.message;
-        return;
-      }
-      orderId = newOrder.id;
-    }
-
-    const { error: itemError } = await supabase.from("order_item").insert(
-      orderItems.map((item) => ({
-        order_id: orderId,
+    /* Commande et lignes enregistrées ensemble (fonction SQL save_order) : tout ou rien. */
+    const { error: saveError } = await supabase.rpc("save_order", {
+      p_order_id: editingOrder?.id ?? NEW_ROW,
+      p_order: orderData,
+      p_items: orderItems.map((item) => ({
         wine_vintage_id: item.wine_vintage_id,
         quantity: item.quantity,
         price: item.price,
         note: item.note || null,
       })),
-    );
+    });
 
-    if (itemError) {
-      error = itemError.message;
+    if (saveError) {
+      error = saveError.message;
       return;
     }
 
     error = "";
     closeForm();
-    error = "";
     await invalidateAll();
   }
 
@@ -287,13 +250,16 @@
       return false;
     }
 
-    const { error: updateError } = await supabase
+    /* Filtré sur « non confirmée » : une commande confirmée entre-temps ailleurs ne bouge plus. */
+    const { data: updated, error: updateError } = await supabase
       .from("order")
       .update({ status: newStatus })
-      .eq("id", orderId);
+      .eq("id", orderId)
+      .neq("status", "confirmed")
+      .select("id");
 
-    if (updateError) {
-      error = updateError.message;
+    if (updateError || !updated?.length) {
+      error = updateError?.message ?? "Impossible de modifier le statut d'une commande confirmée";
       return false;
     }
 
@@ -319,13 +285,15 @@
       return;
     }
 
-    const { error: deleteError } = await supabase
+    const { data: deleted, error: deleteError } = await supabase
       .from("order")
       .delete()
-      .eq("id", id);
+      .eq("id", id)
+      .neq("status", "confirmed")
+      .select("id");
 
-    if (deleteError) {
-      error = deleteError.message;
+    if (deleteError || !deleted?.length) {
+      error = deleteError?.message ?? "Impossible de supprimer une commande confirmée";
       return;
     }
 

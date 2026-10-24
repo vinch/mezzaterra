@@ -8,9 +8,7 @@
   import StatusBadge from "$lib/ui/StatusBadge.svelte";
   import { KIND_META, statusMeta } from "$lib/status";
   import ManagePageShell from "$lib/components/manage/ManagePageShell.svelte";
-  import { orderItemPrice as itemPrice, withOrderTotals } from "$lib/manageData";
-  import { todayIso } from "$lib/dates";
-  import { formatDate, formatEUR } from "$lib/format";
+    import { formatDate, formatEUR } from "$lib/format";
   import { vintageProductLabel } from "$lib/wine";
 
   export let data: PageData;
@@ -179,60 +177,15 @@
       }
     }
 
-    const { error: updateError } = await supabase
-      .from("transport")
-      .update({ status: newStatus })
-      .eq("id", transportId);
+    /* Statut et entrée en stock à la livraison en une transaction (fonction SQL set_transport_status). */
+    const { error: statusError } = await supabase.rpc("set_transport_status", {
+      p_transport_id: transportId,
+      p_status: newStatus,
+    });
 
-    if (updateError) {
-      error = updateError.message;
+    if (statusError) {
+      error = statusError.message;
       return false;
-    }
-
-    // If status is changed to "delivered", create stock_move records
-    if (newStatus === "delivered" && currentStatus !== "delivered") {
-      // Load all orders associated with this transport
-      const { data: orders, error: ordersError } = await supabase
-        .from("order")
-        .select("id")
-        .eq("transport_id", transportId);
-
-      if (ordersError) {
-        error = `Erreur lors du chargement des commandes: ${ordersError.message}`;
-        return false;
-      }
-
-      if (orders && orders.length > 0) {
-        // Load all order items for all orders
-        const orderIds = orders.map((o) => o.id);
-        const { data: orderItems, error: itemsError } = await supabase
-          .from("order_item")
-          .select("wine_vintage_id, quantity")
-          .in("order_id", orderIds);
-
-        if (itemsError) {
-          error = `Erreur lors du chargement des articles: ${itemsError.message}`;
-          return false;
-        }
-
-        // One stock_move per item, inserted together
-        if (orderItems?.length) {
-          const { error: stockMoveError } = await supabase.from("stock_move").insert(
-            orderItems.map((item) => ({
-              wine_vintage_id: item.wine_vintage_id,
-              reason: "purchase_in",
-              quantity: Math.abs(item.quantity), // Positive for in
-              date: todayIso(),
-              note: "Réception transport",
-            })),
-          );
-
-          if (stockMoveError) {
-            error = `Erreur lors de la création du mouvement de stock: ${stockMoveError.message}`;
-            return false;
-          }
-        }
-      }
     }
 
     // Update the local state
@@ -303,9 +256,6 @@
     detailsOrders = (orders || []).map(({ order_item: items, ...order }) => ({
       ...order,
       items,
-      // Calculate total if missing
-      total_price:
-        order.total_price || items.reduce((sum, item) => sum + itemPrice(item) * item.quantity, 0),
     }));
   }
 
@@ -327,7 +277,7 @@
       return;
     }
 
-    availableOrders = await withOrderTotals(data || []);
+    availableOrders = data || [];
   }
 
   async function loadAssociatedOrders(transportId: string) {
@@ -347,7 +297,7 @@
       return;
     }
 
-    associatedOrders = await withOrderTotals(data || []);
+    associatedOrders = data || [];
   }
 
   function toggleOrderSelection(orderId: string) {
@@ -364,36 +314,19 @@
       return;
     }
 
-    // Verify that all selected orders are confirmed
-    const { data: selected, error: fetchError } = await supabase
-      .from("order")
-      .select("id, status")
-      .in("id", selectedOrderIds);
+    /* Tout ou rien, transport verrouillé (fonction SQL attach_orders_to_transport). */
+    const { error: attachError } = await supabase.rpc("attach_orders_to_transport", {
+      p_transport_id: selectedTransport.id,
+      p_order_ids: selectedOrderIds,
+    });
 
-    if (fetchError || !selected || selected.length !== selectedOrderIds.length) {
-      error = `Erreur lors de la vérification de la commande: ${fetchError?.message || "Commande introuvable"}`;
+    if (attachError) {
+      error = attachError.message;
       return;
     }
 
-    if (selected.some((order) => order.status !== "confirmed")) {
-      error =
-        "Seules les commandes confirmées peuvent être associées à un transport";
-      return;
-    }
-
-    // Associate orders to transport
-    const { error: updateError } = await supabase
-      .from("order")
-      .update({ transport_id: selectedTransport.id })
-      .in("id", selectedOrderIds);
-
-    if (updateError) {
-      error = `Erreur lors de l'association de la commande: ${updateError.message}`;
-      return;
-    }
-
-    closeOrdersModal();
     error = "";
+    closeOrdersModal();
     await invalidateAll();
   }
 </script>
@@ -457,6 +390,8 @@
                   <select
                     class="status-select tone-{statusMeta("transport", transport.status).tone}"
                     value={transport.status}
+                    disabled={transport.status === "delivered"}
+                    title={transport.status === "delivered" ? "Livré : le stock est entré, le statut est définitif" : undefined}
                     on:change={async (e) => {
                       const target = e.target as HTMLSelectElement;
                       const previousStatus = transport.status;
@@ -781,9 +716,9 @@
                         </div>
                         <div class="details-order-item-details">
                           <span>x{item.quantity}</span>
-                          {#if itemPrice(item)}
-                            <span>@ {formatEUR(itemPrice(item))}</span>
-                            <strong>= {formatEUR(itemPrice(item) * item.quantity)}</strong>
+                          {#if item.price}
+                            <span>@ {formatEUR(item.price)}</span>
+                            <strong>= {formatEUR(item.price * item.quantity)}</strong>
                           {/if}
                         </div>
                       </div>

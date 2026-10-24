@@ -1,4 +1,4 @@
-import { fetchAllRows, supabase } from "./supabase";
+import { supabase } from "./supabase";
 import { LINE_ITEMS_SELECT } from "./manageData";
 import { lineTotal } from "./analytics";
 import { toNumber } from "./format";
@@ -51,59 +51,13 @@ export function saleTotal(items: any[], globalDiscount: unknown, globalDiscountT
   return Math.max(0, Math.round((subtotal - g) * 100) / 100);
 }
 
-/** Numéro de facture de la vente, attribué s'il manque. Lève une erreur lisible en cas d'échec. */
-export async function ensureInvoiceNumber(sale: { id: string; date: string; invoice_number: string | null }): Promise<string> {
-  return sale.invoice_number || generateAndSaveInvoiceNumber(sale.id, sale.date);
-}
-
-/** Attribue et enregistre le prochain numéro « INV-AAAA-NNN » de l'année de la vente. */
-async function generateAndSaveInvoiceNumber(
-  saleId: string,
-  saleDate: string,
-): Promise<string> {
-  // Year of the sale date (read from the string: a date-only value has no timezone)
-  const year = Number(saleDate.slice(0, 4));
-  const yearStart = `${year}-01-01`;
-  const yearEnd = `${year}-12-31`;
-
-  // All sales of the year, by date then creation (paginated past PostgREST's 1000 rows):
-  // their order gives the position, those already invoiced give the max number
-  const allSalesInYear: { id: string; date: string; created_at: string; invoice_number: string | null }[] =
-    await fetchAllRows((from, to) =>
-      supabase
-        .from("sale")
-        .select("id, date, created_at, invoice_number")
-        .gte("date", yearStart)
-        .lte("date", yearEnd)
-        .order("date", { ascending: true })
-        .order("created_at", { ascending: true })
-        .order("id", { ascending: true })
-        .range(from, to),
-    );
-
-  // Find the position of this sale in the ordered list
-  const saleIndex = allSalesInYear.findIndex((s) => s.id === saleId);
-
-  // Find the highest invoice number for this year
-  let maxInvoiceNumber = 0;
-  for (const sale of allSalesInYear) {
-    const match = sale.invoice_number?.match(/INV-\d+-(\d+)/);
-    if (match) maxInvoiceNumber = Math.max(maxInvoiceNumber, parseInt(match[1], 10));
-  }
-
-  // Generate the next invoice number
-  // Use the position in the year or max + 1, whichever is higher
-  const sequenceNumber = Math.max(saleIndex + 1, maxInvoiceNumber + 1);
-
-  const invoiceNumber = `INV-${year}-${String(sequenceNumber).padStart(3, "0")}`;
-
-  // Save the invoice number to the database
-  const { error: updateError } = await supabase
-    .from("sale")
-    .update({ invoice_number: invoiceNumber })
-    .eq("id", saleId);
-
-  if (updateError) throw new Error(`Enregistrement du numéro de facture impossible : ${updateError.message}`);
-
-  return invoiceNumber;
+/**
+ * Numéro de facture de la vente, attribué s'il manque par la fonction SQL assign_invoice_number
+ * (atomique, séquence continue par année). Lève une erreur lisible en cas d'échec.
+ */
+export async function ensureInvoiceNumber(sale: { id: string; invoice_number: string | null }): Promise<string> {
+  if (sale.invoice_number) return sale.invoice_number;
+  const { data, error } = await supabase.rpc("assign_invoice_number", { p_sale_id: sale.id });
+  if (error) throw new Error(`Numéro de facture non attribué : ${error.message}`);
+  return data;
 }

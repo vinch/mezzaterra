@@ -1,7 +1,7 @@
 import { supabase } from "$lib/supabase";
 import { parseIsoDate } from "$lib/dates";
 import { vintageProductLabel } from "$lib/wine";
-import { LINE_ITEMS_SELECT, orderItemPrice } from "$lib/manageData";
+import { LINE_ITEMS_SELECT } from "$lib/manageData";
 import { downloadLineItemsPdf, pdfEur, type LineItemsPdf } from "./lineItemsPdf";
 
 /** Libellés du document selon la langue du fournisseur. */
@@ -99,9 +99,7 @@ export async function downloadOrderPdf(orderId: string, lang: OrderPdfLanguage):
   }
   if (order.note) blocks.push({ gap: 15, lines: [{ text: `${t.note}: ${order.note}`, italic: true }] });
 
-  /* Prix de la ligne, sinon prix d'achat du millésime ; total recalculé s'il manque, comme sur la page. */
-  const lineTotalOf = (item: (typeof items)[number]) => orderItemPrice(item) * item.quantity;
-  const total = order.total_price || items.reduce((sum, item) => sum + lineTotalOf(item), 0);
+  const lineTotalOf = (item: (typeof items)[number]) => item.price * item.quantity;
 
   downloadLineItemsPdf({
     title,
@@ -114,9 +112,9 @@ export async function downloadOrderPdf(orderId: string, lang: OrderPdfLanguage):
     columns: [t.quantity, t.unitPrice, t.total],
     rows: items.map((item) => ({
       description: vintageProductLabel(item.wine_vintage!),
-      values: [String(item.quantity), pdfEur(orderItemPrice(item)), pdfEur(lineTotalOf(item))],
+      values: [String(item.quantity), pdfEur(item.price), pdfEur(lineTotalOf(item))],
     })),
-    totals: [{ text: `${t.totalLabel}: ${pdfEur(total)}` }],
+    totals: [{ text: `${t.totalLabel}: ${pdfEur(order.total_price)}` }],
     blocks,
     fileName: `${title}_${order.supplier.name.replace(/[^a-zA-Z0-9]/g, "_")}_${order.date.slice(0, 10)}.pdf`,
   });
