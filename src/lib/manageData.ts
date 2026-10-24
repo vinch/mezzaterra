@@ -54,6 +54,13 @@ export async function fetchStockMap(vintageIds?: string[]): Promise<Map<string, 
   return stock;
 }
 
+/** Stock d'un millésime ; null s'il est illisible (affiché comme tel, pas en rupture). */
+export function vintageStock(vintageId: string): Promise<number | null> {
+  return fetchStockMap([vintageId])
+    .then((stock) => stock.get(vintageId) ?? 0)
+    .catch(() => null);
+}
+
 /** Lignes d'articles (vente ou commande) : de quoi les libeller et les chiffrer. */
 export const LINE_ITEMS_SELECT =
   "price, quantity, wine_vintage_id, wine_vintage ( year, production_year, wine ( name, winery ( name ), appelation ( name ) ) )";

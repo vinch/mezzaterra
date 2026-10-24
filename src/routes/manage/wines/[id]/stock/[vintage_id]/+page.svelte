@@ -1,6 +1,7 @@
 <script lang="ts">
   import { preventDefault } from "$lib/ui/events";
   import { supabase } from "$lib/supabase";
+  import { vintageStock } from "$lib/manageData";
   import type { PageData } from "./$types";
   import { todayIso } from "$lib/dates";
   import { formatDate } from "$lib/format";
@@ -51,18 +52,13 @@
   /** Relit mouvements et stock après une modification (le premier chargement vient de +page.ts). */
   async function loadStockMoves() {
     loading = true;
-    const [{ data: movesData, error: fetchError }, { data: inventory, error: inventoryError }] = await Promise.all([
+    const [{ data: movesData, error: fetchError }, stock] = await Promise.all([
       supabase
         .from("stock_move")
         .select("*")
         .eq("wine_vintage_id", vintage.id)
         .order("date", { ascending: false }),
-      // Récupérer le stock actuel depuis la vue inventory
-      supabase
-        .from("inventory")
-        .select("quantity_on_hand")
-        .eq("wine_vintage_id", vintage.id)
-        .maybeSingle(),
+      vintageStock(vintage.id),
     ]);
 
     if (fetchError) {
@@ -71,17 +67,7 @@
       stockMoves = movesData || [];
     }
 
-    if (inventoryError) {
-      console.warn(
-        "Aucun stock trouvé pour ce millésime:",
-        inventoryError.message
-      );
-      currentStock = 0;
-    } else if (inventory) {
-      currentStock = inventory.quantity_on_hand || 0;
-    } else {
-      currentStock = 0;
-    }
+    currentStock = stock;
 
     loading = false;
   }
@@ -173,7 +159,11 @@
   }
 
   let title = $derived(`${wineTitle(vintage.wine)} ${vintageYearLabel(vintage)}`);
-  let subtitle = $derived(`${currentStock} bouteille${Math.abs(currentStock) > 1 ? "s" : ""} en stock`);
+  let subtitle = $derived(
+    currentStock == null
+      ? "Stock indisponible"
+      : `${currentStock} bouteille${Math.abs(currentStock) > 1 ? "s" : ""} en stock`,
+  );
 
   function getReasonLabel(reason: string) {
     const reasonObj = stockReasons.find((r) => r.value === reason);
@@ -203,7 +193,7 @@
 
 <ManagePageShell {title} {subtitle} back={{ href: `/manage/wines/${vintage.wine.id}`, label: wineTitle(vintage.wine) }}>
   {#snippet badge()}
-      {#if currentStock < 0}<StockBadge kind="out" label="Stock négatif" />{/if}
+      {#if currentStock != null && currentStock < 0}<StockBadge kind="out" label="Stock négatif" />{/if}
   {/snippet}
   {#snippet actions()}
       <Button variant="primary" onclick={openCreateModal}><IconPlus size={16} strokeWidth={1.75} /> Nouveau mouvement</Button>
