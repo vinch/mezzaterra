@@ -519,7 +519,8 @@
         <section id="navigation" class="ds-section">
           <h2 class="t-card-title">Navigation</h2>
           <h3 class="ds-h3"><code>PageHeader</code> (via <code>ManagePageShell</code>)</h3>
-          <div class="frame">
+          <!-- Aperçus inertes : pas de second h1 ni de seconde navigation pour les lecteurs d’écran. -->
+          <div class="frame" inert>
             <PageHeader title="Giulia Rossi" subtitle="Cliente depuis mars 2025 · 12 achats" back={{ href: "#navigation", label: "Clients" }}>
               {#snippet badge()}<StatusBadge status="paid" />{/snippet}
               {#snippet actions()}
@@ -529,7 +530,7 @@
             </PageHeader>
           </div>
           <h3 class="ds-h3"><code>Sidebar</code> (fournie par le layout de <code>/manage</code>)</h3>
-          <div class="sidebar-frame">
+          <div class="sidebar-frame" inert>
             <Sidebar sections={sidebarSections} path="/design-system" email="gianni@mezzaterra.be" id="ds-sidebar" />
           </div>
         </section>
