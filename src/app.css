@@ -43,6 +43,7 @@
   /* Typo */
   --font-serif: var(--mz-font-display);
   --font-sans: var(--mz-font-body);
+  --font-mono: ui-monospace, "SF Mono", Menlo, monospace; /* noms de code (design system) */
 
   /* Formes */
   --r-sm: 6px; /* champs, boutons */

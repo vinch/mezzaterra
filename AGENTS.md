@@ -3,6 +3,34 @@
 Point d’entrée commun des agents de développement de Mezzaterra (Claude Code,
 Cursor, Codex…).
 
+## Design system
+
+Toute fonctionnalité qui touche l’interface réutilise le design system. La
+référence est la page `/design-system` (`src/routes/design-system/+page.svelte`,
+sans connexion) : la lire avant de construire un écran. Sa section
+« Principes » fait foi pour les règles d’usage (bouton `primary`, confirmations,
+menus de ligne, chiffres, accessibilité, textes).
+
+- **Gestion (`/manage`)** : composants de `src/lib/ui/` et `ManagePageShell`
+  pour le cadre de page. Pas de bouton, champ, tableau ou modale en HTML brut
+  stylé à la main. De `src/lib/styles/manage-shared.css`, seules les classes
+  montrées sur la page (`.loading`, `.error-message`, `.success-message`,
+  `.checkbox-label`) servent aux nouveaux écrans ; les autres (`.form-group`,
+  `.table-container`, `.ui-btn`…) sont pour les anciens.
+- **Briques métier** de `src/lib/components/manage/` à réutiliser avant d’en
+  écrire : `RefCrudPage` (page de référentiel complète), `CustomerAutocomplete`,
+  `ProductVintageAutocomplete`, `ColumnChart`.
+- **Site public** : primitives `mz-` de `src/lib/styles/site.css` et tokens
+  `--mz-*` ; ne pas y importer les composants de la gestion.
+- **Tokens uniquement** : couleurs, rayons, ombres et polices viennent des
+  variables CSS (`src/app.css`, `src/lib/styles/tokens.css`), jamais de valeur
+  en dur. Statuts : `src/lib/status.ts` ; robes : `src/lib/wine.ts` ; icônes :
+  `$lib/ui/icons` (y ajouter celle qui manque).
+- **Nouveau composant** : seulement si rien d’existant ne convient. Il va dans
+  `src/lib/ui/`, utilise les tokens, et est ajouté à la page `/design-system`
+  dans la même pull request (idem pour une nouvelle variante, un nouveau token
+  ou une nouvelle règle).
+
 ## Avant de pousser du code
 
 Avant tout commit poussé ou toute pull request qui touche du code :

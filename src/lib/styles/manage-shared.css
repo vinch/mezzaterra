@@ -27,6 +27,9 @@
 }
 
 .app .success-message {
+  display: flex;
+  align-items: center;
+  gap: 8px;
   background: var(--st-paid-bg);
   color: var(--st-paid-fg);
   padding: 12px 16px;
