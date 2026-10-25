@@ -557,33 +557,34 @@
       </div>
     </div>
   </ManagePageShell>
+
+  <!-- Dans .app, comme les modales des pages de gestion (focus, interlignage). -->
+  <Modal open={modalOpen} title="Modifier le vin" onclose={() => (modalOpen = false)}>
+    <form id="ds-form" class="modal-form" onsubmit={preventDefault(() => (modalOpen = false))}>
+      <Field id="ds-modal-name" label="Nom du vin" required>
+        {#snippet children({ describedby, invalid })}
+          <input id="ds-modal-name" class="ui-control" type="text" value="Montepulciano d’Abruzzo" required aria-describedby={describedby} aria-invalid={invalid || undefined} />
+        {/snippet}
+      </Field>
+      <Field id="ds-modal-price" label="Prix de vente" help="TVA comprise.">
+        {#snippet children({ describedby })}
+          <input id="ds-modal-price" class="ui-control" type="text" inputmode="decimal" value="14,50" aria-describedby={describedby} />
+        {/snippet}
+      </Field>
+    </form>
+    {#snippet footer()}
+      <Button variant="ghost" onclick={() => (modalOpen = false)}>Annuler</Button>
+      <Button type="submit" form="ds-form" variant="primary">Enregistrer</Button>
+    {/snippet}
+  </Modal>
+
+  <ConfirmDialog
+    bind:open={confirmOpen}
+    title="Supprimer ce vin ?"
+    message="« Montepulciano d’Abruzzo » sera supprimé du catalogue. Les ventes passées ne sont pas modifiées."
+    onconfirm={() => (confirmOpen = false)}
+  />
 </div>
-
-<Modal open={modalOpen} title="Modifier le vin" onclose={() => (modalOpen = false)}>
-  <form id="ds-form" class="modal-form" onsubmit={preventDefault(() => (modalOpen = false))}>
-    <Field id="ds-modal-name" label="Nom du vin" required>
-      {#snippet children({ describedby, invalid })}
-        <input id="ds-modal-name" class="ui-control" type="text" value="Montepulciano d’Abruzzo" required aria-describedby={describedby} aria-invalid={invalid || undefined} />
-      {/snippet}
-    </Field>
-    <Field id="ds-modal-price" label="Prix de vente" help="TVA comprise.">
-      {#snippet children({ describedby })}
-        <input id="ds-modal-price" class="ui-control" type="text" inputmode="decimal" value="14,50" aria-describedby={describedby} />
-      {/snippet}
-    </Field>
-  </form>
-  {#snippet footer()}
-    <Button variant="ghost" onclick={() => (modalOpen = false)}>Annuler</Button>
-    <Button type="submit" form="ds-form" variant="primary">Enregistrer</Button>
-  {/snippet}
-</Modal>
-
-<ConfirmDialog
-  bind:open={confirmOpen}
-  title="Supprimer ce vin ?"
-  message="« Montepulciano d’Abruzzo » sera supprimé du catalogue. Les ventes passées ne sont pas modifiées."
-  onconfirm={() => (confirmOpen = false)}
-/>
 
 <style>
   .ds {
