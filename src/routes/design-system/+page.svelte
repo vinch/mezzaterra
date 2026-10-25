@@ -455,7 +455,7 @@
               <tr>
                 <th scope="col">Vin</th>
                 <th scope="col">Domaine</th>
-                <th scope="col">Stock</th>
+                <th scope="col" class="num">Stock</th>
                 <th scope="col" class="num">Prix</th>
                 <th scope="col" class="col-actions"><span class="sr-only">Actions</span></th>
               </tr>
@@ -465,8 +465,11 @@
                 <tr>
                   <td><span class="inline"><WineDot robe={row.robe} /><a class="row-link" href="#tableaux">{row.wine}</a></span></td>
                   <td>{row.winery}</td>
-                  <td>
-                    {#if row.stock === 0}<StockBadge kind="out" />{:else if row.stock < 6}<StockBadge kind="low" label="{row.stock} bt." />{:else}{row.stock} bt.{/if}
+                  <td class="num">
+                    <span class="inline">
+                      {#if row.stock === 0}<StockBadge kind="out" />{:else if row.stock < 6}<StockBadge kind="low" />{/if}
+                      <strong>{row.stock} bt.</strong>
+                    </span>
                   </td>
                   <td class="num">{formatEUR(row.price)}</td>
                   <td class="col-actions"><RowMenu items={rowItems} label="Actions pour {row.wine}" /></td>
