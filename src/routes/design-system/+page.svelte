@@ -47,9 +47,8 @@
   import {
     CHANGEABLE_STATUSES,
     KIND_META,
-    SALE_STATUS_ACTIONS,
-    SALE_TRANSITIONS,
     STATUS_META,
+    saleStatusMenuItems,
     type SaleStatus,
     type StatusKind,
   } from "$lib/status";
@@ -165,7 +164,7 @@
 
   /* Mêmes transitions et libellés que la page Ventes. */
   let statusItems = $derived<MenuItem[]>(
-    (SALE_TRANSITIONS[demoStatus] ?? []).map((st) => ({ ...SALE_STATUS_ACTIONS[st], onSelect: () => (demoStatus = st) })),
+    saleStatusMenuItems(demoStatus, (next) => (demoStatus = next)),
   );
 
   const rows = [
@@ -342,7 +341,7 @@
               bind:el={statusAnchor}
               onclick={() => (statusOpen = !statusOpen)}
             />
-            <span class="t-caption">Ouvre un <code>Menu</code> des transitions permises (<code>SALE_TRANSITIONS</code>, <code>SALE_STATUS_ACTIONS</code>).</span>
+            <span class="t-caption">Ouvre un <code>Menu</code> des transitions permises (<code>saleStatusMenuItems</code> de <code>status.ts</code>).</span>
             {#if !CHANGEABLE_STATUSES.includes(demoStatus)}
               <Button size="sm" variant="ghost" onclick={() => (demoStatus = "pending")}>Recommencer</Button>
             {/if}

@@ -35,8 +35,11 @@ export function statusMeta(kind: StatusKind, status: string | null | undefined):
   return KIND_META[kind][status ?? "pending"] ?? { label: status ?? "", tone: "closed", icon: IconLock };
 }
 
+/** Statuts qu'une vente peut atteindre depuis un menu : chacun a son action dans SALE_STATUS_ACTIONS. */
+export type SaleTarget = "paid" | "delivered" | "closed";
+
 /** Transitions de statut d'une vente proposées dans les menus (mêmes règles que set_sale_status en base). */
-export const SALE_TRANSITIONS: Record<string, SaleStatus[]> = {
+export const SALE_TRANSITIONS: Record<string, SaleTarget[]> = {
   pending: ["paid", "delivered"],
   paid: ["delivered", "closed"],
   delivered: ["paid", "closed"],
@@ -51,11 +54,16 @@ export function isSaleEditable(status: string | null | undefined): boolean {
 }
 
 /** Libellé et icône des actions qui font passer une vente à un statut (menu du badge). */
-export const SALE_STATUS_ACTIONS: Record<string, { label: string; icon: any }> = {
+const SALE_STATUS_ACTIONS: Record<SaleTarget, { label: string; icon: any }> = {
   paid: { label: "Marquer comme payée", icon: IconCheck },
   delivered: { label: "Marquer comme livrée", icon: IconTruck },
   closed: { label: "Clôturer et facturer", icon: IconLock },
 };
+
+/** Éléments de menu (MenuItem) des transitions permises depuis `status`. */
+export function saleStatusMenuItems(status: string | null | undefined, onSelect: (next: SaleTarget) => void) {
+  return (SALE_TRANSITIONS[status ?? ""] ?? []).map((next) => ({ ...SALE_STATUS_ACTIONS[next], onSelect: () => onSelect(next) }));
+}
 
 /** Ventes dont le statut peut encore changer : leur badge devient un bouton. */
 export const CHANGEABLE_STATUSES = Object.keys(SALE_TRANSITIONS) as SaleStatus[];

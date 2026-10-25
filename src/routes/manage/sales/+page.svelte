@@ -9,7 +9,7 @@
   import Button from "$lib/ui/Button.svelte";
   import IconButton from "$lib/ui/IconButton.svelte";
   import StatusBadge from "$lib/ui/StatusBadge.svelte";
-  import { CHANGEABLE_STATUSES, SALE_STATUS_ACTIONS, SALE_TRANSITIONS, isSaleEditable, STATUS_META, type SaleStatus } from "$lib/status";
+  import { CHANGEABLE_STATUSES, isSaleEditable, saleStatusMenuItems, STATUS_META, type SaleStatus } from "$lib/status";
   import Menu, { type MenuItem } from "$lib/ui/Menu.svelte";
   import RowMenu from "$lib/ui/RowMenu.svelte";
   import ConfirmDialog from "$lib/ui/ConfirmDialog.svelte";
@@ -612,11 +612,7 @@
 
   /* Changement de statut depuis le badge (mêmes transitions que l'ancien sélecteur). */
   function statusMenuItems(sale: any): MenuItem[] {
-    return (SALE_TRANSITIONS[sale.status] ?? []).map((st) => ({
-      label: SALE_STATUS_ACTIONS[st].label,
-      icon: SALE_STATUS_ACTIONS[st].icon,
-      onSelect: () => changeStatus(sale, st),
-    }));
+    return saleStatusMenuItems(sale.status, (next) => changeStatus(sale, next));
   }
   async function changeStatus(sale: any, next: string) {
     error = "";
