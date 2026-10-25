@@ -38,11 +38,21 @@
     IconPencil,
     IconPlus,
     IconReceipt,
+    IconSearch,
     IconTrash,
     IconUsers,
     IconWine,
   } from "$lib/ui/icons";
-  import { KIND_META, type StatusKind } from "$lib/status";
+  import { preventDefault } from "$lib/ui/events";
+  import {
+    CHANGEABLE_STATUSES,
+    KIND_META,
+    SALE_STATUS_ACTIONS,
+    SALE_TRANSITIONS,
+    STATUS_META,
+    type SaleStatus,
+    type StatusKind,
+  } from "$lib/status";
   import { allWineStyles } from "$lib/wine";
   import { formatEUR } from "$lib/format";
 
@@ -105,7 +115,8 @@
       ],
     },
   ];
-  const STATUS_TONES = ["pending", "paid", "delivered", "closed", "cancelled"];
+  const STATUS_TONES = Object.keys(STATUS_META);
+  const WINE_STYLES = allWineStyles();
   const SHAPES: Token[] = [
     { name: "--r-sm", note: "Champs, boutons (6 px)" },
     { name: "--r-md", note: "Cartes, modales (10 px)" },
@@ -138,7 +149,7 @@
   let confirmOpen = $state(false);
   let statusOpen = $state(false);
   let statusAnchor = $state<HTMLElement | null>(null);
-  let demoStatus = $state("pending");
+  let demoStatus = $state<SaleStatus>("pending");
 
   const customers: ComboOption[] = [
     { id: "1", label: "Giulia Rossi", searchText: "giulia rossi bruxelles" },
@@ -152,10 +163,9 @@
     { label: "Supprimer…", icon: IconTrash, danger: true, separator: true, onSelect: () => (confirmOpen = true) },
   ];
 
+  /* Mêmes transitions et libellés que la page Ventes. */
   let statusItems = $derived<MenuItem[]>(
-    Object.entries(KIND_META.sale)
-      .filter(([key]) => key !== demoStatus && key !== "cancelled")
-      .map(([key, meta]) => ({ label: meta.label, icon: meta.icon, onSelect: () => (demoStatus = key) })),
+    (SALE_TRANSITIONS[demoStatus] ?? []).map((st) => ({ ...SALE_STATUS_ACTIONS[st], onSelect: () => (demoStatus = st) })),
   );
 
   const rows = [
@@ -203,9 +213,10 @@
           <ul class="ds-rules">
             <li><strong>Réutiliser avant de créer.</strong> Un composant de <code>src/lib/ui/</code> existe pour les boutons, champs, tableaux, badges, modales, menus, cartes et états vides.</li>
             <li><strong>Tokens uniquement.</strong> Couleurs, rayons et ombres viennent des variables CSS : jamais de hex en dur dans une page.</li>
-            <li><strong>Un seul bouton <code>primary</code></strong> par écran ou par modale. <code>danger-solid</code> est réservé aux confirmations.</li>
+            <li><strong>Un seul bouton <code>primary</code></strong> par écran ou par modale. <code>danger-solid</code> est réservé à <code>ConfirmDialog</code>.</li>
             <li><strong>Pages de gestion</strong> : <code>ManagePageShell</code> (titre, contexte, actions à droite), puis le contenu.</li>
             <li><strong>Actions d’une ligne</strong> dans un <code>RowMenu</code> « … » : seulement celles permises par l’état, « Supprimer… » en dernier, qui ouvre un <code>ConfirmDialog</code>.</li>
+            <li><strong>Icônes</strong> importées depuis <code>$lib/ui/icons</code>, jamais directement depuis <code>@lucide/svelte</code>.</li>
             <li><strong>Chiffres</strong> alignés à droite (<code>.num</code>, y compris l’en-tête de colonne), montants avec <code>formatEUR</code>, dates avec <code>formatDate</code>.</li>
             <li><strong>Accessibilité</strong> : chaque champ a un libellé (<code>Field</code>), chaque bouton icône un <code>label</code>, cibles de 44 px sur mobile (déjà géré par les composants).</li>
             <li><strong>Textes en français</strong>, phrases courtes, guillemets « » et apostrophe typographique ’.</li>
@@ -245,7 +256,7 @@
           <h3 class="ds-h3">Robes</h3>
           <p class="t-muted">Dans <code>STYLES</code> (<code>src/lib/wine.ts</code>) : passer par <code>WineDot</code>, <code>wineRobe()</code> ou <code>swatchStyle()</code>.</p>
           <div class="row">
-            {#each allWineStyles() as s}
+            {#each WINE_STYLES as s}
               <span class="inline"><WineDot robe={s.key} size={14} />{s.label}</span>
             {/each}
           </div>
@@ -263,7 +274,8 @@
         <section id="typo" class="ds-section">
           <h2 class="t-card-title">Typographie</h2>
           <p class="t-muted">Fraunces (<code>--font-serif</code>) pour les titres et les chiffres clés, Inter (<code>--font-sans</code>) pour le reste, 14/20 px, chiffres tabulaires.</p>
-          <div class="type-specimens">
+          <Card>
+            <div class="type-specimens">
             <div><code>.t-page-title</code><span class="t-page-title">Ventes</span></div>
             <div><code>.t-card-title</code><span class="t-card-title">Top 5 des vins</span></div>
             <div><code>.t-figure</code><span class="t-figure">{formatEUR(12480)}</span></div>
@@ -273,7 +285,8 @@
             <div><code>.t-muted</code><span class="t-muted">Texte secondaire.</span></div>
             <div><code>.t-warn</code><span class="t-warn">Plus que 4 bouteilles.</span></div>
             <div><code>.t-danger</code><span class="t-danger">Paiement en retard.</span></div>
-          </div>
+            </div>
+          </Card>
         </section>
 
         <!-- ——— Boutons ——— -->
@@ -304,7 +317,7 @@
             <IconButton label="Modifier"><IconPencil size={18} strokeWidth={1.75} /></IconButton>
             <IconButton label="Télécharger" variant="outline"><IconDownload size={18} strokeWidth={1.75} /></IconButton>
             <IconButton label="Supprimer" disabled><IconTrash size={18} strokeWidth={1.75} /></IconButton>
-            <span class="night-box"><IconButton label="Rechercher" variant="dark"><icons.IconSearch size={18} strokeWidth={1.75} /></IconButton></span>
+            <span class="night-box"><IconButton label="Rechercher" variant="dark"><IconSearch size={18} strokeWidth={1.75} /></IconButton></span>
           </div>
         </section>
 
@@ -324,12 +337,15 @@
             <code class="row-label">interactive</code>
             <StatusBadge
               status={demoStatus}
-              interactive
+              interactive={CHANGEABLE_STATUSES.includes(demoStatus)}
               expanded={statusOpen}
               bind:el={statusAnchor}
               onclick={() => (statusOpen = !statusOpen)}
             />
-            <span class="t-caption">Ouvre un <code>Menu</code> des transitions permises (<code>SALE_TRANSITIONS</code>).</span>
+            <span class="t-caption">Ouvre un <code>Menu</code> des transitions permises (<code>SALE_TRANSITIONS</code>, <code>SALE_STATUS_ACTIONS</code>).</span>
+            {#if !CHANGEABLE_STATUSES.includes(demoStatus)}
+              <Button size="sm" variant="ghost" onclick={() => (demoStatus = "pending")}>Recommencer</Button>
+            {/if}
           </div>
           <Menu bind:open={statusOpen} anchor={statusAnchor} items={statusItems} label="Changer le statut" align="start" />
 
@@ -345,7 +361,7 @@
           <h3 class="ds-h3"><code>.ui-chip</code> · puces de filtre</h3>
           <div class="row">
             <button type="button" class="ui-chip" aria-pressed={!robeFilter} onclick={() => (robeFilter = "")}>Toutes</button>
-            {#each allWineStyles().slice(0, 4) as s}
+            {#each WINE_STYLES.slice(0, 4) as s}
               <button type="button" class="ui-chip" aria-pressed={robeFilter === s.key} onclick={() => (robeFilter = robeFilter === s.key ? "" : s.key)}>
                 <WineDot robe={s.key} />{s.label}<span class="count">12</span>
               </button>
@@ -357,54 +373,56 @@
         <section id="champs" class="ds-section">
           <h2 class="t-card-title">Champs</h2>
           <p class="t-muted"><code>Field</code> porte le libellé, l’aide et l’erreur ; le contrôle reçoit <code>describedby</code> et <code>invalid</code> du snippet. Les contrôles natifs prennent la classe <code>.ui-control</code>.</p>
-          <div class="form-demo">
-            <Field id="ds-name" label="Nom du vin" required help="Laisser vide pour utiliser le nom de l’appellation.">
-              {#snippet children({ describedby, invalid })}
-                <input id="ds-name" class="ui-control" type="text" bind:value={name} aria-describedby={describedby} aria-invalid={invalid || undefined} />
-              {/snippet}
-            </Field>
-            <Field id="ds-email" label="Email" error="Adresse invalide.">
-              {#snippet children({ describedby, invalid })}
-                <input id="ds-email" class="ui-control" type="email" value="giulia@" aria-describedby={describedby} aria-invalid={invalid || undefined} />
-              {/snippet}
-            </Field>
-            <Field id="ds-robe" label="Robe" required>
-              {#snippet children({ describedby, invalid })}
-                <Select id="ds-robe" bind:value={robe} {describedby} {invalid}>
-                  <option value="">Sélectionner une robe</option>
-                  {#each allWineStyles() as s}<option value={s.key}>{s.label}</option>{/each}
-                </Select>
-              {/snippet}
-            </Field>
-            <Field id="ds-customer" label="Client" help="Combobox : taper, ↑ ↓ puis Entrée.">
-              {#snippet children({ describedby, invalid })}
-                <Combobox id="ds-customer" bind:value={customer} options={customers} {describedby} {invalid} placeholder="Rechercher un client…" />
-              {/snippet}
-            </Field>
-            <Field id="ds-discount" label="Ristourne" optional>
-              {#snippet children({ describedby })}
-                <AmountTypeInput id="ds-discount" bind:amount={discount} bind:type={discountType} {describedby} />
-              {/snippet}
-            </Field>
-            <Field id="ds-disabled" label="N° de facture" help="Attribué au passage en « Payée ».">
-              {#snippet children({ describedby })}
-                <input id="ds-disabled" class="ui-control" type="text" value="2026-0042" disabled aria-describedby={describedby} />
-              {/snippet}
-            </Field>
-            <Field id="ds-notes" label="Notes" optional>
-              {#snippet children({ describedby })}
-                <textarea id="ds-notes" class="ui-control" rows="3" aria-describedby={describedby}></textarea>
-              {/snippet}
-            </Field>
-            <div class="field-col">
-              <span class="t-label">Quantité · <code>Stepper</code></span>
-              <div class="row">
-                <Stepper bind:value={quantity} label="Bouteilles" />
-                <Stepper bind:value={quantity} label="Bouteilles (tactile)" size="lg" />
+          <Card>
+            <div class="form-demo">
+              <Field id="ds-name" label="Nom du vin" required help="Laisser vide pour utiliser le nom de l’appellation.">
+                {#snippet children({ describedby, invalid })}
+                  <input id="ds-name" class="ui-control" type="text" bind:value={name} aria-describedby={describedby} aria-invalid={invalid || undefined} />
+                {/snippet}
+              </Field>
+              <Field id="ds-email" label="Email" error="Adresse invalide.">
+                {#snippet children({ describedby, invalid })}
+                  <input id="ds-email" class="ui-control" type="email" value="giulia@" aria-describedby={describedby} aria-invalid={invalid || undefined} />
+                {/snippet}
+              </Field>
+              <Field id="ds-robe" label="Robe" required>
+                {#snippet children({ describedby, invalid })}
+                  <Select id="ds-robe" bind:value={robe} {describedby} {invalid}>
+                    <option value="">Sélectionner une robe</option>
+                    {#each WINE_STYLES as s}<option value={s.key}>{s.label}</option>{/each}
+                  </Select>
+                {/snippet}
+              </Field>
+              <Field id="ds-customer" label="Client" help="Combobox : taper, ↑ ↓ puis Entrée.">
+                {#snippet children({ describedby, invalid })}
+                  <Combobox id="ds-customer" bind:value={customer} options={customers} {describedby} {invalid} placeholder="Rechercher un client…" />
+                {/snippet}
+              </Field>
+              <Field id="ds-discount" label="Ristourne" optional>
+                {#snippet children({ describedby })}
+                  <AmountTypeInput id="ds-discount" bind:amount={discount} bind:type={discountType} {describedby} />
+                {/snippet}
+              </Field>
+              <Field id="ds-disabled" label="N° de facture" help="Attribué au passage en « Payée ».">
+                {#snippet children({ describedby })}
+                  <input id="ds-disabled" class="ui-control" type="text" value="2026-0042" disabled aria-describedby={describedby} />
+                {/snippet}
+              </Field>
+              <Field id="ds-notes" label="Notes" optional>
+                {#snippet children({ describedby })}
+                  <textarea id="ds-notes" class="ui-control" rows="3" aria-describedby={describedby}></textarea>
+                {/snippet}
+              </Field>
+              <div class="field-col">
+                <span class="t-label">Quantité · <code>Stepper</code></span>
+                <div class="row">
+                  <Stepper bind:value={quantity} label="Bouteilles" />
+                  <Stepper bind:value={quantity} label="Bouteilles (tactile)" size="lg" />
+                </div>
+                <label class="checkbox-label"><input type="checkbox" checked /> Case à cocher (<code>.checkbox-label</code>)</label>
               </div>
-              <label class="checkbox-label"><input type="checkbox" checked /> Case à cocher (<code>.checkbox-label</code>)</label>
             </div>
-          </div>
+          </Card>
         </section>
 
         <!-- ——— Cartes ——— -->
@@ -539,7 +557,7 @@
 </div>
 
 <Modal open={modalOpen} title="Modifier le vin" onclose={() => (modalOpen = false)}>
-  <form id="ds-form" class="modal-form" onsubmit={(e) => { e.preventDefault(); modalOpen = false; }}>
+  <form id="ds-form" class="modal-form" onsubmit={preventDefault(() => (modalOpen = false))}>
     <Field id="ds-modal-name" label="Nom du vin" required>
       <input id="ds-modal-name" class="ui-control" type="text" value="Montepulciano d’Abruzzo" />
     </Field>
@@ -619,13 +637,13 @@
     color: var(--ink);
   }
 
-  code {
-    font-family: ui-monospace, "SF Mono", Menlo, monospace;
-    font-size: 12px;
-  }
-
+  code,
   .mono {
     font-family: ui-monospace, "SF Mono", Menlo, monospace;
+  }
+
+  code {
+    font-size: 12px;
   }
 
   .ds-rules {
@@ -704,10 +722,6 @@
     display: flex;
     flex-direction: column;
     gap: 10px;
-    padding: 20px 24px;
-    background: var(--card);
-    border: 1px solid var(--border);
-    border-radius: var(--r-md);
   }
 
   .type-specimens > div {
@@ -742,10 +756,6 @@
     display: grid;
     grid-template-columns: repeat(2, minmax(0, 1fr));
     gap: 16px;
-    padding: 20px 24px 24px;
-    background: var(--card);
-    border: 1px solid var(--border);
-    border-radius: var(--r-md);
   }
 
   .field-col {
@@ -778,12 +788,6 @@
   .states {
     display: flex;
     flex-direction: column;
-  }
-
-  .success-message {
-    display: flex;
-    align-items: center;
-    gap: 8px;
   }
 
   .frame {

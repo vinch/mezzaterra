@@ -9,7 +9,7 @@
   import Button from "$lib/ui/Button.svelte";
   import IconButton from "$lib/ui/IconButton.svelte";
   import StatusBadge from "$lib/ui/StatusBadge.svelte";
-  import { CHANGEABLE_STATUSES, SALE_TRANSITIONS, isSaleEditable, STATUS_META, type SaleStatus } from "$lib/status";
+  import { CHANGEABLE_STATUSES, SALE_STATUS_ACTIONS, SALE_TRANSITIONS, isSaleEditable, STATUS_META, type SaleStatus } from "$lib/status";
   import Menu, { type MenuItem } from "$lib/ui/Menu.svelte";
   import RowMenu from "$lib/ui/RowMenu.svelte";
   import ConfirmDialog from "$lib/ui/ConfirmDialog.svelte";
@@ -21,18 +21,15 @@
   import Stepper from "$lib/ui/Stepper.svelte";
   import WineDot from "$lib/ui/WineDot.svelte";
   import {
-    IconCheck,
     IconClock,
     IconDownload,
     IconEye,
     IconGlasses,
-    IconLock,
     IconPencil,
     IconPlus,
     IconReceipt,
     IconSearch,
     IconTrash,
-    IconTruck,
     IconX,
   } from "$lib/ui/icons";
   import { fold, formatDate, formatEUR, initials, toNumber } from "$lib/format";
@@ -614,15 +611,10 @@
   }
 
   /* Changement de statut depuis le badge (mêmes transitions que l'ancien sélecteur). */
-  const STATUS_ACTIONS: Record<string, { label: string; icon: any }> = {
-    paid: { label: "Marquer comme payée", icon: IconCheck },
-    delivered: { label: "Marquer comme livrée", icon: IconTruck },
-    closed: { label: "Clôturer et facturer", icon: IconLock },
-  };
   function statusMenuItems(sale: any): MenuItem[] {
     return (SALE_TRANSITIONS[sale.status] ?? []).map((st) => ({
-      label: STATUS_ACTIONS[st].label,
-      icon: STATUS_ACTIONS[st].icon,
+      label: SALE_STATUS_ACTIONS[st].label,
+      icon: SALE_STATUS_ACTIONS[st].icon,
       onSelect: () => changeStatus(sale, st),
     }));
   }

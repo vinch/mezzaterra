@@ -50,5 +50,12 @@ export function isSaleEditable(status: string | null | undefined): boolean {
   return status === "pending";
 }
 
+/** Libellé et icône des actions qui font passer une vente à un statut (menu du badge). */
+export const SALE_STATUS_ACTIONS: Record<string, { label: string; icon: any }> = {
+  paid: { label: "Marquer comme payée", icon: IconCheck },
+  delivered: { label: "Marquer comme livrée", icon: IconTruck },
+  closed: { label: "Clôturer et facturer", icon: IconLock },
+};
+
 /** Ventes dont le statut peut encore changer : leur badge devient un bouton. */
 export const CHANGEABLE_STATUSES = Object.keys(SALE_TRANSITIONS) as SaleStatus[];
