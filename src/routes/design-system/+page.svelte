@@ -647,7 +647,7 @@
 
   code,
   .mono {
-    font-family: ui-monospace, "SF Mono", Menlo, monospace;
+    font-family: var(--font-mono);
   }
 
   code {
@@ -707,7 +707,7 @@
     height: 48px;
     margin-bottom: 6px;
     border-radius: var(--r-sm);
-    box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.08);
+    box-shadow: inset 0 0 0 1px var(--border);
   }
 
   .swatch-color.tone {
@@ -748,7 +748,7 @@
     padding: 12px 16px;
     overflow-x: auto;
     background: var(--night);
-    color: #e9f0ef;
+    color: var(--mz-cave-text);
     border-radius: var(--r-md);
     line-height: 18px;
   }
