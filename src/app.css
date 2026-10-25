@@ -287,6 +287,11 @@ select:disabled {
   white-space: nowrap;
 }
 
+/* Sans ce sélecteur, le text-align: left ci-dessus l'emporte sur .num. */
+.ui-table th.num {
+  text-align: right;
+}
+
 .ui-table td {
   height: 56px;
   padding: 0 16px;
