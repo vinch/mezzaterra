@@ -73,6 +73,7 @@ pnpm update-types
 | `/vins`, `/vins/[id]` | Catalogue et fiches vin partageables (Open Graph) |
 | `/domaines/[id]` | Page d'un domaine : présentation, carte, cépages, tous ses vins |
 | `/contact` | Formulaire de contact → email à gianni@mezzaterra.be (Resend), raison préremplie via `?raison=prive\|commande\|degustation\|pro\|autre` (+ `&sujet=…`), CAPTCHA Turnstile |
+| `/design-system` | Vitrine du design system (composants, tokens, règles) : référence pour tout nouvel écran, non indexée |
 
 | Gestion | |
 |---|---|
