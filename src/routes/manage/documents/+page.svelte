@@ -407,12 +407,6 @@
     accent-color: var(--teal-600);
   }
 
-  .num {
-    text-align: right;
-    white-space: nowrap;
-    font-variant-numeric: tabular-nums;
-  }
-
   .row-selected {
     background: rgba(255, 235, 120, 0.38);
   }

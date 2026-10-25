@@ -658,11 +658,6 @@
 </Modal>
 
 <style>
-  .num {
-    text-align: right;
-    font-variant-numeric: tabular-nums;
-  }
-
   .actions {
     flex-wrap: wrap;
   }

@@ -278,12 +278,6 @@
     max-width: 60rem;
   }
 
-  .num {
-    text-align: right;
-    white-space: nowrap;
-    font-variant-numeric: tabular-nums;
-  }
-
   .sortable {
     cursor: pointer;
     user-select: none;

@@ -191,9 +191,4 @@
   .table-view td {
     padding: 0.3rem 0.6rem;
   }
-
-  .num {
-    text-align: right;
-    font-variant-numeric: tabular-nums;
-  }
 </style>

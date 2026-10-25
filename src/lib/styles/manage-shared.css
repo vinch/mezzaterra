@@ -140,6 +140,11 @@
   white-space: nowrap;
 }
 
+/* Comme pour .ui-table : sans ce sélecteur, le text-align: left l'emporte sur .num. */
+.app .table-container th.num {
+  text-align: right;
+}
+
 .app .table-container td {
   height: 56px;
   padding: 8px 16px;

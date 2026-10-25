@@ -251,12 +251,6 @@
     white-space: nowrap;
   }
 
-  .num {
-    text-align: right;
-    white-space: nowrap;
-    font-variant-numeric: tabular-nums;
-  }
-
   .message {
     margin: 0;
     font-style: italic;
