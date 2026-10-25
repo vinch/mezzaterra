@@ -13,9 +13,13 @@ menus de ligne, chiffres, accessibilité, textes).
 
 - **Gestion (`/manage`)** : composants de `src/lib/ui/` et `ManagePageShell`
   pour le cadre de page. Pas de bouton, champ, tableau ou modale en HTML brut
-  stylé à la main ; les classes de `src/lib/styles/manage-shared.css`
-  (`.form-group`, `.table-container`, `.ui-btn`…) servent les anciens écrans,
-  pas les nouveaux.
+  stylé à la main. De `src/lib/styles/manage-shared.css`, seules les classes
+  montrées sur la page (`.loading`, `.error-message`, `.success-message`,
+  `.checkbox-label`) servent aux nouveaux écrans ; les autres (`.form-group`,
+  `.table-container`, `.ui-btn`…) sont pour les anciens.
+- **Briques métier** de `src/lib/components/manage/` à réutiliser avant d’en
+  écrire : `RefCrudPage` (page de référentiel complète), `CustomerAutocomplete`,
+  `ProductVintageAutocomplete`, `ColumnChart`.
 - **Site public** : primitives `mz-` de `src/lib/styles/site.css` et tokens
   `--mz-*` ; ne pas y importer les composants de la gestion.
 - **Tokens uniquement** : couleurs, rayons, ombres et polices viennent des
