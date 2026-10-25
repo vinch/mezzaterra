@@ -375,7 +375,7 @@
           <p class="t-muted"><code>Field</code> porte le libellé, l’aide et l’erreur ; le contrôle reçoit <code>describedby</code> et <code>invalid</code> du snippet. Les contrôles natifs prennent la classe <code>.ui-control</code>.</p>
           <Card>
             <div class="form-demo">
-              <Field id="ds-name" label="Nom du vin" required help="Laisser vide pour utiliser le nom de l’appellation.">
+              <Field id="ds-name" label="Nom du vin" help="Laisser vide pour utiliser le nom de l’appellation.">
                 {#snippet children({ describedby, invalid })}
                   <input id="ds-name" class="ui-control" type="text" bind:value={name} aria-describedby={describedby} aria-invalid={invalid || undefined} />
                 {/snippet}
@@ -387,7 +387,7 @@
               </Field>
               <Field id="ds-robe" label="Robe" required>
                 {#snippet children({ describedby, invalid })}
-                  <Select id="ds-robe" bind:value={robe} {describedby} {invalid}>
+                  <Select id="ds-robe" bind:value={robe} required {describedby} {invalid}>
                     <option value="">Sélectionner une robe</option>
                     {#each WINE_STYLES as s}<option value={s.key}>{s.label}</option>{/each}
                   </Select>
@@ -559,10 +559,14 @@
 <Modal open={modalOpen} title="Modifier le vin" onclose={() => (modalOpen = false)}>
   <form id="ds-form" class="modal-form" onsubmit={preventDefault(() => (modalOpen = false))}>
     <Field id="ds-modal-name" label="Nom du vin" required>
-      <input id="ds-modal-name" class="ui-control" type="text" value="Montepulciano d’Abruzzo" />
+      {#snippet children({ describedby, invalid })}
+        <input id="ds-modal-name" class="ui-control" type="text" value="Montepulciano d’Abruzzo" required aria-describedby={describedby} aria-invalid={invalid || undefined} />
+      {/snippet}
     </Field>
     <Field id="ds-modal-price" label="Prix de vente" help="TVA comprise.">
-      <input id="ds-modal-price" class="ui-control" type="text" inputmode="decimal" value="14,50" />
+      {#snippet children({ describedby })}
+        <input id="ds-modal-price" class="ui-control" type="text" inputmode="decimal" value="14,50" aria-describedby={describedby} />
+      {/snippet}
     </Field>
   </form>
   {#snippet footer()}
