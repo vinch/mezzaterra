@@ -22,6 +22,7 @@
   import StatusBadge from "$lib/ui/StatusBadge.svelte";
   import WineDot from "$lib/ui/WineDot.svelte";
   import { IconDownload, IconGlasses, IconPencil, IconPlus, IconReceipt, IconSend, IconSparkle, IconTrash, IconWine } from "$lib/ui/icons";
+  import Spinner from "$lib/ui/Spinner.svelte";
 
   const customerId = $page.params.id ?? "";
 
@@ -234,7 +235,7 @@
   {/snippet}
 
   {#if loading}
-    <div class="loading">Chargement…</div>
+    <Spinner />
   {:else if error}
     <div class="error-message" role="alert">{error}</div>
   {:else if !customer}

@@ -17,6 +17,7 @@
   import Field from "$lib/ui/Field.svelte";
   import StockBadge from "$lib/ui/StockBadge.svelte";
   import WineDot from "$lib/ui/WineDot.svelte";
+  import Spinner from "$lib/ui/Spinner.svelte";
   import { styleByKey, wineRobe, type WineStyleKey, wineTypeLabel } from "$lib/wine";
   import {
     IconArchive,
@@ -504,7 +505,7 @@
   {/if}
 
   {#if loading}
-    <div class="loading">Chargement…</div>
+    <Spinner />
   {:else if wines.length === 0}
     <div class="empty-card">
       <EmptyState icon={IconWine} title="Aucun vin au catalogue" text="Ajoutez un premier vin, puis ses millésimes.">

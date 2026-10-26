@@ -37,12 +37,6 @@
   margin-bottom: 16px;
 }
 
-.app .loading {
-  text-align: center;
-  padding: 32px;
-  color: var(--ink-2);
-}
-
 .app .empty-state {
   background: var(--card);
   border: 1px solid var(--border);

@@ -27,6 +27,7 @@
   import { formatDate, formatEUR } from "$lib/format";
   import { formatTime, isLiveNow } from "$lib/dates";
   import WineBottle from "$lib/components/site/WineBottle.svelte";
+  import Spinner from "$lib/ui/Spinner.svelte";
   import { fetchTastingWithWines, tastingTitle } from "$lib/publicData";
   import { broadcastPosition, joinLiveChannel } from "$lib/live";
   import { qrDataUrl } from "$lib/qr";
@@ -347,7 +348,7 @@
       {/snippet}
 
     {#if loading}
-      <div class="loading">Chargement…</div>
+      <Spinner />
     {:else if error}
       <div class="error-message" role="alert">{error}</div>
     {:else if wines.length === 0}

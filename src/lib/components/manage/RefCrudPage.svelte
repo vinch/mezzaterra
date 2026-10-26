@@ -14,6 +14,7 @@
   import Select from "$lib/ui/Select.svelte";
   import type { MenuItem } from "$lib/ui/Menu.svelte";
   import { IconEye, IconPencil, IconPlus, IconTrash } from "$lib/ui/icons";
+  import Spinner from "$lib/ui/Spinner.svelte";
 
   /**
    * Page de référentiel (pays, régions, cépages, clients, fournisseurs…) : liste, création, édition et
@@ -181,7 +182,7 @@
   {/if}
 
   {#if loading}
-    <div class="loading">Chargement…</div>
+    <Spinner />
   {:else if rows.length === 0}
     <EmptyState title="Aucun élément pour l’instant" text={emptyText}>
       <Button onclick={() => openForm()}><IconPlus size={16} strokeWidth={1.75} /> {newLabel}</Button>

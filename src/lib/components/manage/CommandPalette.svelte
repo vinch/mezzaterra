@@ -8,6 +8,7 @@
   import { vintageLabel } from "$lib/wine";
   import { fold, formatDate, formatEUR } from "$lib/format";
   import { IconClipboard, IconGlasses, IconReceipt, IconSearch, IconUsers, IconWine } from "$lib/ui/icons";
+  import Spinner from "$lib/ui/Spinner.svelte";
 
   interface Props {
     /** Pages de l'admin, injectées par le layout (même source que la sidebar). */
@@ -237,7 +238,7 @@
       </div>
       <div class="results" id="palette-results" role="listbox">
         {#if results.length === 0}
-          <p class="empty">{loadingData ? "Chargement…" : "Aucun résultat"}</p>
+          {#if loadingData}<Spinner size={20} />{:else}<p class="empty">Aucun résultat</p>{/if}
         {:else}
           {#each grouped as g}
             <div class="group-label">{g.group}</div>

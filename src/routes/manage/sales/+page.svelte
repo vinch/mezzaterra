@@ -50,6 +50,7 @@
   import { invalidateAll } from "$app/navigation";
   import ProductVintageAutocomplete from "$lib/components/manage/ProductVintageAutocomplete.svelte";
   import CustomerAutocomplete from "$lib/components/manage/CustomerAutocomplete.svelte";
+  import Spinner from "$lib/ui/Spinner.svelte";
 
   interface Props {
     data: PageData;
@@ -807,7 +808,7 @@
   </div>
 
   {#if loading}
-    <div class="loading">Chargement…</div>
+    <Spinner />
   {:else if sales.length === 0}
     <div class="empty-card">
       <EmptyState icon={IconReceipt} title="Aucune vente pour l’instant" text="Créez la première vente : elle sera enregistrée « En attente ».">

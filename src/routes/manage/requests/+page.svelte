@@ -3,6 +3,7 @@
   import { errorMessage } from "$lib/async";
   import { supabase } from "$lib/supabase";
   import ManagePageShell from "$lib/components/manage/ManagePageShell.svelte";
+  import Spinner from "$lib/ui/Spinner.svelte";
   import { vintageLabel } from "$lib/wine";
   import { formatDate, formatEUR } from "$lib/format";
   import { createSaleFromWish, setWishStatus, wishItems, wishTotal, type WishRequest } from "$lib/wishes";
@@ -88,7 +89,7 @@
 
 <ManagePageShell title="Demandes">
   {#if loading}
-    <div class="loading">Chargement…</div>
+    <Spinner />
   {:else}
     {#if error}<div class="error-message">{error}</div>{/if}
 

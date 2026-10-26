@@ -5,6 +5,7 @@
   import DataTable from "$lib/ui/DataTable.svelte";
   import EmptyState from "$lib/ui/EmptyState.svelte";
   import { IconBox } from "$lib/ui/icons";
+  import Spinner from "$lib/ui/Spinner.svelte";
   import {
     fetchStockDocVintages,
     sortedStockForDocuments,
@@ -43,7 +44,7 @@
   {/snippet}
 
   {#if loading}
-    <div class="loading">Chargement…</div>
+    <Spinner />
   {:else if error}
     <div class="error-message" role="alert">{error}</div>
   {:else if stockInHandList.length === 0}

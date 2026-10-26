@@ -13,6 +13,7 @@
   } from "$lib/analytics";
   import { vintageLabel } from "$lib/wine";
   import WineDot from "$lib/ui/WineDot.svelte";
+  import Spinner from "$lib/ui/Spinner.svelte";
   import { formatDate, formatEUR } from "$lib/format";
 
   let loading = $state(true);
@@ -68,7 +69,7 @@
 
 <ManagePageShell title="Analyses">
   {#if loading}
-    <div class="loading">Calcul en cours…</div>
+    <Spinner />
   {:else if error}
     <div class="error-message">{error}</div>
   {:else}

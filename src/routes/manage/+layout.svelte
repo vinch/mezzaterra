@@ -8,6 +8,7 @@
   import CommandPalette from "$lib/components/manage/CommandPalette.svelte";
   import Sidebar, { isActiveLink, type NavSection } from "$lib/ui/Sidebar.svelte";
   import IconButton from "$lib/ui/IconButton.svelte";
+  import Spinner from "$lib/ui/Spinner.svelte";
   import {
     IconBox,
     IconCastle,
@@ -206,8 +207,7 @@
 
 {#if $checkingAuthStore}
   <div class="app loading-container">
-    <div class="spinner"></div>
-    <p>Chargement…</p>
+    <Spinner size={36} />
   </div>
 {:else if $userStore && $isAdminStore === false}
   <div class="app loading-container denied">
@@ -295,22 +295,6 @@
     justify-content: center;
     gap: 8px;
     background: var(--paper);
-    color: var(--ink-2);
-  }
-
-  .spinner {
-    width: 36px;
-    height: 36px;
-    border: 3px solid var(--border);
-    border-top-color: var(--teal-600);
-    border-radius: 50%;
-    animation: spin 0.9s linear infinite;
-  }
-
-  @keyframes spin {
-    to {
-      transform: rotate(360deg);
-    }
   }
 
   .denied {

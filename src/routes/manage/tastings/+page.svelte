@@ -9,6 +9,7 @@
   import ManagePageShell from "$lib/components/manage/ManagePageShell.svelte";
   import ProductVintageAutocomplete from "$lib/components/manage/ProductVintageAutocomplete.svelte";
   import CustomerAutocomplete from "$lib/components/manage/CustomerAutocomplete.svelte";
+  import Spinner from "$lib/ui/Spinner.svelte";
   import { customerDisplayLabel, sortCustomersByLabel } from "$lib/customerDisplay";
   import { fetchCustomers, fetchPickerVintages } from "$lib/manageData";
   import { errorMessage, latestOnly } from "$lib/async";
@@ -410,7 +411,7 @@
   {/if}
 
   {#if loading}
-    <div class="loading">Chargement…</div>
+    <Spinner />
   {:else if tastings.length === 0}
     <div class="empty-state">
       <p>Aucune dégustation enregistrée.</p>

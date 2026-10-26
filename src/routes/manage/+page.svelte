@@ -10,6 +10,7 @@
   import EmptyState from "$lib/ui/EmptyState.svelte";
   import StockBadge from "$lib/ui/StockBadge.svelte";
   import WineDot from "$lib/ui/WineDot.svelte";
+  import Spinner from "$lib/ui/Spinner.svelte";
   import {
     IconBox,
     IconCalendar,
@@ -253,7 +254,7 @@
     {/if}
 
     {#if statsLoading}
-      <div class="loading">Chargement des indicateurs…</div>
+      <Spinner />
     {:else}
       {#if kpi.pendingSales || outOfStock.length || lowStock.length || dormant.length || newRequests}
         <nav class="todo" aria-label="À traiter">

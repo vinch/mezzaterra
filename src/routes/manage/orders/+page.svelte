@@ -10,6 +10,7 @@
   import StatusBadge from "$lib/ui/StatusBadge.svelte";
   import { KIND_META, statusMeta } from "$lib/status";
   import ManagePageShell from "$lib/components/manage/ManagePageShell.svelte";
+  import Spinner from "$lib/ui/Spinner.svelte";
   import { fetchPickerVintages } from "$lib/manageData";
   import { errorMessage, latestOnly } from "$lib/async";
   import { todayIso } from "$lib/dates";
@@ -361,7 +362,7 @@
     {/if}
 
     {#if loading}
-      <div class="loading">Chargement...</div>
+      <Spinner />
     {:else if orders.length === 0}
       <div class="empty-state">
         <p>Aucune commande trouvée</p>
