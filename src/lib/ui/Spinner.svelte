@@ -23,7 +23,7 @@
     box-sizing: border-box;
     border: 3px solid var(--border);
     border-top-color: var(--teal-600);
-    border-radius: 50%;
+    border-radius: var(--r-pill);
     animation: spin 0.9s linear infinite;
   }
 
