@@ -1,6 +1,7 @@
 <script lang="ts">
   import { onMount } from "svelte";
   import ManagePageShell from "$lib/components/manage/ManagePageShell.svelte";
+  import Spinner from "$lib/ui/Spinner.svelte";
   import { supabase } from "$lib/supabase";
   import { addDaysIso, todayIso } from "$lib/dates";
   import { isPrivateTasting } from "$lib/publicData";
@@ -168,7 +169,7 @@
 
     <div class="flyer-preview">
       {#if loading}
-        <div class="loading">Chargement du visuel…</div>
+        <Spinner />
       {/if}
       <canvas
         bind:this={canvasEl}

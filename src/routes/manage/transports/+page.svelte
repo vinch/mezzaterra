@@ -10,6 +10,7 @@
   import StatusBadge from "$lib/ui/StatusBadge.svelte";
   import { KIND_META, statusMeta } from "$lib/status";
   import ManagePageShell from "$lib/components/manage/ManagePageShell.svelte";
+  import Spinner from "$lib/ui/Spinner.svelte";
   import { formatDate, formatEUR } from "$lib/format";
   import { vintageProductLabel } from "$lib/wine";
 
@@ -343,7 +344,7 @@
     {/if}
 
     {#if loading}
-      <div class="loading">Chargement...</div>
+      <Spinner />
     {:else if transports.length === 0}
       <div class="empty-state">
         <p>Aucun transport trouvé</p>

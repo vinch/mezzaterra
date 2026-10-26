@@ -5,6 +5,7 @@
   import ManagePageShell from "$lib/components/manage/ManagePageShell.svelte";
   import Modal from "$lib/ui/Modal.svelte";
   import Button from "$lib/ui/Button.svelte";
+  import Spinner from "$lib/ui/Spinner.svelte";
   import {
     fetchStockDocVintages,
     sortedStockForDocuments,
@@ -189,7 +190,7 @@
     {/if}
 
     {#if loading}
-      <div class="loading">Chargement du stock…</div>
+      <Spinner />
     {:else if rows.length === 0}
       <div class="empty-state">
         <p>Aucun vin en stock pour générer des documents.</p>

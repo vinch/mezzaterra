@@ -23,6 +23,7 @@
   import RowMenu from "$lib/ui/RowMenu.svelte";
   import Select from "$lib/ui/Select.svelte";
   import Sidebar, { type NavSection } from "$lib/ui/Sidebar.svelte";
+  import Spinner from "$lib/ui/Spinner.svelte";
   import StatusBadge from "$lib/ui/StatusBadge.svelte";
   import Stepper from "$lib/ui/Stepper.svelte";
   import StockBadge from "$lib/ui/StockBadge.svelte";
@@ -210,7 +211,7 @@
         <section id="principes" class="ds-section">
           <h2 class="t-card-title">Principes</h2>
           <ul class="ds-rules">
-            <li><strong>Réutiliser avant de créer.</strong> Un composant de <code>src/lib/ui/</code> existe pour les boutons, champs, tableaux, badges, modales, menus, cartes et états vides.</li>
+            <li><strong>Réutiliser avant de créer.</strong> Un composant de <code>src/lib/ui/</code> existe pour les boutons, champs, tableaux, badges, modales, menus, cartes, états vides et chargements (<code>Spinner</code>).</li>
             <li><strong>Tokens uniquement.</strong> Couleurs, rayons et ombres viennent des variables CSS : jamais de hex en dur dans une page.</li>
             <li><strong>Un seul bouton <code>primary</code></strong> par écran ou par modale. <code>danger-solid</code> est réservé à <code>ConfirmDialog</code>.</li>
             <li><strong>Pages de gestion</strong> : <code>ManagePageShell</code> (titre, contexte, actions à droite), puis le contenu.</li>
@@ -481,6 +482,7 @@
         <!-- ——— États ——— -->
         <section id="etats" class="ds-section">
           <h2 class="t-card-title">États</h2>
+          <p class="t-muted"><code>Spinner</code> pour tout chargement, sans texte visible (« Chargement… » est lu par les lecteurs d’écran), taille réglable avec <code>size</code>. <code>EmptyState</code> quand il n’y a rien, <code>.error-message</code> et <code>.success-message</code> pour le retour d’une action.</p>
           <div class="cards">
             <Card padded={false}>
               <EmptyState icon={IconReceipt} title="Aucune vente pour l’instant" text="Créez la première vente : elle sera enregistrée « En attente ».">
@@ -488,7 +490,7 @@
               </EmptyState>
             </Card>
             <div class="states">
-              <div class="loading">Chargement…</div>
+              <Spinner />
               <div class="error-message" role="alert">Impossible d’enregistrer la vente.</div>
               <div class="success-message"><IconCheck size={16} strokeWidth={1.75} /> Vente enregistrée.</div>
             </div>

@@ -3,6 +3,7 @@
   import { errorMessage } from "$lib/async";
   import { supabase } from "$lib/supabase";
   import ManagePageShell from "$lib/components/manage/ManagePageShell.svelte";
+  import Spinner from "$lib/ui/Spinner.svelte";
   import { formatDateLong, formatTime, todayIso } from "$lib/dates";
   import { formatEUR } from "$lib/format";
   import { isPrivateTasting, tastingTitle } from "$lib/publicData";
@@ -191,7 +192,7 @@
 
 <ManagePageShell title="Campagnes email">
   {#if loading}
-    <div class="loading">Chargement…</div>
+    <Spinner />
   {:else}
     {#if error}<div class="error-message">{error}</div>{/if}
     {#if result}<div class="success-message">{result}</div>{/if}

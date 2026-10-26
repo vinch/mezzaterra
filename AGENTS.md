@@ -14,9 +14,10 @@ menus de ligne, chiffres, accessibilité, textes).
 - **Gestion (`/manage`)** : composants de `src/lib/ui/` et `ManagePageShell`
   pour le cadre de page. Pas de bouton, champ, tableau ou modale en HTML brut
   stylé à la main. De `src/lib/styles/manage-shared.css`, seules les classes
-  montrées sur la page (`.loading`, `.error-message`, `.success-message`,
+  montrées sur la page (`.error-message`, `.success-message`,
   `.checkbox-label`) servent aux nouveaux écrans ; les autres (`.form-group`,
-  `.table-container`, `.ui-btn`…) sont pour les anciens.
+  `.table-container`, `.ui-btn`…) sont pour les anciens. Tout chargement
+  s’affiche avec `Spinner`, jamais un texte « Chargement… ».
 - **Briques métier** de `src/lib/components/manage/` à réutiliser avant d’en
   écrire : `RefCrudPage` (page de référentiel complète), `CustomerAutocomplete`,
   `ProductVintageAutocomplete`, `ColumnChart`.

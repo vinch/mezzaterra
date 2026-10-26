@@ -16,6 +16,7 @@
   import RowMenu from "$lib/ui/RowMenu.svelte";
   import type { MenuItem } from "$lib/ui/Menu.svelte";
   import { IconBox, IconPencil, IconPlus, IconTrash } from "$lib/ui/icons";
+  import Spinner from "$lib/ui/Spinner.svelte";
   import { vintageYearLabel, wineTitle } from "$lib/wine";
 
   interface Props {
@@ -204,7 +205,7 @@
   {/if}
 
   {#if loading}
-    <div class="loading">Chargement…</div>
+    <Spinner />
   {:else if stockMoves.length === 0}
     <EmptyState icon={IconBox} title="Aucun mouvement de stock" text="Les réceptions de transport et les ventes payées ou livrées s’inscrivent ici automatiquement.">
       <Button onclick={openCreateModal}><IconPlus size={16} strokeWidth={1.75} /> Nouveau mouvement</Button>
