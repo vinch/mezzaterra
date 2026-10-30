@@ -83,7 +83,7 @@ export async function loadDataset(): Promise<Dataset> {
       supabase
         .from("wine_vintage")
         .select(
-          "*, wine ( id, name, winery ( id, name ), appelation ( name, label ( name ) ), wine_type ( name, category ) )",
+          "*, wine ( id, name, winery ( id, name ), appelation ( name, label ( name ) ), wine_type ( name, category, kind ) )",
         )
         .order("id")
         .range(a, b),

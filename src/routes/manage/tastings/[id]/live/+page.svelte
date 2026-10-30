@@ -32,6 +32,7 @@
   import { broadcastPosition, joinLiveChannel } from "$lib/live";
   import { qrDataUrl } from "$lib/qr";
   import { swatchStyle, vintageShortLabel, wineRobe, wineStyle, wineSubtitle, wineTitle, wineTypeLabel } from "$lib/wine";
+  import { kindInfo } from "$lib/productKinds";
   import {
     confirmRegistrationAsGuest,
     createSaleFromWish,
@@ -209,6 +210,8 @@
 
   let current = $derived(wines[position]);
   let style = $derived(wineStyle(current?.wine?.wine_type));
+  /** « Vin 3 », « Huile d’olive 4 » : le produit servi. */
+  let currentLabel = $derived(kindInfo(current?.wine).label);
 
   async function makeSale(w: WishRequest) {
     actionError = "";
@@ -375,7 +378,7 @@
         </a>
         <div class="band-item">
           <span class="t-caption">Progression</span>
-          <span class="band-v">Vin {position + 1} <small>sur {wines.length}</small></span>
+          <span class="band-v">{currentLabel} {position + 1} <small>sur {wines.length}</small></span>
         </div>
       </section>
 
@@ -429,7 +432,7 @@
           <section class="now" aria-labelledby="now-title" aria-live="polite">
             <span class="bottle" style={swatchStyle(wineRobe(current?.wine?.wine_type))} aria-hidden="true"></span>
             <div class="now-text">
-              <span class="now-eyebrow">Vin {position + 1} · {wineTypeLabel(current?.wine?.wine_type)}</span>
+              <span class="now-eyebrow">{currentLabel} {position + 1} · {wineTypeLabel(current?.wine?.wine_type)}</span>
               <h2 id="now-title" class="now-title">{vintageShortLabel(current)}</h2>
               <p>{current.wine?.winery?.name ?? ""}{current.price ? " · " : ""}{#if current.price}<strong>{formatEUR(current.price)}</strong> la bouteille{/if}</p>
               <p class="t-caption">
@@ -559,7 +562,7 @@
     <div class="proj-wine">
       {#key position}
         <div class="proj-inner" in:fade={{ duration: 400 }}>
-          <span class="proj-num">Vin {position + 1} <span>/ {wines.length}</span></span>
+          <span class="proj-num">{currentLabel} {position + 1} <span>/ {wines.length}</span></span>
           <h1>{wineTitle(current.wine)}</h1>
           {#if wineSubtitle(current.wine)}<p class="proj-sub">{wineSubtitle(current.wine)}</p>{/if}
           <p class="proj-winery">{current.wine?.winery?.name}{current.year ? ` · ${current.year}` : ""}</p>

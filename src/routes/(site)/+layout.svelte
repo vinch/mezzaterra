@@ -26,7 +26,7 @@
         <a href="/" class="brand" aria-label="Mezzaterra — accueil">
           <img src="/flyer/logo-text.svg" alt="Mezzaterra" />
         </a>
-        <SiteNav />
+        <SiteNav kinds={$page.data.catalogKinds} />
       </div>
     </header>
 

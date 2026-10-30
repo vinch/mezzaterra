@@ -75,7 +75,7 @@
       const label = vintageLabel(v);
       items.push({
         id: `v-${v.id}`,
-        group: "Vins",
+        group: "Produits",
         label,
         hint: "Stock",
         href: `/manage/wines/${v.wine_id}/stock/${v.id}`,

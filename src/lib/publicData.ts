@@ -1,5 +1,6 @@
 import { fetchAllRows, supabase } from "./supabase";
 import { VINTAGE_PUBLIC_SELECT } from "./wine";
+import { DEFAULT_KIND, isProductKind, type ProductKind } from "./productKinds";
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
@@ -29,6 +30,19 @@ export async function fetchAvailability(): Promise<AvailabilityOf | null> {
     return (vintageId) => byVintage.get(vintageId) ?? SOLD_OUT;
   } catch {
     return null;
+  }
+}
+
+/**
+ * Types de produit à présenter sur le site : le vin toujours, les autres dès qu'un produit existe
+ * (le lien « Nos huiles » n'apparaît pas tant que la cave n'en a aucune).
+ */
+export async function fetchCatalogKinds(): Promise<ProductKind[]> {
+  try {
+    const { data } = await supabase.from("wine").select("kind").neq("kind", DEFAULT_KIND);
+    return [DEFAULT_KIND, ...new Set((data || []).map((r) => r.kind).filter(isProductKind))];
+  } catch {
+    return [DEFAULT_KIND];
   }
 }
 

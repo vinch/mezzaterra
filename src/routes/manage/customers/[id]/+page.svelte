@@ -10,7 +10,8 @@
   import { customerDisplayLabel } from "$lib/customerDisplay";
   import { REVENUE_STATUSES, lineTotal, type SaleItemRow } from "$lib/analytics";
   import { daysUntil } from "$lib/dates";
-  import { styleByKey, vintageLabel, vintageShortLabel, wineRobe, type WineStyleKey } from "$lib/wine";
+  import { STYLE_ORDER, styleByKey, vintageLabel, vintageShortLabel, wineRobe, type WineStyleKey } from "$lib/wine";
+  import { PRODUCT_KIND_LIST } from "$lib/productKinds";
   import { formatDate, formatEUR } from "$lib/format";
   import Button from "$lib/ui/Button.svelte";
   import IconButton from "$lib/ui/IconButton.svelte";
@@ -55,7 +56,7 @@
           supabase
             .from("wine_vintage")
             .select(
-              "id, wine_id, year, production_year, price, purchase_price, wine ( id, name, winery ( name ), appelation ( name, label ( name ) ), wine_type ( name, category ) )",
+              "id, wine_id, year, production_year, price, purchase_price, wine ( id, name, winery ( name ), appelation ( name, label ( name ) ), wine_type ( name, category, kind ) )",
             )
             .order("id")
             .range(from, to),
@@ -125,14 +126,15 @@
 
   let totalBottles = $derived(bought.reduce((s, b) => s + b.qty, 0));
 
-  /* Préférences : répartition par robe (toujours rouge / blanc / rosé) et domaine préféré. */
+  /* Préférences : répartition par robe (toujours rouge / blanc / rosé, les autres produits achetés) et domaine préféré. */
   const ROBES: WineStyleKey[] = ["white", "red", "rose"];
+  const KIND_STYLES = PRODUCT_KIND_LIST.flatMap((k) => (k.style ? [k.style] : []));
   let robeQty = $derived((() => {
-    const map: Record<WineStyleKey, number> = { red: 0, white: 0, rose: 0, orange: 0, sparkling: 0, other: 0 };
+    const map = Object.fromEntries(STYLE_ORDER.map((k) => [k, 0])) as Record<WineStyleKey, number>;
     for (const b of bought) map[wineRobe(b.vintage.wine?.wine_type).key] += b.qty;
     return map;
   })());
-  let robeOrder = $derived([...ROBES].sort((a, b) => robeQty[b] - robeQty[a]));
+  let robeOrder = $derived([...ROBES, ...KIND_STYLES.filter((s) => robeQty[s])].sort((a, b) => robeQty[b] - robeQty[a]));
   let favRobe = $derived(robeOrder[0] && robeQty[robeOrder[0]] > 0 ? robeOrder[0] : null);
 
   let favoriteWinery = $derived((() => {
@@ -276,7 +278,7 @@
     <div class="grid">
       <Card title="Ses goûts" id="tastes">
         {#if totalBottles === 0}
-          <EmptyState icon={IconWine} title="Pas encore d’achat de vin" compact />
+          <EmptyState icon={IconWine} title="Pas encore d’achat" compact />
         {:else}
           <div class="share-bar" role="img" aria-label="Répartition des achats par robe">
             {#each robeOrder as r}

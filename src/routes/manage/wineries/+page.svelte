@@ -13,19 +13,19 @@
 </script>
 
 <svelte:head>
-  <title>Vignobles - Gestion</title>
+  <title>Domaines - Gestion</title>
 </svelte:head>
 
 <RefCrudPage
-  title="Vignobles"
+  title="Domaines"
   table="winery"
   select="*, country (*), region (*)"
-  newLabel="Nouveau vignoble"
-  editLabel="Modifier le vignoble"
-  thisLabel="ce vignoble"
-  emptyText="Les domaines dont Mezzaterra importe les vins."
+  newLabel="Nouveau domaine"
+  editLabel="Modifier le domaine"
+  thisLabel="ce domaine"
+  emptyText="Les domaines dont Mezzaterra importe les vins et les huiles."
   fields={[
-    { key: "name", label: "Nom du vignoble", required: true },
+    { key: "name", label: "Nom du domaine", required: true },
     { key: "city", label: "Ville" },
     { key: "country_id", label: "Pays", type: "select", options: countryOptions(countries) },
     { key: "region_id", label: "Région", type: "select", options: regionOptions(regions) },

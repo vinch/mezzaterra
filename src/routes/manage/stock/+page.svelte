@@ -23,7 +23,7 @@
     return n === 1 ? "1 bouteille" : `${n} bouteilles`;
   }
 
-  /** Même lecture que la page Documents : millésimes en stock, triés vignoble → nom → millésime ↓. */
+  /** Même lecture que la page Documents : millésimes en stock, triés domaine → nom → millésime ↓. */
   async function loadStockInHand() {
     loading = true;
     error = "";
@@ -53,7 +53,7 @@
     <DataTable caption="Vins en stock">
       <thead>
         <tr>
-          <th scope="col">Vignoble</th>
+          <th scope="col">Domaine</th>
           <th scope="col">Nom</th>
           <th scope="col">Millésime</th>
           <th scope="col" class="num">En stock</th>

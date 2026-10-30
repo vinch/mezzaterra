@@ -1,6 +1,7 @@
 import { errorMessage } from "./async";
 import { fetchStockMap } from "./manageData";
 import { supabase } from "./supabase";
+import { kindOf, type ProductKind } from "./productKinds";
 
 /**
  * Stock disponible mis en forme pour les documents (tarifs, feuilles de notes) et la page Stock.
@@ -10,6 +11,7 @@ import { supabase } from "./supabase";
 export type StockDocVintage = {
   id: string;
   wine_id: string;
+  kind: ProductKind;
   wine_type_id: string | null;
   winery_id: string;
   quantity_on_hand: number;
@@ -69,6 +71,7 @@ export function mapInventoryToDocVintages(
       abv: number | null;
       wine: {
         id: string;
+        kind?: string | null;
         winery_id: string;
         name: string | null;
         wine_type_id: string | null;
@@ -94,6 +97,7 @@ export function mapInventoryToDocVintages(
     out.push({
       id: v.id,
       wine_id: w.id,
+      kind: kindOf({ kind: w.kind }),
       wine_type_id: w.wine_type_id ?? null,
       winery_id: w.winery_id,
       quantity_on_hand: row.quantity_on_hand ?? 0,
@@ -141,6 +145,7 @@ export async function fetchStockDocVintages(): Promise<{ data: StockDocVintage[]
           abv,
           wine (
             id,
+            kind,
             winery_id,
             name,
             wine_type_id,
@@ -178,7 +183,7 @@ export async function fetchStockDocVintages(): Promise<{ data: StockDocVintage[]
   return { data: mapInventoryToDocVintages(merged), error: null };
 }
 
-/** Même ordre que les listes Vins / Stock : vignoble, nom (ou appellation), millésime ↓. */
+/** Même ordre que les listes Produits / Stock : domaine, nom (ou appellation), millésime ↓. */
 function sortDocVintages(a: StockDocVintage, b: StockDocVintage): number {
   const wineryA = a.wineryName.toLowerCase();
   const wineryB = b.wineryName.toLowerCase();

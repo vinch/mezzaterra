@@ -6,6 +6,7 @@
   import WineCard from "$lib/components/site/WineCard.svelte";
   import { fetchAvailability, type AvailabilityOf } from "$lib/publicData";
   import { fold } from "$lib/format";
+  import { kindCount, PRODUCT_KINDS, productHref } from "$lib/productKinds";
   import {
     STYLE_ORDER,
     allWineStyles,
@@ -27,6 +28,7 @@
     availability = await fetchAvailability();
   });
 
+  let kind = $derived(PRODUCT_KINDS[data.kind]);
   let vintages = $derived(data.vintages as any[]);
   let presentStyles = $derived(allWineStyles().filter((s) =>
     vintages.some((v) => wineStyle(v.wine?.wine_type).key === s.key),
@@ -81,25 +83,23 @@
 </script>
 
 <svelte:head>
-  <title>Nos vins — Mezzaterra</title>
-  <meta property="og:title" content="Nos vins — Mezzaterra" />
-  <meta property="og:description" content="Montepulciano, Pecorino, Cerasuolo… la cave Mezzaterra, domaine par domaine." />
+  <title>{kind.catalogTitle} — Mezzaterra</title>
+  <meta property="og:title" content="{kind.catalogTitle} — Mezzaterra" />
+  <meta property="og:description" content={kind.catalogShare} />
   <meta property="og:url" content={$page.url.href} />
 </svelte:head>
 
 <section class="intro">
   <div class="mz-container mz-rise">
-    <h1 class="mz-display mz-h1">Nos vins</h1>
-    <p class="mz-lead">
-      Des domaines familiaux des Abruzzes, entre mer Adriatique et massif du Gran Sasso.
-    </p>
+    <h1 class="mz-display mz-h1">{kind.catalogTitle}</h1>
+    <p class="mz-lead">{kind.catalogLead}</p>
     {#if wineries.length}
       <nav class="wineries" aria-label="Les domaines">
         {#each wineries as g (g.winery.id)}
           <a class="mz-card winery-card" href="/domaines/{g.winery.id}">
             <span class="winery-card-name">{g.winery.name}</span>
             <span class="mz-muted">
-              {[g.winery.city, `${g.items.length} vin${g.items.length > 1 ? "s" : ""}`].filter(Boolean).join(" · ")}
+              {[g.winery.city, kindCount(kind, g.items.length)].filter(Boolean).join(" · ")}
             </span>
             <span class="arrow" aria-hidden="true">→</span>
           </a>
@@ -112,18 +112,21 @@
 <div class="mz-container">
   <div class="toolbar">
     <div class="chips" role="group" aria-label="Filtrer par couleur">
-      <button type="button" class="filter-chip" class:on={!styleFilter} onclick={() => (styleFilter = "")}>Tous</button>
-      {#each presentStyles as s}
-        <button
-          type="button"
-          class="filter-chip"
-          class:on={styleFilter === s.key}
-          onclick={() => (styleFilter = styleFilter === s.key ? "" : s.key)}
-          aria-pressed={styleFilter === s.key}
-        >
-          <span class="mz-dot" style="background: {s.color}"></span>{s.label}
-        </button>
-      {/each}
+      <!-- Une seule couleur (les huiles) : rien à filtrer. -->
+      {#if presentStyles.length > 1}
+        <button type="button" class="filter-chip" class:on={!styleFilter} onclick={() => (styleFilter = "")}>Tous</button>
+        {#each presentStyles as s}
+          <button
+            type="button"
+            class="filter-chip"
+            class:on={styleFilter === s.key}
+            onclick={() => (styleFilter = styleFilter === s.key ? "" : s.key)}
+            aria-pressed={styleFilter === s.key}
+          >
+            <span class="mz-dot" style="background: {s.color}"></span>{s.label}
+          </button>
+        {/each}
+      {/if}
       {#if availability}
         <label class="filter-chip toggle" class:on={inStockOnly}>
           <input type="checkbox" bind:checked={inStockOnly} />
@@ -131,13 +134,13 @@
         </label>
       {/if}
     </div>
-    <input class="mz-input search" type="search" placeholder="Rechercher un vin, un cépage…" bind:value={query} aria-label="Rechercher" />
+    <input class="mz-input search" type="search" placeholder={kind.searchPlaceholder} bind:value={query} aria-label="Rechercher" />
   </div>
 
   {#if data.error}
     <p class="mz-empty">{data.error}</p>
   {:else if groups.length === 0}
-    <p class="mz-empty">Aucun vin ne correspond à ces critères.</p>
+    <p class="mz-empty">{vintages.length ? "Aucun produit ne correspond à ces critères." : "Bientôt à la cave."}</p>
   {:else}
     {#each groups as group (group.winery?.id || "autres")}
       <section class="winery" id={group.winery?.id ? `domaine-${group.winery.id}` : undefined} transition:fade={{ duration: 150 }}>
@@ -162,7 +165,7 @@
         <div class="grid">
           {#each group.items as v (v.id)}
             <div animate:flip={{ duration: 250 }}>
-              <WineCard vintage={v} href="/vins/{v.id}" availability={availability?.(v.id) ?? null} />
+              <WineCard vintage={v} href={productHref(v)} availability={availability?.(v.id) ?? null} />
             </div>
           {/each}
         </div>

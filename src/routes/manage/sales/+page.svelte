@@ -684,7 +684,7 @@
     const last = own.map((s) => String(s.date)).sort().pop();
     const { data } = await supabase
       .from("sale_item")
-      .select("quantity, sale_id, wine_vintage ( wine ( wine_type ( name ) ) )")
+      .select("quantity, sale_id, wine_vintage ( wine ( wine_type ( name, kind ) ) )")
       .in("sale_id", own.map((s) => s.id).slice(0, 100));
     const byRobe = new Map<WineStyleKey, number>();
     for (const it of (data || []) as any[]) {

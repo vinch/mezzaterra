@@ -15,6 +15,7 @@
     wineryMapUrl,
     wineryPlace,
   } from "$lib/wine";
+  import { DEFAULT_KIND, kindOf, PRODUCT_KIND_LIST, PRODUCT_KINDS, productHref } from "$lib/productKinds";
 
   let { data } = $props();
 
@@ -40,9 +41,22 @@
 
   let cuveeCount = $derived(new Set(vintages.map((v) => v.wine_id)).size);
   let styles = $derived(allWineStyles().filter((s) => vintages.some((v) => wineStyle(v.wine?.wine_type).key === s.key)));
-  let grapes = $derived([
-    ...new Set(vintages.flatMap((v) => (v.wine_vintage_grape || []).map((g: any) => g.grape?.name).filter(Boolean))),
-  ].sort((a, b) => a.localeCompare(b, "fr")));
+  /** Types de produit du domaine (vins, huiles…) avec leurs cépages ou variétés. */
+  let kinds = $derived((() => {
+    const grapesByKind = new Map<string, Set<string>>();
+    for (const v of vintages) {
+      const kind = kindOf(v.wine);
+      if (!grapesByKind.has(kind)) grapesByKind.set(kind, new Set());
+      for (const g of v.wine_vintage_grape || []) if (g.grape?.name) grapesByKind.get(kind)!.add(g.grape.name);
+    }
+    return PRODUCT_KIND_LIST.filter((k) => grapesByKind.has(k.key)).map((k) => ({
+      ...k,
+      grapes: [...grapesByKind.get(k.key)!].sort((a, b) => a.localeCompare(b, "fr")),
+    }));
+  })());
+  let grapes = $derived(kinds.flatMap((k) => k.grapes));
+  /* « vins », « huiles d’olive », « vins et huiles d’olive ». */
+  let productsLabel = $derived((kinds.length ? kinds : [PRODUCT_KINDS[DEFAULT_KIND]]).map((k) => k.plural.toLowerCase()).join(" et "));
 
   /* La carte des Abruzzes ne couvre qu'un cadre ; au-delà, on se rabat sur OpenStreetMap. */
   function onMainMap(w: { latitude: number | null; longitude: number | null }): boolean {
@@ -100,12 +114,12 @@
               </dd>
             </div>
           {/if}
-          {#if grapes.length}
+          {#each kinds.filter((k) => k.grapes.length) as k (k.key)}
             <div class="grapes">
-              <dt>Cépages</dt>
-              <dd>{grapes.join(", ")}</dd>
+              <dt>{k.ingredients}</dt>
+              <dd>{k.grapes.join(", ")}</dd>
             </div>
-          {/if}
+          {/each}
         </dl>
       {/if}
 
@@ -134,15 +148,15 @@
 </section>
 
 <section class="mz-container mz-section">
-  <h2 class="section-title mz-display mz-h2">Les vins du domaine</h2>
+  <h2 class="section-title mz-display mz-h2">Les {productsLabel} du domaine</h2>
   {#if vintages.length}
     <div class="grid">
       {#each vintages as v (v.id)}
-        <div><WineCard vintage={v} href="/vins/{v.id}" availability={availability?.(v.id) ?? null} /></div>
+        <div><WineCard vintage={v} href={productHref(v)} availability={availability?.(v.id) ?? null} /></div>
       {/each}
     </div>
   {:else}
-    <p class="mz-empty">Aucun vin de ce domaine n’est encore à la cave.</p>
+    <p class="mz-empty">Aucun produit de ce domaine n’est encore à la cave.</p>
   {/if}
 </section>
 

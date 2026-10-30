@@ -57,6 +57,15 @@ de dégustation, ceux du millésime plus ancien le plus proche du même vin qui 
 millésime plus récent). Un millésime qui a déjà au moins un cépage, ou au moins une note, n'est pas
 touché.
 
+`20261030120000_product_kind.sql` ouvre le catalogue à l'huile d'olive. Les tables gardent leur nom
+(`wine` = produit, `wine_vintage` = millésime ou lot, `grape` = cépage ou variété d'olive,
+`wine_type` = robe ou fruité) ; `wine`, `wine_type`, `appelation` et `grape` reçoivent une colonne
+`kind` (`wine` ou `olive_oil`, domaine SQL `product_kind`, `wine` par défaut pour l'existant). Des
+triggers refusent un produit dont le type, l'appellation ou les cépages sont d'un autre `kind`, et le
+changement de `kind` d'une ligne déjà utilisée. Elle crée aussi les fruités (léger, moyen, intense),
+le label DOP, les trois DOP oléicoles des Abruzzes et les principales variétés d'olives. Année de
+récolte et appellation restent facultatives. À appliquer avant de déployer le code, qui lit `kind`.
+
 ```sh
 supabase link --project-ref wmerreifcpttrhxwmkmn
 supabase db push
@@ -71,6 +80,7 @@ pnpm update-types
 | `/tastings`, `/tastings/[id]` | Dégustations à venir / passées, réservation, ajout à l'agenda |
 | `/tastings/[id]/live` | Mode live (thème sombre) : vin servi en direct, notes, « J'en veux » |
 | `/vins`, `/vins/[id]` | Catalogue et fiches vin partageables (Open Graph) |
+| `/huiles`, `/huiles/[id]` | Idem pour les huiles d'olive ; lien « Nos huiles » dès qu'une huile existe |
 | `/domaines/[id]` | Page d'un domaine : présentation, carte, cépages, tous ses vins |
 | `/contact` | Formulaire de contact → email à gianni@mezzaterra.be (Resend), raison préremplie via `?raison=prive\|commande\|degustation\|pro\|autre` (+ `&sujet=…`), CAPTCHA Turnstile |
 | `/design-system` | Vitrine du design system (composants, tokens, règles) : référence pour tout nouvel écran, non indexée |

@@ -11,12 +11,14 @@
   import { daysUntil, formatDateLong, winesRevealed } from "$lib/dates";
   import {
     grapesText,
+    styleLabel,
     vintageNotes,
     winePairings,
     wineStyle,
     wineSubtitle,
     wineTitle,
   } from "$lib/wine";
+  import { kindInfo } from "$lib/productKinds";
   import { formatEUR } from "$lib/format";
   import {
     getCart,
@@ -135,7 +137,8 @@
   let current = $derived(wines[index]);
   let style = $derived(wineStyle(current?.wine?.wine_type));
   let currentRating = $derived(current ? ratings[current.id] : undefined);
-  let notes = $derived(vintageNotes(current?.note));
+  let kind = $derived(kindInfo(current?.wine));
+  let notes = $derived(vintageNotes(current?.note, kind.key));
   let pairings = $derived(winePairings(current?.wine));
   let cartLines = $derived(wines.filter((w) => (cart[w.id] ?? 0) > 0).map((w) => ({ wine: w, qty: cart[w.id] })));
   let cartCount = $derived(cartLines.reduce((s, l) => s + l.qty, 0));
@@ -278,7 +281,7 @@
       <div class="progress">
         <GlassProgress value={index + 1} {total} color={style.color} size="2.6rem" />
         <div class="progress-text">
-          <span class="progress-count">Vin {index + 1}<span class="muted"> / {total}</span></span>
+          <span class="progress-count">{kind.label} {index + 1}<span class="muted"> / {total}</span></span>
           <span class="live-state" class:on={connected}>
             <span class="dot" aria-hidden="true"></span>
             {connected ? (follow ? "En direct" : "Navigation libre") : "Hors ligne"}
@@ -310,7 +313,7 @@
 
           <div class="identity">
             <span class="eyebrow">
-              <span class="robe-dot" aria-hidden="true"></span>{style.label}{current.year ? ` · ${current.year}` : ""}{current.organic ? " · Bio" : ""}
+              <span class="robe-dot" aria-hidden="true"></span>{styleLabel(current.wine?.wine_type)}{current.year ? ` · ${current.year}` : ""}{current.organic ? " · Bio" : ""}
             </span>
             <h1>{wineTitle(current.wine)}</h1>
             {#if wineSubtitle(current.wine)}<p class="sub">{wineSubtitle(current.wine)}</p>{/if}

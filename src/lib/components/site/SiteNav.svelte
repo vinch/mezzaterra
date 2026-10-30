@@ -1,12 +1,25 @@
 <script lang="ts">
   import { page } from "$app/stores";
   import { contactHref } from "$lib/contact";
+  import { DEFAULT_KIND, PRODUCT_KINDS, type ProductKind } from "$lib/productKinds";
 
-  const links: { href: string; label: string; also?: string[] }[] = [
+  interface Props {
+    /** Catalogues à proposer (`fetchCatalogKinds`) : les vins, puis les huiles s'il y en a. */
+    kinds?: ProductKind[];
+  }
+
+  let { kinds = [DEFAULT_KIND] }: Props = $props();
+
+  let links = $derived<{ href: string; label: string; also?: string[] }[]>([
     { href: "/", label: "Accueil" },
     { href: "/tastings", label: "Dégustations" },
-    { href: "/vins", label: "Nos vins", also: ["/domaines"] },
-  ];
+    ...kinds.map((k) => ({
+      href: `/${PRODUCT_KINDS[k].slug}`,
+      label: PRODUCT_KINDS[k].catalogTitle,
+      /* Les pages domaine relèvent du catalogue principal. */
+      also: k === DEFAULT_KIND ? ["/domaines"] : undefined,
+    })),
+  ]);
 
   let path = $derived($page.url.pathname);
 </script>

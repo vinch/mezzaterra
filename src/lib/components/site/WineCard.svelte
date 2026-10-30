@@ -1,8 +1,9 @@
 <script lang="ts">
   import OrganicLogo from "./OrganicLogo.svelte";
   import WineBottle from "./WineBottle.svelte";
-  import { grapesText, wineStyle, wineSubtitle, wineTitle } from "$lib/wine";
+  import { grapesText, wineStyle, wineSubtitle, wineTitle, styleLabel } from "$lib/wine";
   import { formatEUR } from "$lib/format";
+  import { kindInfo } from "$lib/productKinds";
   import type { Availability } from "$lib/publicData";
 
   interface Props {
@@ -44,14 +45,14 @@
 >
   <div class="visual">
     {#if position != null}
-      <span class="position" aria-label="Vin numéro {position}">{position}</span>
+      <span class="position" aria-label="{kindInfo(wine).label} numéro {position}">{position}</span>
     {/if}
     <WineBottle src={vintage?.image_url} alt={title} wine={style} height="10.5rem" />
   </div>
 
   <div class="body">
     <div class="meta-top">
-      <span class="style"><span class="mz-dot" style="background: {style.color}"></span>{style.label}</span>
+      <span class="style"><span class="mz-dot" style="background: {style.color}"></span>{styleLabel(wine?.wine_type)}</span>
       {#if vintage?.organic}
         <span class="organic"><OrganicLogo /></span>
       {/if}

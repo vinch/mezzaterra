@@ -1,12 +1,15 @@
 <script lang="ts">
   import { page } from "$app/stores";
   import ErrorView from "$lib/components/site/ErrorView.svelte";
+  import { kindBySlug, PRODUCT_KINDS } from "$lib/productKinds";
 
   /* Liens adaptés à l'endroit où l'on s'est perdu. */
   let path = $derived($page.url.pathname);
-  let links = $derived(path.startsWith("/vins")
+  let catalogKind = $derived(kindBySlug(path.split("/")[1] ?? ""));
+  let catalog = $derived(catalogKind ? PRODUCT_KINDS[catalogKind] : null);
+  let links = $derived(catalog
     ? [
-        { href: "/vins", label: "Toute la cave" },
+        { href: `/${catalog.slug}`, label: catalog.catalogTitle },
         { href: "/", label: "Accueil" },
       ]
     : path.startsWith("/tastings")

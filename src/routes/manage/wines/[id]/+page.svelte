@@ -39,6 +39,7 @@
     wineTitle,
     wineTypeLabel,
   } from "$lib/wine";
+  import { kindInfo } from "$lib/productKinds";
 
   interface Props {
     data: PageData;
@@ -47,6 +48,8 @@
   let { data }: Props = $props();
 
   let wine = data.wine;
+  /** Vocabulaire du produit : millésime ou récolte, cépages ou variétés… */
+  const kind = kindInfo(wine);
   /* Millésimes déjà chargés par +page.ts ; relus seulement après une modification. */
   let vintages = $state<WineVintage[]>(sortVintages(wine.wine_vintage || []));
   let error = $state("");
@@ -107,7 +110,7 @@
   }
 
   /* Une ouverture plus récente relance la lecture : sa réponse fait foi. */
-  const detailsLoad = latestOnly((e) => (error = `Cépages et notes des millésimes illisibles : ${errorMessage(e)}`));
+  const detailsLoad = latestOnly((e) => (error = `${kind.ingredients} et notes illisibles : ${errorMessage(e)}`));
 
   async function loadSourceDetails() {
     sourceDetails = null;
@@ -123,7 +126,7 @@
     sourceDetails = Object.fromEntries(
       data.map((v) => [
         v.id,
-        { grapes: grapesText(v.wine_vintage_grape, true), notes: vintageNotes(v.note).map((n) => n.label).join(", ") },
+        { grapes: grapesText(v.wine_vintage_grape, true), notes: vintageNotes(v.note, kind.key).map((n) => n.label).join(", ") },
       ]),
     );
   }
@@ -147,7 +150,7 @@
     /* Le millésime existe : on ferme le formulaire, un second clic le créerait en double. */
     if (read.error) {
       closeForm();
-      error = `Millésime créé, mais la liste n’a pas pu être relue : rechargez la page (${read.error.message}).`;
+      error = `Enregistré, mais la liste n’a pas pu être relue : rechargez la page (${read.error.message}).`;
     }
     return read;
   }
@@ -190,7 +193,7 @@
     const vintageData = {
       production_year: Number(vintageFormData.production_year),
       year: num(vintageFormData.year),
-      abv: num(vintageFormData.abv),
+      abv: kind.hasAbv ? num(vintageFormData.abv) : null,
       /* Prix d'achat obligatoire en base : vide, on garde l'actuel (ou le défaut à la création). */
       purchase_price: num(vintageFormData.purchase_price) ?? undefined,
       price: num(vintageFormData.price),
@@ -207,7 +210,7 @@
 
     if (saveError || !saved) {
       /* Formulaire déjà fermé : createVintage a posé son propre message. */
-      if (formOpen) error = saveError?.message ?? "Millésime introuvable après l’enregistrement";
+      if (formOpen) error = saveError?.message ?? "Introuvable après l’enregistrement";
       return;
     }
 
@@ -249,7 +252,7 @@
     const gone = isDiscontinued(v);
     return [
       { label: "Gérer le stock", icon: IconBox, href: `/manage/wines/${wine.id}/stock/${v.id}` },
-      { label: "Cépages", icon: IconGrape, onSelect: () => openGrapesModal(v) },
+      { label: kind.ingredients, icon: IconGrape, onSelect: () => openGrapesModal(v) },
       { label: "Modifier", icon: IconPencil, onSelect: () => openEditModal(v) },
       {
         label: gone ? "Remettre au catalogue" : "Plus jamais disponible",
@@ -270,7 +273,7 @@
       loadVintageGrapes(),
       allGrapes.length
         ? null
-        : supabase.from("grape").select("*").order("name").then(({ data }) => (allGrapes = data || [])),
+        : supabase.from("grape").select("*").eq("kind", kind.key).order("name").then(({ data }) => (allGrapes = data || [])),
     ]);
     showGrapesModal = true;
   }
@@ -316,7 +319,7 @@
   async function removeGrape(grapeId: string) {
     if (!selectedVintage) return;
 
-    if (!confirm("Retirer ce cépage du millésime ?")) {
+    if (!confirm("Retirer de la composition ?")) {
       return;
     }
 
@@ -350,9 +353,9 @@
   <title>{wineTitle(wine)} - Gestion</title>
 </svelte:head>
 
-<ManagePageShell title={wineTitle(wine)} {subtitle} back={{ href: "/manage/wines", label: "Vins" }}>
+<ManagePageShell title={wineTitle(wine)} {subtitle} back={{ href: "/manage/wines", label: "Produits" }}>
   {#snippet actions()}
-      <Button variant="primary" onclick={openCreateModal}><IconPlus size={16} strokeWidth={1.75} /> Nouveau millésime</Button>
+      <Button variant="primary" onclick={openCreateModal}><IconPlus size={16} strokeWidth={1.75} /> {kind.newBatch}</Button>
   {/snippet}
 
   {#if wine.description}
@@ -364,16 +367,16 @@
   {/if}
 
   {#if vintages.length === 0}
-    <EmptyState icon={IconWine} title="Aucun millésime pour ce vin" text="Ajoutez un millésime pour le vendre, le stocker et le servir en dégustation.">
-      <Button onclick={openCreateModal}><IconPlus size={16} strokeWidth={1.75} /> Nouveau millésime</Button>
+    <EmptyState icon={IconWine} title="{kind.noBatch} pour {kind.thisLabel}" text="À ajouter pour vendre, stocker et servir en dégustation.">
+      <Button onclick={openCreateModal}><IconPlus size={16} strokeWidth={1.75} /> {kind.newBatch}</Button>
     </EmptyState>
   {:else}
-    <DataTable caption="Millésimes de {wineTitle(wine)}">
+    <DataTable caption="{kind.batchPlural} de {wineTitle(wine)}">
       <thead>
         <tr>
-          <th scope="col">Millésime</th>
+          <th scope="col">{kind.batch}</th>
           <th scope="col">Mise en bouteille</th>
-          <th scope="col" class="num">Degré</th>
+          {#if kind.hasAbv}<th scope="col" class="num">Degré</th>{/if}
           <th scope="col" class="num">Prix d’achat</th>
           <th scope="col" class="num">Prix de vente</th>
           <th scope="col" class="col-actions"><span class="sr-only">Actions</span></th>
@@ -385,16 +388,16 @@
             <td>
               <span class="vintage-cell">
                 {#if vintage.image_url}<img src={vintage.image_url} alt="" class="thumb" />{/if}
-                <a class="row-link" href="/manage/wines/{wine.id}/stock/{vintage.id}">{vintageYearLabel(vintage)}</a>
+                <a class="row-link" href="/manage/wines/{wine.id}/stock/{vintage.id}">{vintageYearLabel(vintage, kind.key)}</a>
                 {#if vintage.organic}<span class="ui-chip organic">Bio</span>{/if}
                 {#if isDiscontinued(vintage)}<StockBadge kind="gone" />{/if}
               </span>
             </td>
             <td>{vintage.production_year}</td>
-            <td class="num">{vintage.abv != null ? `${vintage.abv} %` : "—"}</td>
+            {#if kind.hasAbv}<td class="num">{vintage.abv != null ? `${vintage.abv} %` : "—"}</td>{/if}
             <td class="num">{formatEUR(vintage.purchase_price)}</td>
             <td class="num">{formatEUR(vintage.price)}</td>
-            <td class="col-actions"><RowMenu items={rowItems(vintage)} label="Actions pour {vintageYearLabel(vintage)}" /></td>
+            <td class="col-actions"><RowMenu items={rowItems(vintage)} label="Actions pour {vintageYearLabel(vintage, kind.key)}" /></td>
           </tr>
         {/each}
       </tbody>
@@ -403,17 +406,17 @@
 </ManagePageShell>
 
 <!-- Modal de création / édition -->
-<Modal open={formOpen} title="{editingVintage ? 'Modifier le millésime' : 'Nouveau millésime'} - {wine.name}" onclose={closeForm}>
+<Modal open={formOpen} title="{editingVintage ? kind.editBatch : kind.newBatch} - {wineTitle(wine)}" onclose={closeForm}>
   {#if error}<div class="error-message" role="alert">{error}</div>{/if}
   <form id="vintage-form" onsubmit={preventDefault(submitForm)}>
     <div class="form-grid">
       {#if !editingVintage && vintages.length}
         <fieldset class="form-group full-width reuse">
-          <legend class="section-title">Reprendre d’un millésime existant</legend>
-          <select aria-label="Millésime repris" value={sourceId} onchange={(e) => pickSource(e.currentTarget.value)}>
+          <legend class="section-title">Reprendre les données de</legend>
+          <select aria-label="{kind.batch} repris" value={sourceId} onchange={(e) => pickSource(e.currentTarget.value)}>
             <option value="">Ne rien reprendre</option>
             {#each vintages as v (v.id)}
-              <option value={v.id}>{vintageYearLabel(v)}</option>
+              <option value={v.id}>{vintageYearLabel(v, kind.key)}</option>
             {/each}
           </select>
           {#if source}
@@ -440,7 +443,7 @@
                     disabled={noGrapes}
                     onchange={(e) => (copyGrapes = e.currentTarget.checked)}
                   />
-                  Cépages
+                  {kind.ingredients}
                   <span class="t-muted">{sourceInfo ? sourceInfo.grapes || "aucun" : "…"}</span>
                 </label>
                 <label class="checkbox-label">
@@ -456,7 +459,7 @@
               </div>
             </div>
           {/if}
-          <p class="t-caption reuse-hint">Les accords mets-vins sont ceux du vin : ils valent déjà pour tous ses millésimes.</p>
+          <p class="t-caption reuse-hint">Les accords mets sont ceux du produit : ils valent déjà pour tous ses {kind.batchPlural.toLowerCase()}.</p>
         </fieldset>
       {/if}
 
@@ -476,14 +479,14 @@
       </div>
 
       <div class="form-group">
-        <label for="year">Année millésime</label>
+        <label for="year">{kind.yearLabel}</label>
         <input
           type="number"
           id="year"
           bind:value={vintageFormData.year}
           min="1900"
           max="2030"
-          placeholder="Si le vin est non millésimé, laissez vide"
+          placeholder={kind.yearPlaceholder}
         />
       </div>
 
@@ -495,7 +498,7 @@
           id="purchase_price"
           bind:value={vintageFormData.purchase_price}
           min="0"
-          placeholder="Prix auquel vous achetez le vin"
+          placeholder="Prix unitaire payé au fournisseur"
         />
       </div>
 
@@ -507,21 +510,23 @@
           id="price"
           bind:value={vintageFormData.price}
           min="0"
-          placeholder="Prix auquel vous vendez le vin"
+          placeholder="Prix unitaire de vente"
         />
       </div>
 
-      <div class="form-group">
-        <label for="abv">Degré d'alcool (%)</label>
-        <input
-          type="number"
-          step="0.1"
-          id="abv"
-          bind:value={vintageFormData.abv}
-          min="0"
-          max="20"
-        />
-      </div>
+      {#if kind.hasAbv}
+        <div class="form-group">
+          <label for="abv">Degré d'alcool (%)</label>
+          <input
+            type="number"
+            step="0.1"
+            id="abv"
+            bind:value={vintageFormData.abv}
+            min="0"
+            max="20"
+          />
+        </div>
+      {/if}
 
       <div class="form-group">
         <label for="image_url">URL de l'image</label>
@@ -541,23 +546,23 @@
       <div class="form-group full-width">
         <label class="checkbox-label">
           <input type="checkbox" bind:checked={vintageFormData.organic} />
-          Vin biologique
+          {kind.organicLabel}
         </label>
       </div>
     </div>
   </form>
   {#snippet footer()}
       <Button variant="ghost" onclick={closeForm}>Annuler</Button>
-      <Button variant="primary" type="submit" form="vintage-form" disabled={saving}>{editingVintage ? "Mettre à jour" : "Créer le millésime"}</Button>
+      <Button variant="primary" type="submit" form="vintage-form" disabled={saving}>{editingVintage ? "Mettre à jour" : "Créer"}</Button>
   {/snippet}
 </Modal>
 
-<!-- Cépages d'un millésime -->
-<Modal open={showGrapesModal} title="Cépages" maxWidth={520} onclose={closeGrapesModal}>
+<!-- Cépages d'un millésime, variétés d'olives d'une récolte -->
+<Modal open={showGrapesModal} title={kind.ingredients} maxWidth={520} onclose={closeGrapesModal}>
   {#if error}<div class="error-message" role="alert">{error}</div>{/if}
-  {#if selectedVintage}<p class="t-muted grapes-intro">{wineTitle(wine)} · {vintageYearLabel(selectedVintage)}</p>{/if}
+  {#if selectedVintage}<p class="t-muted grapes-intro">{wineTitle(wine)} · {vintageYearLabel(selectedVintage, kind.key)}</p>{/if}
   {#if vintageGrapes.length === 0}
-    <EmptyState icon={IconGrape} title="Aucun cépage pour ce millésime" compact />
+    <EmptyState icon={IconGrape} title="{kind.noIngredient} pour {kind.thisBatch}" compact />
   {:else}
     <ul class="grapes">
       {#each vintageGrapes as vintageGrape (vintageGrape.grape_id)}
@@ -571,8 +576,8 @@
     </ul>
   {/if}
   <div class="add-grape">
-    <select class="ui-control" bind:value={selectedGrapeId} aria-label="Cépage à ajouter">
-      <option value="">Choisir un cépage…</option>
+    <select class="ui-control" bind:value={selectedGrapeId} aria-label="{kind.ingredients} : ajouter">
+      <option value="">{kind.chooseIngredient}</option>
       {#each allGrapes as grape (grape.id)}
         <option value={grape.id} disabled={linkedGrapeIds.has(grape.id)}>
           {grape.name}{linkedGrapeIds.has(grape.id) ? " (déjà ajouté)" : ""}
@@ -599,8 +604,8 @@
 
 <ConfirmDialog
   open={!!deleteTarget}
-  title="Supprimer ce millésime ?"
-  message={deleteTarget ? `Le millésime ${vintageYearLabel(deleteTarget)} sera supprimé, avec ses cépages et notes, si aucune vente ni aucun mouvement de stock ne l’utilise.` : ""}
+  title="Supprimer {kind.thisBatch} ?"
+  message={deleteTarget ? `${kind.batch} ${vintageYearLabel(deleteTarget, kind.key)} : suppression avec ${kind.ingredients.toLowerCase()} et notes, si aucune vente ni aucun mouvement de stock ne l’utilise.` : ""}
   action={() => deleteVintage(deleteTarget!)}
   oncancel={() => (deleteTarget = null)}
   ondone={() => (deleteTarget = null)}

@@ -5,6 +5,7 @@
   import WineBottle from "$lib/components/site/WineBottle.svelte";
   import {
     grapesText,
+    styleLabel,
     vintageNotes,
     winePairings,
     wineryFlag,
@@ -12,6 +13,7 @@
     wineSubtitle,
     wineTitle,
   } from "$lib/wine";
+  import { kindInfo, productHref } from "$lib/productKinds";
   import { formatEUR } from "$lib/format";
 
   interface Props {
@@ -25,11 +27,12 @@
 
   let v = $derived(wineVintage as any);
   let wine = $derived(v?.wine);
+  let kind = $derived(kindInfo(wine));
   let style = $derived(wineStyle(wine?.wine_type));
   let region = $derived(wine?.winery?.region?.name || wine?.winery?.country?.name || "");
   let flag = $derived(wineryFlag(wine?.winery));
   let grapes = $derived(grapesText(v?.wine_vintage_grape, true));
-  let notes = $derived(vintageNotes(v?.note));
+  let notes = $derived(vintageNotes(v?.note, kind.key));
   /* Les millésimes du site sont chargés avec VINTAGE_PUBLIC_SELECT, accords compris. */
   let pairings = $derived(winePairings(wine));
 
@@ -68,7 +71,7 @@
         <div class="hero-text">
           <span class="mz-eyebrow">
             <span class="mz-dot" style="background: {style.color}"></span>
-            {style.label}{v.organic ? " · Bio" : ""}
+            {styleLabel(wine.wine_type)}{v.organic ? " · Bio" : ""}
           </span>
           <h2 id="wine-modal-title" class="title">{wineTitle(wine)}</h2>
           {#if wineSubtitle(wine)}
@@ -83,7 +86,7 @@
 
           <dl class="facts">
             {#if v.year}
-              <div><dt>Millésime</dt><dd>{v.year}</dd></div>
+              <div><dt>{kind.yearFact}</dt><dd>{v.year}</dd></div>
             {/if}
             {#if v.abv}
               <div><dt>Alcool</dt><dd>{v.abv} % vol.</dd></div>
@@ -102,14 +105,14 @@
       <div class="content">
         {#if grapes}
           <section>
-            <h3>Cépages</h3>
+            <h3>{kind.ingredients}</h3>
             <p>{grapes}</p>
           </section>
         {/if}
 
         {#if wine.description}
           <section>
-            <h3>Le vin</h3>
+            <h3>{kind.aboutTitle}</h3>
             <p class="prose">{wine.description}</p>
           </section>
         {/if}
@@ -142,7 +145,7 @@
         <!-- Millésime retiré : sa fiche publique n'existe plus (404). -->
         {#if !v.discontinued_at}
           <footer class="actions">
-            <a class="mz-btn mz-btn--ghost mz-btn--sm" href="/vins/{v.id}">Fiche complète &amp; partage →</a>
+            <a class="mz-btn mz-btn--ghost mz-btn--sm" href={productHref(v)}>Fiche complète &amp; partage →</a>
           </footer>
         {/if}
       </div>

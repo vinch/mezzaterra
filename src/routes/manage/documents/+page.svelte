@@ -218,12 +218,12 @@
             <input
               type="text"
               id="doc-search"
-              placeholder="Vignoble, nom, type, appellation…"
+              placeholder="Domaine, nom, type, appellation…"
               bind:value={searchText}
             />
           </div>
           <div class="filter-group">
-            <label for="doc-winery">Vignoble</label>
+            <label for="doc-winery">Domaine</label>
             <select id="doc-winery" bind:value={filterWineryId}>
               <option value="">Tous</option>
               {#each wineries as w}
@@ -236,7 +236,7 @@
             <select id="doc-type" bind:value={filterWineTypeId}>
               <option value="">Tous</option>
               {#each wineTypes as t}
-                <option value={t.id}>{t.name}</option>
+                <option value={t.id}>{wineTypeLabel(t)}</option>
               {/each}
             </select>
           </div>
@@ -261,7 +261,7 @@
                   aria-label="Tout sélectionner ou tout désélectionner dans la liste affichée"
                 />
               </th>
-              <th>Vignoble</th>
+              <th>Domaine</th>
               <th>Nom</th>
               <th>Type</th>
               <th>Mill.</th>
@@ -282,7 +282,7 @@
                 </td>
                 <td>{r.wineryName}</td>
                 <td><strong>{r.wineName}</strong></td>
-                <td>{wineTypeLabel({ name: r.wineTypeName })}</td>
+                <td>{wineTypeLabel({ name: r.wineTypeName, kind: r.kind })}</td>
                 <td>{vintageLabel(r)}</td>
                 <td class="num">
                   {r.price != null ? `${r.price.toFixed(2)}` : "—"}
@@ -325,7 +325,7 @@
             <strong>{row.wineryName}</strong>
             <span class="notes-order-wine">{row.wineName}</span>
             <span class="notes-order-meta"
-              >{wineTypeLabel({ name: row.wineTypeName })} · {vintageLabel(row)}</span
+              >{wineTypeLabel({ name: row.wineTypeName, kind: row.kind })} · {vintageLabel(row)}</span
             >
           </div>
           <div class="notes-order-actions">

@@ -34,6 +34,7 @@ export type Database = {
           created_at: string
           description: string | null
           id: string
+          kind: string
           label_id: string | null
           name: string
           region_id: string | null
@@ -42,6 +43,7 @@ export type Database = {
           created_at?: string
           description?: string | null
           id?: string
+          kind?: string
           label_id?: string | null
           name: string
           region_id?: string | null
@@ -50,6 +52,7 @@ export type Database = {
           created_at?: string
           description?: string | null
           id?: string
+          kind?: string
           label_id?: string | null
           name?: string
           region_id?: string | null
@@ -177,18 +180,21 @@ export type Database = {
           created_at: string
           description: string | null
           id: string
+          kind: string
           name: string
         }
         Insert: {
           created_at?: string
           description?: string | null
           id?: string
+          kind?: string
           name: string
         }
         Update: {
           created_at?: string
           description?: string | null
           id?: string
+          kind?: string
           name?: string
         }
         Relationships: []
@@ -962,6 +968,7 @@ export type Database = {
           created_at: string
           description: string | null
           id: string
+          kind: string
           name: string | null
           wine_type_id: string
           winery_id: string
@@ -971,6 +978,7 @@ export type Database = {
           created_at?: string
           description?: string | null
           id?: string
+          kind?: string
           name?: string | null
           wine_type_id: string
           winery_id: string
@@ -980,6 +988,7 @@ export type Database = {
           created_at?: string
           description?: string | null
           id?: string
+          kind?: string
           name?: string | null
           wine_type_id?: string
           winery_id?: string
@@ -1043,18 +1052,21 @@ export type Database = {
           category: string | null
           created_at: string
           id: string
+          kind: string
           name: string
         }
         Insert: {
           category?: string | null
           created_at?: string
           id?: string
+          kind?: string
           name: string
         }
         Update: {
           category?: string | null
           created_at?: string
           id?: string
+          kind?: string
           name?: string
         }
         Relationships: []

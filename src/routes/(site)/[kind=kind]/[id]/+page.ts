@@ -1,5 +1,6 @@
-import { error } from "@sveltejs/kit";
+import { error, redirect } from "@sveltejs/kit";
 import { isUuid } from "$lib/publicData";
+import { kindBySlug, kindOf, productHref } from "$lib/productKinds";
 import { supabase } from "$lib/supabase";
 import { isDiscontinued, publicVintages, VINTAGE_PUBLIC_SELECT } from "$lib/wine";
 import type { PageLoad } from "./$types";
@@ -12,13 +13,15 @@ export const load: PageLoad = async ({ params }) => {
     .eq("id", params.id)
     .maybeSingle();
 
-  if (fetchError) throw error(500, "Impossible de charger ce vin");
-  if (!vintage || isDiscontinued(vintage as any)) throw error(404, "Vin introuvable");
+  if (fetchError) throw error(500, "Impossible de charger ce produit");
+  if (!vintage || isDiscontinued(vintage as any)) throw error(404, "Produit introuvable");
 
   const v = vintage as any;
+  /* Une huile ouverte sous /vins (ou l'inverse) : vers la bonne adresse. */
+  if (kindOf(v.wine) !== kindBySlug(params.kind)) throw redirect(301, productHref(v));
   const wineryId = v.wine?.winery_id ?? v.wine?.winery?.id;
 
-  /* Autres millésimes du même vin + autres vins du domaine. */
+  /* Autres millésimes du même produit + autres produits du domaine. */
   const [siblingsRes, wineryRes] = await Promise.all([
     supabase
       .from("wine_vintage")

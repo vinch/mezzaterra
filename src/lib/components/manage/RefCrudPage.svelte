@@ -95,7 +95,9 @@
 
   function openForm(row: any = null) {
     editing = row;
-    form = Object.fromEntries(fields.map((f) => [f.key, row?.[f.key] != null ? String(row[f.key]) : ""]));
+    form = Object.fromEntries(
+      fields.map((f) => [f.key, row?.[f.key] != null ? String(row[f.key]) : row ? "" : (f.default ?? "")]),
+    );
     error = "";
     formOpen = true;
   }

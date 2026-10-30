@@ -9,6 +9,7 @@
   import {
     findNote,
     grapesText,
+    styleLabel,
     vintageNotes,
     winePairings,
     wineryFlag,
@@ -18,15 +19,17 @@
     wineTitle,
   } from "$lib/wine";
   import { formatEUR } from "$lib/format";
+  import { kindInfo, productHref } from "$lib/productKinds";
 
   let { data } = $props();
 
   let v = $derived(data.vintage);
   let wine = $derived(v?.wine);
+  let kind = $derived(kindInfo(wine));
   let style = $derived(wineStyle(wine?.wine_type));
   let title = $derived(wine ? wineTitle(wine) : "");
   let grapes = $derived(grapesText(v?.wine_vintage_grape, true));
-  let notes = $derived(vintageNotes(v?.note));
+  let notes = $derived(vintageNotes(v?.note, kind.key));
   let pairings = $derived(winePairings(wine));
   let winery = $derived(wine?.winery);
   let region = $derived(wineryPlace(winery));
@@ -86,13 +89,13 @@
     {/if}
     <meta name="twitter:card" content="summary_large_image" />
   {:else}
-    <title>Vin introuvable — Mezzaterra</title>
+    <title>Produit introuvable — Mezzaterra</title>
   {/if}
 </svelte:head>
 
 {#if !v}
   <div class="mz-container mz-section">
-    <p class="mz-empty">Ce vin est introuvable. <a class="mz-link" href="/vins">Voir toute la cave</a></p>
+    <p class="mz-empty">Ce produit est introuvable. <a class="mz-link" href="/vins">Voir toute la cave</a></p>
   </div>
 {:else}
   <article style="--robe: {style.color}; --robe-light: {style.light};">
@@ -102,10 +105,10 @@
           <WineBottle src={v.image_url} alt={title} wine={style} height="min(28rem, 60vh)" />
         </div>
         <div class="hero-text mz-rise" style="animation-delay: 80ms">
-          <a href="/vins" class="back">← Toute la cave</a>
+          <a href="/{kind.slug}" class="back">← {kind.catalogTitle}</a>
           <span class="mz-eyebrow">
             <span class="mz-dot" style="background: {style.color}"></span>
-            {style.label}
+            {styleLabel(wine?.wine_type)}
             {#if v.organic}<OrganicLogo height="1.3rem" />{/if}
           </span>
           <h1 class="mz-display mz-h1">{title}</h1>
@@ -119,10 +122,10 @@
           {/if}
 
           <dl class="facts">
-            {#if v.year}<div><dt>Millésime</dt><dd>{v.year}</dd></div>{/if}
+            {#if v.year}<div><dt>{kind.yearFact}</dt><dd>{v.year}</dd></div>{/if}
             {#if v.abv}<div><dt>Alcool</dt><dd>{v.abv} % vol.</dd></div>{/if}
             {#if v.price}<div><dt>Prix</dt><dd>{formatEUR(v.price)}</dd></div>{/if}
-            {#if grapes}<div><dt>Cépages</dt><dd class="small">{grapes}</dd></div>{/if}
+            {#if grapes}<div><dt>{kind.ingredients}</dt><dd class="small">{grapes}</dd></div>{/if}
             {#if stock}
               <div>
                 <dt>Disponibilité</dt>
@@ -135,16 +138,16 @@
 
           {#if data.siblings.length}
             <p class="mz-muted siblings">
-              Autres millésimes :
+              {kind.otherYears} :
               {#each data.siblings as s, i}
-                <a class="mz-link" href="/vins/{s.id}">{s.year ?? s.production_year}</a>{i < data.siblings.length - 1 ? ", " : ""}
+                <a class="mz-link" href="/{kind.slug}/{s.id}">{s.year ?? s.production_year}</a>{i < data.siblings.length - 1 ? ", " : ""}
               {/each}
             </p>
           {/if}
 
           <div class="actions">
             {#if !stock || stock.in_stock}
-              <a class="mz-btn" href={orderHref}>Commander ce vin</a>
+              <a class="mz-btn" href={orderHref}>Commander {kind.thisLabel}</a>
             {/if}
             <button type="button" class="mz-btn mz-btn--ghost" onclick={share}>Partager</button>
             {#if shareFeedback}<span class="share-feedback" role="status">{shareFeedback}</span>{/if}
@@ -157,7 +160,7 @@
       <section class="mz-container about">
         {#if wine.description}
           <div class="block">
-            <h2>Le vin</h2>
+            <h2>{kind.aboutTitle}</h2>
             <p class="prose">{wine.description}</p>
           </div>
         {/if}
@@ -204,7 +207,7 @@
         </div>
         <div class="grid">
           {#each data.fromWinery as other (other.id)}
-            <div><WineCard vintage={other} href="/vins/{other.id}" availability={availability?.(other.id) ?? null} /></div>
+            <div><WineCard vintage={other} href={productHref(other)} availability={availability?.(other.id) ?? null} /></div>
           {/each}
         </div>
       </section>

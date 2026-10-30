@@ -89,7 +89,7 @@
 
 <div class="page">
   <header class="mz-container home-top">
-    <SiteNav />
+    <SiteNav kinds={data.catalogKinds} />
   </header>
 
   <main class="mz-container home">
