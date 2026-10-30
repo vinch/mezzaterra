@@ -531,6 +531,7 @@ export type Database = {
           price: number
           quantity: number
           sale_id: string
+          vat_rate: number
           wine_vintage_id: string | null
         }
         Insert: {
@@ -542,6 +543,7 @@ export type Database = {
           price: number
           quantity: number
           sale_id: string
+          vat_rate?: number
           wine_vintage_id?: string | null
         }
         Update: {
@@ -553,6 +555,7 @@ export type Database = {
           price?: number
           quantity?: number
           sale_id?: string
+          vat_rate?: number
           wine_vintage_id?: string | null
         }
         Relationships: [

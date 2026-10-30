@@ -21,10 +21,13 @@ CREATE INDEX IF NOT EXISTS wine_kind_idx ON public.wine (kind);
 -- wine_type rendrait ambiguës les jointures PostgREST `wine_type (*)` du code.
 -- Chaque contrôle verrouille en partage (FOR SHARE) les lignes dont il lit le type : un changement de
 -- type concurrent (prevent_kind_change_in_use, plus bas) attend sa fin puis voit la nouvelle ligne, et
--- inversement ; deux transactions simultanées ne peuvent pas contourner le contrôle.
+-- inversement ; deux transactions simultanées ne peuvent pas contourner le contrôle. Les fonctions de
+-- contrôle sont SECURITY DEFINER : FOR SHARE exige un droit de modification que l'admin n'a pas
+-- forcément sur ces tables (wine_type), et le contrôle ne doit pas dépendre des policies RLS.
 CREATE OR REPLACE FUNCTION public.check_wine_kind()
 RETURNS trigger
 LANGUAGE plpgsql
+SECURITY DEFINER
 SET search_path = public
 AS $$
 BEGIN
@@ -49,6 +52,7 @@ CREATE TRIGGER wine_kind_check
 CREATE OR REPLACE FUNCTION public.check_vintage_grape_kind()
 RETURNS trigger
 LANGUAGE plpgsql
+SECURITY DEFINER
 SET search_path = public
 AS $$
 BEGIN
@@ -57,7 +61,7 @@ BEGIN
   JOIN wine w ON w.id = v.wine_id
   JOIN grape g ON g.id = NEW.grape_id
   WHERE v.id = NEW.wine_vintage_id AND g.kind = w.kind
-  FOR SHARE OF w, g;
+  FOR SHARE OF v, w, g;
   IF NOT FOUND THEN
     RAISE EXCEPTION 'Ce cépage ou cette variété ne correspond pas au produit (vin ou huile)';
   END IF;
@@ -69,10 +73,12 @@ CREATE TRIGGER wine_vintage_grape_kind_check
   BEFORE INSERT OR UPDATE OF grape_id, wine_vintage_id ON public.wine_vintage_grape
   FOR EACH ROW EXECUTE FUNCTION public.check_vintage_grape_kind();
 
--- Un lot déplacé vers un autre produit garde des cépages / variétés du bon type.
+-- Un lot déplacé vers un autre produit garde des cépages / variétés du bon type. À la création d'un
+-- lot, le verrou sur son produit empêche de changer le type de ce produit en même temps.
 CREATE OR REPLACE FUNCTION public.check_vintage_kind()
 RETURNS trigger
 LANGUAGE plpgsql
+SECURITY DEFINER
 SET search_path = public
 AS $$
 BEGIN
@@ -94,12 +100,16 @@ $$;
 CREATE TRIGGER wine_vintage_kind_check
   BEFORE UPDATE OF wine_id ON public.wine_vintage
   FOR EACH ROW WHEN (OLD.wine_id IS DISTINCT FROM NEW.wine_id) EXECUTE FUNCTION public.check_vintage_kind();
+CREATE TRIGGER wine_vintage_kind_lock
+  BEFORE INSERT ON public.wine_vintage
+  FOR EACH ROW EXECUTE FUNCTION public.check_vintage_kind();
 
 -- Le type de produit d'une ligne déjà utilisée ne change plus : un produit qui a des millésimes, un
 -- type, une appellation ou un cépage rattachés à des produits.
 CREATE OR REPLACE FUNCTION public.prevent_kind_change_in_use()
 RETURNS trigger
 LANGUAGE plpgsql
+SECURITY DEFINER
 SET search_path = public
 AS $$
 BEGIN
@@ -179,6 +189,36 @@ BEGIN
   RETURN v_id;
 END;
 $$;
+
+-- TVA figée sur chaque ligne de vente, à son enregistrement : 6 % pour l'huile (alimentation), 21 %
+-- pour le vin et les lignes sans lot (dégustation). Une facture déjà émise ne change plus si un lot
+-- change de produit ou si un taux évolue. L'existant (vin et dégustations) est à 21 %.
+CREATE OR REPLACE FUNCTION public.product_kind_vat_rate(p_kind public.product_kind)
+RETURNS numeric
+LANGUAGE sql
+IMMUTABLE
+AS $$ SELECT CASE p_kind WHEN 'olive_oil' THEN 0.06 ELSE 0.21 END::numeric $$;
+
+ALTER TABLE public.sale_item ADD COLUMN vat_rate numeric(4,3) NOT NULL DEFAULT 0.21;
+
+CREATE OR REPLACE FUNCTION public.set_sale_item_vat_rate()
+RETURNS trigger
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+BEGIN
+  NEW.vat_rate := coalesce(
+    (SELECT product_kind_vat_rate(w.kind) FROM wine_vintage v JOIN wine w ON w.id = v.wine_id WHERE v.id = NEW.wine_vintage_id),
+    product_kind_vat_rate('wine')
+  );
+  RETURN NEW;
+END;
+$$;
+
+CREATE TRIGGER sale_item_vat_rate
+  BEFORE INSERT OR UPDATE OF wine_vintage_id ON public.sale_item
+  FOR EACH ROW EXECUTE FUNCTION public.set_sale_item_vat_rate();
 
 -- Huile d'olive : intensité du fruité (l'équivalent de la robe), label DOP, les trois DOP oléicoles
 -- des Abruzzes et les principales variétés d'olives de la région. Rien n'est recréé s'il existe déjà.

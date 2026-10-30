@@ -151,7 +151,8 @@
     display: none;
   }
 
-  @media (max-width: 350px) {
+  /* « Passer une commande » ne tient pas à côté des liens sur un téléphone. */
+  @media (max-width: 480px) {
     .cta-long {
       display: none;
     }

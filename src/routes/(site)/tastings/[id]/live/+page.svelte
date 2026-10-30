@@ -296,7 +296,7 @@
 
     {#if !follow && hostPosition != null && hostPosition !== index}
       <button type="button" class="rejoin" onclick={backToHost} transition:fly={{ y: -10, duration: 200 }}>
-        {kindInfo(wines[hostPosition]?.wine).label} {hostPosition + 1} servi — y retourner →
+        En ce moment : {kindInfo(wines[hostPosition]?.wine).label.toLowerCase()} n° {hostPosition + 1} — y retourner →
       </button>
     {/if}
 

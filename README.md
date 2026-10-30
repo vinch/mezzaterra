@@ -69,7 +69,12 @@ récolte et appellation restent facultatives. Chaque lot reçoit enfin son conte
 d'un vin, sont des lots distincts, chacun avec son prix d'achat, son prix de vente (dégressif au
 besoin) et son stock ; `create_wine_vintage` le reprend. Le site regroupe les contenants d'un même
 produit et d'une même année sur une carte (« dès … ») et propose de passer de l'un à l'autre sur la
-fiche. À appliquer avant de déployer le code, qui lit `kind` et `volume_ml`.
+fiche. Un seul lot par produit, année (ou mise en bouteille sans année) et contenant (index uniques).
+Les triggers de cohérence sont SECURITY DEFINER et verrouillent en partage les lignes qu'ils lisent
+(sûrs en concurrence). Enfin, `sale_item.vat_rate` fige la TVA de chaque ligne à son enregistrement
+(`product_kind_vat_rate` : huile 6 %, vin et dégustation 21 %, existant à 21 %) ; la facture d'un
+professionnel la détaille par taux. À appliquer avant de déployer le code, qui lit `kind`,
+`volume_ml` et `vat_rate`.
 
 ```sh
 supabase link --project-ref wmerreifcpttrhxwmkmn

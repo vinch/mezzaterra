@@ -71,7 +71,11 @@ export async function downloadInvoicePdf(saleId: string): Promise<void> {
   const totals: LineItemsPdf["totals"] = isCompany
     ? [
         { text: `Total HTVA: ${pdfEur(vat.reduce((s, v) => s + v.ht, 0))}` },
-        ...vat.map((v) => ({ text: `TVA ${pct(v.rate)} (sur ${pdfEur(v.ht)} HTVA): ${pdfEur(v.vat)}`, minor: true })),
+        /* Bases par taux après la ristourne globale (répartie au prorata), d'où l'écart avec les lignes. */
+        ...vat.map((v) => ({
+          text: `TVA ${pct(v.rate)} (sur ${pdfEur(v.ht)} HTVA${summary.length ? " après ristourne" : ""}): ${pdfEur(v.vat)}`,
+          minor: true,
+        })),
         { text: `Total TTC: ${pdfEur(total)}` },
       ]
     : [{ text: `TOTAL: ${pdfEur(total)}` }];

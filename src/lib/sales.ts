@@ -3,7 +3,6 @@ import { LINE_ITEMS_SELECT } from "./manageData";
 import { lineTotal } from "./analytics";
 import { toNumber } from "./format";
 import { vintageProductLabel } from "./wine";
-import { kindInfo } from "./productKinds";
 
 /** Règles des ventes partagées par la page Ventes et la facture PDF. */
 
@@ -33,7 +32,7 @@ export function saleItemDescription(item: any): string {
 }
 
 /** Lignes de vente : remises et note (ligne dégustation) en plus des lignes d'articles. */
-export const SALE_LINE_ITEMS_SELECT = `${LINE_ITEMS_SELECT}, discount, discount_type, note` as const;
+export const SALE_LINE_ITEMS_SELECT = `${LINE_ITEMS_SELECT}, discount, discount_type, note, vat_rate` as const;
 
 /** Sous-total TTC après remises par ligne (avant ristourne globale), arrondi au centime. */
 export function itemsSubtotal(items: any[]): number {
@@ -57,12 +56,12 @@ export function globalDiscountAmount(items: any[], total: unknown): number {
   return Math.max(0, Math.round((itemsSubtotal(items) - toNumber(total)) * 100) / 100);
 }
 
-/** TVA d'une ligne « Dégustation » (sans lot) : prestation au taux normal. */
-const SERVICE_VAT_RATE = 0.21;
-
-/** Taux de TVA d'une ligne de vente : celui du type de produit de son lot. */
-export function itemVatRate(item: any): number {
-  return item.wine_vintage_id && item.wine_vintage ? kindInfo(item.wine_vintage.wine).vatRate : SERVICE_VAT_RATE;
+/**
+ * Taux de TVA d'une ligne de vente, figé en base à son enregistrement (`sale_item.vat_rate`, fonction
+ * SQL product_kind_vat_rate) : 6 % pour l'huile, 21 % pour le vin et les dégustations.
+ */
+export function itemVatRate(item: { vat_rate?: number | string | null }): number {
+  return toNumber(item.vat_rate);
 }
 
 /**

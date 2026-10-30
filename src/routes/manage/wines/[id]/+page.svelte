@@ -226,7 +226,7 @@
       /* 23505 : index unique produit + année + contenant (un seul « 50 cl 2025 » par produit). */
       if (formOpen) {
         error = saveError?.code === "23505"
-          ? `Ce ${kind.batch.toLowerCase()} existe déjà : même année et même contenant.`
+          ? `Ce ${kind.batch.toLowerCase()} existe déjà (même année, ou même mise en bouteille sans année, et même contenant). S’il est « plus jamais disponible », remettez-le plutôt au catalogue.`
           : saveError?.message ?? "Introuvable après l’enregistrement";
       }
       return;
