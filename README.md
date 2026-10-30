@@ -76,6 +76,10 @@ Les triggers de cohérence sont SECURITY DEFINER et verrouillent en partage les 
 professionnel la détaille par taux. À appliquer avant de déployer le code, qui lit `kind`,
 `volume_ml` et `vat_rate`.
 
+`20261030130000_sale_item_discount_check.sql` refuse une remise de ligne négative, au-delà de 100 % ou
+supérieure au montant de la ligne (`NOT VALID` : nouvelles lignes seulement). La page Ventes le vérifie
+aussi avec un message clair, et le total d'une ligne n'est jamais négatif.
+
 ```sh
 supabase link --project-ref wmerreifcpttrhxwmkmn
 supabase db push

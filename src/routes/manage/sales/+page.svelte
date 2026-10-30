@@ -41,6 +41,7 @@
     TASTING_LINE_NOTE,
     globalDiscountAmount,
     itemsSubtotal,
+    lineDiscountError,
     paymentMethodLabel,
     saleItemDescription,
     saleTotal,
@@ -338,6 +339,17 @@
       return;
     }
 
+    const discountError = lineDiscountError({
+      price: selectedPrice,
+      quantity,
+      discount: discountVal,
+      discount_type: selectedDiscountType,
+    });
+    if (discountError) {
+      error = discountError;
+      return;
+    }
+
     if (selectedVintageId === TASTING_SELECT_VALUE) {
       saleItems = [
         ...saleItems,
@@ -417,6 +429,16 @@
       gGlobal > 100
     ) {
       error = "La ristourne globale en pourcentage ne peut pas dépasser 100 %.";
+      return;
+    }
+    /* Une vente reprise peut contenir une ligne saisie avant ce contrôle : la base la refuserait. */
+    const badLine = saleItems.find((item) => lineDiscountError(item));
+    if (badLine) {
+      error = `${saleItemDescription(badLine)} : ${lineDiscountError(badLine)} Retirez la ligne et ajoutez-la de nouveau.`;
+      return;
+    }
+    if (gGlobal > 0 && formData.global_discount_type === "amount" && gGlobal > itemsSubtotal(saleItems)) {
+      error = "La ristourne globale dépasse le sous-total de la vente.";
       return;
     }
 

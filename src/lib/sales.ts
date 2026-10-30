@@ -31,6 +31,25 @@ export function saleItemDescription(item: any): string {
   return n || TASTING_LINE_NOTE;
 }
 
+/**
+ * Remise d'une ligne impossible : négative, au-delà de 100 %, ou supérieure au montant de la ligne
+ * (contrainte sale_item_discount_check en base). `null` si elle est valable.
+ */
+export function lineDiscountError(item: { price: unknown; quantity: unknown; discount: unknown; discount_type?: string | null }): string | null {
+  const discount = toNumber(item.discount);
+  if (discount < 0) return "Une remise ne peut pas être négative.";
+  if (discount === 0) return null;
+  if (item.discount_type === "percent") {
+    return discount > 100 ? "Une remise en pourcentage ne peut pas dépasser 100 %." : null;
+  }
+  /* Sans type, la remise est ignorée par le calcul (lignes anciennes) : rien à refuser. */
+  if (item.discount_type !== "amount") return null;
+  const gross = Math.round(toNumber(item.price) * (Number(item.quantity) || 0) * 100) / 100;
+  return discount > gross
+    ? `La remise (${discount.toFixed(2).replace(".", ",")} €) dépasse le montant de la ligne (${gross.toFixed(2).replace(".", ",")} €).`
+    : null;
+}
+
 /** Lignes de vente : remises et note (ligne dégustation) en plus des lignes d'articles. */
 export const SALE_LINE_ITEMS_SELECT = `${LINE_ITEMS_SELECT}, discount, discount_type, note, vat_rate` as const;
 
