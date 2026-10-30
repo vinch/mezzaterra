@@ -12,6 +12,7 @@
   import {
     grapesText,
     styleLabel,
+    withVolume,
     vintageNotes,
     winePairings,
     wineStyle,
@@ -441,7 +442,7 @@
           {#each cartLines as l (l.wine.id)}
             <li>
               <span class="mz-dot" style="background: {wineStyle(l.wine.wine?.wine_type).color}"></span>
-              <span class="cart-name">{wineTitle(l.wine.wine)}{l.wine.year ? ` ${l.wine.year}` : ""}</span>
+              <span class="cart-name">{withVolume(`${wineTitle(l.wine.wine)}${l.wine.year ? ` ${l.wine.year}` : ""}`, l.wine)}</span>
               <div class="stepper small">
                 <button type="button" onclick={() => setQty(l.wine.id, l.qty - 1)} aria-label="Moins">−</button>
                 <output>{l.qty}</output>

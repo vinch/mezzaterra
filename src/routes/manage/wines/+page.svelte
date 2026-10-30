@@ -18,7 +18,7 @@
   import StockBadge from "$lib/ui/StockBadge.svelte";
   import WineDot from "$lib/ui/WineDot.svelte";
   import Spinner from "$lib/ui/Spinner.svelte";
-  import { byVolume, styleByKey, wineRobe, type WineStyleKey, wineTitle, wineTypeLabel, withVolume } from "$lib/wine";
+  import { byVolume, styleByKey, vintageShortLabel, wineRobe, type WineStyleKey, wineTitle, wineTypeLabel, withVolume } from "$lib/wine";
   import {
     IconArchive,
     IconArchiveRestore,
@@ -352,7 +352,10 @@
   /** Dernier millésime qu'on peut encore recommander au fournisseur. */
   function latestVintage(wine: any): any | null {
     const list = vintagesOf(wine).filter((v) => !isDiscontinued(v));
-    return list.length ? list[list.length - 1] : null;
+    const last = list[list.length - 1];
+    /* Plusieurs contenants pour la dernière année : le réassort se fait lot par lot (fiche du produit). */
+    const sameYear = list.filter((v) => (v.year ?? v.production_year) === (last?.year ?? last?.production_year));
+    return sameYear.length === 1 ? last : null;
   }
   /** Tous les millésimes sont « plus jamais disponibles » : le vin est retiré. */
   function isRetired(wine: any): boolean {
@@ -387,7 +390,7 @@
     const v = latestVintage(wine);
     if (!v) return;
     try {
-      notice = (await promptReorder(withVolume(`${wineTitle(wine)} ${v.year ?? ""}`.trim(), v, kindOf(wine)), v)) ?? notice;
+      notice = (await promptReorder(vintageShortLabel({ ...v, wine }), v)) ?? notice;
     } catch (e) {
       error = errorMessage(e);
     }

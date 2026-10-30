@@ -3,7 +3,7 @@
   import { page } from "$app/stores";
   import AbruzzoMap from "$lib/components/site/AbruzzoMap.svelte";
   import WineCard from "$lib/components/site/WineCard.svelte";
-  import { combinedAvailability, fetchAvailability, type AvailabilityOf } from "$lib/publicData";
+  import { combinedAvailability, fetchAvailability, firstAvailable, type AvailabilityOf } from "$lib/publicData";
   import { MAIN, project } from "$lib/geo/abruzzo";
   import {
     STYLE_ORDER,
@@ -157,7 +157,7 @@
           <WineCard
             vintage={v}
             {formats}
-            href={productHref(v)}
+            href={productHref(firstAvailable(availability, formats))}
             availability={combinedAvailability(availability, formats)}
           />
         </div>

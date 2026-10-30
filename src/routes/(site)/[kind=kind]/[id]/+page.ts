@@ -39,12 +39,13 @@ export const load: PageLoad = async ({ params, url }) => {
       : Promise.resolve({ data: [] }),
   ]);
 
-  /* Un seul millésime (le plus récent) par vin du domaine. */
+  /* Un seul lot par produit du domaine : le plus récent, dans son plus petit contenant. */
   const byWine = new Map<string, any>();
   for (const row of publicVintages((wineryRes.data || []) as any[])) {
     if (!row.wine) continue;
     const prev = byWine.get(row.wine_id);
-    if (!prev || (row.year ?? 0) > (prev.year ?? 0)) byWine.set(row.wine_id, row);
+    const newer = !prev || (row.year ?? 0) > (prev.year ?? 0);
+    if (newer || ((row.year ?? 0) === (prev.year ?? 0) && row.volume_ml < prev.volume_ml)) byWine.set(row.wine_id, row);
   }
 
   /* Contenants de la même année (celui-ci compris), puis une entrée par autre année (son plus petit contenant). */

@@ -1,7 +1,7 @@
 import { base } from "$app/paths";
 import jsPDF from "jspdf";
 import { attachRobotoPdf, svgToPng } from "./assets";
-import { wineRobe, wineTypeLabel } from "$lib/wine";
+import { wineRobe, wineTypeLabel, withVolume } from "$lib/wine";
 import { kindInfo, PRODUCT_KIND_LIST, PRODUCT_KINDS, type ProductKind } from "$lib/productKinds";
 import {
   sortedStockForDocuments,
@@ -294,7 +294,7 @@ export async function downloadPricesPdf(
 
     for (const v of inGroup) {
       const highlight = highlightedIds.has(v.id);
-      const wineLines = fitLine(doc, v.wineName, wineColWidth, 9);
+      const wineLines = fitLine(doc, withVolume(v.wineName, v, v.kind), wineColWidth, 9);
       const wineryLines = fitLine(doc, v.wineryName, 36, 9);
       const rowLines = Math.max(wineLines.length, wineryLines.length, 1);
       const rowH = rowLines * baseLineH + rowPad * 2;

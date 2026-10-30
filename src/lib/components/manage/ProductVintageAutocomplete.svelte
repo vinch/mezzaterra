@@ -41,17 +41,22 @@
     return fold(`${w.winery?.name || ""} ${w.name || w.appelation?.name || ""} ${year} ${vintageVolume(v)}`);
   }
 
+  /** « Riserva 2019 », « Olio 2025 · 5 L » ; un non-millésimé sans année (pas de confusion avec un millésime). */
+  function optionName(v: any): string {
+    return vintageShortLabel({ ...v, production_year: null });
+  }
+
   function buildOptions(list: any[]): ComboOption[] {
     const wines: ComboOption[] = list.map((v) => {
       const stock = getAvailableStock(v.id);
       return {
         id: v.id,
-        label: formatLabel(v, stock) || vintageShortLabel(v),
+        label: formatLabel(v, stock) || optionName(v),
         searchText: vintageSearchText(v),
         disabled: (disableWhenNoStock && !stock) || isVintageAlreadyAdded(v.id),
         kind: "wine",
         robe: wineRobe(v.wine?.wine_type).key,
-        name: vintageShortLabel(v),
+        name: optionName(v),
         winery: v.wine?.winery?.name || "",
         stock,
         price: v.price,

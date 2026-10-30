@@ -160,7 +160,7 @@
       const year = b.vintage.year ?? b.vintage.production_year;
       for (const v of vintages) {
         if (v.wine_id === b.vintage.wine_id && (v.year ?? v.production_year) > year) {
-          push(v, `Nouveau millésime d’un vin acheté (${b.qty} bt.)`);
+          push(v, `Plus récent qu’un produit acheté (${b.qty} bt.)`);
         }
       }
     }

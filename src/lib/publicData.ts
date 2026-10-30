@@ -64,6 +64,11 @@ export function combinedAvailability(of: AvailabilityOf | null, lots: { id: stri
   return { in_stock: inStock.length > 0, low_stock: inStock.length > 0 && inStock.every((a) => a.low_stock) };
 }
 
+/** Contenant vers lequel mène une carte : le premier en stock, sinon le plus petit. */
+export function firstAvailable<T extends { id: string }>(of: AvailabilityOf | null, lots: T[]): T {
+  return (of && lots.find((l) => of(l.id).in_stock)) || lots[0];
+}
+
 export type SeatInfo = { capacity: number | null; seats_taken: number; seats_left: number | null };
 
 export async function fetchSeats(tastingId: string): Promise<SeatInfo | null> {

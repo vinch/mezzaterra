@@ -181,10 +181,10 @@ SELECT a.name, 'olive_oil',
   (SELECT id FROM public.label WHERE name = 'DOP' LIMIT 1),
   (SELECT id FROM public.region WHERE name = 'Abruzzo' LIMIT 1)
 FROM (VALUES ('Aprutino Pescarese'), ('Colline Teatine'), ('Pretuziano delle Colline Teramane')) AS a(name)
-WHERE NOT EXISTS (SELECT 1 FROM public.appelation x WHERE x.kind = 'olive_oil' AND x.name = a.name);
+WHERE NOT EXISTS (SELECT 1 FROM public.appelation x WHERE x.name = a.name);
 
 INSERT INTO public.grape (name, kind)
 SELECT g.name, 'olive_oil'
 FROM (VALUES ('Dritta'), ('Leccino'), ('Intosso'), ('Gentile di Chieti'), ('Tortiglione'), ('Castiglionese'), ('Frantoio'))
   AS g(name)
-WHERE NOT EXISTS (SELECT 1 FROM public.grape x WHERE x.kind = 'olive_oil' AND x.name = g.name);
+WHERE NOT EXISTS (SELECT 1 FROM public.grape x WHERE x.name = g.name);

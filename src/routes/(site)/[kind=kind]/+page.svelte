@@ -4,7 +4,7 @@
   import { fade } from "svelte/transition";
   import { page } from "$app/stores";
   import WineCard from "$lib/components/site/WineCard.svelte";
-  import { combinedAvailability, fetchAvailability, type AvailabilityOf } from "$lib/publicData";
+  import { combinedAvailability, fetchAvailability, firstAvailable, type AvailabilityOf } from "$lib/publicData";
   import { fold } from "$lib/format";
   import { kindCount, PRODUCT_KINDS, productHref } from "$lib/productKinds";
   import {
@@ -173,7 +173,7 @@
               <WineCard
                 vintage={v}
                 {formats}
-                href={productHref(v)}
+                href={productHref(firstAvailable(availability, formats))}
                 availability={combinedAvailability(availability, formats)}
               />
             </div>

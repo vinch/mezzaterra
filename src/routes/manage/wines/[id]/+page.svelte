@@ -31,6 +31,7 @@
   import { errorMessage, latestOnly } from "$lib/async";
   import {
     appellationText,
+    byVolume,
     grapesText,
     isDiscontinued,
     vintageNotes,
@@ -40,7 +41,6 @@
     wineTypeLabel,
   } from "$lib/wine";
   import { formatVolume, kindInfo } from "$lib/productKinds";
-  import { byVolume } from "$lib/wine";
 
   interface Props {
     data: PageData;
@@ -72,10 +72,6 @@
     };
   }
   let vintageFormData = $state(emptyForm());
-  /* Contenants proposés, plus celui du lot modifié s'il n'est pas dans la liste. */
-  let volumeOptions = $derived(
-    [...new Set([...kind.volumes, Number(vintageFormData.volume_ml)])].filter((ml) => ml > 0).sort((a, b) => a - b),
-  );
 
   /*
    * Nouveau millésime d'un vin qui en a déjà : on reprend image, cépages et notes de dégustation
@@ -214,7 +210,8 @@
       price: num(vintageFormData.price),
       image_url: vintageFormData.image_url || null,
       organic: vintageFormData.organic,
-      volume_ml: Number(vintageFormData.volume_ml),
+      /* Contenant fixé à la création (voir le formulaire). */
+      ...(editingVintage ? {} : { volume_ml: Number(vintageFormData.volume_ml) }),
     };
 
     /* La ligne enregistrée revient de la base : la liste se met à jour sans tout relire. */
@@ -509,11 +506,21 @@
       <!-- Un lot par contenant : 50 cl et 5 L d'une même huile ont chacun leur prix et leur stock. -->
       <div class="form-group">
         <label for="volume_ml">Contenant *</label>
-        <select id="volume_ml" bind:value={vintageFormData.volume_ml} required>
-          {#each volumeOptions as ml (ml)}
+        <!-- Fixé à la création : changer le contenant d'un lot réécrirait son stock et ses ventes passées. -->
+        <select
+          id="volume_ml"
+          bind:value={vintageFormData.volume_ml}
+          required
+          disabled={!!editingVintage}
+          aria-describedby={editingVintage ? "volume-hint" : undefined}
+        >
+          {#each editingVintage ? [editingVintage.volume_ml] : kind.volumes as ml (ml)}
             <option value={String(ml)}>{formatVolume(ml)}</option>
           {/each}
         </select>
+        {#if editingVintage}
+          <span id="volume-hint" class="t-caption">Un autre contenant = un nouveau lot, avec son prix et son stock.</span>
+        {/if}
       </div>
 
       <div class="form-group">

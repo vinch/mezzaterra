@@ -37,7 +37,8 @@
   let lots = $derived(formats?.length ? formats : [vintage]);
   /* Contenants affichés dès qu'il y en a plusieurs, ou qu'il ne s'agit pas de la bouteille standard. */
   let volumes = $derived(formatsText(lots));
-  let prices = $derived(lots.map((f) => f.price).filter((p): p is number => p != null));
+  /* Un prix à 0 (bouteille réservée aux dégustations…) n'est pas affiché, comme avant. */
+  let prices = $derived(lots.map((f) => Number(f.price)).filter((p) => p > 0));
   let priceText = $derived(
     prices.length ? `${new Set(prices).size > 1 ? "dès " : ""}${formatEUR(Math.min(...prices))}` : "",
   );

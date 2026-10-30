@@ -544,7 +544,7 @@
           <IconArrowLeft size={20} strokeWidth={1.75} />
         </IconButton>
         <button type="button" class="next-btn" disabled={position === wines.length - 1} onclick={() => setPosition(position + 1)}>
-          {position === wines.length - 1 ? "Dernier vin" : `Vin suivant : ${vintageShortLabel(wines[position + 1])}`}
+          {position === wines.length - 1 ? "Dernier de la dégustation" : `Suivant : ${vintageShortLabel(wines[position + 1])}`}
           <IconArrowRight size={18} strokeWidth={1.75} aria-hidden="true" />
         </button>
       </div>
