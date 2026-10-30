@@ -356,7 +356,7 @@
       <div class="error-message" role="alert">{error}</div>
     {:else if wines.length === 0}
       <Card>
-        <EmptyState icon={IconPlay} title="Aucun vin au déroulé" text="Ajoutez des vins à cette dégustation pour la piloter.">
+        <EmptyState icon={IconPlay} title="Rien au déroulé" text="Ajoutez des produits à cette dégustation pour la piloter.">
           <Button href="/manage/tastings">Modifier la dégustation</Button>
         </EmptyState>
       </Card>
@@ -444,7 +444,7 @@
                 <IconArrowLeft size={18} strokeWidth={1.75} /> Précédent
               </Button>
               <Button size="lg" variant="primary" onclick={() => setPosition(position + 1)} disabled={position === wines.length - 1}>
-                Vin suivant <IconArrowRight size={18} strokeWidth={1.75} />
+                Suivant <IconArrowRight size={18} strokeWidth={1.75} />
               </Button>
             </div>
           </section>
@@ -540,7 +540,7 @@
 
       <!-- Barre fixe (mobile) -->
       <div class="mobile-next">
-        <IconButton label="Vin précédent" variant="outline" disabled={position === 0} onclick={() => setPosition(position - 1)}>
+        <IconButton label="Précédent" variant="outline" disabled={position === 0} onclick={() => setPosition(position - 1)}>
           <IconArrowLeft size={20} strokeWidth={1.75} />
         </IconButton>
         <button type="button" class="next-btn" disabled={position === wines.length - 1} onclick={() => setPosition(position + 1)}>

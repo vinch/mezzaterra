@@ -227,7 +227,7 @@
           bind:this={input}
           bind:value={query}
           onkeydown={onKeydown}
-          placeholder="Rechercher un vin, un client, une vente, une page…"
+          placeholder="Rechercher un produit, un client, une vente, une page…"
           aria-label="Rechercher"
           role="combobox"
           aria-expanded="true"

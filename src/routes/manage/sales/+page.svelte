@@ -982,13 +982,13 @@
 
       <div class="items-box">
         {#if saleItems.length === 0}
-          <EmptyState title="Aucun article ajouté" text="Cherchez un vin ci-dessous, puis « Ajouter »." compact />
+          <EmptyState title="Aucun article ajouté" text="Cherchez un produit ci-dessous, puis « Ajouter »." compact />
         {:else}
           <div class="items-scroll">
             <table class="ui-table items-table">
               <thead>
                 <tr>
-                  <th scope="col">Vin</th>
+                  <th scope="col">Produit</th>
                   <th scope="col">Quantité</th>
                   <th scope="col" class="num">Prix unit.</th>
                   <th scope="col" class="num">Remise</th>
@@ -1051,7 +1051,7 @@
 
         <div class="add-row">
           <div class="add-wine">
-            <span class="t-label" id="add-wine-label">Ajouter un vin</span>
+            <span class="t-label" id="add-wine-label">Ajouter un produit</span>
             <ProductVintageAutocomplete
               bind:value={selectedVintageId}
               {wineVintages}

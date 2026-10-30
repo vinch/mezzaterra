@@ -70,6 +70,8 @@ export type ProductKindInfo = {
   /** « Choisir un cépage… », « Aucun cépage ». */
   chooseIngredient: string;
   noIngredient: string;
+  /** TVA belge (les prix en base sont TTC) : 21 % pour le vin, 6 % pour l'alimentation dont l'huile. */
+  vatRate: number;
   /** Le degré d'alcool a un sens (`wine_vintage.abv`). */
   hasAbv: boolean;
   /** Contenants proposés à la création d'un lot (en mL), le premier par défaut. */
@@ -117,6 +119,7 @@ export const PRODUCT_KINDS: Record<ProductKind, ProductKindInfo> = {
     ingredients: "Cépages",
     chooseIngredient: "Choisir un cépage…",
     noIngredient: "Aucun cépage",
+    vatRate: 0.21,
     hasAbv: true,
     volumes: [750, 375, 500, 1500, 3000],
     standardVolume: 750,
@@ -160,6 +163,7 @@ export const PRODUCT_KINDS: Record<ProductKind, ProductKindInfo> = {
     ingredients: "Variétés d’olives",
     chooseIngredient: "Choisir une variété…",
     noIngredient: "Aucune variété",
+    vatRate: 0.06,
     hasAbv: false,
     volumes: [500, 250, 750, 1000, 3000, 5000],
     standardVolume: null,

@@ -223,7 +223,12 @@
 
     if (saveError || !saved) {
       /* Formulaire déjà fermé : createVintage a posé son propre message. */
-      if (formOpen) error = saveError?.message ?? "Introuvable après l’enregistrement";
+      /* 23505 : index unique produit + année + contenant (un seul « 50 cl 2025 » par produit). */
+      if (formOpen) {
+        error = saveError?.code === "23505"
+          ? `Ce ${kind.batch.toLowerCase()} existe déjà : même année et même contenant.`
+          : saveError?.message ?? "Introuvable après l’enregistrement";
+      }
       return;
     }
 

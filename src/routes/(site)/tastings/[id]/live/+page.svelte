@@ -296,7 +296,7 @@
 
     {#if !follow && hostPosition != null && hostPosition !== index}
       <button type="button" class="rejoin" onclick={backToHost} transition:fly={{ y: -10, duration: 200 }}>
-        Le vin {hostPosition + 1} est servi — y retourner →
+        {kindInfo(wines[hostPosition]?.wine).label} {hostPosition + 1} servi — y retourner →
       </button>
     {/if}
 
@@ -327,7 +327,7 @@
               <span>Votre note</span>
               {#if savedFlash}<span class="saved" transition:fade={{ duration: 150 }}>✓ enregistrée</span>{/if}
             </div>
-            <StarRating value={currentRating?.rating ?? null} size="2.2rem" label="Notez ce vin" onchange={rate} />
+            <StarRating value={currentRating?.rating ?? null} size="2.2rem" label="Notez {kind.thisLabel}" onchange={rate} />
             <textarea
               rows="2"
               placeholder="Vos impressions… (fruité, épicé, coup de cœur ?)"
@@ -372,8 +372,8 @@
       {/key}
     </main>
 
-    <nav class="dots" aria-label="Vins de la soirée">
-      <button type="button" class="nav-arrow" onclick={() => goTo(index - 1)} disabled={index === 0} aria-label="Vin précédent">‹</button>
+    <nav class="dots" aria-label="Déroulé de la soirée">
+      <button type="button" class="nav-arrow" onclick={() => goTo(index - 1)} disabled={index === 0} aria-label="Précédent">‹</button>
       <div class="dot-row">
         {#each wines as w, i}
           {@const s = wineStyle(w.wine?.wine_type)}
@@ -386,18 +386,18 @@
               class:rated={!!ratings[w.id]?.rating}
               style="--c: {s.color}"
               onclick={() => goTo(i)}
-              aria-label="Vin {i + 1} : {wineTitle(w.wine)}"
+              aria-label="{kindInfo(w.wine).label} {i + 1} : {wineTitle(w.wine)}"
               aria-current={i === index}
             ></button>
           {:else}
-            <span class="wine-dot locked" aria-label="Vin {i + 1} : à venir" role="img"></span>
+            <span class="wine-dot locked" aria-label="{i + 1} : à venir" role="img"></span>
           {/if}
         {/each}
       </div>
       {#if index === total - 1}
         <button type="button" class="nav-arrow recap-btn" onclick={() => (showRecap = true)}>Récap</button>
       {:else}
-        <button type="button" class="nav-arrow" onclick={() => goTo(index + 1)} disabled={index >= unlocked} aria-label={index >= unlocked ? "Le vin suivant n’est pas encore servi" : "Vin suivant"}>›</button>
+        <button type="button" class="nav-arrow" onclick={() => goTo(index + 1)} disabled={index >= unlocked} aria-label={index >= unlocked ? "La suite n’est pas encore servie" : "Suivant"}>›</button>
       {/if}
     </nav>
 

@@ -3,6 +3,7 @@ import { LINE_ITEMS_SELECT } from "./manageData";
 import { lineTotal } from "./analytics";
 import { toNumber } from "./format";
 import { vintageProductLabel } from "./wine";
+import { kindInfo } from "./productKinds";
 
 /** Règles des ventes partagées par la page Ventes et la facture PDF. */
 
@@ -54,6 +55,40 @@ export function saleTotal(items: any[], globalDiscount: unknown, globalDiscountT
 /** Montant de la ristourne globale : écart entre le sous-total des lignes et le total enregistré. */
 export function globalDiscountAmount(items: any[], total: unknown): number {
   return Math.max(0, Math.round((itemsSubtotal(items) - toNumber(total)) * 100) / 100);
+}
+
+/** TVA d'une ligne « Dégustation » (sans lot) : prestation au taux normal. */
+const SERVICE_VAT_RATE = 0.21;
+
+/** Taux de TVA d'une ligne de vente : celui du type de produit de son lot. */
+export function itemVatRate(item: any): number {
+  return item.wine_vintage_id && item.wine_vintage ? kindInfo(item.wine_vintage.wine).vatRate : SERVICE_VAT_RATE;
+}
+
+/**
+ * Ventilation TVA d'une vente (prix TTC) : par taux, le TTC, le HTVA et la TVA, ristourne globale
+ * répartie au prorata des lignes. Une vente peut mêler vin (21 %), huile (6 %) et dégustation.
+ */
+export function vatBreakdown(items: any[], total: unknown): { rate: number; ttc: number; ht: number; vat: number }[] {
+  const subtotal = itemsSubtotal(items);
+  const factor = subtotal > 0 ? toNumber(total) / subtotal : 1;
+  const byRate = new Map<number, number>();
+  for (const item of items) {
+    const rate = itemVatRate(item);
+    byRate.set(rate, (byRate.get(rate) ?? 0) + lineTotal(item) * factor);
+  }
+  const round = (n: number) => Math.round(n * 100) / 100;
+  const parts = [...byRate].sort(([a], [b]) => a - b).map(([rate, ttc]) => ({ rate, ttc: round(ttc) }));
+  /* Le centime d'arrondi de la répartition va à la plus grosse part : les parts somment au total facturé. */
+  const gap = round(toNumber(total) - parts.reduce((sum, p) => sum + p.ttc, 0));
+  if (gap && parts.length) {
+    const largest = parts.reduce((max, p) => (p.ttc > max.ttc ? p : max));
+    largest.ttc = round(largest.ttc + gap);
+  }
+  return parts.map(({ rate, ttc }) => {
+    const ht = round(ttc / (1 + rate));
+    return { rate, ttc, ht, vat: round(ttc - ht) };
+  });
 }
 
 /**

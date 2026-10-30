@@ -61,7 +61,7 @@
             .order("id")
             .range(from, to),
         ).catch((e) => {
-          warnings = [...warnings, `Millésimes indisponibles, achats et suggestions incomplets : ${errorMessage(e)}`];
+          warnings = [...warnings, `Produits indisponibles, achats et suggestions incomplets : ${errorMessage(e)}`];
           return [];
         }),
         /* Le stock ne sert qu'aux suggestions : sans lui, le reste de la fiche reste lisible. */
@@ -190,7 +190,7 @@
     if (!customer?.email) return "";
     const lines = selectedSuggestions.map((s) => `- ${vintageLabel(s.vintage)}${s.vintage.price ? ` (${formatEUR(s.vintage.price)})` : ""}`);
     const body = `Bonjour ${customer.first_name},\n\nJ’ai pensé à vous :\n${lines.join("\n")}\n\nÀ bientôt,\nMezzaterra`;
-    return `mailto:${customer.email}?subject=${encodeURIComponent("Quelques vins pour vous")}&body=${encodeURIComponent(body)}`;
+    return `mailto:${customer.email}?subject=${encodeURIComponent("Quelques idées pour vous")}&body=${encodeURIComponent(body)}`;
   }
 
   let lastSaleDays = $derived(lastSale ? -daysUntil(lastSale.date) : null);
@@ -334,9 +334,9 @@
         {/if}
       </Card>
 
-      <Card title="Vins achetés" id="bought">
+      <Card title="Produits achetés" id="bought">
         {#if bought.length === 0}
-          <EmptyState icon={IconWine} title="Aucun vin acheté" compact />
+          <EmptyState icon={IconWine} title="Aucun achat" compact />
         {:else}
           <ul class="list">
             {#each bought as b}

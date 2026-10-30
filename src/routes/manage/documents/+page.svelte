@@ -111,7 +111,7 @@
   async function handlePricesPdf() {
     docError = "";
     if (rows.length === 0) {
-      docError = "Aucun millésime en stock.";
+      docError = "Aucun produit en stock.";
       return;
     }
     try {
@@ -129,7 +129,7 @@
       selectedVintageIds.includes(r.id),
     );
     if (picked.length === 0) {
-      docError = "Cochez au moins un vin pour la feuille de notes.";
+      docError = "Cochez au moins un produit pour la feuille de notes.";
       return;
     }
     notesModalRows = [...picked];
@@ -153,7 +153,7 @@
   async function confirmNotesPdf() {
     docError = "";
     if (notesModalRows.length === 0) {
-      docError = "Ajoutez au moins un vin à la feuille de notes.";
+      docError = "Ajoutez au moins un produit à la feuille de notes.";
       return;
     }
     notesPdfGenerating = true;
@@ -193,7 +193,7 @@
       <Spinner />
     {:else if rows.length === 0}
       <div class="empty-state">
-        <p>Aucun vin en stock pour générer des documents.</p>
+        <p>Aucun produit en stock pour générer des documents.</p>
       </div>
     {:else}
       <div class="filters-container doc-top-panel">
@@ -303,7 +303,7 @@
 <Modal open={showNotesModal} title="Notes de dégustation" maxWidth={820} onclose={closeNotesModal}>
   <div class="notes-modal-body">
     <p class="notes-modal-hint">
-      Choisissez la date de la dégustation et l’ordre de passage des vins (du premier au
+      Choisissez la date de la dégustation et l’ordre de passage des produits (du premier au
       dernier servi).
     </p>
 

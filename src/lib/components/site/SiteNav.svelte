@@ -34,7 +34,8 @@
       aria-current={path === link.href ? "page" : undefined}>{link.label}</a
     >
   {/each}
-  <a href={contactHref("commande")} class="nav-cta">Commander<span class="cta-long">&nbsp;du vin</span></a>
+  <!-- Vins, huiles… : un appel valable pour tout le catalogue ; « Commander » seul sur les très petits écrans. -->
+  <a href={contactHref("commande")} class="nav-cta"><span class="cta-long">Passer une commande</span><span class="cta-short">Commander</span></a>
 </nav>
 
 <style>
@@ -146,9 +147,17 @@
     }
   }
 
+  .cta-short {
+    display: none;
+  }
+
   @media (max-width: 350px) {
     .cta-long {
       display: none;
+    }
+
+    .cta-short {
+      display: inline;
     }
   }
 </style>

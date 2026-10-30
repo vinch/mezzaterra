@@ -176,7 +176,7 @@
     if (newStatus === "delivered" && currentStatus !== "delivered") {
       if (
         !confirm(
-          "Êtes-vous sûr de vouloir marquer ce transport comme livré ?\n\nCette action va créer des mouvements de stock pour tous les vins des commandes associées."
+          "Êtes-vous sûr de vouloir marquer ce transport comme livré ?\n\nCette action va créer des mouvements de stock pour tous les produits des commandes associées."
         )
       ) {
         return false;

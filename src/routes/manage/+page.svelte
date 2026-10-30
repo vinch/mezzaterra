@@ -315,7 +315,7 @@
             <p class="t-muted">{formatDateLong(nextTasting.date)}{nextTasting.location ? ` · ${nextTasting.location}` : ""}</p>
             <p class="countdown">{daysUntil(nextTasting.date) === 0 ? "C’est aujourd’hui !" : `Dans ${daysUntil(nextTasting.date)} jours`}</p>
             <ul class="next-facts">
-              <li><strong>{nextTasting.tasting_wine_vintage?.length ?? 0}</strong> vins</li>
+              <li><strong>{nextTasting.tasting_wine_vintage?.length ?? 0}</strong> au programme</li>
               <li><strong>{nextTasting.tasting_customer?.length ?? 0}</strong> participants</li>
               {#if nextTastingSeats != null}
                 <li><strong>{nextTastingSeats}</strong>{nextTasting.capacity ? ` / ${nextTasting.capacity}` : ""} places réservées en ligne</li>
@@ -365,7 +365,7 @@
                   {/snippet}
           {#if reorderMsg}<p class="notice" role="status">{reorderMsg}</p>{/if}
           {#if stockAlerts.length === 0}
-            <EmptyState icon={IconBox} title="Rien à signaler" text="Aucun millésime en rupture ni presque épuisé." compact />
+            <EmptyState icon={IconBox} title="Rien à signaler" text="Aucun lot en rupture ni presque épuisé." compact />
           {:else}
             <ul class="list">
               {#each stockAlerts.slice(0, 8) as s}

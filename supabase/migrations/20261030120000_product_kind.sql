@@ -19,18 +19,24 @@ CREATE INDEX IF NOT EXISTS wine_kind_idx ON public.wine (kind);
 -- Un produit, son type, son appellation et ses cépages / variétés sont du même type de produit.
 -- Contrôlé par trigger plutôt que par clé étrangère composite : une seconde clé de wine vers
 -- wine_type rendrait ambiguës les jointures PostgREST `wine_type (*)` du code.
+-- Chaque contrôle verrouille en partage (FOR SHARE) les lignes dont il lit le type : un changement de
+-- type concurrent (prevent_kind_change_in_use, plus bas) attend sa fin puis voit la nouvelle ligne, et
+-- inversement ; deux transactions simultanées ne peuvent pas contourner le contrôle.
 CREATE OR REPLACE FUNCTION public.check_wine_kind()
 RETURNS trigger
 LANGUAGE plpgsql
 SET search_path = public
 AS $$
 BEGIN
-  IF NOT EXISTS (SELECT 1 FROM wine_type WHERE id = NEW.wine_type_id AND kind = NEW.kind) THEN
+  PERFORM 1 FROM wine_type WHERE id = NEW.wine_type_id AND kind = NEW.kind FOR SHARE;
+  IF NOT FOUND THEN
     RAISE EXCEPTION 'Ce type (robe, fruité…) ne correspond pas au produit';
   END IF;
-  IF NEW.appelation_id IS NOT NULL
-     AND NOT EXISTS (SELECT 1 FROM appelation WHERE id = NEW.appelation_id AND kind = NEW.kind) THEN
-    RAISE EXCEPTION 'Cette appellation ne correspond pas au produit (vin ou huile)';
+  IF NEW.appelation_id IS NOT NULL THEN
+    PERFORM 1 FROM appelation WHERE id = NEW.appelation_id AND kind = NEW.kind FOR SHARE;
+    IF NOT FOUND THEN
+      RAISE EXCEPTION 'Cette appellation ne correspond pas au produit (vin ou huile)';
+    END IF;
   END IF;
   RETURN NEW;
 END;
@@ -46,13 +52,13 @@ LANGUAGE plpgsql
 SET search_path = public
 AS $$
 BEGIN
-  IF NOT EXISTS (
-    SELECT 1
-    FROM wine_vintage v
-    JOIN wine w ON w.id = v.wine_id
-    JOIN grape g ON g.id = NEW.grape_id
-    WHERE v.id = NEW.wine_vintage_id AND g.kind = w.kind
-  ) THEN
+  PERFORM 1
+  FROM wine_vintage v
+  JOIN wine w ON w.id = v.wine_id
+  JOIN grape g ON g.id = NEW.grape_id
+  WHERE v.id = NEW.wine_vintage_id AND g.kind = w.kind
+  FOR SHARE OF w, g;
+  IF NOT FOUND THEN
     RAISE EXCEPTION 'Ce cépage ou cette variété ne correspond pas au produit (vin ou huile)';
   END IF;
   RETURN NEW;
@@ -70,6 +76,9 @@ LANGUAGE plpgsql
 SET search_path = public
 AS $$
 BEGIN
+  PERFORM 1 FROM wine WHERE id = NEW.wine_id FOR SHARE;
+  PERFORM 1 FROM grape g JOIN wine_vintage_grape vg ON vg.grape_id = g.id WHERE vg.wine_vintage_id = NEW.id
+  FOR SHARE OF g;
   IF EXISTS (
     SELECT 1
     FROM wine_vintage_grape vg
@@ -119,6 +128,12 @@ CREATE TRIGGER grape_kind_locked BEFORE UPDATE OF kind ON public.grape
 -- sont des bouteilles de 75 cl.
 ALTER TABLE public.wine_vintage
   ADD COLUMN volume_ml integer NOT NULL DEFAULT 750 CONSTRAINT wine_vintage_volume_ml_check CHECK (volume_ml > 0);
+
+-- Un seul lot par produit, année et contenant (l'année de mise en bouteille pour un lot sans année),
+-- comme le site les regroupe : pas de deux « 50 cl 2025 » d'une même huile.
+CREATE UNIQUE INDEX wine_vintage_lot_key ON public.wine_vintage (wine_id, year, volume_ml) WHERE year IS NOT NULL;
+CREATE UNIQUE INDEX wine_vintage_lot_without_year_key ON public.wine_vintage (wine_id, production_year, volume_ml)
+  WHERE year IS NULL;
 
 -- create_wine_vintage (20261024170000) reprend désormais le contenant de p_vintage.
 CREATE OR REPLACE FUNCTION public.create_wine_vintage(
