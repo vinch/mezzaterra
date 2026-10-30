@@ -2,10 +2,10 @@ import { error, redirect } from "@sveltejs/kit";
 import { isUuid } from "$lib/publicData";
 import { kindBySlug, kindOf, productHref } from "$lib/productKinds";
 import { supabase } from "$lib/supabase";
-import { isDiscontinued, publicVintages, VINTAGE_PUBLIC_SELECT } from "$lib/wine";
+import { groupFormats, isDiscontinued, publicVintages, VINTAGE_PUBLIC_SELECT } from "$lib/wine";
 import type { PageLoad } from "./$types";
 
-export const load: PageLoad = async ({ params }) => {
+export const load: PageLoad = async ({ params, url }) => {
   if (!isUuid(params.id)) throw error(404, "Page introuvable");
   const { data: vintage, error: fetchError } = await supabase
     .from("wine_vintage")
@@ -18,10 +18,10 @@ export const load: PageLoad = async ({ params }) => {
 
   const v = vintage as any;
   /* Une huile ouverte sous /vins (ou l'inverse) : vers la bonne adresse. */
-  if (kindOf(v.wine) !== kindBySlug(params.kind)) throw redirect(301, productHref(v));
+  if (kindOf(v.wine) !== kindBySlug(params.kind)) throw redirect(301, productHref(v) + url.search);
   const wineryId = v.wine?.winery_id ?? v.wine?.winery?.id;
 
-  /* Autres millésimes du même produit + autres produits du domaine. */
+  /* Autres lots du même produit (contenants et années) + autres produits du domaine. */
   const [siblingsRes, wineryRes] = await Promise.all([
     supabase
       .from("wine_vintage")
@@ -47,9 +47,13 @@ export const load: PageLoad = async ({ params }) => {
     if (!prev || (row.year ?? 0) > (prev.year ?? 0)) byWine.set(row.wine_id, row);
   }
 
+  /* Contenants de la même année (celui-ci compris), puis une entrée par autre année (son plus petit contenant). */
+  const [current, ...otherYears] = groupFormats([v, ...publicVintages((siblingsRes.data || []) as any[])]);
+
   return {
     vintage: v,
-    siblings: publicVintages((siblingsRes.data || []) as any[]),
+    formats: current.formats,
+    siblings: otherYears.map((g) => g.vintage),
     fromWinery: [...byWine.values()].slice(0, 6),
   };
 };

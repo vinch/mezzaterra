@@ -4,13 +4,16 @@
   import { fade } from "svelte/transition";
   import { page } from "$app/stores";
   import WineCard from "$lib/components/site/WineCard.svelte";
-  import { fetchAvailability, type AvailabilityOf } from "$lib/publicData";
+  import { combinedAvailability, fetchAvailability, type AvailabilityOf } from "$lib/publicData";
   import { fold } from "$lib/format";
   import { kindCount, PRODUCT_KINDS, productHref } from "$lib/productKinds";
   import {
     STYLE_ORDER,
     allWineStyles,
+    groupFormats,
+    type FormatGroup,
     wineStyle,
+    vintageVolume,
     wineTitle,
     wineryFlag,
     wineryPlace,
@@ -20,9 +23,10 @@
   let { data } = $props();
 
   let availability = $state<AvailabilityOf | null>(null);
-  let styleFilter = $state<WineStyleKey | "">("");
-  let inStockOnly = $state(false);
-  let query = $state("");
+  /* /vins et /huiles partagent ce composant : les filtres repartent de zéro au changement de catalogue. */
+  let styleFilter = $derived.by<WineStyleKey | "">(() => (data.kind, ""));
+  let inStockOnly = $derived.by(() => (data.kind, false));
+  let query = $derived.by(() => (data.kind, ""));
 
   onMount(async () => {
     availability = await fetchAvailability();
@@ -45,6 +49,7 @@
           v.wine?.appelation?.name,
           v.wine?.winery?.name,
           v.year,
+          vintageVolume(v),
           ...(v.wine_vintage_grape || []).map((g: any) => g.grape?.name),
         ]
           .filter(Boolean)
@@ -61,13 +66,13 @@
       return wineTitle(a.wine).localeCompare(wineTitle(b.wine), "fr");
     }));
 
-  type WineryGroup = { winery: any; items: any[] };
+  type WineryGroup = { winery: any; items: FormatGroup<any>[] };
 
-  /* Regroupement par domaine. */
+  /* Regroupement par domaine, une carte par produit et par année (ses contenants dedans). */
   function groupByWinery(list: any[]): WineryGroup[] {
     const acc = new Map<string, WineryGroup>();
-    for (const v of list) {
-      const w = v.wine?.winery;
+    for (const v of groupFormats(list)) {
+      const w = v.vintage.wine?.winery;
       const key = w?.id || "autres";
       if (!acc.has(key)) acc.set(key, { winery: w, items: [] });
       acc.get(key)!.items.push(v);
@@ -163,9 +168,14 @@
           {/if}
         </header>
         <div class="grid">
-          {#each group.items as v (v.id)}
+          {#each group.items as { vintage: v, formats } (v.id)}
             <div animate:flip={{ duration: 250 }}>
-              <WineCard vintage={v} href={productHref(v)} availability={availability?.(v.id) ?? null} />
+              <WineCard
+                vintage={v}
+                {formats}
+                href={productHref(v)}
+                availability={combinedAvailability(availability, formats)}
+              />
             </div>
           {/each}
         </div>

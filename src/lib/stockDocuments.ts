@@ -2,6 +2,7 @@ import { errorMessage } from "./async";
 import { fetchStockMap } from "./manageData";
 import { supabase } from "./supabase";
 import { kindOf, type ProductKind } from "./productKinds";
+import { byVolume, withVolume } from "./wine";
 
 /**
  * Stock disponible mis en forme pour les documents (tarifs, feuilles de notes) et la page Stock.
@@ -17,6 +18,7 @@ export type StockDocVintage = {
   quantity_on_hand: number;
   production_year: number;
   year: number | null;
+  volume_ml: number;
   price: number | null;
   abv: number | null;
   wineName: string;
@@ -67,6 +69,7 @@ export function mapInventoryToDocVintages(
       id: string;
       production_year: number;
       year: number | null;
+      volume_ml: number;
       price: number | null;
       abv: number | null;
       wine: {
@@ -103,6 +106,7 @@ export function mapInventoryToDocVintages(
       quantity_on_hand: row.quantity_on_hand ?? 0,
       production_year: v.production_year,
       year: v.year,
+      volume_ml: v.volume_ml,
       price: v.price,
       abv: v.abv,
       wineName: wineDisplayName(w),
@@ -141,6 +145,7 @@ export async function fetchStockDocVintages(): Promise<{ data: StockDocVintage[]
           id,
           production_year,
           year,
+          volume_ml,
           price,
           abv,
           wine (
@@ -191,16 +196,15 @@ function sortDocVintages(a: StockDocVintage, b: StockDocVintage): number {
   const nameA = a.wineName.toLowerCase();
   const nameB = b.wineName.toLowerCase();
   if (nameA !== nameB) return nameA.localeCompare(nameB);
-  return b.production_year - a.production_year;
+  return b.production_year - a.production_year || byVolume(a, b);
 }
 
 export function sortedStockForDocuments(rows: StockDocVintage[]): StockDocVintage[] {
   return [...rows].sort(sortDocVintages);
 }
 
+/** « 2019 (2021) », « 2025 · 5 L » : année (et mise en bouteille), contenant hors bouteille standard. */
 export function stockVintageLabel(v: StockDocVintage): string {
-  if (v.year != null && v.year !== v.production_year) {
-    return `${v.year} (${v.production_year})`;
-  }
-  return String(v.production_year);
+  const year = v.year != null && v.year !== v.production_year ? `${v.year} (${v.production_year})` : String(v.production_year);
+  return withVolume(year, v, v.kind);
 }

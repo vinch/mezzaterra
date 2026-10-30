@@ -1082,6 +1082,7 @@ export type Database = {
           price: number | null
           production_year: number
           purchase_price: number
+          volume_ml: number
           wine_id: string
           year: number | null
         }
@@ -1095,6 +1096,7 @@ export type Database = {
           price?: number | null
           production_year: number
           purchase_price?: number
+          volume_ml?: number
           wine_id: string
           year?: number | null
         }
@@ -1108,6 +1110,7 @@ export type Database = {
           price?: number | null
           production_year?: number
           purchase_price?: number
+          volume_ml?: number
           wine_id?: string
           year?: number | null
         }

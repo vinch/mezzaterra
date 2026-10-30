@@ -72,6 +72,10 @@ export type ProductKindInfo = {
   noIngredient: string;
   /** Le degré d'alcool a un sens (`wine_vintage.abv`). */
   hasAbv: boolean;
+  /** Contenants proposés à la création d'un lot (en mL), le premier par défaut. */
+  volumes: number[];
+  /** Contenant si courant qu'on ne l'affiche pas (la bouteille de 75 cl) ; `null` : toujours affiché. */
+  standardVolume: number | null;
   /** « Vin biologique ». */
   organicLabel: string;
   /** Titre de la description du produit sur sa fiche : « Le vin ». */
@@ -114,6 +118,8 @@ export const PRODUCT_KINDS: Record<ProductKind, ProductKindInfo> = {
     chooseIngredient: "Choisir un cépage…",
     noIngredient: "Aucun cépage",
     hasAbv: true,
+    volumes: [750, 375, 500, 1500, 3000],
+    standardVolume: 750,
     organicLabel: "Vin biologique",
     aboutTitle: "Le vin",
     pairingsLabel: "Accords mets & vins",
@@ -155,6 +161,8 @@ export const PRODUCT_KINDS: Record<ProductKind, ProductKindInfo> = {
     chooseIngredient: "Choisir une variété…",
     noIngredient: "Aucune variété",
     hasAbv: false,
+    volumes: [500, 250, 750, 1000, 3000, 5000],
+    standardVolume: null,
     organicLabel: "Huile biologique",
     aboutTitle: "L’huile",
     pairingsLabel: "Accords mets & huile",
@@ -170,7 +178,7 @@ export const PRODUCT_KINDS: Record<ProductKind, ProductKindInfo> = {
 export const PRODUCT_KIND_LIST: ProductKindInfo[] = Object.values(PRODUCT_KINDS);
 
 export function isProductKind(value: unknown): value is ProductKind {
-  return typeof value === "string" && value in PRODUCT_KINDS;
+  return typeof value === "string" && Object.hasOwn(PRODUCT_KINDS, value);
 }
 
 /** Ligne qui porte (ou dont le type porte) un type de produit : produit, type, référentiel. */
@@ -185,6 +193,15 @@ export function kindOf(row: KindRow): ProductKind {
 export function kindInfo(row: KindRow | ProductKind): ProductKindInfo {
   return PRODUCT_KINDS[typeof row === "string" ? row : kindOf(row)];
 }
+
+/** « 50 cl », « 75 cl », « 1,5 L », « 5 L ». */
+export function formatVolume(ml: number): string {
+  const n = (v: number) => String(v).replace(".", ",");
+  return ml < 1000 ? `${n(ml / 10)} cl` : `${n(ml / 1000)} L`;
+}
+
+/** Couleurs propres à un type de produit (pastilles de filtre après les robes du vin). */
+export const KIND_STYLES = PRODUCT_KIND_LIST.flatMap((k) => (k.style ? [k.style] : []));
 
 /** « 1 vin », « 3 huiles d’olive ». */
 export function kindCount(kind: ProductKindInfo, n: number): string {

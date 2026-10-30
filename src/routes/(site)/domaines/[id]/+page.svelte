@@ -3,11 +3,12 @@
   import { page } from "$app/stores";
   import AbruzzoMap from "$lib/components/site/AbruzzoMap.svelte";
   import WineCard from "$lib/components/site/WineCard.svelte";
-  import { fetchAvailability, type AvailabilityOf } from "$lib/publicData";
+  import { combinedAvailability, fetchAvailability, type AvailabilityOf } from "$lib/publicData";
   import { MAIN, project } from "$lib/geo/abruzzo";
   import {
     STYLE_ORDER,
     allWineStyles,
+    groupFormats,
     wineStyle,
     wineTitle,
     wineryFlag,
@@ -151,8 +152,15 @@
   <h2 class="section-title mz-display mz-h2">Les {productsLabel} du domaine</h2>
   {#if vintages.length}
     <div class="grid">
-      {#each vintages as v (v.id)}
-        <div><WineCard vintage={v} href={productHref(v)} availability={availability?.(v.id) ?? null} /></div>
+      {#each groupFormats(vintages) as { vintage: v, formats } (v.id)}
+        <div>
+          <WineCard
+            vintage={v}
+            {formats}
+            href={productHref(v)}
+            availability={combinedAvailability(availability, formats)}
+          />
+        </div>
       {/each}
     </div>
   {:else}

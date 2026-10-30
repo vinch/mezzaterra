@@ -11,7 +11,7 @@
   import { REVENUE_STATUSES, lineTotal, type SaleItemRow } from "$lib/analytics";
   import { daysUntil } from "$lib/dates";
   import { STYLE_ORDER, styleByKey, vintageLabel, vintageShortLabel, wineRobe, type WineStyleKey } from "$lib/wine";
-  import { PRODUCT_KIND_LIST } from "$lib/productKinds";
+  import { KIND_STYLES } from "$lib/productKinds";
   import { formatDate, formatEUR } from "$lib/format";
   import Button from "$lib/ui/Button.svelte";
   import IconButton from "$lib/ui/IconButton.svelte";
@@ -56,7 +56,7 @@
           supabase
             .from("wine_vintage")
             .select(
-              "id, wine_id, year, production_year, price, purchase_price, wine ( id, name, winery ( name ), appelation ( name, label ( name ) ), wine_type ( name, category, kind ) )",
+              "id, wine_id, year, production_year, volume_ml, price, purchase_price, wine ( id, kind, name, winery ( name ), appelation ( name, label ( name ) ), wine_type ( name, category, kind ) )",
             )
             .order("id")
             .range(from, to),
@@ -128,7 +128,6 @@
 
   /* Préférences : répartition par robe (toujours rouge / blanc / rosé, les autres produits achetés) et domaine préféré. */
   const ROBES: WineStyleKey[] = ["white", "red", "rose"];
-  const KIND_STYLES = PRODUCT_KIND_LIST.flatMap((k) => (k.style ? [k.style] : []));
   let robeQty = $derived((() => {
     const map = Object.fromEntries(STYLE_ORDER.map((k) => [k, 0])) as Record<WineStyleKey, number>;
     for (const b of bought) map[wineRobe(b.vintage.wine?.wine_type).key] += b.qty;

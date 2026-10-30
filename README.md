@@ -64,7 +64,12 @@ touché.
 triggers refusent un produit dont le type, l'appellation ou les cépages sont d'un autre `kind`, et le
 changement de `kind` d'une ligne déjà utilisée. Elle crée aussi les fruités (léger, moyen, intense),
 le label DOP, les trois DOP oléicoles des Abruzzes et les principales variétés d'olives. Année de
-récolte et appellation restent facultatives. À appliquer avant de déployer le code, qui lit `kind`.
+récolte et appellation restent facultatives. Chaque lot reçoit enfin son contenant
+(`wine_vintage.volume_ml`, 750 pour l'existant) : 50 cl, 1 L et 5 L d'une même huile, ou le magnum
+d'un vin, sont des lots distincts, chacun avec son prix d'achat, son prix de vente (dégressif au
+besoin) et son stock ; `create_wine_vintage` le reprend. Le site regroupe les contenants d'un même
+produit et d'une même année sur une carte (« dès … ») et propose de passer de l'un à l'autre sur la
+fiche. À appliquer avant de déployer le code, qui lit `kind` et `volume_ml`.
 
 ```sh
 supabase link --project-ref wmerreifcpttrhxwmkmn

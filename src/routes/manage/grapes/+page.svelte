@@ -14,7 +14,7 @@
   newLabel="Nouveau cépage ou variété"
   editLabel="Modifier"
   thisLabel="ce cépage ou cette variété"
-  emptyText="Les cépages s’associent ensuite aux millésimes, les variétés d’olives aux récoltes."
+  emptyText="Les cépages s’associent ensuite aux millésimes, les variétés d’olives aux lots d’huile."
   fields={[
     { key: "name", label: "Nom", required: true },
     KIND_FIELD,

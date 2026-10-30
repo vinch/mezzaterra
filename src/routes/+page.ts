@@ -3,14 +3,14 @@ import type { PageLoad } from "./$types";
 
 type WineryPin = { id: string; name: string; latitude: number | null; longitude: number | null };
 
-export const load: PageLoad = async () => {
+export const load: PageLoad = async ({ data }) => {
   try {
-    const { data } = await supabase
+    const { data: rows } = await supabase
       .from("winery")
       .select("id, name, latitude, longitude")
       .order("name");
-    return { wineries: (data || []) as WineryPin[] };
+    return { ...data, wineries: (rows || []) as WineryPin[] };
   } catch {
-    return { wineries: [] as WineryPin[] };
+    return { ...data, wineries: [] as WineryPin[] };
   }
 };

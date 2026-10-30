@@ -177,7 +177,9 @@
           id,
           production_year,
           year,
+          volume_ml,
           wine (
+            kind,
             name,
             winery (name),
             appelation (name, label (name))

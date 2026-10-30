@@ -236,7 +236,7 @@
             <select id="doc-type" bind:value={filterWineTypeId}>
               <option value="">Tous</option>
               {#each wineTypes as t}
-                <option value={t.id}>{wineTypeLabel(t)}</option>
+                <option value={t.id}>{t.name}</option>
               {/each}
             </select>
           </div>

@@ -18,7 +18,7 @@
   import StockBadge from "$lib/ui/StockBadge.svelte";
   import WineDot from "$lib/ui/WineDot.svelte";
   import Spinner from "$lib/ui/Spinner.svelte";
-  import { styleByKey, wineRobe, type WineStyleKey, wineTitle, wineTypeLabel } from "$lib/wine";
+  import { byVolume, styleByKey, wineRobe, type WineStyleKey, wineTitle, wineTypeLabel, withVolume } from "$lib/wine";
   import {
     IconArchive,
     IconArchiveRestore,
@@ -112,7 +112,7 @@
       /* Millésimes triés une fois ici (du plus ancien au plus récent) plutôt qu'à chaque rendu. */
       for (const w of data || []) {
         w.wine_vintage.sort(
-          (a, b) => (a.year ?? a.production_year ?? 0) - (b.year ?? b.production_year ?? 0),
+          (a, b) => (a.year ?? a.production_year ?? 0) - (b.year ?? b.production_year ?? 0) || byVolume(a, b),
         );
       }
       wines = (data || []).sort((a, b) => {
@@ -387,7 +387,7 @@
     const v = latestVintage(wine);
     if (!v) return;
     try {
-      notice = (await promptReorder(`${wineTitle(wine)} ${v.year ?? ""}`.trim(), v)) ?? notice;
+      notice = (await promptReorder(withVolume(`${wineTitle(wine)} ${v.year ?? ""}`.trim(), v, kindOf(wine)), v)) ?? notice;
     } catch (e) {
       error = errorMessage(e);
     }
@@ -495,7 +495,7 @@
     .filter((w: any) => !inStockOnly || !stock || (stockById.get(w.id)?.total ?? 0) > 0)
     .sort((a: any, b: any) => Number(isRetired(a)) - Number(isRetired(b))));
   let bottleCount = $derived(stock ? [...stock.values()].reduce((n, q) => n + Math.max(0, q), 0) : null);
-  /** « 19 vins (35 millésimes) · 2 huiles d’olive (2 récoltes) · 120 bouteilles en stock ». */
+  /** « 19 vins (35 millésimes) · 2 huiles d’olive (4 lots) · 120 bouteilles en stock ». */
   let subtitle = $derived([
     ...kinds.map((k) => {
       const ofKind = wines.filter((w) => kindOf(w) === k.key);
@@ -531,7 +531,7 @@
     <Spinner />
   {:else if wines.length === 0}
     <div class="empty-card">
-      <EmptyState icon={IconWine} title="Aucun produit au catalogue" text="Ajoutez un premier vin ou une première huile, puis ses millésimes ou récoltes.">
+      <EmptyState icon={IconWine} title="Aucun produit au catalogue" text="Ajoutez un premier vin ou une première huile, puis ses millésimes ou lots (un par contenant).">
         <Button onclick={openCreateModal}>Créer le premier produit</Button>
       </EmptyState>
     </div>
@@ -610,13 +610,14 @@
                   <span class="vintages">
                     {#each vintagesOf(wine) as v (v.id)}
                       {@const q = stock?.get(v.id) ?? 0}
+                      {@const lot = withVolume(String(v.year ?? v.production_year), v, kindOf(wine))}
                       {#if isDiscontinued(v)}
-                        <span class="vintage-chip gone" title="Plus jamais disponible">{v.year ?? v.production_year}</span>
+                        <span class="vintage-chip gone" title="Plus jamais disponible">{lot}</span>
                       {:else if !stock}
-                        <span class="vintage-chip">{v.year ?? v.production_year}</span>
+                        <span class="vintage-chip">{lot}</span>
                       {:else}
                         <span class="vintage-chip" class:out={q <= 0}>
-                          {v.year ?? v.production_year} · {q <= 0 ? "rupture" : q}
+                          {lot} · {q <= 0 ? "rupture" : q}
                         </span>
                       {/if}
                     {:else}
@@ -672,7 +673,7 @@
 
 <Modal open={showModal} title={editingWine ? formKind.editLabel : formKind.newLabel} onclose={closeModal}>
   <form id="wine-form" class="wine-form" onsubmit={preventDefault(handleSubmit)}>
-    <!-- Choisi à la création seulement : la base refuse de changer le type d'un produit qui a des millésimes ou récoltes. -->
+    <!-- Choisi à la création seulement : la base refuse de changer le type d'un produit qui a des millésimes ou des lots. -->
     <Field id="wine-kind" label="Type de produit" required help={editingWine ? "Ne change plus une fois le produit créé." : ""}>
       <select
         id="wine-kind"

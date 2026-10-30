@@ -1,7 +1,7 @@
 <script lang="ts">
   import OrganicLogo from "./OrganicLogo.svelte";
   import WineBottle from "./WineBottle.svelte";
-  import { grapesText, wineStyle, wineSubtitle, wineTitle, styleLabel } from "$lib/wine";
+  import { formatsText, grapesText, styleLabel, wineStyle, wineSubtitle, wineTitle } from "$lib/wine";
   import { formatEUR } from "$lib/format";
   import { kindInfo } from "$lib/productKinds";
   import type { Availability } from "$lib/publicData";
@@ -14,6 +14,8 @@
     /** Lien vers la fiche ; sinon la carte émet `open`. */
     href?: string | null;
     availability?: Availability | null;
+    /** Contenants présentés sur cette carte (dont `vintage`, le plus petit) : « 50 cl · 1 L · 5 L », prix « dès ». */
+    formats?: any[] | null;
   }
 
   let {
@@ -21,6 +23,7 @@
     position = null,
     href = null,
     availability = null,
+    formats = null,
     onopen
   }: Props = $props();
 
@@ -31,6 +34,13 @@
   let grapes = $derived(grapesText(vintage?.wine_vintage_grape));
   let soldOut = $derived(!!availability && !availability.in_stock);
   let lowStock = $derived(!soldOut && !!availability?.low_stock);
+  let lots = $derived(formats?.length ? formats : [vintage]);
+  /* Contenants affichés dès qu'il y en a plusieurs, ou qu'il ne s'agit pas de la bouteille standard. */
+  let volumes = $derived(formatsText(lots));
+  let prices = $derived(lots.map((f) => f.price).filter((p): p is number => p != null));
+  let priceText = $derived(
+    prices.length ? `${new Set(prices).size > 1 ? "dès " : ""}${formatEUR(Math.min(...prices))}` : "",
+  );
 </script>
 
 <svelte:element
@@ -68,6 +78,9 @@
     {#if grapes}
       <p class="grapes">{grapes}</p>
     {/if}
+    {#if volumes}
+      <p class="volumes">{volumes}</p>
+    {/if}
 
     <div class="foot">
       {#if soldOut}
@@ -79,8 +92,8 @@
         {#if vintage?.year}
           <span class="year">{vintage.year}</span>
         {/if}
-        {#if vintage?.price}
-          <span class="price">{formatEUR(vintage.price)}</span>
+        {#if priceText}
+          <span class="price">{priceText}</span>
         {/if}
       </div>
     </div>
@@ -217,6 +230,13 @@
   .grapes {
     color: var(--mz-muted);
     font-style: italic;
+  }
+
+  .volumes {
+    margin: 0;
+    font-size: 0.85rem;
+    color: var(--mz-ink-soft);
+    font-variant-numeric: tabular-nums;
   }
 
   .foot {

@@ -6,6 +6,7 @@
   import {
     grapesText,
     styleLabel,
+    vintageVolume,
     vintageNotes,
     winePairings,
     wineryFlag,
@@ -28,6 +29,7 @@
   let v = $derived(wineVintage as any);
   let wine = $derived(v?.wine);
   let kind = $derived(kindInfo(wine));
+  let volume = $derived(v ? vintageVolume(v) : "");
   let style = $derived(wineStyle(wine?.wine_type));
   let region = $derived(wine?.winery?.region?.name || wine?.winery?.country?.name || "");
   let flag = $derived(wineryFlag(wine?.winery));
@@ -87,6 +89,9 @@
           <dl class="facts">
             {#if v.year}
               <div><dt>{kind.yearFact}</dt><dd>{v.year}</dd></div>
+            {/if}
+            {#if volume}
+              <div><dt>Contenant</dt><dd>{volume}</dd></div>
             {/if}
             {#if v.abv}
               <div><dt>Alcool</dt><dd>{v.abv} % vol.</dd></div>

@@ -3,7 +3,7 @@
  * l'admin. Le vocabulaire propre à chaque type de produit est dans productKinds.ts.
  */
 
-import { kindInfo, type ProductKind } from "./productKinds";
+import { formatVolume, kindInfo, kindOf, type ProductKind } from "./productKinds";
 
 export type WineStyleKey = "red" | "white" | "rose" | "orange" | "sparkling" | "oil" | "other";
 
@@ -114,64 +114,103 @@ export function wineSubtitle(wine: WineLike): string {
   return appellationText(wine?.appelation);
 }
 
-/** « Domaine — Cuvée — 2022 » (libellé compact pour l'admin, la recherche…). */
-export function vintageLabel(v: {
+/** Lot tel que les libellés le lisent : année, mise en bouteille, contenant et produit. */
+type VintageLike = {
   year?: number | null;
   production_year?: number | null;
+  volume_ml?: number | null;
   wine?: WineLike;
-} | null | undefined): string {
+};
+
+/** Contenant d'un lot à afficher (« 5 L », « 1,5 L ») ; vide pour la bouteille standard du vin. */
+export function vintageVolume(v: VintageLike | null | undefined, kind: ProductKind = kindOf(v?.wine)): string {
+  if (!v?.volume_ml || v.volume_ml === kindInfo(kind).standardVolume) return "";
+  return formatVolume(v.volume_ml);
+}
+
+/** « 2025 · 5 L » : un libellé suivi du contenant du lot, s'il est à afficher. */
+export function withVolume(
+  text: string,
+  v: VintageLike | null | undefined,
+  kind: ProductKind = kindOf(v?.wine),
+  separator = " · ",
+): string {
+  const volume = vintageVolume(v, kind);
+  return volume ? `${text}${separator}${volume}` : text;
+}
+
+/** Tri des contenants d'un même lot, du plus petit au plus grand. */
+export function byVolume(a: { volume_ml?: number | null }, b: { volume_ml?: number | null }): number {
+  return (a.volume_ml ?? 0) - (b.volume_ml ?? 0);
+}
+
+/** Contenants présentés ensemble (« 50 cl · 1 L · 5 L ») : vide pour un seul lot en bouteille standard. */
+export function formatsText(formats: VintageLike[]): string {
+  if (formats.length === 1 && !vintageVolume(formats[0])) return "";
+  return formats.map((f) => (f.volume_ml ? formatVolume(f.volume_ml) : "")).filter(Boolean).join(" · ");
+}
+
+/** « Domaine — Cuvée — 2022 » (« — 1,5 L » hors bouteille standard) : libellé compact pour l'admin, la recherche… */
+export function vintageLabel(v: VintageLike | null | undefined): string {
   if (!v) return "—";
   const parts = [v.wine?.winery?.name, wineTitle(v.wine)].filter(Boolean);
   const year = v.year ?? v.production_year;
   if (year) parts.push(String(year));
-  return parts.join(" — ");
+  return withVolume(parts.join(" — "), v, undefined, " — ");
 }
 
-/** « Riserva 2019 » : nom court, sans domaine (listes de l'admin). */
-export function vintageShortLabel(v: {
-  year?: number | null;
-  production_year?: number | null;
-  wine?: WineLike;
-} | null | undefined): string {
+/** « Riserva 2019 », « Olio 2025 · 5 L » : nom court, sans domaine (listes de l'admin). */
+export function vintageShortLabel(v: VintageLike | null | undefined): string {
   const name = v?.wine?.name?.trim() || v?.wine?.appelation?.name || kindInfo(v?.wine).label;
   const year = v?.year ?? v?.production_year;
-  return year ? `${name} ${year}` : name;
+  return withVolume(year ? `${name} ${year}` : name, v);
 }
 
 /**
- * « Domaine - Cuvée - 2022 » (ou « Domaine - Cuvée (2021) » sans millésime) : libellé des lignes
- * de vente, de commande et de transport, factures et bons de commande compris.
+ * « Domaine - Cuvée - 2022 » (ou « Domaine - Cuvée (2021) » sans millésime, « - 5 L » hors bouteille
+ * standard) : libellé des lignes de vente, de commande et de transport, factures et bons de commande compris.
  */
-export function vintageProductLabel(v: {
-  year?: number | null;
-  production_year?: number | null;
-  wine?: WineLike;
-}): string {
+export function vintageProductLabel(v: VintageLike): string {
   const winery = v.wine?.winery?.name;
   const name = v.wine?.name || v.wine?.appelation?.name;
   const base = name ? `${winery} - ${name}` : `${winery}`;
-  return v.year ? `${base} - ${v.year}` : `${base} (${v.production_year})`;
+  return withVolume(v.year ? `${base} - ${v.year}` : `${base} (${v.production_year})`, v, undefined, " - ");
 }
 
-type SortableVintage = { year?: number | null; production_year?: number | null; wine?: WineLike };
-
-/** Tri des sélecteurs de l'admin : domaine, puis cuvée (ou appellation), puis année décroissante. */
-export function compareVintages(a: SortableVintage, b: SortableVintage): number {
+/** Tri des sélecteurs de l'admin : domaine, cuvée (ou appellation), année décroissante, puis contenant. */
+export function compareVintages(a: VintageLike, b: VintageLike): number {
   const wineryA = a.wine?.winery?.name?.toLowerCase() || "";
   const wineryB = b.wine?.winery?.name?.toLowerCase() || "";
   if (wineryA !== wineryB) return wineryA.localeCompare(wineryB);
   const nameA = a.wine?.name?.toLowerCase() || a.wine?.appelation?.name?.toLowerCase() || "";
   const nameB = b.wine?.name?.toLowerCase() || b.wine?.appelation?.name?.toLowerCase() || "";
   if (nameA !== nameB) return nameA.localeCompare(nameB);
-  return (b.year || b.production_year || 0) - (a.year || a.production_year || 0);
+  const byYear = (b.year || b.production_year || 0) - (a.year || a.production_year || 0);
+  return byYear || byVolume(a, b);
 }
 
-/** « 2019 », ou « Non millésimé (2021) » avec l'année de mise en bouteille. */
-export function vintageYearLabel(
-  v: { year?: number | null; production_year?: number | null },
-  kind: ProductKind = "wine",
-): string {
-  return v.year ? String(v.year) : `${kindInfo(kind).noYear} (${v.production_year})`;
+/** « 2019 », « 2025 · 5 L », ou « Non millésimé (2021) » avec l'année de mise en bouteille. */
+export function vintageYearLabel(v: VintageLike, kind: ProductKind = kindOf(v.wine)): string {
+  return withVolume(v.year ? String(v.year) : `${kindInfo(kind).noYear} (${v.production_year})`, v, kind);
+}
+
+/** Les contenants d'un même produit et d'une même année, le plus petit en tête (une carte par lot sur le site). */
+export type FormatGroup<T> = { vintage: T; formats: T[] };
+
+/** Regroupe les contenants par produit et par année, dans l'ordre de la liste. */
+export function groupFormats<T extends { wine_id: string; year?: number | null; production_year?: number | null; volume_ml?: number | null }>(
+  list: T[],
+): FormatGroup<T>[] {
+  const groups = new Map<string, T[]>();
+  for (const v of list) {
+    const key = `${v.wine_id}:${v.year ?? `sans-annee-${v.production_year}`}`;
+    if (!groups.has(key)) groups.set(key, []);
+    groups.get(key)!.push(v);
+  }
+  return [...groups.values()].map((formats) => {
+    formats.sort(byVolume);
+    return { vintage: formats[0], formats };
+  });
 }
 
 export function grapesText(

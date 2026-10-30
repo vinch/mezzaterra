@@ -11,6 +11,8 @@
     grapesText,
     styleLabel,
     vintageNotes,
+    formatsText,
+    vintageVolume,
     winePairings,
     wineryFlag,
     wineryPlace,
@@ -19,7 +21,7 @@
     wineTitle,
   } from "$lib/wine";
   import { formatEUR } from "$lib/format";
-  import { kindInfo, productHref } from "$lib/productKinds";
+  import { formatVolume, kindInfo, productHref } from "$lib/productKinds";
 
   let { data } = $props();
 
@@ -70,7 +72,7 @@
     setTimeout(() => (shareFeedback = ""), 2500);
   }
 
-  let orderHref = $derived(contactHref("commande", [title, v?.year].filter(Boolean).join(" ")));
+  let orderHref = $derived(contactHref("commande", [title, v?.year, v && vintageVolume(v)].filter(Boolean).join(" ")));
   let hasAbout = $derived(Boolean(wine?.description || notes.length || pairings.length));
 </script>
 
@@ -124,6 +126,7 @@
           <dl class="facts">
             {#if v.year}<div><dt>{kind.yearFact}</dt><dd>{v.year}</dd></div>{/if}
             {#if v.abv}<div><dt>Alcool</dt><dd>{v.abv} % vol.</dd></div>{/if}
+            {#if formatsText(data.formats)}<div><dt>Contenant</dt><dd>{formatVolume(v.volume_ml)}</dd></div>{/if}
             {#if v.price}<div><dt>Prix</dt><dd>{formatEUR(v.price)}</dd></div>{/if}
             {#if grapes}<div><dt>{kind.ingredients}</dt><dd class="small">{grapes}</dd></div>{/if}
             {#if stock}
@@ -135,6 +138,22 @@
               </div>
             {/if}
           </dl>
+
+          {#if data.formats.length > 1}
+            <nav class="formats" aria-label="Contenants">
+              {#each data.formats as f (f.id)}
+                <a
+                  class="mz-chip format"
+                  class:on={f.id === v.id}
+                  href="/{kind.slug}/{f.id}"
+                  aria-current={f.id === v.id ? "page" : undefined}
+                  data-sveltekit-noscroll
+                >
+                  {formatVolume(f.volume_ml)}{f.price != null ? ` · ${formatEUR(f.price)}` : ""}
+                </a>
+              {/each}
+            </nav>
+          {/if}
 
           {#if data.siblings.length}
             <p class="mz-muted siblings">
@@ -330,6 +349,26 @@
 
   .siblings {
     margin: 0;
+  }
+
+  .formats {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.4rem;
+  }
+
+  .format {
+    text-decoration: none;
+    background: transparent;
+    border: 1px solid var(--mz-line);
+    color: var(--mz-ink-soft);
+  }
+
+  .format:hover,
+  .format.on {
+    border-color: var(--mz-teal);
+    background: var(--mz-teal-wash);
+    color: var(--mz-teal);
   }
 
   .actions {

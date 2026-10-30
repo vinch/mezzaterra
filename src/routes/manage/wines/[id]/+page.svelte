@@ -39,7 +39,8 @@
     wineTitle,
     wineTypeLabel,
   } from "$lib/wine";
-  import { kindInfo } from "$lib/productKinds";
+  import { formatVolume, kindInfo } from "$lib/productKinds";
+  import { byVolume } from "$lib/wine";
 
   interface Props {
     data: PageData;
@@ -48,7 +49,7 @@
   let { data }: Props = $props();
 
   let wine = data.wine;
-  /** Vocabulaire du produit : millésime ou récolte, cépages ou variétés… */
+  /** Vocabulaire du produit : millésime ou lot, cépages ou variétés… */
   const kind = kindInfo(wine);
   /* Millésimes déjà chargés par +page.ts ; relus seulement après une modification. */
   let vintages = $state<WineVintage[]>(sortVintages(wine.wine_vintage || []));
@@ -59,9 +60,22 @@
   let editingVintage = $state<any>(null);
 
   function emptyForm() {
-    return { production_year: "", year: "", abv: "", purchase_price: "", price: "", image_url: "", organic: false };
+    return {
+      production_year: "",
+      year: "",
+      volume_ml: String(kind.volumes[0]),
+      abv: "",
+      purchase_price: "",
+      price: "",
+      image_url: "",
+      organic: false,
+    };
   }
   let vintageFormData = $state(emptyForm());
+  /* Contenants proposés, plus celui du lot modifié s'il n'est pas dans la liste. */
+  let volumeOptions = $derived(
+    [...new Set([...kind.volumes, Number(vintageFormData.volume_ml)])].filter((ml) => ml > 0).sort((a, b) => a - b),
+  );
 
   /*
    * Nouveau millésime d'un vin qui en a déjà : on reprend image, cépages et notes de dégustation
@@ -97,7 +111,7 @@
   });
 
   function sortVintages(list: WineVintage[]): WineVintage[] {
-    return [...list].sort((a, b) => b.production_year - a.production_year);
+    return [...list].sort((a, b) => b.production_year - a.production_year || byVolume(a, b));
   }
 
   function openCreateModal() {
@@ -161,6 +175,7 @@
     const text = (v: number | null) => (v != null ? String(v) : "");
     vintageFormData = {
       production_year: text(vintage.production_year),
+      volume_ml: String(vintage.volume_ml),
       year: text(vintage.year),
       abv: text(vintage.abv),
       purchase_price: text(vintage.purchase_price),
@@ -199,6 +214,7 @@
       price: num(vintageFormData.price),
       image_url: vintageFormData.image_url || null,
       organic: vintageFormData.organic,
+      volume_ml: Number(vintageFormData.volume_ml),
     };
 
     /* La ligne enregistrée revient de la base : la liste se met à jour sans tout relire. */
@@ -490,6 +506,16 @@
         />
       </div>
 
+      <!-- Un lot par contenant : 50 cl et 5 L d'une même huile ont chacun leur prix et leur stock. -->
+      <div class="form-group">
+        <label for="volume_ml">Contenant *</label>
+        <select id="volume_ml" bind:value={vintageFormData.volume_ml} required>
+          {#each volumeOptions as ml (ml)}
+            <option value={String(ml)}>{formatVolume(ml)}</option>
+          {/each}
+        </select>
+      </div>
+
       <div class="form-group">
         <label for="purchase_price">Prix d'achat (€)</label>
         <input
@@ -557,7 +583,7 @@
   {/snippet}
 </Modal>
 
-<!-- Cépages d'un millésime, variétés d'olives d'une récolte -->
+<!-- Cépages d'un millésime, variétés d'olives d'un lot -->
 <Modal open={showGrapesModal} title={kind.ingredients} maxWidth={520} onclose={closeGrapesModal}>
   {#if error}<div class="error-message" role="alert">{error}</div>{/if}
   {#if selectedVintage}<p class="t-muted grapes-intro">{wineTitle(wine)} · {vintageYearLabel(selectedVintage, kind.key)}</p>{/if}
