@@ -162,7 +162,9 @@
       supabase
         .from("tasting_registration")
         .select("customer_id, seats, status")
-        .eq("tasting_id", tastingId),
+        .eq("tasting_id", tastingId)
+        .eq("status", "confirmed")
+        .not("customer_id", "is", null),
     ]);
 
     if (fetchError || regError) throw new Error((fetchError || regError)!.message);
