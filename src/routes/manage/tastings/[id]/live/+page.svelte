@@ -864,6 +864,11 @@
     gap: 4px;
   }
 
+  /* Lien direct #participants : le titre ne passe pas sous la barre fixe du mobile (56 px). */
+  :global(#participants) {
+    scroll-margin-top: 72px;
+  }
+
   .list {
     list-style: none;
     margin: 0;
