@@ -8,6 +8,8 @@ import { supabase } from "./supabase";
  *   et persistée dans `tasting.live_position` pour les retardataires.
  * - Les notes et le panier des invités vivent d'abord dans le localStorage (ça marche hors-ligne),
  *   puis sont envoyés en base quand c’est possible.
+ * - Le panier est une pré-commande (live_preorder) : « J'en veux » l'enregistre sans rien demander,
+ *   l'invité la confirme depuis son récap et elle devient une demande « J'en veux » (wish_request).
  */
 
 export type GuestProfile = { firstName: string; lastName: string; email: string; phone: string };
@@ -57,6 +59,11 @@ export function getProfile(): GuestProfile {
   return read<GuestProfile>(PROFILE_KEY, { firstName: "", lastName: "", email: "", phone: "" });
 }
 
+/** « Prénom Nom », tel que l'invité l'a saisi. */
+export function guestName(p: GuestProfile): string {
+  return [p.firstName, p.lastName].filter(Boolean).join(" ").trim();
+}
+
 export function saveProfile(p: GuestProfile) {
   write(PROFILE_KEY, p);
 }
@@ -95,7 +102,7 @@ export async function pushFeedback(opts: {
   profile: GuestProfile;
 }): Promise<boolean> {
   try {
-    const name = [opts.profile.firstName, opts.profile.lastName].filter(Boolean).join(" ").trim();
+    const name = guestName(opts.profile);
     const { error } = await supabase.from("tasting_feedback").insert({
       tasting_id: opts.tastingId,
       wine_vintage_id: opts.vintageId,
@@ -104,6 +111,33 @@ export async function pushFeedback(opts: {
       guest_email: opts.profile.email.trim().toLowerCase() || null,
       rating: opts.rating,
       comment: opts.comment.trim().slice(0, 1000) || null,
+    });
+    return !error;
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Enregistre la pré-commande du téléphone (panier vide : supprimée), ou la confirme.
+ * Faux en cas d'échec : le panier reste sur le téléphone.
+ */
+export async function savePreorder(opts: {
+  tastingId: string;
+  cart: Record<string, number>;
+  profile: GuestProfile;
+  confirm?: boolean;
+}): Promise<boolean> {
+  try {
+    const { error } = await supabase.rpc("save_live_preorder", {
+      p_tasting_id: opts.tastingId,
+      p_guest_id: getGuestId(),
+      p_items: Object.entries(opts.cart).map(([wine_vintage_id, quantity]) => ({ wine_vintage_id, quantity })),
+      p_first_name: opts.profile.firstName,
+      p_last_name: opts.profile.lastName,
+      p_email: opts.profile.email,
+      p_phone: opts.profile.phone,
+      p_confirm: opts.confirm ?? false,
     });
     return !error;
   } catch {

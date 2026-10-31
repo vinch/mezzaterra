@@ -62,6 +62,8 @@
 
   let feedback = $state.raw<any[]>([]);
   let wishes = $state.raw<WishRequest[]>([]);
+  /** Pré-commandes des invités, pas encore confirmées : ni comptées ni transformables en vente. */
+  let preorders = $state.raw<any[]>([]);
   let registrations = $state.raw<any[]>([]);
   /** Participants (tasting_customer), triés par nom, avec leurs places hors réservation en ligne. */
   let participants = $state.raw<any[]>([]);
@@ -161,6 +163,15 @@
           .eq("tasting_id", tastingId)
           .order("created_at", { ascending: false });
         wishes = (data || []) as unknown as WishRequest[];
+      })(),
+      (async () => {
+        const { data, error: e } = await supabase
+          .from("live_preorder")
+          .select("*")
+          .eq("tasting_id", tastingId)
+          .order("updated_at", { ascending: false });
+        if (e) return;
+        preorders = data;
       })(),
       (async () => {
         const { data, error: e } = await supabase
@@ -307,10 +318,10 @@
   let headerSubtitle = $derived(tasting
     ? [formatDate(tasting.date), tasting.location, tasting.start_time ? `depuis ${formatTime(tasting.start_time)}` : ""].filter(Boolean).join(" · ")
     : "");
-  function wishFor(w: WishRequest, vintageId: string): number {
+  function wishFor(w: { items: unknown }, vintageId: string): number {
     return wishItems(w.items).filter((i) => i.wine_vintage_id === vintageId).reduce((n, i) => n + i.quantity, 0);
   }
-  function wishBottles(w: WishRequest): number {
+  function wishBottles(w: { items: unknown }): number {
     return wishItems(w.items).reduce((n, i) => n + i.quantity, 0);
   }
 </script>
@@ -493,7 +504,7 @@
             {#snippet actions()}
                                 <span class="t-caption">Flèches ← → ou espace pour avancer</span>
                               {/snippet}
-            {#if wishes.length === 0}
+            {#if wishes.length === 0 && preorders.length === 0}
               <EmptyState icon={IconInbox} title="Aucune commande pour l’instant" text="Les invités commandent depuis leur téléphone (« J’en veux »)." compact />
             {:else}
               <div class="orders-wrap">
@@ -528,6 +539,17 @@
                             <span class="t-caption">Ignorée</span>
                           {/if}
                         </td>
+                      </tr>
+                    {/each}
+                    {#each preorders as p (p.guest_id)}
+                      <tr class="muted-row">
+                        <td>
+                          <strong>{p.first_name || "Invité"} {p.last_name || ""}</strong>
+                          <span class="t-caption block">{[p.email, p.phone].filter(Boolean).join(" · ")}</span>
+                        </td>
+                        <td class="num">{wishFor(p, current.id) || "—"}</td>
+                        <td class="num"><span class="t-muted">{wishBottles(p)} bt.</span> <strong>{formatEUR(wishTotal(p, prices))}</strong></td>
+                        <td class="col-actions"><span class="t-caption">Pré-commande, pas encore confirmée</span></td>
                       </tr>
                     {/each}
                   </tbody>

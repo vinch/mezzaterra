@@ -103,6 +103,14 @@ publique et, comme son site, dans « Du même domaine » des fiches produits. À
 déployer le code : la page Domaines de la gestion envoie toujours `instagram`, et tout enregistrement
 d'un domaine échouerait sans la colonne.
 
+`20261031200000_live_preorder.sql` simplifie le « J'en veux » du mode dégustation : chaque ajout
+enregistre une pré-commande (`live_preorder`, une par téléphone et par dégustation, sans nom ni contact
+obligatoires) via la fonction `save_live_preorder`, et l'animateur la voit dans Piloter. L'invité
+l'ajuste depuis son récap puis la confirme (prénom et email ou téléphone) : elle devient une demande
+`wish_request` comme avant, que l'admin transforme en vente. Le public ne peut plus insérer
+directement dans `wish_request`. À appliquer avant de déployer le code : la page live appelle
+`save_live_preorder`.
+
 ```sh
 supabase link --project-ref wmerreifcpttrhxwmkmn
 supabase db push

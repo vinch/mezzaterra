@@ -32,8 +32,8 @@ export type WishRequest = {
   created_at: string;
 };
 
-/** Montant d'une demande au prix catalogue. */
-export function wishTotal(w: WishRequest, prices: Map<string, number>): number {
+/** Montant d'une demande (ou d'une pré-commande du mode dégustation) au prix catalogue. */
+export function wishTotal(w: { items: unknown }, prices: Map<string, number>): number {
   return wishItems(w.items).reduce((s, i) => s + i.quantity * (prices.get(i.wine_vintage_id) ?? 0), 0);
 }
 
