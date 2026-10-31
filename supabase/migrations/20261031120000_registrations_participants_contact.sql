@@ -147,17 +147,26 @@ CREATE TRIGGER tasting_customer_cancel_registration
   FOR EACH ROW EXECUTE FUNCTION public.cancel_registration_of_removed_participant();
 
 -- Gestion : confirmer une réservation (liste d'attente, ou rattachement qui aurait échoué).
+-- L'admin décide : la capacité peut être dépassée. Une réservation annulée ne revient pas.
 CREATE OR REPLACE FUNCTION public.confirm_tasting_registration(p_registration_id uuid)
 RETURNS uuid
 LANGUAGE plpgsql
 SECURITY DEFINER
 SET search_path = public
 AS $$
+DECLARE
+  v_tasting_id uuid;
 BEGIN
   PERFORM assert_admin();
-  UPDATE tasting_registration SET status = 'confirmed' WHERE id = p_registration_id;
+  SELECT tasting_id INTO v_tasting_id FROM tasting_registration WHERE id = p_registration_id;
   IF NOT FOUND THEN
     RAISE EXCEPTION 'Réservation introuvable';
+  END IF;
+  -- Même verrou que register_for_tasting : pas de calcul de places concurrent.
+  PERFORM 1 FROM tasting WHERE id = v_tasting_id FOR UPDATE;
+  UPDATE tasting_registration SET status = 'confirmed' WHERE id = p_registration_id AND status <> 'cancelled';
+  IF NOT FOUND THEN
+    RAISE EXCEPTION 'Réservation annulée';
   END IF;
   RETURN link_registration_to_customer(p_registration_id);
 END;
