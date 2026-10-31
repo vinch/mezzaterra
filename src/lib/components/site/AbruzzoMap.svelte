@@ -71,6 +71,9 @@
     if (touch && tapped !== id) {
       e.preventDefault();
       tapped = id;
+    } else {
+      /* La page domaine réutilise la carte d'un domaine à l'autre : l'infobulle ne doit pas suivre. */
+      tapped = null;
     }
   };
 
