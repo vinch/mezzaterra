@@ -35,6 +35,8 @@ export { default as IconMapPin } from "@lucide/svelte/icons/map-pin";
 export { default as IconMenu } from "@lucide/svelte/icons/menu";
 export { default as IconMinus } from "@lucide/svelte/icons/minus";
 export { default as IconMonitor } from "@lucide/svelte/icons/monitor";
+export { default as IconOil } from "@lucide/svelte/icons/droplet";
+export { default as IconOlive } from "@lucide/svelte/icons/leaf";
 export { default as IconPencil } from "@lucide/svelte/icons/pencil";
 export { default as IconPlay } from "@lucide/svelte/icons/play";
 export { default as IconPlus } from "@lucide/svelte/icons/plus";

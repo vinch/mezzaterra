@@ -20,6 +20,7 @@
     IconInbox,
     IconLightbulb,
     IconPlus,
+    IconReceipt,
     IconUsers,
     IconWine,
   } from "$lib/ui/icons";
@@ -352,7 +353,7 @@
                     <span class="t-caption">par chiffre d’affaires</span>
                   {/snippet}
           {#if topWines.length === 0}
-            <EmptyState icon={IconWine} title="Pas encore de ventes encaissées" compact />
+            <EmptyState icon={IconReceipt} title="Pas encore de ventes encaissées" compact />
           {:else}
             <ol class="rank">
               {#each topWines as w}

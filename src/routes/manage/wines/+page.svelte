@@ -31,10 +31,10 @@
     IconPlus,
     IconSearch,
     IconTrash,
-    IconWine,
     IconX,
   } from "$lib/ui/icons";
   import IconPlate from "@lucide/svelte/icons/utensils-crossed";
+  import { KIND_ICONS } from "$lib/ui/kindIcons";
   import { fold, formatEUR } from "$lib/format";
   import { promptReorder } from "$lib/reorder";
   import { isDiscontinued } from "$lib/wine";
@@ -559,7 +559,7 @@
     <Spinner />
   {:else if tabWines.length === 0}
     <div class="empty-card">
-      <EmptyState icon={IconWine} title={tabKind.noProduct} text="Créez le produit, puis ses {tabKind.batchPlural.toLowerCase()} (un par contenant).">
+      <EmptyState icon={KIND_ICONS[tab].product} title={tabKind.noProduct} text="Créez le produit, puis ses {tabKind.batchPlural.toLowerCase()} (un par contenant).">
         <Button onclick={openCreateModal}><IconPlus size={16} strokeWidth={1.75} /> {tabKind.newLabel}</Button>
       </EmptyState>
     </div>
