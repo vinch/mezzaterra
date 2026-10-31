@@ -234,7 +234,7 @@
     }
   }
 
-  async function confirm(r: any) {
+  async function confirmRow(r: any) {
     actionError = "";
     busyId = r.id;
     try {
@@ -311,9 +311,9 @@
             </span>
             {#if r.status === "confirmed" && r.customer_id}
               <span class="t-caption ok"><IconCheck size={13} strokeWidth={2} aria-hidden="true" /> Participant</span>
-            {:else if r.status !== "cancelled"}
-              <Button size="sm" variant="ghost" disabled={busyId === r.id} onclick={() => confirm(r)}>
-                {r.status === "waitlist" ? "Confirmer" : "Ajouter aux participants"}
+            {:else}
+              <Button size="sm" variant="ghost" disabled={busyId === r.id} onclick={() => confirmRow(r)}>
+                {r.status === "waitlist" ? "Confirmer" : r.status === "cancelled" ? "Rétablir" : "Ajouter aux participants"}
               </Button>
             {/if}
           </li>
@@ -366,7 +366,7 @@
       <section class="band" aria-label="La soirée en chiffres">
         <div class="band-item">
           <span class="t-caption">Places prises</span>
-          <span class="band-v">{seats?.seats_taken ?? "—"}{#if seats?.capacity}<small> / {seats.capacity}</small>{/if}{#if seatsOnline}<small> · {seatsOnline} en ligne</small>{/if}</span>
+          <span class="band-v">{seats?.seats_taken ?? "—"}{#if seats?.capacity != null}<small> / {seats.capacity}</small>{/if}{#if seatsOnline}<small> · {seatsOnline} en ligne</small>{/if}</span>
         </div>
         <div class="band-item">
           <span class="t-caption">Bouteilles vendues</span>

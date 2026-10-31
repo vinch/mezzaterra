@@ -122,8 +122,8 @@ export async function setWishStatus(id: string, status: "new" | "done" | "dismis
 
 /**
  * Réservation en ligne → client + participant (fonction SQL confirm_tasting_registration).
- * Les réservations confirmées sont rattachées dès l'inscription : ceci sert à la liste d'attente
- * et au cas rare où le rattachement automatique a échoué.
+ * Les réservations confirmées sont rattachées dès l'inscription : ceci sert à la liste d'attente,
+ * à rétablir une réservation annulée et au cas rare où le rattachement automatique a échoué.
  */
 export async function confirmRegistration(registrationId: string) {
   const { error } = await supabase.rpc("confirm_tasting_registration", { p_registration_id: registrationId });

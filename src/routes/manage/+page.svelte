@@ -326,7 +326,7 @@
               {#if nextTastingSeats}
                 <li>
                   <a href="/manage/tastings?id={nextTasting.id}">
-                    <strong>{nextTastingSeats.seats_taken}</strong>{nextTastingSeats.capacity ? ` / ${nextTastingSeats.capacity}` : ""} places prises{nextTastingOnline ? `, dont ${nextTastingOnline} réservées en ligne` : ""}
+                    <strong>{nextTastingSeats.seats_taken}</strong>{nextTastingSeats.capacity != null ? ` / ${nextTastingSeats.capacity}` : ""} places prises{nextTastingOnline ? `, dont ${nextTastingOnline} réservées en ligne` : ""}
                   </a>
                 </li>
               {/if}
