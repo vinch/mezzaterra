@@ -210,8 +210,8 @@
   </svg>
   {#if tip}
     <!-- Ancrée en proportion de sa position : à gauche près du bord gauche, à droite près du bord
-         droit, pour ne jamais déborder de la carte. -->
-    <div class="tooltip" style="--x: {(tip.x / W) * 100}%; --y: {(tip.y / H) * 100}%" aria-hidden="true">
+         droit ; sous l'épingle près du haut. Elle ne déborde jamais de la carte. -->
+    <div class="tooltip" class:below={tip.y < H * 0.2} style="--x: {(tip.x / W) * 100}%; --y: {(tip.y / H) * 100}%" aria-hidden="true">
       {tip.name}
     </div>
   {/if}
@@ -220,6 +220,7 @@
 <style>
   .map {
     position: relative;
+    container-type: inline-size;
     margin: 0;
     color: var(--mz-teal);
   }
@@ -414,7 +415,9 @@
     position: absolute;
     left: var(--x);
     top: var(--y);
-    translate: calc(-1 * var(--x)) calc(-100% - 0.7rem);
+    /* Écart à l'épingle : son rayon suit la taille de la carte (cqw), plus une marge fixe. */
+    --gap: calc(2cqw + 0.35rem);
+    translate: calc(-1 * var(--x)) calc(-100% - var(--gap));
     padding: 0.35rem 0.7rem;
     border-radius: var(--mz-radius-sm);
     background: var(--mz-teal);
@@ -426,6 +429,10 @@
     white-space: nowrap;
     pointer-events: none;
     animation: tooltip-in 0.15s var(--mz-ease);
+  }
+
+  .tooltip.below {
+    translate: calc(-1 * var(--x)) var(--gap);
   }
 
   @keyframes tooltip-in {
