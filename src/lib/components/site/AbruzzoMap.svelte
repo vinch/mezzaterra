@@ -56,19 +56,20 @@
     .filter((w) => w.x >= 0 && w.x <= W && w.y >= 0 && w.y <= H)
     .sort((a, b) => a.y - b.y || a.x - b.x));
 
-  /* Infobulle : épingle survolée à la souris ou au clavier. Au toucher, sans survol, un premier
-     appui affiche le nom et un second ouvre le domaine. */
+  /* Infobulle : épingle survolée (souris, stylet) ou au focus clavier. Au toucher, sans survol, un
+     premier appui affiche le nom et un second ouvre le domaine ; Entrée (clic sans appui,
+     `detail` à 0) ouvre toujours directement. */
   let hovered = $state<string | null>(null);
   let tapped = $state<string | null>(null);
   let touch = false;
   let tip = $derived(pins.find((w) => w.id === (hovered ?? tapped)));
   const untrack = () => (hovered = null);
   const press = (e: PointerEvent) => {
-    touch = e.pointerType !== "mouse";
+    touch = e.pointerType === "touch";
     if (touch && !(e.target as Element).closest(".pin")) tapped = null;
   };
   const open = (e: MouseEvent, id: string) => {
-    if (touch && tapped !== id) {
+    if (touch && e.detail && tapped !== id) {
       e.preventDefault();
       tapped = id;
     } else {
@@ -194,7 +195,7 @@
         style="--delay: {1400 + i * 180}ms"
         aria-label="{w.name} — voir le domaine"
         aria-current={current === w.id ? "page" : undefined}
-        onpointerenter={(e) => e.pointerType === "mouse" && (hovered = w.id)}
+        onpointerenter={(e) => e.pointerType !== "touch" && (hovered = w.id)}
         onpointerleave={untrack}
         onfocus={() => (hovered = w.id)}
         onblur={untrack}
