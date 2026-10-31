@@ -97,6 +97,15 @@ export function saveCart(tastingId: string, cart: Record<string, number>) {
   write(`mz-cart:${tastingId}`, cart);
 }
 
+/** Panier changé mais pas encore en base (hors ligne, page quittée) : renvoyé à la prochaine occasion. */
+export function isPreorderDirty(tastingId: string): boolean {
+  return read<boolean>(`mz-preorder-dirty:${tastingId}`, false) === true;
+}
+
+export function setPreorderDirty(tastingId: string, dirty: boolean) {
+  write(`mz-preorder-dirty:${tastingId}`, dirty);
+}
+
 /** Envoie une note en base (insert-only ; la plus récente fait foi). Silencieux en cas d'échec. */
 export async function pushFeedback(opts: {
   tastingId: string;

@@ -28,12 +28,14 @@
     getRatings,
     getServed,
     guestName,
+    isPreorderDirty,
     joinLiveChannel,
     pushFeedback,
     requestSync,
     saveCart,
     savePreorder,
     saveProfile,
+    setPreorderDirty,
     saveRatings,
     saveServed,
     type GuestProfile,
@@ -68,11 +70,11 @@
   let savedFlash = $state(false);
 
   /* ——— Pré-commande (le panier, enregistré en base à chaque changement) ——— */
-  /** Faux tant que le dernier panier n'est pas en base : renvoyé au retour du réseau. */
-  let preorderSaved = true;
   let preorderTimer: ReturnType<typeof setTimeout> | null = null;
   /* Un envoi à la fois : une pré-commande en retard ne doit pas revenir après la confirmation. */
   let preorderQueue: Promise<unknown> = Promise.resolve();
+  /** Numéro du dernier changement : seul son envoi réussi marque le panier comme enregistré. */
+  let preorderVersion = 0;
   let editingContact = $state(false);
   let sending = $state(false);
   let sendResult = $state<"ok" | "offline" | null>(null);
@@ -85,8 +87,8 @@
     cart = getCart(tasting.id);
     getGuestId();
     showWelcome = !profile.firstName;
-    /* Panier resté sur le téléphone (hors ligne, rechargement) : on le renvoie. */
-    if (Object.keys(cart).length) schedulePreorder();
+    /* Changement pas encore enregistré (hors ligne, page quittée) : on le renvoie. */
+    if (isPreorderDirty(tasting.id)) schedulePreorder();
 
     maxServed = getServed(tasting.id);
     if (typeof tasting.live_position === "number") {
@@ -105,7 +107,7 @@
       onStatus: (ok) => {
         connected = ok;
         if (ok && channel) void requestSync(channel);
-        if (ok && !preorderSaved) schedulePreorder();
+        if (ok && isPreorderDirty(tasting.id)) schedulePreorder();
       },
     });
   });
@@ -113,7 +115,8 @@
   onDestroy(() => {
     if (channel) void supabase.removeChannel(channel);
     if (commentTimer) clearTimeout(commentTimer);
-    if (preorderTimer) clearTimeout(preorderTimer);
+    /* Changement de moins de 700 ms : envoyé quand même en quittant la page. */
+    if (preorderTimer) void pushPreorder();
   });
 
   function clamp(p: number): number {
@@ -214,9 +217,12 @@
   }
 
   function schedulePreorder() {
-    preorderSaved = false;
+    const version = ++preorderVersion;
+    setPreorderDirty(tasting.id, true);
     if (preorderTimer) clearTimeout(preorderTimer);
-    preorderTimer = setTimeout(async () => (preorderSaved = await pushPreorder()), 700);
+    preorderTimer = setTimeout(async () => {
+      if ((await pushPreorder()) && version === preorderVersion) setPreorderDirty(tasting.id, false);
+    }, 700);
   }
 
   function hasContact(p: GuestProfile): boolean {
@@ -250,12 +256,14 @@
     const ok = await pushPreorder(true);
     sending = false;
     if (!ok) {
-      /* Réseau capricieux : la sélection reste sur le téléphone. */
+      /* Réseau capricieux : la sélection reste sur le téléphone, et la pré-commande sera renvoyée. */
       sendResult = "offline";
+      schedulePreorder();
       return;
     }
     sendResult = "ok";
-    preorderSaved = true;
+    preorderVersion++;
+    setPreorderDirty(tasting.id, false);
     cart = {};
     saveCart(tasting.id, cart);
   }
