@@ -241,10 +241,14 @@ export function vintageNotes(
     .filter((n) => n.content);
 }
 
-/** Accords mets-vins d'un vin chargé avec `VINTAGE_PUBLIC_SELECT`. */
+/** Accords mets-vins d'un vin chargé avec `VINTAGE_PUBLIC_SELECT` ; aucun pour un type sans accords (huile). */
 export function winePairings(
-  wine: { wine_pairing?: { pairing?: { description?: string | null } | null }[] | null } | null | undefined,
+  wine:
+    | { kind?: string | null; wine_pairing?: { pairing?: { description?: string | null } | null }[] | null }
+    | null
+    | undefined,
 ): string[] {
+  if (!kindInfo(wine).pairingsLabel) return [];
   return (wine?.wine_pairing || []).map((wp) => wp.pairing?.description).filter((d): d is string => !!d);
 }
 
