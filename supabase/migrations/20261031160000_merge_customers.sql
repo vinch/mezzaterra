@@ -2,11 +2,14 @@
 --
 -- Un client déjà connu qui réserve sur le site avec un autre email (ou alors que sa fiche n'en a pas)
 -- n'est pas reconnu : la réservation crée une seconde fiche. Un admin les fusionne depuis la fiche
--- client : ventes, réservations, participations et compte du site passent sur la fiche gardée, qui
--- complète ses coordonnées manquantes avec celles de l'autre, puis l'autre est supprimée.
+-- client : ventes, réservations, participations et notes de dégustation passent sur la fiche gardée,
+-- qui complète ses coordonnées manquantes avec celles de l'autre, puis l'autre est supprimée.
 -- Les réservations gardent leurs places (le +1 d'une réservation à deux reste compté).
 -- Deux emails différents : l'admin choisit celui qui reste (p_keep_from_email), celui avec lequel le
--- client réserve désormais, sinon la prochaine réservation recréerait un doublon.
+-- client réserve désormais, sinon la prochaine réservation recréerait un doublon. Le carnet client du
+-- site se retrouve par l'email de connexion : il suit l'email gardé.
+-- Les factures se lisent sur la fiche : une vente déjà facturée de la fiche supprimée porte ensuite
+-- les coordonnées de la fiche gardée (même personne).
 -- Une nouvelle table qui référence customer doit être ajoutée ici : sinon ses lignes suivent le
 -- ON DELETE de la fiche supprimée.
 
@@ -18,6 +21,8 @@ SET search_path = public
 AS $$
 DECLARE
   f customer;
+  v_into_email text;
+  v_email text;
 BEGIN
   PERFORM assert_admin();
   IF p_from = p_into THEN
@@ -26,7 +31,11 @@ BEGIN
   -- Ordre fixe : deux fusions croisées simultanées ne s'interbloquent pas.
   PERFORM 1 FROM customer WHERE id IN (p_from, p_into) ORDER BY id FOR UPDATE;
   SELECT * INTO f FROM customer WHERE id = p_from;
-  IF NOT FOUND OR NOT EXISTS (SELECT 1 FROM customer WHERE id = p_into) THEN
+  IF NOT FOUND THEN
+    RAISE EXCEPTION 'Client introuvable';
+  END IF;
+  SELECT email INTO v_into_email FROM customer WHERE id = p_into;
+  IF NOT FOUND THEN
     RAISE EXCEPTION 'Client introuvable';
   END IF;
 
@@ -50,18 +59,32 @@ BEGIN
       WHEN p_keep_from_email AND nullif(trim(f.email), '') IS NOT NULL THEN f.email
       ELSE coalesce(nullif(trim(email), ''), f.email)
     END,
-    phone_number = coalesce(nullif(trim(phone_number), ''), f.phone_number),
-    company_name = coalesce(nullif(trim(company_name), ''), f.company_name),
-    vat = coalesce(nullif(trim(vat), ''), f.vat)
-  WHERE id = p_into;
-  -- L'adresse se recopie d'un bloc, pour ne pas mêler la rue de l'une et la ville de l'autre.
+    phone_number = coalesce(nullif(trim(phone_number), ''), f.phone_number)
+  WHERE id = p_into
+  RETURNING email INTO v_email;
+  -- Société et TVA, puis adresse : chacune d'un bloc, et seulement si la fiche gardée n'en a pas et
+  -- l'autre si, pour ne mêler ni la TVA d'une société à une autre, ni la rue de l'une et la ville de
+  -- l'autre, ni effacer un code postal isolé.
+  UPDATE customer SET company_name = f.company_name, vat = f.vat
+  WHERE id = p_into
+    AND coalesce(nullif(trim(company_name), ''), nullif(trim(vat), '')) IS NULL
+    AND coalesce(nullif(trim(f.company_name), ''), nullif(trim(f.vat), '')) IS NOT NULL;
   UPDATE customer SET
     address_line_1 = f.address_line_1,
     address_line_2 = f.address_line_2,
     zip_code = f.zip_code,
     city = f.city,
     country_id = f.country_id
-  WHERE id = p_into AND coalesce(nullif(trim(address_line_1), ''), nullif(trim(city), '')) IS NULL;
+  WHERE id = p_into
+    AND coalesce(nullif(trim(address_line_1), ''), nullif(trim(city), '')) IS NULL
+    AND coalesce(nullif(trim(f.address_line_1), ''), nullif(trim(f.city), '')) IS NOT NULL;
+
+  -- Notes de dégustation : rattachées à un email, celles de l'email abandonné suivent l'email gardé.
+  IF nullif(trim(v_email), '') IS NOT NULL THEN
+    UPDATE tasting_feedback SET guest_email = v_email
+    WHERE lower(guest_email) IN (lower(trim(f.email)), lower(trim(v_into_email)))
+      AND lower(guest_email) <> lower(v_email);
+  END IF;
 END;
 $$;
 
