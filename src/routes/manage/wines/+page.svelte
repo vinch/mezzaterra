@@ -18,6 +18,7 @@
   import StockBadge from "$lib/ui/StockBadge.svelte";
   import WineDot from "$lib/ui/WineDot.svelte";
   import Spinner from "$lib/ui/Spinner.svelte";
+  import Combobox, { type ComboOption } from "$lib/ui/Combobox.svelte";
   import { styleByKey, wineRobe, type WineStyleKey, wineTypeLabel } from "$lib/wine";
   import {
     IconArchive,
@@ -32,7 +33,7 @@
     IconX,
   } from "$lib/ui/icons";
   import IconPlate from "@lucide/svelte/icons/utensils-crossed";
-  import { formatEUR } from "$lib/format";
+  import { fold, formatEUR } from "$lib/format";
   import { promptReorder } from "$lib/reorder";
   import { isDiscontinued } from "$lib/wine";
   import { fetchStockMap } from "$lib/manageData";
@@ -427,6 +428,15 @@
     confirmOpen = false;
   }
   let linkedPairingIds = $derived(new Set(winePairings.map((wp) => wp.pairing_id)));
+  let pairingOptions = $derived(allPairings.map<ComboOption>((p) => {
+    const linked = linkedPairingIds.has(p.id);
+    return {
+      id: p.id,
+      label: linked ? `${p.description} (déjà ajouté)` : p.description,
+      searchText: fold(p.description),
+      disabled: linked,
+    };
+  }));
   // Filter wines based on selected filters
   let filteredWines = $derived(wines.filter((wine) => {
     // Filter by winery
@@ -704,17 +714,16 @@
       {/each}
     </ul>
   {/if}
-  <div class="add-pairing">
-    <select class="ui-control" bind:value={selectedPairingId} aria-label="Accord à ajouter">
-      <option value="">Choisir un plat…</option>
-      {#each allPairings as pairing}
-        <option value={pairing.id} disabled={linkedPairingIds.has(pairing.id)}>
-          {pairing.description}{linkedPairingIds.has(pairing.id) ? " (déjà ajouté)" : ""}
-        </option>
-      {/each}
-    </select>
-    <Button onclick={addPairing} disabled={!selectedPairingId}><IconPlus size={16} strokeWidth={1.75} /> Ajouter</Button>
-  </div>
+  <Field id="add-pairing" label="Ajouter un accord">
+    <Combobox
+      id="add-pairing"
+      bind:value={selectedPairingId}
+      options={pairingOptions}
+      placeholder="Rechercher un plat…"
+      emptyText="Aucun plat trouvé"
+      onchange={addPairing}
+    />
+  </Field>
   {#snippet footer()}
       <Button variant="primary" onclick={closePairingsModal}>Terminé</Button>
   {/snippet}
@@ -912,11 +921,6 @@
 
   .pairings li:last-child {
     border-bottom: none;
-  }
-
-  .add-pairing {
-    display: flex;
-    gap: 8px;
   }
 
   @media (max-width: 767px) {
