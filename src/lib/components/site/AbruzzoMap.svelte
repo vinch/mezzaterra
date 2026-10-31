@@ -44,27 +44,35 @@
   /* 20 km : 1° de latitude ≈ 111 km. */
   const SCALE_PX = (20 / 111) * MAIN.k;
 
-  /* Épingles numérotées du nord au sud : la légende sous la carte donne les noms, sans étiquette à
-     caser sur la carte quel que soit le nombre de domaines. */
+  /* Épingles sans étiquette, triées du nord au sud (ordre de tabulation) : le nom s'affiche dans une
+     infobulle, rien à caser sur la carte quel que soit le nombre de domaines. */
   let pins = $derived(wineries
     .filter((w) => w.latitude != null && w.longitude != null)
     .map((w) => {
       const [x, y] = p(w.longitude!, w.latitude!);
       return { ...w, x, y };
     })
-    /* Hors du cadre, une épingle serait masquée et son numéro manquerait sur la carte. */
+    /* Hors du cadre, une épingle serait masquée mais resterait dans l'ordre de tabulation. */
     .filter((w) => w.x >= 0 && w.x <= W && w.y >= 0 && w.y <= H)
-    .sort((a, b) => a.y - b.y || a.x - b.x)
-    .map((w, i) => ({ ...w, num: i + 1, delay: 1400 + i * 180 })));
+    .sort((a, b) => a.y - b.y || a.x - b.x));
 
-  /* Domaine survolé, sur la carte ou dans la légende : mis en avant des deux côtés. */
+  /* Infobulle : épingle survolée à la souris ou au clavier. Au toucher, sans survol, un premier
+     appui affiche le nom et un second ouvre le domaine. */
   let hovered = $state<string | null>(null);
-  const track = (e: Event) => (hovered = (e.target as Element).closest("[data-id]")?.getAttribute("data-id") ?? null);
+  let tapped = $state<string | null>(null);
+  let touch = false;
+  let tip = $derived(pins.find((w) => w.id === (hovered ?? tapped)));
   const untrack = () => (hovered = null);
-
-  /* Accueil : épingles numérotées et légende, qui porte aussi la navigation au clavier ;
-     page domaine : le domaine affiché suffit, son nom est le titre de la page. */
-  let numbered = $derived(current == null);
+  const press = (e: PointerEvent) => {
+    touch = e.pointerType !== "mouse";
+    if (touch && !(e.target as Element).closest(".pin")) tapped = null;
+  };
+  const open = (e: MouseEvent, id: string) => {
+    if (touch && tapped !== id) {
+      e.preventDefault();
+      tapped = id;
+    }
+  };
 
   let drawn = $state(false);
   onMount(() => {
@@ -78,7 +86,7 @@
   const [insetX, insetY] = [W - insetW - 14, H - insetH - 14];
 </script>
 
-<figure class="map" class:drawn onpointerover={track} onpointerleave={untrack} onfocusin={track} onfocusout={untrack}>
+<figure class="map" class:drawn onpointerdown={press}>
   <svg viewBox="0 0 {W} {H}" role="img" aria-labelledby="map-title map-desc">
     <title id="map-title">Carte des Abruzzes</title>
     <desc id="map-desc">
@@ -144,25 +152,24 @@
         </g>
       {/each}
 
-      {#each pins as w (w.id)}
+      {#each pins as w, i (w.id)}
         <a
           href="/domaines/{w.id}"
           class="pin"
           class:current={current === w.id}
           class:dim={current != null && current !== w.id}
-          class:active={hovered === w.id}
-          style="--delay: {w.delay}ms"
+          class:active={tip?.id === w.id}
+          style="--delay: {1400 + i * 180}ms"
           aria-label="{w.name} — voir le domaine"
           aria-current={current === w.id ? "page" : undefined}
-          tabindex={numbered ? -1 : undefined}
-          data-id={w.id}
+          onpointerenter={(e) => e.pointerType === "mouse" && (hovered = w.id)}
+          onpointerleave={untrack}
+          onfocus={() => (hovered = w.id)}
+          onblur={untrack}
+          onclick={(e) => open(e, w.id)}
         >
-          <title>{w.name}</title>
           <circle class="pin-halo" cx={w.x} cy={w.y} r="12" />
           <circle class="pin-dot" cx={w.x} cy={w.y} r="9" />
-          {#if numbered}
-            <text class="pin-num" x={w.x} y={w.y} dy="0.35em" text-anchor="middle">{w.num}</text>
-          {/if}
         </a>
       {/each}
 
@@ -184,26 +191,25 @@
         <line x1={SCALE_PX} y1="-4" x2={SCALE_PX} y2="4" />
         <text x={SCALE_PX / 2} y="-8" text-anchor="middle">20 km</text>
       </g>
+
+      <!-- Crédits : en haut à droite, sur la mer, en lecture verticale. -->
+      <text class="credits" transform="translate({W - 18},18) rotate(90)">openpolis / ISTAT (CC BY 4.0)</text>
     </g>
 
     <rect class="frame" width={W} height={H} rx="18" />
   </svg>
-  {#if numbered && pins.length}
-    <ol class="legend">
-      {#each pins as w (w.id)}
-        <li>
-          <a href="/domaines/{w.id}" class:active={hovered === w.id} data-id={w.id}>
-            <span class="legend-num">{w.num}</span>{w.name}
-          </a>
-        </li>
-      {/each}
-    </ol>
+  {#if tip}
+    <!-- Ancrée en proportion de sa position : à gauche près du bord gauche, à droite près du bord
+         droit, pour ne jamais déborder de la carte. -->
+    <div class="tooltip" style="--x: {(tip.x / W) * 100}%; --y: {(tip.y / H) * 100}%" aria-hidden="true">
+      {tip.name}
+    </div>
   {/if}
-  <figcaption>openpolis / ISTAT (CC BY 4.0)</figcaption>
 </figure>
 
 <style>
   .map {
+    position: relative;
     margin: 0;
     color: var(--mz-teal);
   }
@@ -332,14 +338,6 @@
     transition: fill 0.15s var(--mz-ease);
   }
 
-  .pin-num {
-    font-family: var(--mz-font-body);
-    font-size: 10px;
-    font-weight: 600;
-    fill: var(--mz-paper-raised);
-    pointer-events: none;
-  }
-
   a.pin {
     cursor: pointer;
   }
@@ -364,50 +362,6 @@
 
   .pin.dim.active .pin-dot {
     fill: var(--mz-wine-red);
-  }
-
-  .legend {
-    display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(min(100%, 9.5rem), 1fr));
-    gap: 0.4rem 1.25rem;
-    margin: 0.9rem 0 0;
-    padding: 0;
-    list-style: none;
-  }
-
-  .legend a {
-    display: flex;
-    align-items: center;
-    gap: 0.55rem;
-    font-family: var(--mz-font-display);
-    font-size: 1rem;
-    line-height: 1.2;
-    color: var(--mz-teal);
-    text-decoration: none;
-    transition: color 0.15s var(--mz-ease);
-  }
-
-  .legend a.active {
-    color: var(--mz-wine-red);
-  }
-
-  .legend-num {
-    display: inline-grid;
-    flex: none;
-    place-items: center;
-    width: 1.4rem;
-    height: 1.4rem;
-    border-radius: 50%;
-    background: var(--mz-wine-red);
-    color: var(--mz-paper-raised);
-    font-family: var(--mz-font-body);
-    font-size: 0.7rem;
-    font-weight: 600;
-    transition: background 0.15s var(--mz-ease);
-  }
-
-  .legend a.active .legend-num {
-    background: var(--mz-teal);
   }
 
   .inset rect {
@@ -439,11 +393,35 @@
     stroke: var(--mz-line);
   }
 
-  figcaption {
-    margin-top: 0.4rem;
-    font-size: 0.7rem;
-    color: var(--mz-muted);
-    text-align: right;
+  .credits {
+    font-family: var(--mz-font-body);
+    font-size: 9px;
+    letter-spacing: 0.02em;
+    fill: var(--mz-muted);
+  }
+
+  .tooltip {
+    position: absolute;
+    left: var(--x);
+    top: var(--y);
+    translate: calc(-1 * var(--x)) calc(-100% - 0.7rem);
+    padding: 0.35rem 0.7rem;
+    border-radius: var(--mz-radius-sm);
+    background: var(--mz-teal);
+    box-shadow: var(--mz-shadow);
+    color: var(--mz-paper-raised);
+    font-family: var(--mz-font-display);
+    font-size: 0.95rem;
+    line-height: 1.2;
+    white-space: nowrap;
+    pointer-events: none;
+    animation: tooltip-in 0.15s var(--mz-ease);
+  }
+
+  @keyframes tooltip-in {
+    from {
+      opacity: 0;
+    }
   }
 
   @keyframes pin-in {
@@ -491,12 +469,12 @@
       font-size: 15px;
     }
 
-    .pin-dot {
-      r: 13;
+    .credits {
+      font-size: 13px;
     }
 
-    .pin-num {
-      font-size: 15px;
+    .pin-dot {
+      r: 13;
     }
 
     .pin.current .pin-dot {
@@ -522,7 +500,8 @@
     }
 
     .drawn .pin,
-    .pin-halo {
+    .pin-halo,
+    .tooltip {
       animation: none;
     }
   }
