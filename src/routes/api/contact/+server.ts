@@ -144,12 +144,12 @@ export const POST: RequestHandler = async ({ request, getClientAddress }) => {
     subject: `[Contact] ${reason.label}${subject ? ` — ${subject}` : ""} — ${name}`,
     text,
     html: renderHtml(rows, message),
-  }).catch(() => null);
-  const [saved, res] = await Promise.all([save, send]);
+  });
+  const [saved, failure] = await Promise.all([save, send]);
 
-  if (!res?.ok) {
+  if (failure) {
     if (!saved) throw error(502, "L’envoi a échoué. Merci de réessayer dans un instant.");
-    console.error("Email de contact non envoyé (message enregistré dans Demandes).");
+    console.error(`Email de contact non envoyé (message enregistré dans Demandes) : ${failure}`);
   }
   return json({ ok: true });
 };

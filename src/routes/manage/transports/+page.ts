@@ -5,22 +5,14 @@ export const load: PageLoad = async () => {
   /* Transporteurs chargés en même temps que la liste : le formulaire n'attend plus après. */
   const [{ data: transports, error: transportsError }, { data: transporters }] = await Promise.all([
     supabase
-    .from("transport")
-    .select(
-      `
-      *,
-      transporter (*),
-      order ( count )
-    `
-    )
-    .order("departure_date", { ascending: false }),
+      .from("transport")
+      .select("*, transporter (*), order ( count )")
+      .order("departure_date", { ascending: false }),
     supabase.from("transporter").select("*").order("name"),
   ]);
 
   if (transportsError) {
-    throw new Error(
-      `Erreur lors du chargement des transports: ${transportsError.message}`
-    );
+    throw new Error(`Erreur lors du chargement des transports: ${transportsError.message}`);
   }
 
   return {

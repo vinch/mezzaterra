@@ -2,6 +2,7 @@
   import { preventDefault } from "$lib/ui/events";
 
   import { NEW_ROW, supabase } from "$lib/supabase";
+  import { onMount } from "svelte";
   import { invalidateAll } from "$app/navigation";
   import type { PageData } from "./$types";
   import Modal from "$lib/ui/Modal.svelte";
@@ -25,8 +26,9 @@
   let orders: any[] = $derived(data.orders);
   /* Rechargés par invalidateAll() après une création, une modification ou une suppression. */
   let suppliers: any[] = $derived(data.suppliers);
-  /** Catalogue du formulaire, lu à sa première ouverture. */
+  /** Catalogue du formulaire, lu en arrière-plan : la liste s'affiche sans l'attendre. */
   let wineVintages = $state.raw<any[]>([]);
+  let catalog: Promise<any[]> | null = null;
   let error = $state("");
   /** Modale unique création / édition (`editingOrder` les distingue). */
   let formOpen = $state(false);
@@ -65,10 +67,21 @@
     formOpen = true;
   }
 
-  /** Catalogue déjà lu, sinon lu maintenant (première ouverture, ou lecture précédente en échec). */
+  /** Une seule lecture du catalogue, partagée par les ouvertures du formulaire ; relue si elle a échoué. */
   function pickerVintages(): Promise<any[]> {
-    return wineVintages.length ? Promise.resolve(wineVintages) : fetchPickerVintages();
+    catalog ??= fetchPickerVintages().catch((e) => {
+      catalog = null;
+      throw e;
+    });
+    return catalog;
   }
+
+  onMount(() => {
+    pickerVintages().then(
+      (v) => (wineVintages = v),
+      () => {},
+    );
+  });
 
   async function openEditModal(order: any) {
     error = "";

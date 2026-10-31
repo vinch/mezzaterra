@@ -6,8 +6,7 @@
 
   let { data } = $props();
 
-  let { error } = $derived(data);
-  let tastings = $derived(data.tastings);
+  let { error, tastings } = $derived(data);
   /* À venir : la plus proche d'abord. Passées : la plus récente d'abord. */
   let upcoming = $derived(tastings.filter((t: any) => daysUntil(t.date) >= 0).reverse());
   let past = $derived(tastings.filter((t: any) => daysUntil(t.date) < 0));
