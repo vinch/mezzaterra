@@ -41,6 +41,7 @@
     TASTING_LINE_NOTE,
     globalDiscountAmount,
     itemsSubtotal,
+    lineDiscountError,
     paymentMethodLabel,
     saleItemDescription,
     saleTotal,
@@ -338,6 +339,17 @@
       return;
     }
 
+    const discountError = lineDiscountError({
+      price: selectedPrice,
+      quantity,
+      discount: discountVal,
+      discount_type: selectedDiscountType,
+    });
+    if (discountError) {
+      error = discountError;
+      return;
+    }
+
     if (selectedVintageId === TASTING_SELECT_VALUE) {
       saleItems = [
         ...saleItems,
@@ -417,6 +429,16 @@
       gGlobal > 100
     ) {
       error = "La ristourne globale en pourcentage ne peut pas dépasser 100 %.";
+      return;
+    }
+    /* Une vente reprise peut contenir une ligne saisie avant ce contrôle : la base la refuserait. */
+    const badLine = saleItems.find((item) => lineDiscountError(item));
+    if (badLine) {
+      error = `${saleItemDescription(badLine)} : ${lineDiscountError(badLine)} Retirez la ligne et ajoutez-la de nouveau.`;
+      return;
+    }
+    if (gGlobal > 0 && formData.global_discount_type === "amount" && gGlobal > itemsSubtotal(saleItems)) {
+      error = "La ristourne globale dépasse le sous-total de la vente.";
       return;
     }
 
@@ -684,7 +706,7 @@
     const last = own.map((s) => String(s.date)).sort().pop();
     const { data } = await supabase
       .from("sale_item")
-      .select("quantity, sale_id, wine_vintage ( wine ( wine_type ( name ) ) )")
+      .select("quantity, sale_id, wine_vintage ( wine ( wine_type ( name, kind ) ) )")
       .in("sale_id", own.map((s) => s.id).slice(0, 100));
     const byRobe = new Map<WineStyleKey, number>();
     for (const it of (data || []) as any[]) {
@@ -982,13 +1004,13 @@
 
       <div class="items-box">
         {#if saleItems.length === 0}
-          <EmptyState title="Aucun article ajouté" text="Cherchez un vin ci-dessous, puis « Ajouter »." compact />
+          <EmptyState title="Aucun article ajouté" text="Cherchez un produit ci-dessous, puis « Ajouter »." compact />
         {:else}
           <div class="items-scroll">
             <table class="ui-table items-table">
               <thead>
                 <tr>
-                  <th scope="col">Vin</th>
+                  <th scope="col">Produit</th>
                   <th scope="col">Quantité</th>
                   <th scope="col" class="num">Prix unit.</th>
                   <th scope="col" class="num">Remise</th>
@@ -1051,7 +1073,7 @@
 
         <div class="add-row">
           <div class="add-wine">
-            <span class="t-label" id="add-wine-label">Ajouter un vin</span>
+            <span class="t-label" id="add-wine-label">Ajouter un produit</span>
             <ProductVintageAutocomplete
               bind:value={selectedVintageId}
               {wineVintages}

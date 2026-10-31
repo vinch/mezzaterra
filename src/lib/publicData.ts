@@ -1,5 +1,6 @@
 import { fetchAllRows, supabase } from "./supabase";
 import { VINTAGE_PUBLIC_SELECT } from "./wine";
+import { DEFAULT_KIND, PRODUCT_KIND_LIST, type ProductKind } from "./productKinds";
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
@@ -30,6 +31,42 @@ export async function fetchAvailability(): Promise<AvailabilityOf | null> {
   } catch {
     return null;
   }
+}
+
+/**
+ * Types de produit à présenter sur le site : le vin toujours, les autres dès qu'un de leurs lots est
+ * au catalogue public (pas de lien « Nos huiles » vers une page vide).
+ */
+export async function fetchCatalogKinds(): Promise<ProductKind[]> {
+  try {
+    /* Un lot suffit : une petite requête par autre type de produit, en parallèle. */
+    const others = await Promise.all(
+      PRODUCT_KIND_LIST.filter((k) => k.key !== DEFAULT_KIND).map(async (k) => {
+        const { data } = await supabase
+          .from("wine_vintage")
+          .select("id, wine!inner ( kind )")
+          .eq("wine.kind", k.key)
+          .is("discontinued_at", null)
+          .limit(1);
+        return data?.length ? [k.key] : [];
+      }),
+    );
+    return [DEFAULT_KIND, ...others.flat()];
+  } catch {
+    return [DEFAULT_KIND];
+  }
+}
+
+/** Plusieurs contenants présentés ensemble : en stock si l'un l'est, « dernières bouteilles » si tous ceux en stock le sont. */
+export function combinedAvailability(of: AvailabilityOf | null, lots: { id: string }[]): Availability | null {
+  if (!of) return null;
+  const inStock = lots.map((l) => of(l.id)).filter((a) => a.in_stock);
+  return { in_stock: inStock.length > 0, low_stock: inStock.length > 0 && inStock.every((a) => a.low_stock) };
+}
+
+/** Contenant vers lequel mène une carte : le premier en stock, sinon le plus petit. */
+export function firstAvailable<T extends { id: string }>(of: AvailabilityOf | null, lots: T[]): T {
+  return (of && lots.find((l) => of(l.id).in_stock)) || lots[0];
 }
 
 export type SeatInfo = { capacity: number | null; seats_taken: number; seats_left: number | null };

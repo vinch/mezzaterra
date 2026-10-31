@@ -34,6 +34,7 @@ export type Database = {
           created_at: string
           description: string | null
           id: string
+          kind: string
           label_id: string | null
           name: string
           region_id: string | null
@@ -42,6 +43,7 @@ export type Database = {
           created_at?: string
           description?: string | null
           id?: string
+          kind?: string
           label_id?: string | null
           name: string
           region_id?: string | null
@@ -50,6 +52,7 @@ export type Database = {
           created_at?: string
           description?: string | null
           id?: string
+          kind?: string
           label_id?: string | null
           name?: string
           region_id?: string | null
@@ -177,18 +180,21 @@ export type Database = {
           created_at: string
           description: string | null
           id: string
+          kind: string
           name: string
         }
         Insert: {
           created_at?: string
           description?: string | null
           id?: string
+          kind?: string
           name: string
         }
         Update: {
           created_at?: string
           description?: string | null
           id?: string
+          kind?: string
           name?: string
         }
         Relationships: []
@@ -525,6 +531,7 @@ export type Database = {
           price: number
           quantity: number
           sale_id: string
+          vat_rate: number
           wine_vintage_id: string | null
         }
         Insert: {
@@ -536,6 +543,7 @@ export type Database = {
           price: number
           quantity: number
           sale_id: string
+          vat_rate?: number
           wine_vintage_id?: string | null
         }
         Update: {
@@ -547,6 +555,7 @@ export type Database = {
           price?: number
           quantity?: number
           sale_id?: string
+          vat_rate?: number
           wine_vintage_id?: string | null
         }
         Relationships: [
@@ -962,6 +971,7 @@ export type Database = {
           created_at: string
           description: string | null
           id: string
+          kind: string
           name: string | null
           wine_type_id: string
           winery_id: string
@@ -971,6 +981,7 @@ export type Database = {
           created_at?: string
           description?: string | null
           id?: string
+          kind?: string
           name?: string | null
           wine_type_id: string
           winery_id: string
@@ -980,6 +991,7 @@ export type Database = {
           created_at?: string
           description?: string | null
           id?: string
+          kind?: string
           name?: string | null
           wine_type_id?: string
           winery_id?: string
@@ -1043,18 +1055,21 @@ export type Database = {
           category: string | null
           created_at: string
           id: string
+          kind: string
           name: string
         }
         Insert: {
           category?: string | null
           created_at?: string
           id?: string
+          kind?: string
           name: string
         }
         Update: {
           category?: string | null
           created_at?: string
           id?: string
+          kind?: string
           name?: string
         }
         Relationships: []
@@ -1070,6 +1085,7 @@ export type Database = {
           price: number | null
           production_year: number
           purchase_price: number
+          volume_ml: number
           wine_id: string
           year: number | null
         }
@@ -1083,6 +1099,7 @@ export type Database = {
           price?: number | null
           production_year: number
           purchase_price?: number
+          volume_ml?: number
           wine_id: string
           year?: number | null
         }
@@ -1096,6 +1113,7 @@ export type Database = {
           price?: number | null
           production_year?: number
           purchase_price?: number
+          volume_ml?: number
           wine_id?: string
           year?: number | null
         }

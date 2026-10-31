@@ -44,7 +44,7 @@
       fetchAllRows<any>((from, to) =>
         supabase
           .from("wine_vintage")
-          .select("id, wine_id, year, production_year, wine ( name, winery ( name ), appelation ( name, label ( name ) ) )")
+          .select("id, wine_id, year, production_year, volume_ml, wine ( kind, name, winery ( name ), appelation ( name, label ( name ) ) )")
           .order("id")
           .range(from, to),
       ).catch(() => {
@@ -75,7 +75,7 @@
       const label = vintageLabel(v);
       items.push({
         id: `v-${v.id}`,
-        group: "Vins",
+        group: "Produits",
         label,
         hint: "Stock",
         href: `/manage/wines/${v.wine_id}/stock/${v.id}`,
@@ -227,7 +227,7 @@
           bind:this={input}
           bind:value={query}
           onkeydown={onKeydown}
-          placeholder="Rechercher un vin, un client, une vente, une page…"
+          placeholder="Rechercher un produit, un client, une vente, une page…"
           aria-label="Rechercher"
           role="combobox"
           aria-expanded="true"

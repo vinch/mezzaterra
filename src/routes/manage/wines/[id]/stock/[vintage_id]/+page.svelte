@@ -18,6 +18,7 @@
   import { IconBox, IconPencil, IconPlus, IconTrash } from "$lib/ui/icons";
   import Spinner from "$lib/ui/Spinner.svelte";
   import { vintageYearLabel, wineTitle } from "$lib/wine";
+  import { kindOf } from "$lib/productKinds";
 
   interface Props {
     data: PageData;
@@ -159,7 +160,7 @@
     ];
   }
 
-  let title = $derived(`${wineTitle(vintage.wine)} ${vintageYearLabel(vintage)}`);
+  let title = $derived(`${wineTitle(vintage.wine)} ${vintageYearLabel(vintage, kindOf(vintage.wine))}`);
   let subtitle = $derived(
     currentStock == null
       ? "Stock indisponible"

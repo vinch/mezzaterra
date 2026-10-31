@@ -64,7 +64,7 @@
     {
       title: "Produits",
       links: [
-        { href: "/manage/wines", label: "Vins", icon: IconWine },
+        { href: "/manage/wines", label: "Produits", icon: IconWine },
         { href: "/manage/stock", label: "Stock", icon: IconBox },
       ],
     },
@@ -103,10 +103,10 @@
       collapsible: "Référentiels",
       links: [
         { href: "/manage/appellations", label: "Appellations", icon: IconMapPin },
-        { href: "/manage/grapes", label: "Cépages", icon: IconGrape },
+        { href: "/manage/grapes", label: "Cépages et variétés", icon: IconGrape },
         { href: "/manage/labels", label: "Labels", icon: IconTag },
         { href: "/manage/pairings", label: "Accords", icon: IconPlate },
-        { href: "/manage/wineries", label: "Vignobles", icon: IconCastle },
+        { href: "/manage/wineries", label: "Domaines", icon: IconCastle },
         { href: "/manage/countries", label: "Pays", icon: IconGlobe },
         { href: "/manage/regions", label: "Régions", icon: IconMap },
       ],

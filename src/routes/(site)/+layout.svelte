@@ -4,11 +4,13 @@
   import { page } from "$app/stores";
   import SiteFooter from "$lib/components/SiteFooter.svelte";
   import SiteNav from "$lib/components/site/SiteNav.svelte";
+  import type { LayoutData } from "./$types";
   interface Props {
+    data: LayoutData;
     children?: Snippet;
   }
 
-  let { children }: Props = $props();
+  let { data, children }: Props = $props();
 
   let path = $derived($page.url.pathname);
   /* Le mode live a son propre habillage plein écran (thème « cave »). */
@@ -26,7 +28,7 @@
         <a href="/" class="brand" aria-label="Mezzaterra — accueil">
           <img src="/flyer/logo-text.svg" alt="Mezzaterra" />
         </a>
-        <SiteNav />
+        <SiteNav kinds={data.catalogKinds} />
       </div>
     </header>
 

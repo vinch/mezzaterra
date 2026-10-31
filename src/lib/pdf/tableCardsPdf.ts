@@ -3,8 +3,8 @@ import { attachRobotoPdf, svgToPng } from "./assets";
 import { qrDataUrl } from "$lib/qr";
 import { formatDateLong } from "$lib/dates";
 import { tastingTitle } from "$lib/publicData";
+import { kindInfo, productHref } from "$lib/productKinds";
 import {
-  NOTE_TYPES,
   findNote,
   grapesText,
   wineStyle,
@@ -65,6 +65,7 @@ export async function downloadTableCardsPdf(tasting: any, wines: any[], origin: 
   for (let i = 0; i < wines.length; i++) {
     const v = wines[i];
     const wine = v.wine;
+    const kind = kindInfo(wine);
     const style = wineStyle(wine?.wine_type);
     const robe = hexToRgb(style.color);
     doc.addPage("a5", "portrait");
@@ -115,7 +116,7 @@ export async function downloadTableCardsPdf(tasting: any, wines: any[], origin: 
     if (grapes) {
       doc.setTextColor(...MUTED);
       doc.setFontSize(10);
-      doc.text(doc.splitTextToSize(`Cépages : ${grapes}`, W - 2 * M), M, y);
+      doc.text(doc.splitTextToSize(`${kind.ingredients} : ${grapes}`, W - 2 * M), M, y);
       y += 6;
     }
 
@@ -124,7 +125,7 @@ export async function downloadTableCardsPdf(tasting: any, wines: any[], origin: 
     doc.line(M, y, W - M, y);
     y += 7;
 
-    for (const nt of NOTE_TYPES) {
+    for (const nt of kind.noteTypes) {
       const content = findNote(v.note, nt.key);
       if (!content) continue;
       doc.setFont(font, "bold");
@@ -153,7 +154,7 @@ export async function downloadTableCardsPdf(tasting: any, wines: any[], origin: 
     /* Pied : prix + QR fiche */
     const qrSize = 30;
     const footY = H - M - qrSize;
-    const qr = await qrDataUrl(`${origin}/vins/${v.id}`, { size: 500 });
+    const qr = await qrDataUrl(`${origin}${productHref(v)}`, { size: 500 });
     doc.addImage(qr, "PNG", W - M - qrSize, footY, qrSize, qrSize);
     doc.setFontSize(8);
     doc.setTextColor(...MUTED);

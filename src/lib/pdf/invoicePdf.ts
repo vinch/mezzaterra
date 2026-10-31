@@ -5,14 +5,13 @@ import {
   SALE_LINE_ITEMS_SELECT,
   ensureInvoiceNumber,
   globalDiscountAmount,
+  itemVatRate,
   itemsSubtotal,
   paymentMethodLabel,
   saleItemDescription,
+  vatBreakdown,
 } from "$lib/sales";
 import { downloadLineItemsPdf, pdfEur, type LineItemsPdf } from "./lineItemsPdf";
-
-/** TVA belge sur le vin : les prix en base sont TTC, la facture d'un professionnel détaille le HTVA. */
-const VAT_RATE = 0.21;
 
 /** Facture PDF d'une vente ; attribue son numéro si elle n'en a pas encore. Lève une erreur lisible. */
 export async function downloadInvoicePdf(saleId: string): Promise<void> {
@@ -38,14 +37,17 @@ export async function downloadInvoicePdf(saleId: string): Promise<void> {
   const invoiceNumber = await ensureInvoiceNumber(sale);
 
   const c = sale.customer!;
+  /* Les prix sont TTC ; la facture d'un professionnel détaille le HTVA, au taux de chaque ligne (vin 21 %, huile 6 %). */
   const isCompany = !!(c.company_name || c.vat);
-  const ht = (ttc: number) => (isCompany ? ttc / (1 + VAT_RATE) : ttc);
+  const pct = (rate: number) => `${Math.round(rate * 100)} %`;
 
   const rows = items.map((item) => {
     const priceTTC = toNumber(item.price);
     const totalTTC = lineTotal(item);
+    const rate = itemVatRate(item);
+    const ht = (ttc: number) => ttc / (1 + rate);
     const values = isCompany
-      ? [String(item.quantity), pdfEur(ht(priceTTC)), pdfEur(priceTTC), pdfEur(ht(totalTTC)), pdfEur(totalTTC)]
+      ? [String(item.quantity), pct(rate), pdfEur(ht(priceTTC)), pdfEur(priceTTC), pdfEur(ht(totalTTC)), pdfEur(totalTTC)]
       : [String(item.quantity), pdfEur(priceTTC), pdfEur(totalTTC)];
     return { description: saleItemDescription(item), values };
   });
@@ -65,10 +67,15 @@ export async function downloadInvoicePdf(saleId: string): Promise<void> {
     );
   }
 
+  const vat = vatBreakdown(items, total);
   const totals: LineItemsPdf["totals"] = isCompany
     ? [
-        { text: `Total HTVA: ${pdfEur(ht(total))}` },
-        { text: `TVA (${VAT_RATE * 100}%): ${pdfEur(total - ht(total))}`, minor: true },
+        { text: `Total HTVA: ${pdfEur(vat.reduce((s, v) => s + v.ht, 0))}` },
+        /* Bases par taux après la ristourne globale (répartie au prorata), d'où l'écart avec les lignes. */
+        ...vat.map((v) => ({
+          text: `TVA ${pct(v.rate)} (sur ${pdfEur(v.ht)} HTVA${summary.length ? " après ristourne" : ""}): ${pdfEur(v.vat)}`,
+          minor: true,
+        })),
         { text: `Total TTC: ${pdfEur(total)}` },
       ]
     : [{ text: `TOTAL: ${pdfEur(total)}` }];
@@ -93,8 +100,8 @@ export async function downloadInvoicePdf(saleId: string): Promise<void> {
       ].filter((l): l is string => !!l),
     },
     descriptionLabel: "Description",
-    columns: isCompany ? ["Qté", "PU HTVA", "PU TTC", "Total HTVA", "Total TTC"] : ["Qté", "PU", "Total"],
-    columnWidth: 18,
+    columns: isCompany ? ["Qté", "TVA", "PU HTVA", "PU TTC", "Total HTVA", "Total TTC"] : ["Qté", "PU", "Total"],
+    columnWidth: isCompany ? 16 : 18,
     rows,
     summary,
     totals,

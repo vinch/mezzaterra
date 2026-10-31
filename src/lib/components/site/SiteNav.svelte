@@ -1,12 +1,25 @@
 <script lang="ts">
   import { page } from "$app/stores";
   import { contactHref } from "$lib/contact";
+  import { DEFAULT_KIND, PRODUCT_KINDS, type ProductKind } from "$lib/productKinds";
 
-  const links: { href: string; label: string; also?: string[] }[] = [
+  interface Props {
+    /** Catalogues à proposer (`fetchCatalogKinds`) : les vins, puis les huiles s'il y en a. */
+    kinds?: ProductKind[];
+  }
+
+  let { kinds = [DEFAULT_KIND] }: Props = $props();
+
+  let links = $derived<{ href: string; label: string; also?: string[] }[]>([
     { href: "/", label: "Accueil" },
     { href: "/tastings", label: "Dégustations" },
-    { href: "/vins", label: "Nos vins", also: ["/domaines"] },
-  ];
+    ...kinds.map((k) => ({
+      href: `/${PRODUCT_KINDS[k].slug}`,
+      label: PRODUCT_KINDS[k].catalogTitle,
+      /* Les pages domaine relèvent du catalogue principal. */
+      also: k === DEFAULT_KIND ? ["/domaines"] : undefined,
+    })),
+  ]);
 
   let path = $derived($page.url.pathname);
 </script>
@@ -21,7 +34,8 @@
       aria-current={path === link.href ? "page" : undefined}>{link.label}</a
     >
   {/each}
-  <a href={contactHref("commande")} class="nav-cta">Commander<span class="cta-long">&nbsp;du vin</span></a>
+  <!-- Vins, huiles… : un appel valable pour tout le catalogue ; « Commander » seul sur les très petits écrans. -->
+  <a href={contactHref("commande")} class="nav-cta"><span class="cta-long">Passer une commande</span><span class="cta-short">Commander</span></a>
 </nav>
 
 <style>
@@ -133,9 +147,18 @@
     }
   }
 
-  @media (max-width: 350px) {
+  .cta-short {
+    display: none;
+  }
+
+  /* « Passer une commande » ne tient pas à côté des liens sur un téléphone. */
+  @media (max-width: 480px) {
     .cta-long {
       display: none;
+    }
+
+    .cta-short {
+      display: inline;
     }
   }
 </style>

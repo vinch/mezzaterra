@@ -18,7 +18,7 @@
   import StockBadge from "$lib/ui/StockBadge.svelte";
   import WineDot from "$lib/ui/WineDot.svelte";
   import Spinner from "$lib/ui/Spinner.svelte";
-  import { styleByKey, wineRobe, type WineStyleKey, wineTypeLabel } from "$lib/wine";
+  import { byVolume, styleByKey, vintageShortLabel, wineRobe, type WineStyleKey, wineTitle, wineTypeLabel, withVolume } from "$lib/wine";
   import {
     IconArchive,
     IconArchiveRestore,
@@ -35,6 +35,7 @@
   import { formatEUR } from "$lib/format";
   import { promptReorder } from "$lib/reorder";
   import { isDiscontinued } from "$lib/wine";
+  import { kindCount, kindInfo, kindOf, kindsIn, PRODUCT_KIND_OPTIONS, type ProductKind } from "$lib/productKinds";
   import { fetchStockMap } from "$lib/manageData";
   import { errorMessage } from "$lib/async";
 
@@ -62,12 +63,24 @@
 
   // Form fields
   let formData = $state({
+    kind: "wine" as ProductKind,
     name: "",
     description: "",
     winery_id: "",
     appelation_id: "",
     wine_type_id: "",
   });
+  /* Types et appellations du type de produit choisi (un vin n'a pas de fruité, une huile pas de robe). */
+  let formKind = $derived(kindInfo(formData.kind));
+  let formTypes = $derived(wineTypes.filter((t) => kindOf(t) === formData.kind));
+  let formAppellations = $derived(appellations.filter((a) => kindOf(a) === formData.kind));
+
+  /** Changement de type de produit : son type et son appellation ne valent plus. */
+  function setFormKind(kind: ProductKind) {
+    formData.kind = kind;
+    formData.wine_type_id = "";
+    formData.appelation_id = "";
+  }
 
   onMount(async () => {
     void Promise.all([loadWineries(), loadAppellations(), loadWineTypes(), loadAllPairings()]);
@@ -99,7 +112,7 @@
       /* Millésimes triés une fois ici (du plus ancien au plus récent) plutôt qu'à chaque rendu. */
       for (const w of data || []) {
         w.wine_vintage.sort(
-          (a, b) => (a.year ?? a.production_year ?? 0) - (b.year ?? b.production_year ?? 0),
+          (a, b) => (a.year ?? a.production_year ?? 0) - (b.year ?? b.production_year ?? 0) || byVolume(a, b),
         );
       }
       wines = (data || []).sort((a, b) => {
@@ -144,6 +157,7 @@
   function openEditModal(wine: Wine) {
     editingWine = wine;
     formData = {
+      kind: kindOf(wine),
       name: wine.name || "",
       description: wine.description || "",
       winery_id: wine.winery_id || "",
@@ -161,6 +175,7 @@
 
   function resetForm() {
     formData = {
+      kind: "wine",
       name: "",
       description: "",
       winery_id: "",
@@ -171,11 +186,12 @@
 
   async function handleSubmit() {
     if (!formData.winery_id || !formData.wine_type_id) {
-      error = "Nom, vignoble et type de vin sont obligatoires";
+      error = `Domaine et ${formKind.typeLabel.toLowerCase()} sont obligatoires`;
       return;
     }
 
     const wineData: any = {
+      kind: formData.kind,
       name: formData.name || null,
       description: formData.description || null,
       winery_id: formData.winery_id,
@@ -324,6 +340,10 @@
   let robeFilter = $state<WineStyleKey | "">("");
   let inStockOnly = $state(false);
   const ROBES: WineStyleKey[] = ["red", "white", "rose"];
+  /** Types de produit présents au catalogue (vins seuls tant qu'aucune huile n'est saisie). */
+  let kinds = $derived(kindsIn(wines.map(kindOf)));
+  /* Pastilles de filtre : robes des vins, puis une par autre type de produit présent. */
+  let styleChips = $derived<WineStyleKey[]>([...ROBES, ...kinds.flatMap((k) => (k.style ? [k.style] : []))]);
 
   /** Millésimes du plus ancien au plus récent (triés au chargement). */
   function vintagesOf(wine: any): any[] {
@@ -332,7 +352,10 @@
   /** Dernier millésime qu'on peut encore recommander au fournisseur. */
   function latestVintage(wine: any): any | null {
     const list = vintagesOf(wine).filter((v) => !isDiscontinued(v));
-    return list.length ? list[list.length - 1] : null;
+    const last = list[list.length - 1];
+    /* Plusieurs contenants pour la dernière année : le réassort se fait lot par lot (fiche du produit). */
+    const sameYear = list.filter((v) => (v.year ?? v.production_year) === (last?.year ?? last?.production_year));
+    return sameYear.length === 1 ? last : null;
   }
   /** Tous les millésimes sont « plus jamais disponibles » : le vin est retiré. */
   function isRetired(wine: any): boolean {
@@ -355,9 +378,6 @@
     const max = Math.max(...prices);
     return min === max ? formatEUR(min) : `${formatEUR(min)} – ${formatEUR(max)}`;
   }
-  function wineTitle(wine: any): string {
-    return wine.name?.trim() || wine.appelation?.name || "Vin sans nom";
-  }
 
   function resetAll() {
     clearFilters();
@@ -370,7 +390,7 @@
     const v = latestVintage(wine);
     if (!v) return;
     try {
-      notice = (await promptReorder(`${wineTitle(wine)} ${v.year ?? ""}`.trim(), v)) ?? notice;
+      notice = (await promptReorder(vintageShortLabel({ ...v, wine }), v)) ?? notice;
     } catch (e) {
       error = errorMessage(e);
     }
@@ -388,7 +408,7 @@
       return;
     }
     notice = retired
-      ? `« ${wineTitle(wine)} » est marqué plus jamais disponible : il n’apparaît plus sur le site.`
+      ? `« ${wineTitle(wine)} » est marqué plus jamais disponible et n’apparaît plus sur le site.`
       : `« ${wineTitle(wine)} » est de nouveau au catalogue.`;
     await loadWines();
   }
@@ -397,8 +417,8 @@
     const items: MenuItem[] = [
       { label: "Ouvrir la fiche", icon: IconEye, href: `/manage/wines/${wine.id}` },
       { label: "Modifier", icon: IconPencil, onSelect: () => openEditModal(wine) },
-      { label: "Ajouter un millésime", icon: IconPlus, href: `/manage/wines/${wine.id}?nouveau=1` },
-      { label: "Accords mets & vins", icon: IconPlate, onSelect: () => openPairingsModal(wine) },
+      { label: kindInfo(wine).addBatch, icon: IconPlus, href: `/manage/wines/${wine.id}?nouveau=1` },
+      { label: kindInfo(wine).pairingsLabel, icon: IconPlate, onSelect: () => openPairingsModal(wine) },
     ];
     if (latestVintage(wine)) items.push({ label: "Commander (réassort)", icon: IconClipboard, onSelect: () => reorder(wine) });
     if (isRetired(wine)) {
@@ -444,7 +464,7 @@
       return false;
     }
 
-    // Filter by search text (vignoble, nom, appellation)
+    // Filter by search text (domaine, nom, appellation)
     if (searchText) {
       const searchLower = searchText.toLowerCase();
       const wineryName = wine.winery?.name?.toLowerCase() || "";
@@ -477,21 +497,27 @@
     .filter((w: any) => !robeFilter || wineRobe(w.wine_type).key === robeFilter)
     .filter((w: any) => !inStockOnly || !stock || (stockById.get(w.id)?.total ?? 0) > 0)
     .sort((a: any, b: any) => Number(isRetired(a)) - Number(isRetired(b))));
-  let vintageCount = $derived(wines.reduce((n, w: any) => n + (w.wine_vintage?.length ?? 0), 0));
   let bottleCount = $derived(stock ? [...stock.values()].reduce((n, q) => n + Math.max(0, q), 0) : null);
-  let subtitle = $derived(`${wines.length} vin${wines.length > 1 ? "s" : ""} · ${vintageCount} millésime${vintageCount > 1 ? "s" : ""} · ${
-    bottleCount == null ? "stock indisponible" : `${bottleCount} bouteille${bottleCount > 1 ? "s" : ""} en stock`
-  }`);
+  /** « 19 vins (35 millésimes) · 2 huiles d’olive (4 lots) · 120 bouteilles en stock ». */
+  let subtitle = $derived([
+    ...kinds.map((k) => {
+      const ofKind = wines.filter((w) => kindOf(w) === k.key);
+      const batches = ofKind.reduce((n, w: any) => n + (w.wine_vintage?.length ?? 0), 0);
+      return `${kindCount(k, ofKind.length)} (${batches} ${(batches > 1 ? k.batchPlural : k.batch).toLowerCase()})`;
+    }),
+    bottleCount == null ? "stock indisponible" : `${bottleCount} bouteille${bottleCount > 1 ? "s" : ""} en stock`,
+  ].join(" · "));
+  let batchesHeader = $derived(kinds.map((k) => k.batchPlural).join(" / "));
   let filtersActive = $derived(!!(searchText || filterWineryId || filterAppelationId || filterWineTypeId || robeFilter || inStockOnly));
 </script>
 
 <svelte:head>
-  <title>Vins - Gestion</title>
+  <title>Produits - Gestion</title>
 </svelte:head>
 
-<ManagePageShell title="Vins" subtitle={loading ? "" : subtitle}>
+<ManagePageShell title="Produits" subtitle={loading ? "" : subtitle}>
   {#snippet actions()}
-      <Button variant="primary" onclick={openCreateModal}><IconPlus size={18} strokeWidth={1.75} /> Nouveau vin</Button>
+      <Button variant="primary" onclick={openCreateModal}><IconPlus size={18} strokeWidth={1.75} /> Nouveau produit</Button>
   {/snippet}
 
   {#if error}
@@ -508,20 +534,20 @@
     <Spinner />
   {:else if wines.length === 0}
     <div class="empty-card">
-      <EmptyState icon={IconWine} title="Aucun vin au catalogue" text="Ajoutez un premier vin, puis ses millésimes.">
-        <Button onclick={openCreateModal}>Créer le premier vin</Button>
+      <EmptyState icon={IconWine} title="Aucun produit au catalogue" text="Ajoutez un premier vin ou une première huile, puis ses millésimes ou lots (un par contenant).">
+        <Button onclick={openCreateModal}>Créer le premier produit</Button>
       </EmptyState>
     </div>
   {:else}
     <div class="filters-bar">
       <label class="search">
-        <span class="sr-only">Rechercher un vin, un domaine, une appellation</span>
+        <span class="sr-only">Rechercher un produit, un domaine, une appellation</span>
         <IconSearch size={16} strokeWidth={1.75} aria-hidden="true" />
-        <input class="ui-control" type="search" placeholder="Rechercher un vin, un domaine…" bind:value={searchText} />
+        <input class="ui-control" type="search" placeholder="Rechercher un produit, un domaine…" bind:value={searchText} />
       </label>
-      <div class="chips" role="group" aria-label="Filtrer par robe">
-        <button type="button" class="ui-chip" aria-pressed={!robeFilter} onclick={() => (robeFilter = "")}>Toutes</button>
-        {#each ROBES as r}
+      <div class="chips" role="group" aria-label="Filtrer par robe ou type de produit">
+        <button type="button" class="ui-chip" aria-pressed={!robeFilter} onclick={() => (robeFilter = "")}>Tous</button>
+        {#each styleChips as r}
           <button type="button" class="ui-chip" aria-pressed={robeFilter === r} onclick={() => (robeFilter = robeFilter === r ? "" : r)}>
             <WineDot robe={r} />{styleByKey(r).label}
           </button>
@@ -550,18 +576,18 @@
 
     {#if shownWines.length === 0}
       <div class="empty-card">
-        <EmptyState icon={IconSearch} title="Aucun vin ne correspond" text="Modifiez la recherche ou les filtres." compact>
+        <EmptyState icon={IconSearch} title="Aucun produit ne correspond" text="Modifiez la recherche ou les filtres." compact>
           <Button onclick={resetAll}>Réinitialiser les filtres</Button>
         </EmptyState>
       </div>
     {:else}
       <div class="desktop-only">
-        <DataTable caption="Catalogue des vins">
+        <DataTable caption="Catalogue des produits">
           <thead>
             <tr>
-              <th scope="col">Vin</th>
-              <th scope="col">Robe</th>
-              <th scope="col">Millésimes · stock</th>
+              <th scope="col">Produit</th>
+              <th scope="col">Type</th>
+              <th scope="col">{batchesHeader} · stock</th>
               <th scope="col" class="num">Stock</th>
               <th scope="col" class="num">Prix de vente</th>
               <th scope="col" class="col-actions"><span class="sr-only">Actions</span></th>
@@ -587,17 +613,18 @@
                   <span class="vintages">
                     {#each vintagesOf(wine) as v (v.id)}
                       {@const q = stock?.get(v.id) ?? 0}
+                      {@const lot = withVolume(String(v.year ?? v.production_year), v, kindOf(wine))}
                       {#if isDiscontinued(v)}
-                        <span class="vintage-chip gone" title="Plus jamais disponible">{v.year ?? v.production_year}</span>
+                        <span class="vintage-chip gone" title="Plus jamais disponible">{lot}</span>
                       {:else if !stock}
-                        <span class="vintage-chip">{v.year ?? v.production_year}</span>
+                        <span class="vintage-chip">{lot}</span>
                       {:else}
                         <span class="vintage-chip" class:out={q <= 0}>
-                          {v.year ?? v.production_year} · {q <= 0 ? "rupture" : q}
+                          {lot} · {q <= 0 ? "rupture" : q}
                         </span>
                       {/if}
                     {:else}
-                      <span class="t-muted">Aucun millésime</span>
+                      <span class="t-muted">{kindInfo(wine).noBatch}</span>
                     {/each}
                   </span>
                 </td>
@@ -613,7 +640,7 @@
             {/each}
           </tbody>
         </DataTable>
-        <p class="t-caption footnote">Clic sur un vin pour ouvrir sa fiche. Les actions secondaires sont dans « … ».</p>
+        <p class="t-caption footnote">Clic sur un produit pour ouvrir sa fiche. Les actions secondaires sont dans « … ».</p>
       </div>
 
       <ul class="cards mobile-only">
@@ -640,16 +667,30 @@
 
 <ConfirmDialog
   bind:open={confirmOpen}
-  title="Supprimer ce vin ?"
+  title="Supprimer {deleteTarget ? kindInfo(deleteTarget).thisLabel : 'ce produit'} ?"
   message={deleteTarget
-    ? `« ${wineTitle(deleteTarget)} » (${deleteTarget.winery?.name ?? ""}) sera supprimé du catalogue, ainsi que ses ${deleteTarget.wine_vintage?.length ?? 0} millésime(s) si la base l’autorise. Les ventes passées ne sont pas modifiées.`
+    ? `« ${wineTitle(deleteTarget)} » (${deleteTarget.winery?.name ?? ""}) sera supprimé du catalogue, ainsi que ses ${deleteTarget.wine_vintage?.length ?? 0} ${kindInfo(deleteTarget).batchPlural.toLowerCase()} si la base l’autorise. Les ventes passées ne sont pas modifiées.`
     : ""}
   onconfirm={confirmDelete}
 />
 
-<Modal open={showModal} title={editingWine ? "Modifier le vin" : "Nouveau vin"} onclose={closeModal}>
+<Modal open={showModal} title={editingWine ? formKind.editLabel : formKind.newLabel} onclose={closeModal}>
   <form id="wine-form" class="wine-form" onsubmit={preventDefault(handleSubmit)}>
-    <Field id="wine-name" label="Nom du vin" help="Laisser vide pour utiliser le nom de l’appellation.">
+    <!-- Choisi à la création seulement : la base refuse de changer le type d'un produit qui a des millésimes ou des lots. -->
+    <Field id="wine-kind" label="Type de produit" required help={editingWine ? "Ne change plus une fois le produit créé." : ""}>
+      <select
+        id="wine-kind"
+        class="ui-control"
+        value={formData.kind}
+        onchange={(e) => setFormKind(e.currentTarget.value as ProductKind)}
+        disabled={!!editingWine}
+      >
+        {#each PRODUCT_KIND_OPTIONS as o (o.value)}
+          <option value={o.value}>{o.label}</option>
+        {/each}
+      </select>
+    </Field>
+    <Field id="wine-name" label="Nom" help="Laisser vide pour utiliser le nom de l’appellation.">
       <input id="wine-name" class="ui-control" type="text" bind:value={formData.name} />
     </Field>
     <div class="grid-2">
@@ -661,10 +702,10 @@
           {/each}
         </select>
       </Field>
-      <Field id="wine-type" label="Robe" required>
+      <Field id="wine-type" label={formKind.typeLabel} required>
         <select id="wine-type" class="ui-control" bind:value={formData.wine_type_id} required>
-          <option value="">Sélectionner une robe</option>
-          {#each wineTypes as wineType}
+          <option value="">Sélectionner…</option>
+          {#each formTypes as wineType}
             <option value={wineType.id}>{wineTypeLabel(wineType)}</option>
           {/each}
         </select>
@@ -673,7 +714,7 @@
     <Field id="wine-appellation" label="Appellation" optional>
       <select id="wine-appellation" class="ui-control" bind:value={formData.appelation_id}>
         <option value="">Aucune</option>
-        {#each appellations as appelation}
+        {#each formAppellations as appelation}
           <option value={appelation.id}>{appelation.name}{appelation.label?.name ? ` ${appelation.label.name}` : ""}</option>
         {/each}
       </select>
@@ -684,14 +725,14 @@
   </form>
   {#snippet footer()}
       <Button variant="ghost" onclick={closeModal}>Annuler</Button>
-      <Button variant="primary" onclick={handleSubmit}>{editingWine ? "Enregistrer" : "Créer le vin"}</Button>
+      <Button variant="primary" onclick={handleSubmit}>{editingWine ? "Enregistrer" : "Créer"}</Button>
   {/snippet}
 </Modal>
 
-<Modal open={showPairingsModal} title="Accords mets & vins" maxWidth={520} onclose={closePairingsModal}>
+<Modal open={showPairingsModal} title={kindInfo(selectedWine).pairingsLabel} maxWidth={520} onclose={closePairingsModal}>
   {#if selectedWine}<p class="t-muted pairing-intro">{wineTitle(selectedWine)} · {selectedWine.winery?.name ?? ""}</p>{/if}
   {#if winePairings.length === 0}
-    <EmptyState icon={IconPlate} title="Aucun accord pour ce vin" compact />
+    <EmptyState icon={IconPlate} title="Aucun accord pour {kindInfo(selectedWine).thisLabel}" compact />
   {:else}
     <ul class="pairings">
       {#each winePairings as wp}

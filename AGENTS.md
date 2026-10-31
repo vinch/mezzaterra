@@ -27,6 +27,12 @@ menus de ligne, chiffres, accessibilité, textes).
   variables CSS (`src/app.css`, `src/lib/styles/tokens.css`), jamais de valeur
   en dur. Statuts : `src/lib/status.ts` ; robes : `src/lib/wine.ts` ; icônes :
   `$lib/ui/icons` (y ajouter celle qui manque).
+- **Types de produit** : vins et huiles d’olive partagent les tables `wine`,
+  `wine_vintage`, `grape`… (colonne `kind`). Le vocabulaire propre à chacun
+  (millésime ou lot, cépages ou variétés…) vient de `src/lib/productKinds.ts` ;
+  un nouveau type s’ajoute là et au domaine SQL `product_kind`. Un lot
+  (`wine_vintage`) = une année et un contenant (`volume_ml`) : prix et stock
+  sont par contenant ; libellés via `vintageLabel`, `vintageVolume`…
 - **Nouveau composant** : seulement si rien d’existant ne convient. Il va dans
   `src/lib/ui/`, utilise les tokens, et est ajouté à la page `/design-system`
   dans la même pull request (idem pour une nouvelle variante, un nouveau token

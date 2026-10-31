@@ -9,7 +9,10 @@
   import {
     findNote,
     grapesText,
+    styleLabel,
     vintageNotes,
+    formatsText,
+    vintageVolume,
     winePairings,
     wineryFlag,
     wineryPlace,
@@ -18,15 +21,17 @@
     wineTitle,
   } from "$lib/wine";
   import { formatEUR } from "$lib/format";
+  import { formatVolume, kindInfo, productHref } from "$lib/productKinds";
 
   let { data } = $props();
 
   let v = $derived(data.vintage);
   let wine = $derived(v?.wine);
+  let kind = $derived(kindInfo(wine));
   let style = $derived(wineStyle(wine?.wine_type));
   let title = $derived(wine ? wineTitle(wine) : "");
   let grapes = $derived(grapesText(v?.wine_vintage_grape, true));
-  let notes = $derived(vintageNotes(v?.note));
+  let notes = $derived(vintageNotes(v?.note, kind.key));
   let pairings = $derived(winePairings(wine));
   let winery = $derived(wine?.winery);
   let region = $derived(wineryPlace(winery));
@@ -67,7 +72,7 @@
     setTimeout(() => (shareFeedback = ""), 2500);
   }
 
-  let orderHref = $derived(contactHref("commande", [title, v?.year].filter(Boolean).join(" ")));
+  let orderHref = $derived(contactHref("commande", [title, v?.year, v && vintageVolume(v)].filter(Boolean).join(" ")));
   let hasAbout = $derived(Boolean(wine?.description || notes.length || pairings.length));
 </script>
 
@@ -86,13 +91,13 @@
     {/if}
     <meta name="twitter:card" content="summary_large_image" />
   {:else}
-    <title>Vin introuvable — Mezzaterra</title>
+    <title>Produit introuvable — Mezzaterra</title>
   {/if}
 </svelte:head>
 
 {#if !v}
   <div class="mz-container mz-section">
-    <p class="mz-empty">Ce vin est introuvable. <a class="mz-link" href="/vins">Voir toute la cave</a></p>
+    <p class="mz-empty">Ce produit est introuvable. <a class="mz-link" href="/vins">Voir toute la cave</a></p>
   </div>
 {:else}
   <article style="--robe: {style.color}; --robe-light: {style.light};">
@@ -102,10 +107,10 @@
           <WineBottle src={v.image_url} alt={title} wine={style} height="min(28rem, 60vh)" />
         </div>
         <div class="hero-text mz-rise" style="animation-delay: 80ms">
-          <a href="/vins" class="back">← Toute la cave</a>
+          <a href="/{kind.slug}" class="back">← {kind.catalogTitle}</a>
           <span class="mz-eyebrow">
             <span class="mz-dot" style="background: {style.color}"></span>
-            {style.label}
+            {styleLabel(wine?.wine_type)}
             {#if v.organic}<OrganicLogo height="1.3rem" />{/if}
           </span>
           <h1 class="mz-display mz-h1">{title}</h1>
@@ -119,10 +124,11 @@
           {/if}
 
           <dl class="facts">
-            {#if v.year}<div><dt>Millésime</dt><dd>{v.year}</dd></div>{/if}
+            {#if v.year}<div><dt>{kind.yearFact}</dt><dd>{v.year}</dd></div>{/if}
             {#if v.abv}<div><dt>Alcool</dt><dd>{v.abv} % vol.</dd></div>{/if}
+            {#if formatsText(data.formats)}<div><dt>Contenant</dt><dd>{formatVolume(v.volume_ml)}</dd></div>{/if}
             {#if v.price}<div><dt>Prix</dt><dd>{formatEUR(v.price)}</dd></div>{/if}
-            {#if grapes}<div><dt>Cépages</dt><dd class="small">{grapes}</dd></div>{/if}
+            {#if grapes}<div><dt>{kind.ingredients}</dt><dd class="small">{grapes}</dd></div>{/if}
             {#if stock}
               <div>
                 <dt>Disponibilité</dt>
@@ -133,18 +139,34 @@
             {/if}
           </dl>
 
+          {#if data.formats.length > 1}
+            <nav class="formats" aria-label="Contenants">
+              {#each data.formats as f (f.id)}
+                <a
+                  class="mz-chip format"
+                  class:on={f.id === v.id}
+                  href="/{kind.slug}/{f.id}"
+                  aria-current={f.id === v.id ? "page" : undefined}
+                  data-sveltekit-noscroll
+                >
+                  {formatVolume(f.volume_ml)}{f.price != null ? ` · ${formatEUR(f.price)}` : ""}
+                </a>
+              {/each}
+            </nav>
+          {/if}
+
           {#if data.siblings.length}
             <p class="mz-muted siblings">
-              Autres millésimes :
+              {kind.otherYears} :
               {#each data.siblings as s, i}
-                <a class="mz-link" href="/vins/{s.id}">{s.year ?? s.production_year}</a>{i < data.siblings.length - 1 ? ", " : ""}
+                <a class="mz-link" href="/{kind.slug}/{s.id}">{s.year ?? s.production_year}</a>{i < data.siblings.length - 1 ? ", " : ""}
               {/each}
             </p>
           {/if}
 
           <div class="actions">
             {#if !stock || stock.in_stock}
-              <a class="mz-btn" href={orderHref}>Commander ce vin</a>
+              <a class="mz-btn" href={orderHref}>Commander {kind.thisLabel}</a>
             {/if}
             <button type="button" class="mz-btn mz-btn--ghost" onclick={share}>Partager</button>
             {#if shareFeedback}<span class="share-feedback" role="status">{shareFeedback}</span>{/if}
@@ -157,7 +179,7 @@
       <section class="mz-container about">
         {#if wine.description}
           <div class="block">
-            <h2>Le vin</h2>
+            <h2>{kind.aboutTitle}</h2>
             <p class="prose">{wine.description}</p>
           </div>
         {/if}
@@ -204,7 +226,7 @@
         </div>
         <div class="grid">
           {#each data.fromWinery as other (other.id)}
-            <div><WineCard vintage={other} href="/vins/{other.id}" availability={availability?.(other.id) ?? null} /></div>
+            <div><WineCard vintage={other} href={productHref(other)} availability={availability?.(other.id) ?? null} /></div>
           {/each}
         </div>
       </section>
@@ -327,6 +349,26 @@
 
   .siblings {
     margin: 0;
+  }
+
+  .formats {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.4rem;
+  }
+
+  .format {
+    text-decoration: none;
+    background: transparent;
+    border: 1px solid var(--mz-line);
+    color: var(--mz-ink-soft);
+  }
+
+  .format:hover,
+  .format.on {
+    border-color: var(--mz-teal);
+    background: var(--mz-teal-wash);
+    color: var(--mz-teal);
   }
 
   .actions {

@@ -111,7 +111,7 @@
   async function handlePricesPdf() {
     docError = "";
     if (rows.length === 0) {
-      docError = "Aucun millésime en stock.";
+      docError = "Aucun produit en stock.";
       return;
     }
     try {
@@ -129,7 +129,7 @@
       selectedVintageIds.includes(r.id),
     );
     if (picked.length === 0) {
-      docError = "Cochez au moins un vin pour la feuille de notes.";
+      docError = "Cochez au moins un produit pour la feuille de notes.";
       return;
     }
     notesModalRows = [...picked];
@@ -153,7 +153,7 @@
   async function confirmNotesPdf() {
     docError = "";
     if (notesModalRows.length === 0) {
-      docError = "Ajoutez au moins un vin à la feuille de notes.";
+      docError = "Ajoutez au moins un produit à la feuille de notes.";
       return;
     }
     notesPdfGenerating = true;
@@ -193,7 +193,7 @@
       <Spinner />
     {:else if rows.length === 0}
       <div class="empty-state">
-        <p>Aucun vin en stock pour générer des documents.</p>
+        <p>Aucun produit en stock pour générer des documents.</p>
       </div>
     {:else}
       <div class="filters-container doc-top-panel">
@@ -218,12 +218,12 @@
             <input
               type="text"
               id="doc-search"
-              placeholder="Vignoble, nom, type, appellation…"
+              placeholder="Domaine, nom, type, appellation…"
               bind:value={searchText}
             />
           </div>
           <div class="filter-group">
-            <label for="doc-winery">Vignoble</label>
+            <label for="doc-winery">Domaine</label>
             <select id="doc-winery" bind:value={filterWineryId}>
               <option value="">Tous</option>
               {#each wineries as w}
@@ -261,7 +261,7 @@
                   aria-label="Tout sélectionner ou tout désélectionner dans la liste affichée"
                 />
               </th>
-              <th>Vignoble</th>
+              <th>Domaine</th>
               <th>Nom</th>
               <th>Type</th>
               <th>Mill.</th>
@@ -282,7 +282,7 @@
                 </td>
                 <td>{r.wineryName}</td>
                 <td><strong>{r.wineName}</strong></td>
-                <td>{wineTypeLabel({ name: r.wineTypeName })}</td>
+                <td>{wineTypeLabel({ name: r.wineTypeName, kind: r.kind })}</td>
                 <td>{vintageLabel(r)}</td>
                 <td class="num">
                   {r.price != null ? `${r.price.toFixed(2)}` : "—"}
@@ -303,7 +303,7 @@
 <Modal open={showNotesModal} title="Notes de dégustation" maxWidth={820} onclose={closeNotesModal}>
   <div class="notes-modal-body">
     <p class="notes-modal-hint">
-      Choisissez la date de la dégustation et l’ordre de passage des vins (du premier au
+      Choisissez la date de la dégustation et l’ordre de passage des produits (du premier au
       dernier servi).
     </p>
 
@@ -325,7 +325,7 @@
             <strong>{row.wineryName}</strong>
             <span class="notes-order-wine">{row.wineName}</span>
             <span class="notes-order-meta"
-              >{wineTypeLabel({ name: row.wineTypeName })} · {vintageLabel(row)}</span
+              >{wineTypeLabel({ name: row.wineTypeName, kind: row.kind })} · {vintageLabel(row)}</span
             >
           </div>
           <div class="notes-order-actions">

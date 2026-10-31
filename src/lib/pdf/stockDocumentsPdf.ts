@@ -1,7 +1,8 @@
 import { base } from "$app/paths";
 import jsPDF from "jspdf";
 import { attachRobotoPdf, svgToPng } from "./assets";
-import { wineRobe, wineTypeLabel } from "$lib/wine";
+import { wineRobe, wineTypeLabel, withVolume } from "$lib/wine";
+import { kindInfo, PRODUCT_KIND_LIST, PRODUCT_KINDS, type ProductKind } from "$lib/productKinds";
 import {
   sortedStockForDocuments,
   stockVintageLabel,
@@ -11,22 +12,24 @@ import {
 const YELLOW: [number, number, number] = [255, 235, 120];
 
 
-/** Groupe du tarif selon la couleur de la robe ; orange et autres vont avec les blancs. */
-function priceGroupKey(v: StockDocVintage): "blancs" | "roses" | "rouges" {
+type PriceGroup = "blancs" | "roses" | "rouges" | Exclude<ProductKind, "wine">;
+
+/** Groupe du tarif : les vins selon la couleur de la robe (orange et autres avec les blancs), les autres produits par type. */
+function priceGroupKey(v: StockDocVintage): PriceGroup {
+  if (v.kind !== "wine") return v.kind;
   const key = wineRobe({ name: v.wineTypeName }).key;
   return key === "red" ? "rouges" : key === "rose" ? "roses" : "blancs";
 }
 
-const GROUP_ORDER: ("blancs" | "roses" | "rouges")[] = [
-  "blancs",
-  "roses",
-  "rouges",
-];
+const OTHER_KINDS = PRODUCT_KIND_LIST.map((k) => k.key).filter((k): k is Exclude<ProductKind, "wine"> => k !== "wine");
 
-const GROUP_LABEL: Record<"blancs" | "roses" | "rouges", string> = {
+const GROUP_ORDER: PriceGroup[] = ["blancs", "roses", "rouges", ...OTHER_KINDS];
+
+const GROUP_LABEL: Record<PriceGroup, string> = {
   blancs: "Blancs",
   roses: "Rosés",
   rouges: "Rouges",
+  ...(Object.fromEntries(OTHER_KINDS.map((k) => [k, PRODUCT_KINDS[k].plural])) as Record<Exclude<ProductKind, "wine">, string>),
 };
 
 function formatEur(n: number | null): string {
@@ -266,7 +269,7 @@ export async function downloadPricesPdf(
     doc.setFont(fontFamily, "bold");
     doc.setFontSize(7.5);
     doc.setTextColor(90, 90, 90);
-    doc.text("Vignoble", colWinery, headerY);
+    doc.text("Domaine", colWinery, headerY);
     doc.text("Nom", colWine, headerY);
     doc.text("Prix unit.", colUnitPrice, headerY, { align: "right" });
     doc.text("Quantité", (colQtyLeft + colQtyRight) / 2, headerY, {
@@ -291,7 +294,7 @@ export async function downloadPricesPdf(
 
     for (const v of inGroup) {
       const highlight = highlightedIds.has(v.id);
-      const wineLines = fitLine(doc, v.wineName, wineColWidth, 9);
+      const wineLines = fitLine(doc, withVolume(v.wineName, v, v.kind), wineColWidth, 9);
       const wineryLines = fitLine(doc, v.wineryName, 36, 9);
       const rowLines = Math.max(wineLines.length, wineryLines.length, 1);
       const rowH = rowLines * baseLineH + rowPad * 2;
@@ -389,8 +392,9 @@ export async function downloadNotesPdf(
   for (const v of rows) {
     const title = `${noteEntryNumber(idx)} ${v.wineryName} ${v.wineName}`;
     const grapes = v.grapeNames.length ? v.grapeNames.join(", ") : "—";
-    const abvStr = v.abv != null ? `${v.abv}%` : "—";
-    const detail = `${wineTypeLabel({ name: v.wineTypeName })} / ${stockVintageLabel(v)} / ${abvStr} / Cépages : ${grapes} / ${v.appellationLine || "—"}`;
+    const kind = kindInfo(v.kind);
+    const abvStr = kind.hasAbv ? ` / ${v.abv != null ? `${v.abv}%` : "—"}` : "";
+    const detail = `${wineTypeLabel({ name: v.wineTypeName, kind: v.kind })} / ${stockVintageLabel(v)}${abvStr} / ${kind.ingredients} : ${grapes} / ${v.appellationLine || "—"}`;
 
     const titleLines = fitLine(doc, title, textW - 2, 10.5);
     const detailLines = fitLine(doc, detail, textW, 9);
