@@ -7,12 +7,23 @@
   import type { PageData } from "./$types";
   import Modal from "$lib/ui/Modal.svelte";
   import Button from "$lib/ui/Button.svelte";
+  import IconButton from "$lib/ui/IconButton.svelte";
   import StatusBadge from "$lib/ui/StatusBadge.svelte";
-  import { KIND_META, statusMeta } from "$lib/status";
+  import Menu, { type MenuItem } from "$lib/ui/Menu.svelte";
+  import RowMenu from "$lib/ui/RowMenu.svelte";
+  import ConfirmDialog from "$lib/ui/ConfirmDialog.svelte";
+  import DataTable from "$lib/ui/DataTable.svelte";
+  import EmptyState from "$lib/ui/EmptyState.svelte";
+  import Card from "$lib/ui/Card.svelte";
+  import Field from "$lib/ui/Field.svelte";
+  import Select from "$lib/ui/Select.svelte";
+  import { IconClipboard, IconDownload, IconEye, IconPencil, IconPlus, IconTrash } from "$lib/ui/icons";
+  import { canChangeStatus, statusMenuItems } from "$lib/status";
   import ManagePageShell from "$lib/components/manage/ManagePageShell.svelte";
-  import { fetchPickerVintages } from "$lib/manageData";
+  import ProductVintageAutocomplete from "$lib/components/manage/ProductVintageAutocomplete.svelte";
+  import { fetchLineItems, fetchPickerVintages, LINE_ITEMS_SELECT } from "$lib/manageData";
   import { errorMessage, latestOnly } from "$lib/async";
-  import { todayIso } from "$lib/dates";
+  import { isoDateOnly, todayIso } from "$lib/dates";
   import type { OrderPdfLanguage } from "$lib/pdf/purchaseOrderPdf";
   import { formatDate, formatEUR } from "$lib/format";
   import { isDiscontinued, vintageProductLabel } from "$lib/wine";
@@ -40,7 +51,6 @@
   let detailsOrderItems = $state<any[]>([]);
   let orderIdForPDF = $state<string | null>(null);
 
-  // Form fields
   let formData = $state({
     date: todayIso(),
     supplier_id: "",
@@ -48,7 +58,6 @@
     note: "",
   });
 
-  // Order items
   let orderItems = $state<any[]>([]);
   let selectedVintageId = $state("");
   let selectedQuantity = $state("");
@@ -97,7 +106,7 @@
 
     editingOrder = order;
     formData = {
-      date: order.date.split("T")[0],
+      date: isoDateOnly(order.date),
       supplier_id: order.supplier_id || "",
       status: order.status || "pending",
       note: order.note || "",
@@ -112,28 +121,8 @@
     formOpen = true;
   }
 
-  /** Lève une erreur : une édition ouverte sans ses lignes les effacerait à l'enregistrement. */
-  async function loadOrderItems(orderId: string): Promise<any[]> {
-    const { data, error: itemsError } = await supabase
-      .from("order_item")
-      .select(
-        `
-        *,
-        wine_vintage (
-          *,
-          wine (
-            *,
-            winery (*),
-            appelation (*)
-          )
-        )
-      `
-      )
-      .eq("order_id", orderId);
-
-    if (itemsError) throw new Error(itemsError.message);
-    return data || [];
-  }
+  /* Note comprise : les lignes reprises dans le formulaire la gardent à l'enregistrement. */
+  const loadOrderItems = (orderId: string) => fetchLineItems("order", orderId, `${LINE_ITEMS_SELECT}, note`);
 
   function closeForm() {
     formOpen = false;
@@ -212,7 +201,7 @@
       selectedVintageId = "";
       selectedQuantity = "";
       selectedPrice = "";
-      error = ""; // Clear any previous errors
+      error = "";
     }
   }
 
@@ -272,7 +261,6 @@
     newStatus: string,
     currentStatus: string
   ): Promise<boolean> {
-    // Prevent changing status if already confirmed
     if (currentStatus === "confirmed") {
       error = "Impossible de modifier le statut d'une commande confirmée";
       return false;
@@ -297,15 +285,11 @@
     return true;
   }
 
+  /** Appelée après confirmation via le ConfirmDialog. */
   async function deleteOrder(id: string) {
-    // Find the order to check its status
     const order = orders.find((o) => o.id === id);
     if (order && order.status === "confirmed") {
       error = "Impossible de supprimer une commande confirmée";
-      return;
-    }
-
-    if (!confirm("Êtes-vous sûr de vouloir supprimer cette commande ?")) {
       return;
     }
 
@@ -325,6 +309,12 @@
     await invalidateAll();
   }
 
+  const LANGUAGES: [OrderPdfLanguage, string][] = [
+    ["fr", "🇫🇷 Français"],
+    ["en", "🇬🇧 English"],
+    ["it", "🇮🇹 Italiano"],
+  ];
+
   function openLanguageModal(orderId: string) {
     orderIdForPDF = orderId;
     showLanguageModal = true;
@@ -335,7 +325,9 @@
     orderIdForPDF = null;
   }
 
-  async function downloadOrderPDF(orderId: string, lang: OrderPdfLanguage) {
+  async function exportPdf(lang: OrderPdfLanguage) {
+    const orderId = orderIdForPDF;
+    if (!orderId) return;
     try {
       /* jsPDF n'est chargé qu'au moment de générer le document. */
       const { downloadOrderPdf } = await import("$lib/pdf/purchaseOrderPdf");
@@ -344,6 +336,45 @@
       error = `Erreur lors de la génération du PDF : ${errorMessage(err)}`;
       console.error(err);
     }
+    closeLanguageModal();
+  }
+
+  /** Commande figée : confirmée, ou partie avec un transport livré ou annulé. Seul le détail reste. */
+  function isLocked(order: any): boolean {
+    return order.status === "confirmed" || order.transport?.status === "delivered" || order.transport?.status === "cancelled";
+  }
+
+  /* Changement de statut depuis le badge (mêmes choix que l'ancien sélecteur). */
+  let statusMenuOrder = $state<any>(null);
+  let statusMenuOpen = $state(false);
+  let statusAnchor = $state<HTMLElement | null>(null);
+  const statusAnchors: Record<string, HTMLElement | null> = $state({});
+  function openStatusMenu(order: any) {
+    statusMenuOrder = order;
+    statusAnchor = statusAnchors[order.id] ?? null;
+    statusMenuOpen = true;
+  }
+  function orderStatusItems(order: any): MenuItem[] {
+    const current = order.status || "pending";
+    return statusMenuItems("order", current, (next) => updateOrderStatus(order.id, next, current));
+  }
+  let statusItems = $derived(statusMenuOrder ? orderStatusItems(statusMenuOrder) : []);
+
+  function rowItems(order: any): MenuItem[] {
+    const pdf: MenuItem = { label: "Exporter en PDF", icon: IconDownload, onSelect: () => openLanguageModal(order.id) };
+    if (isLocked(order)) return [{ label: "Voir le détail", icon: IconEye, onSelect: () => openDetailsModal(order) }, pdf];
+    return [
+      { label: "Modifier", icon: IconPencil, onSelect: () => openEditModal(order) },
+      pdf,
+      { label: "Supprimer…", icon: IconTrash, danger: true, separator: true, onSelect: () => askDelete(order) },
+    ];
+  }
+
+  let deleteTarget = $state<any>(null);
+  let confirmOpen = $state(false);
+  function askDelete(order: any) {
+    deleteTarget = order;
+    confirmOpen = true;
   }
 </script>
 
@@ -353,418 +384,354 @@
 
 <ManagePageShell title="Commandes">
   {#snippet actions()}
-      <button class="btn-primary" onclick={openCreateModal}>+ Nouvelle commande</button>
+    <Button variant="primary" onclick={openCreateModal}><IconPlus size={18} strokeWidth={1.75} /> Nouvelle commande</Button>
   {/snippet}
 
   {#if error}
-      <div class="error-message">{error}</div>
-    {/if}
+    <div class="error-message" role="alert">{error}</div>
+  {/if}
 
-    {#if orders.length === 0}
-      <div class="empty-state">
-        <p>Aucune commande trouvée</p>
-        <button class="btn-primary" onclick={openCreateModal}>
-          Créer la première commande
-        </button>
-      </div>
-    {:else}
-      <div class="table-container">
-        <table>
-          <thead>
-            <tr>
-              <th>Date</th>
-              <th>Fournisseur</th>
-              <th>Transport</th>
-              <th>Statut</th>
-              <th>Montant total</th>
-              <th>Actions</th>
-            </tr>
-          </thead>
-          <tbody>
-            {#each orders as order}
-              <tr>
-                <td>{formatDate(order.date)}</td>
-                <td><strong>{order.supplier.name}</strong></td>
-                <td>
-                  {#if order.transport}
-                    <div style="line-height: 1.4;">
-                      <div>
-                        <strong>{order.transport.transporter.name}</strong>
-                      </div>
-                      {#if order.transport.departure_date}
-                        <div
-                          style="font-size: 0.85rem; color: #666; margin-top: 0.15rem; line-height: 1.2;"
-                        >
-                          {formatDate(order.transport.departure_date)}
-                        </div>
-                      {:else if order.transport.arrival_date}
-                        <div
-                          style="font-size: 0.85rem; color: #666; margin-top: 0.15rem; line-height: 1.2;"
-                        >
-                          {formatDate(order.transport.arrival_date)}
-                        </div>
-                      {/if}
-                    </div>
-                  {:else}
-                    -
+  {#if orders.length === 0}
+    <Card padded={false}>
+      <EmptyState icon={IconClipboard} title="Aucune commande pour l’instant" text="Créez la première commande fournisseur : elle sera enregistrée « En attente ».">
+        <Button onclick={openCreateModal}>Créer la première commande</Button>
+      </EmptyState>
+    </Card>
+  {:else}
+    <DataTable caption="Liste des commandes fournisseur">
+      <thead>
+        <tr>
+          <th scope="col">Date</th>
+          <th scope="col">Fournisseur</th>
+          <th scope="col">Transport</th>
+          <th scope="col">Statut</th>
+          <th scope="col" class="num">Montant total</th>
+          <th scope="col" class="col-actions"><span class="sr-only">Actions</span></th>
+        </tr>
+      </thead>
+      <tbody>
+        {#each orders as order (order.id)}
+          <tr>
+            <td>{formatDate(order.date)}</td>
+            <td><strong>{order.supplier.name}</strong></td>
+            <td>
+              {#if order.transport}
+                <span class="stack">
+                  <strong>{order.transport.transporter.name}</strong>
+                  {#if order.transport.departure_date || order.transport.arrival_date}
+                    <span class="t-caption">{formatDate(order.transport.departure_date || order.transport.arrival_date)}</span>
                   {/if}
-                </td>
-                <td>
-                  <select
-                    class="status-select tone-{statusMeta("order", order.status).tone}"
-                    value={order.status || "pending"}
-                    disabled={order.status === "confirmed"}
-                    onchange={async (e) => {
-                      const target = e.target as HTMLSelectElement;
-                      const previousStatus = order.status || "pending";
-                      const newStatus = target.value;
-
-                      // Try to update, if failed, restore previous value
-                      const success = await updateOrderStatus(
-                        order.id,
-                        newStatus,
-                        previousStatus
-                      );
-
-                      // If update failed, restore select value
-                      if (!success) {
-                        target.value = previousStatus;
-                      }
-                    }}
-                  >
-                    {#each Object.entries(KIND_META.order) as [value, meta]}<option {value}>{meta.label}</option>{/each}
-                  </select>
-                </td>
-                <td>
-                  <strong>{formatEUR(order.total_price ?? 0)}</strong>
-                </td>
-                <td>
-                  <div class="actions">
-                    <button
-                      class="ui-btn ui-btn--secondary ui-btn--sm"
-                      onclick={() => openLanguageModal(order.id)}
-                      title="Exporter en PDF"
-                    >
-                      PDF
-                    </button>
-                    {#if order.status === "confirmed" || (order.transport && (order.transport.status === "delivered" || order.transport.status === "cancelled"))}
-                      <button
-                        class="ui-btn ui-btn--secondary ui-btn--sm"
-                        onclick={() => openDetailsModal(order)}
-                      >
-                        Détails
-                      </button>
-                    {:else}
-                      <button
-                        class="ui-btn ui-btn--secondary ui-btn--sm"
-                        onclick={() => openEditModal(order)}
-                      >
-                        Modifier
-                      </button>
-                      <button
-                        class="ui-btn ui-btn--danger ui-btn--sm"
-                        onclick={() => deleteOrder(order.id)}
-                      >
-                        Supprimer
-                      </button>
-                    {/if}
-                  </div>
-                </td>
-              </tr>
-            {/each}
-          </tbody>
-        </table>
-      </div>
-    {/if}
+                </span>
+              {:else}—{/if}
+            </td>
+            <td>
+              {#if canChangeStatus("order", order.status || "pending")}
+                <StatusBadge
+                  kind="order"
+                  status={order.status}
+                  interactive
+                  bind:el={statusAnchors[order.id]}
+                  expanded={statusMenuOpen && statusMenuOrder?.id === order.id}
+                  onclick={() => openStatusMenu(order)}
+                />
+              {:else}
+                <StatusBadge kind="order" status={order.status} />
+              {/if}
+            </td>
+            <td class="num"><strong>{formatEUR(order.total_price ?? 0)}</strong></td>
+            <td class="col-actions">
+              <div class="row-actions">
+                <IconButton label="Exporter en PDF" onclick={() => openLanguageModal(order.id)}>
+                  <IconDownload size={18} strokeWidth={1.75} />
+                </IconButton>
+                <RowMenu items={rowItems(order)} label="Actions pour la commande du {formatDate(order.date)} chez {order.supplier.name}" />
+              </div>
+            </td>
+          </tr>
+        {/each}
+      </tbody>
+    </DataTable>
+  {/if}
 </ManagePageShell>
 
-<!-- Modal de création / édition -->
-<Modal open={formOpen} title={editingOrder ? "Modifier la commande" : "Nouvelle commande"} onclose={closeForm}>
-  <form id="order-form" onsubmit={preventDefault(submitForm)}>
-    <div class="form-grid">
-      <div class="form-group">
-        <label for="date">Date *</label>
-        <input type="date" id="date" bind:value={formData.date} required />
-      </div>
+<Menu bind:open={statusMenuOpen} anchor={statusAnchor} items={statusItems} label="Changer le statut" align="start" />
 
-      <div class="form-group">
-        <label for="supplier_id">Fournisseur *</label>
-        <select id="supplier_id" bind:value={formData.supplier_id} required>
+<ConfirmDialog
+  bind:open={confirmOpen}
+  title="Supprimer cette commande ?"
+  message={deleteTarget
+    ? `La commande du ${formatDate(deleteTarget.date)} chez ${deleteTarget.supplier.name} (${formatEUR(deleteTarget.total_price ?? 0)}) sera définitivement supprimée, avec ses articles.`
+    : ""}
+  action={() => deleteOrder(deleteTarget.id)}
+/>
+
+<!-- Création / modification -->
+<Modal open={formOpen} title={editingOrder ? "Modifier la commande" : "Nouvelle commande"} maxWidth={760} onclose={closeForm}>
+  <form id="order-form" class="order-form" onsubmit={preventDefault(submitForm)}>
+    {#if error && formOpen}
+      <div class="error-message" role="alert">{error}</div>
+    {/if}
+    <div class="grid-2">
+      <Field id="order-date" label="Date" required>
+        <input id="order-date" class="ui-control" type="date" bind:value={formData.date} required />
+      </Field>
+      <Field id="order-supplier" label="Fournisseur" required>
+        <Select id="order-supplier" bind:value={formData.supplier_id} required>
           <option value="">Sélectionner un fournisseur</option>
           {#each suppliers as supplier}
             <option value={supplier.id}>{supplier.name}</option>
           {/each}
-        </select>
-      </div>
-
-      <div class="form-group full-width">
-        <label for="note">Note</label>
-        <textarea id="note" bind:value={formData.note} rows="2"></textarea>
-      </div>
-
-      <div class="form-group full-width">
-        <div class="section-title">Articles *</div>
-        <div class="order-items-container">
-          {#if orderItems.length === 0}
-            <p class="empty-text">Aucun article ajouté</p>
-          {:else}
-            <div class="order-items-list">
-              {#each orderItems as item, index}
-                <div class="order-item">
-                  <span>
-                    {vintageProductLabel(item.wine_vintage)} - x{item.quantity}
-                    @ {formatEUR(item.price)} = {formatEUR(calculateItemTotal(item))}
-                  </span>
-                  <button
-                    type="button"
-                    class="ui-remove"
-                    onclick={() => removeOrderItem(index)}
-                  >
-                    ×
-                  </button>
-                </div>
-              {/each}
-            </div>
-          {/if}
-          <div class="add-item-form">
-            <select
-              bind:value={selectedVintageId}
-              onchange={handleVintageChange}
-            >
-              <option value="">Sélectionner un produit</option>
-              {#each orderableVintages as vintage}
-                {@const alreadyAdded = isVintageAlreadyAdded(vintage.id)}
-                <option value={vintage.id} disabled={alreadyAdded}>
-                  {vintageProductLabel(vintage)}
-                </option>
-              {/each}
-            </select>
-            <input
-              type="number"
-              min="1"
-              placeholder="Qté"
-              bind:value={selectedQuantity}
-            />
-            <input
-              type="number"
-              step="0.01"
-              min="0"
-              placeholder="Prix d'achat"
-              bind:value={selectedPrice}
-            />
-            <button type="button" class="ui-btn ui-btn--secondary ui-btn--sm" onclick={addOrderItem}>
-              Ajouter
-            </button>
-          </div>
-          <div class="total-display">
-            <strong>Total : {formatEUR(total)}</strong>
-          </div>
-        </div>
-      </div>
+        </Select>
+      </Field>
     </div>
+
+    <Field id="order-note" label="Note">
+      <textarea id="order-note" class="ui-control" rows="2" bind:value={formData.note}></textarea>
+    </Field>
+
+    <section class="items" aria-labelledby="order-items-title">
+      <h3 id="order-items-title" class="t-label">Articles <span class="req" aria-hidden="true">*</span></h3>
+      {#if orderItems.length === 0}
+        <EmptyState title="Aucun article ajouté" text="Cherchez un produit ci-dessous, puis « Ajouter »." compact />
+      {:else}
+        <DataTable caption="Articles de la commande">
+          <thead>
+            <tr>
+              <th scope="col">Produit</th>
+              <th scope="col" class="num">Qté</th>
+              <th scope="col" class="num">Prix d’achat</th>
+              <th scope="col" class="num">Total</th>
+              <th scope="col" class="col-actions"><span class="sr-only">Retirer</span></th>
+            </tr>
+          </thead>
+          <tbody>
+            {#each orderItems as item, index}
+              <tr>
+                <td>{vintageProductLabel(item.wine_vintage)}</td>
+                <td class="num">{item.quantity}</td>
+                <td class="num">{formatEUR(item.price)}</td>
+                <td class="num"><strong>{formatEUR(calculateItemTotal(item))}</strong></td>
+                <td class="col-actions">
+                  <IconButton label="Retirer {vintageProductLabel(item.wine_vintage)}" onclick={() => removeOrderItem(index)}>
+                    <IconTrash size={18} strokeWidth={1.75} />
+                  </IconButton>
+                </td>
+              </tr>
+            {/each}
+          </tbody>
+        </DataTable>
+      {/if}
+
+      <div class="add-row">
+        <div class="add-product">
+          <span class="t-label">Ajouter un produit</span>
+          <ProductVintageAutocomplete
+            bind:value={selectedVintageId}
+            wineVintages={orderableVintages}
+            includeTastingOption={false}
+            disableWhenNoStock={false}
+            {isVintageAlreadyAdded}
+            formatLabel={vintageProductLabel}
+            getAvailableStock={() => 0}
+            onchange={handleVintageChange}
+          />
+        </div>
+        <label>
+          <span class="t-label">Qté</span>
+          <input class="ui-control" type="number" min="1" inputmode="numeric" placeholder="1" bind:value={selectedQuantity} />
+        </label>
+        <label>
+          <span class="t-label">Prix d’achat</span>
+          <input class="ui-control num-input" type="number" step="0.01" min="0" inputmode="decimal" placeholder="0,00" bind:value={selectedPrice} />
+        </label>
+        <Button onclick={addOrderItem}><IconPlus size={16} strokeWidth={1.75} /> Ajouter</Button>
+      </div>
+    </section>
   </form>
   {#snippet footer()}
-      <Button variant="ghost" onclick={closeForm}>Annuler</Button>
-      <Button variant="primary" type="submit" form="order-form" disabled={saving}>{editingOrder ? "Enregistrer" : "Créer la commande"}</Button>
+    <span class="total" aria-live="polite">Total <strong>{formatEUR(total)}</strong></span>
+    <Button variant="ghost" onclick={closeForm}>Annuler</Button>
+    <Button variant="primary" type="submit" form="order-form" disabled={saving}>{editingOrder ? "Enregistrer" : "Créer la commande"}</Button>
   {/snippet}
 </Modal>
 
-<!-- Modal de détails -->
-<Modal open={showDetailsModal} title="Détails de la commande" onclose={closeDetailsModal}>
+<!-- Détail -->
+<Modal open={showDetailsModal} title="Détail de la commande" maxWidth={720} onclose={closeDetailsModal}>
+  {#snippet titleExtra()}
+    {#if detailsOrder}<StatusBadge kind="order" status={detailsOrder.status} />{/if}
+  {/snippet}
   {#if detailsOrder}
-    <div class="details-content">
-      <div class="details-grid">
-        <div class="details-group">
-          <div class="details-section">
-            <strong>Fournisseur:</strong>
-            <p>{detailsOrder.supplier.name}</p>
-          </div>
-          <div class="details-section">
-            <strong>Date:</strong>
-            <p>{formatDate(detailsOrder.date)}</p>
-          </div>
-          <div class="details-section">
-            <strong>Statut:</strong>
-            <p>
-              <StatusBadge kind="order" status={detailsOrder.status} />
-            </p>
-          </div>
-          {#if detailsOrder.transport}
-            <div class="details-section">
-              <strong>Transport:</strong>
-              <p>{detailsOrder.transport.transporter.name}</p>
-            </div>
-          {/if}
-        </div>
-      </div>
-
-      <div class="details-section">
-        <strong>Articles:</strong>
-        <div class="details-items-list">
-          {#each detailsOrderItems as item}
-            <div class="details-item">
-              <div class="details-item-name">
-                {vintageProductLabel(item.wine_vintage)}
-              </div>
-              <div class="details-item-details">
-                x{item.quantity} @ {formatEUR(item.price ?? 0)} = {formatEUR((item.price || 0) * item.quantity)}
-              </div>
-            </div>
-          {/each}
-        </div>
-      </div>
-
-      <div class="details-total">
-        <strong>Total : {formatEUR(detailsOrder.total_price ?? 0)}</strong>
-      </div>
-
+    <dl class="facts">
+      <div><dt>Fournisseur</dt><dd>{detailsOrder.supplier.name}</dd></div>
+      <div><dt>Date</dt><dd>{formatDate(detailsOrder.date)}</dd></div>
+      <div><dt>Transport</dt><dd>{detailsOrder.transport?.transporter.name ?? "—"}</dd></div>
       {#if detailsOrder.note}
-        <div class="details-section">
-          <strong>Note:</strong>
-          <p>{detailsOrder.note}</p>
-        </div>
+        <div class="wide"><dt>Note</dt><dd>{detailsOrder.note}</dd></div>
       {/if}
-    </div>
+    </dl>
+
+    <DataTable caption="Articles de la commande">
+      <thead>
+        <tr>
+          <th scope="col">Article</th>
+          <th scope="col" class="num">Qté</th>
+          <th scope="col" class="num">Prix unit.</th>
+          <th scope="col" class="num">Total</th>
+        </tr>
+      </thead>
+      <tbody>
+        {#each detailsOrderItems as item}
+          <tr>
+            <td>{vintageProductLabel(item.wine_vintage)}</td>
+            <td class="num">{item.quantity}</td>
+            <td class="num">{formatEUR(item.price)}</td>
+            <td class="num"><strong>{formatEUR(calculateItemTotal(item))}</strong></td>
+          </tr>
+        {/each}
+      </tbody>
+    </DataTable>
+    <p class="grand-total"><span>Total</span><span>{formatEUR(detailsOrder.total_price ?? 0)}</span></p>
   {/if}
+  {#snippet footer()}
+    <Button variant="primary" onclick={closeDetailsModal}>Fermer</Button>
+  {/snippet}
 </Modal>
 
-<!-- Modal de sélection de langue pour PDF -->
-<Modal open={showLanguageModal} title="Choisir la langue pour l'export PDF" onclose={closeLanguageModal}>
-  <div class="language-selection">
-    <p>Sélectionnez la langue dans laquelle vous souhaitez générer le PDF :</p>
-    <div class="language-buttons">
-      {#each [["fr", "🇫🇷 Français"], ["en", "🇬🇧 English"], ["it", "🇮🇹 Italiano"]] as [lang, label]}
-        <button
-          class="btn-language"
-          onclick={async () => {
-            if (orderIdForPDF) {
-              await downloadOrderPDF(orderIdForPDF, lang as OrderPdfLanguage);
-              closeLanguageModal();
-            }
-          }}
-        >
-          {label}
-        </button>
-      {/each}
-    </div>
+<!-- Langue du PDF -->
+<Modal open={showLanguageModal} title="Langue de l’export PDF" maxWidth={440} onclose={closeLanguageModal}>
+  <p class="flush">Sélectionnez la langue dans laquelle générer le bon de commande :</p>
+  <div class="languages">
+    {#each LANGUAGES as [lang, label]}
+      <Button onclick={() => exportPdf(lang)}>{label}</Button>
+    {/each}
   </div>
+  {#snippet footer()}
+    <Button variant="ghost" onclick={closeLanguageModal}>Annuler</Button>
+  {/snippet}
 </Modal>
 
 <style>
-  .order-items-container {
+  .stack {
     display: flex;
     flex-direction: column;
-    gap: 1rem;
   }
 
-  .order-items-list {
-    display: flex;
-    flex-direction: column;
-    gap: 0.5rem;
-    max-height: 200px;
-    overflow-y: auto;
-    border: 1px solid var(--input-border);
-    border-radius: 4px;
-    padding: 0.5rem;
-  }
-
-  .order-item {
-    display: flex;
-    justify-content: space-between;
+  .row-actions {
+    display: inline-flex;
     align-items: center;
-    padding: 0.5rem;
-    background: var(--table-head);
-    border-radius: 4px;
-    font-size: 0.9rem;
+    gap: 4px;
   }
 
-  .add-item-form {
+  .order-form {
     display: flex;
-    gap: 0.5rem;
-    flex-wrap: wrap;
+    flex-direction: column;
+    gap: 20px;
   }
 
-  .add-item-form select {
-    flex: 1;
-    min-width: 200px;
-  }
-
-  .add-item-form input {
-    width: 80px;
-  }
-
-  .empty-text {
-    color: var(--ink-2);
-    font-style: italic;
-    font-size: 0.9rem;
-    text-align: center;
-    padding: 1rem;
-  }
-
-  .total-display {
-    text-align: right;
-    padding-top: 0.5rem;
-    border-top: 1px solid var(--border);
-    font-size: 1.1rem;
-  }
-
-  .details-grid {
+  .grid-2 {
     display: grid;
     grid-template-columns: 1fr 1fr;
-    gap: 1.5rem;
-    margin-bottom: 1.5rem;
+    gap: 16px;
   }
 
-  .details-group {
+  .items {
     display: flex;
     flex-direction: column;
-    gap: 1rem;
+    gap: 8px;
   }
 
-  .details-section {
-    margin-bottom: 1rem;
+  .items h3 {
+    margin: 0;
   }
 
-  .details-section strong {
-    display: block;
-    margin-bottom: 0.5rem;
+  .req {
+    color: var(--danger);
+  }
+
+  .add-row {
+    display: grid;
+    grid-template-columns: minmax(200px, 1fr) 80px 120px auto;
+    gap: 10px;
+    align-items: end;
+    padding: 12px;
+    background: var(--table-head);
+    border: 1px solid var(--border-soft);
+    border-radius: var(--r-md);
+  }
+
+  .add-product,
+  .add-row label {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    min-width: 0;
+  }
+
+  .num-input {
+    text-align: right;
+  }
+
+  .total {
+    margin-right: auto;
+    color: var(--ink-2);
+  }
+
+  .total strong,
+  .grand-total {
+    font-family: var(--font-serif);
+    font-size: 20px;
+    font-weight: 600;
     color: var(--ink);
   }
 
-  .details-section p {
-    margin: 0;
+  .facts {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px 24px;
+    margin: 0 0 20px;
+  }
+
+  .facts .wide {
+    grid-column: 1 / -1;
+  }
+
+  .facts dt {
+    font-size: 12px;
     color: var(--ink-2);
   }
 
-  .details-items-list {
+  .facts dd {
+    margin: 2px 0 0;
+  }
+
+  .grand-total {
     display: flex;
-    flex-direction: column;
-    gap: 0.5rem;
-    margin-top: 0.5rem;
+    justify-content: space-between;
+    margin: 12px 0 0;
   }
 
-  .details-item {
-    padding: 0.75rem;
-    background: var(--table-head);
-    border-radius: 4px;
+  .flush {
+    margin: 0 0 16px;
   }
 
-  .details-item-name {
-    font-weight: 500;
-    margin-bottom: 0.25rem;
+  .languages {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
   }
 
-  .details-item-details {
-    font-size: 0.9rem;
-    color: var(--ink-2);
-  }
+  @media (max-width: 767px) {
+    .grid-2,
+    .facts {
+      grid-template-columns: 1fr;
+    }
 
-  .details-total {
-    text-align: right;
-    padding-top: 1rem;
-    border-top: 2px solid var(--border);
-    font-size: 1.2rem;
-    margin-top: 1rem;
-  }
+    .add-row {
+      grid-template-columns: 1fr 1fr;
+    }
 
+    .add-product {
+      grid-column: 1 / -1;
+    }
+  }
 </style>
