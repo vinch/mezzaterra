@@ -81,14 +81,14 @@
       padding: 0 14px;
       border: 1px solid var(--btn-border);
       border-radius: var(--r-pill);
-      background: #fff;
+      background: var(--card);
       color: var(--ink);
     }
 
     .tab[aria-selected="true"] {
       background: var(--night);
       border-color: var(--night);
-      color: #fff;
+      color: var(--card);
     }
 
     .tab[aria-selected="true"]::after {
@@ -96,8 +96,8 @@
     }
 
     .tab[aria-selected="true"] .tab-count {
-      background: rgba(255, 255, 255, 0.18);
-      color: #fff;
+      background: color-mix(in srgb, var(--card) 18%, transparent);
+      color: var(--card);
     }
   }
 </style>
