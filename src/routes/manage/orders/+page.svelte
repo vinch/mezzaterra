@@ -47,8 +47,6 @@
   /** Modale unique création / édition (`editingOrder` les distingue). */
   let formOpen = $state(false);
   let saving = $state(false);
-  let showDetailsModal = $state(false);
-  let showLanguageModal = $state(false);
   let editingOrder = $state<any>(null);
   let detailsOrder = $state<any>(null);
   let detailsOrderItems = $state<any[]>([]);
@@ -138,11 +136,9 @@
     if (!items) return;
     detailsOrderItems = items;
     detailsOrder = order;
-    showDetailsModal = true;
   }
 
   function closeDetailsModal() {
-    showDetailsModal = false;
     detailsOrder = null;
     detailsOrderItems = [];
   }
@@ -315,11 +311,9 @@
 
   function openLanguageModal(orderId: string) {
     orderIdForPDF = orderId;
-    showLanguageModal = true;
   }
 
   function closeLanguageModal() {
-    showLanguageModal = false;
     orderIdForPDF = null;
   }
 
@@ -437,7 +431,7 @@
 <!-- Création / modification -->
 <Modal open={formOpen} title={editingOrder ? "Modifier la commande" : "Nouvelle commande"} maxWidth={760} onclose={closeForm}>
   <form id="order-form" class="order-form" onsubmit={preventDefault(submitForm)}>
-    {#if error && formOpen}
+    {#if error}
       <div class="error-message" role="alert">{error}</div>
     {/if}
     <div class="grid-2">
@@ -523,7 +517,7 @@
 </Modal>
 
 <!-- Détail -->
-<Modal open={showDetailsModal} title="Détail de la commande" maxWidth={720} onclose={closeDetailsModal}>
+<Modal open={detailsOrder != null} title="Détail de la commande" maxWidth={720} onclose={closeDetailsModal}>
   {#snippet titleExtra()}
     {#if detailsOrder}<StatusBadge kind="order" status={detailsOrder.status} />{/if}
   {/snippet}
@@ -565,7 +559,7 @@
 </Modal>
 
 <!-- Langue du PDF -->
-<Modal open={showLanguageModal} title="Langue de l’export PDF" maxWidth={440} onclose={closeLanguageModal}>
+<Modal open={orderIdForPDF != null} title="Langue de l’export PDF" maxWidth={440} onclose={closeLanguageModal}>
   <p class="flush">Sélectionnez la langue dans laquelle générer le bon de commande :</p>
   <div class="languages">
     {#each LANGUAGES as [lang, label]}

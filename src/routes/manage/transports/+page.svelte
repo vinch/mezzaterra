@@ -38,8 +38,6 @@
   /** Modale unique création / édition (`editingTransport` les distingue). */
   let formOpen = $state(false);
   let saving = $state(false);
-  let showOrdersModal = $state(false);
-  let showDetailsModal = $state(false);
   let editingTransport = $state<any>(null);
   let selectedTransport = $state<any>(null);
   let detailsTransport = $state<any>(null);
@@ -177,15 +175,14 @@
     void setTransportStatus(transport.id, next);
   }
 
+  /* La modale s'ouvre une fois ses listes lues (elle suit `selectedTransport`). */
   async function openOrdersModal(transport: any) {
-    selectedTransport = transport;
     selectedOrderIds = [];
     await Promise.all([loadAvailableOrders(), loadAssociatedOrders(transport.id)]);
-    showOrdersModal = true;
+    selectedTransport = transport;
   }
 
   function closeOrdersModal() {
-    showOrdersModal = false;
     selectedTransport = null;
     selectedOrderIds = [];
     availableOrders = [];
@@ -193,13 +190,11 @@
   }
 
   async function openDetailsModal(transport: any) {
-    detailsTransport = transport;
     await loadDetailsOrders(transport.id);
-    showDetailsModal = true;
+    detailsTransport = transport;
   }
 
   function closeDetailsModal() {
-    showDetailsModal = false;
     detailsTransport = null;
     detailsOrders = [];
   }
@@ -367,7 +362,7 @@
 <!-- Création / modification -->
 <Modal open={formOpen} title={editingTransport ? "Modifier le transport" : "Nouveau transport"} onclose={closeForm}>
   <form id="transport-form" class="transport-form" onsubmit={preventDefault(submitForm)}>
-    {#if error && formOpen}
+    {#if error}
       <div class="error-message" role="alert">{error}</div>
     {/if}
     <Field id="transport-transporter" label="Transporteur" required>
@@ -414,7 +409,7 @@
 {/snippet}
 
 <!-- Association de commandes -->
-<Modal open={showOrdersModal} title="Associer des commandes au transport" onclose={closeOrdersModal}>
+<Modal open={selectedTransport != null} title="Associer des commandes au transport" onclose={closeOrdersModal}>
   {#if selectedTransport}
     <p class="intro t-muted">
       Sélectionnez les commandes à associer au transport <strong>{selectedTransport.transporter.name}</strong>.
@@ -458,7 +453,7 @@
 </Modal>
 
 <!-- Détail -->
-<Modal open={showDetailsModal} title="Détail du transport" maxWidth={720} onclose={closeDetailsModal}>
+<Modal open={detailsTransport != null} title="Détail du transport" maxWidth={720} onclose={closeDetailsModal}>
   {#snippet titleExtra()}
     {#if detailsTransport}<StatusBadge kind="transport" status={detailsTransport.status} />{/if}
   {/snippet}

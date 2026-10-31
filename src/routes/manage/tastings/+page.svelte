@@ -529,7 +529,7 @@
 
 <Modal open={showModal} title={editingTasting ? "Modifier la dégustation" : "Nouvelle dégustation"} maxWidth={720} onclose={closeModal}>
   <form id="tasting-form" class="tasting-form" onsubmit={preventDefault(handleSubmit)}>
-    {#if error && showModal}
+    {#if error}
       <div class="error-message" role="alert">{error}</div>
     {/if}
 
