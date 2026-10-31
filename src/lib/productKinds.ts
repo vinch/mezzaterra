@@ -67,6 +67,8 @@ export type ProductKindInfo = {
   noYear: string;
   /** Composition (`grape`) : « Cépages », « Variétés d'olives ». */
   ingredients: string;
+  /** « Nouveau cépage », « Nouvelle variété » (référentiel des cépages et variétés). */
+  newIngredient: string;
   /** « Choisir un cépage… », « Aucun cépage ». */
   chooseIngredient: string;
   noIngredient: string;
@@ -115,6 +117,7 @@ export const PRODUCT_KINDS: Record<ProductKind, ProductKindInfo> = {
     otherYears: "Autres millésimes",
     noYear: "Non millésimé",
     ingredients: "Cépages",
+    newIngredient: "Nouveau cépage",
     chooseIngredient: "Choisir un cépage…",
     noIngredient: "Aucun cépage",
     hasAbv: true,
@@ -158,6 +161,7 @@ export const PRODUCT_KINDS: Record<ProductKind, ProductKindInfo> = {
     otherYears: "Autres récoltes",
     noYear: "Sans récolte indiquée",
     ingredients: "Variétés d’olives",
+    newIngredient: "Nouvelle variété",
     chooseIngredient: "Choisir une variété…",
     noIngredient: "Aucune variété",
     hasAbv: false,
