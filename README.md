@@ -103,6 +103,13 @@ publique et, comme son site, dans « Du même domaine » des fiches produits. À
 déployer le code : la page Domaines de la gestion envoie toujours `instagram`, et tout enregistrement
 d'un domaine échouerait sans la colonne.
 
+`20261031190000_winery_hidden.sql` ajoute `winery.hidden` : un domaine masqué (pas encore annoncé)
+n'est plus listé sur le site public, ses produits non plus (carte et liste de l'accueil, autres
+domaines, catalogue, lien « Nos huiles »). Comme une dégustation privée, sa page et celles de ses
+produits restent accessibles par lien (dégustations, QR des fiches de table). Masque
+Donato Di Tommaso Vignaiolo. À appliquer avant de déployer le code, qui lit et enregistre
+`winery.hidden`.
+
 `20261031200000_live_preorder.sql` simplifie le « J'en veux » du mode dégustation : chaque ajout
 enregistre une pré-commande (`live_preorder`, une par téléphone et par dégustation, sans nom ni contact
 obligatoires) via la fonction `save_live_preorder`, et l'animateur la voit dans Piloter. L'invité

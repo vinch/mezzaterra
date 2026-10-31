@@ -44,8 +44,9 @@ export async function fetchCatalogKinds(): Promise<ProductKind[]> {
       PRODUCT_KIND_LIST.filter((k) => k.key !== DEFAULT_KIND).map(async (k) => {
         const { data } = await supabase
           .from("wine_vintage")
-          .select("id, wine!inner ( kind )")
+          .select("id, wine!inner ( kind, winery!inner ( hidden ) )")
           .eq("wine.kind", k.key)
+          .eq("wine.winery.hidden", false)
           .is("discontinued_at", null)
           .limit(1);
         return data?.length ? [k.key] : [];

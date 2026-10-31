@@ -10,6 +10,8 @@ export const load: PageLoad = async ({ params }) => {
     .from("wine_vintage")
     .select(VINTAGE_PUBLIC_SELECT_BY_WINE)
     .eq("wine.kind", kind)
+    /* Domaine masqué : ni lui ni ses produits au catalogue (pages accessibles par lien). */
+    .eq("wine.winery.hidden", false)
     .order("year", { ascending: false, nullsFirst: false });
 
   return {

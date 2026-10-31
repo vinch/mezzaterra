@@ -92,12 +92,13 @@
     if (isPreorderDirty(tasting.id)) schedulePreorder();
 
     maxServed = getServed(tasting.id);
+    /* Soirée terminée : tout est débloqué, plus de vin servi à suivre (live_position est périmée). */
+    if (finished) return;
     if (typeof tasting.live_position === "number") {
       hostPosition = clamp(tasting.live_position);
       markServed(hostPosition);
       index = hostPosition;
     }
-    if (finished) index = 0;
 
     channel = joinLiveChannel(tasting.id, {
       onPosition: (p) => {
@@ -326,7 +327,7 @@
           <span class="progress-count">{kind.label} {index + 1}<span class="muted"> / {total}</span></span>
           <span class="live-state" class:on={connected}>
             <span class="dot" aria-hidden="true"></span>
-            {connected ? (follow ? "En direct" : "Navigation libre") : "Hors ligne"}
+            {finished ? "Soirée terminée" : connected ? (follow ? "En direct" : "Navigation libre") : "Hors ligne"}
           </span>
         </div>
       </div>

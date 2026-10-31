@@ -423,7 +423,8 @@
                   <Stepper bind:value={quantity} label="Bouteilles" />
                   <Stepper bind:value={quantity} label="Bouteilles (tactile)" size="lg" />
                 </div>
-                <label class="checkbox-label"><input type="checkbox" checked /> Case à cocher (<code>.checkbox-label</code>)</label>
+                <label class="checkbox-label"><input type="checkbox" checked aria-describedby="ds-check-help" /> Case à cocher (<code>.checkbox-label</code>)</label>
+                <small id="ds-check-help" class="t-caption">Aide en <code>.t-caption</code> dessous ; champ <code>checkbox</code> de <code>RefCrudPage</code>.</small>
               </div>
             </div>
           </Card>

@@ -24,7 +24,7 @@
     IconUsers,
   } from "$lib/ui/icons";
   import { formatDate, formatEUR } from "$lib/format";
-  import { formatTime, isLiveNow } from "$lib/dates";
+  import { formatTime, isLiveNow, winesRevealed } from "$lib/dates";
   import WineBottle from "$lib/components/site/WineBottle.svelte";
   import Spinner from "$lib/ui/Spinner.svelte";
   import { fetchSeats, fetchTastingWithWines, isParticipantRegistration, onlineSeats, onlineSeatsByCustomer, participantOrigin, placesLabel, tastingTitle, type SeatInfo } from "$lib/publicData";
@@ -81,12 +81,13 @@
     loading = false;
     if (!tasting) return;
 
-    position = typeof tasting.live_position === "number" ? clamp(tasting.live_position) : 0;
+    /* Soirée terminée : plus de vin « en cours », on parcourt le déroulé sans rien diffuser. */
+    position = !finished && typeof tasting.live_position === "number" ? clamp(tasting.live_position) : 0;
     guestUrl = `${window.location.origin}/tastings/${tastingId}/live`;
     qr = await qrDataUrl(guestUrl, { size: 640 });
     if (destroyed) return;
 
-    channel = joinLiveChannel(
+    if (!finished) channel = joinLiveChannel(
       tastingId,
       {
         onStatus: (ok) => {
@@ -101,8 +102,8 @@
 
     await refresh();
     if (destroyed) return;
-    /* Pas de rafraîchissement quand l'onglet est caché. */
-    poll = setInterval(() => document.hidden || refresh(), 8000);
+    /* Pas de rafraîchissement quand l’onglet est caché ; une fois la soirée terminée, rien ne presse. */
+    poll = setInterval(() => document.hidden || refresh(), finished ? 60_000 : 8000);
   });
 
   onDestroy(() => {
@@ -119,6 +120,7 @@
     const next = clamp(p);
     if (next === position) return;
     position = next;
+    if (finished) return;
     if (channel) void broadcastPosition(channel, position);
     const { error: e } = await supabase.from("tasting").update({ live_position: position }).eq("id", tastingId);
     if (e) console.warn("live_position non enregistrée :", e.message);
@@ -290,6 +292,8 @@
   function onKey(e: KeyboardEvent) {
     const tag = (e.target as HTMLElement)?.tagName;
     if (tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT") return;
+    /* Soirée terminée : plus de service à faire avancer, l’espace refait défiler la page. */
+    if (finished) return;
     if (e.key === "ArrowRight" || e.key === " ") {
       e.preventDefault();
       void setPosition(position + 1);
@@ -315,8 +319,10 @@
   /* Absent de la vue : aucun mouvement, donc 0 bouteille (et non « inconnu »). */
   let currentStock = $derived(current && stockMap ? (stockMap.get(current.id) ?? 0) : null);
   let isLiveDay = $derived(tasting ? isLiveNow(tasting.date) : false);
+  /** Lendemain 6 h passé : la soirée n'est plus pilotée (cf. vue invité). */
+  let finished = $derived(tasting ? winesRevealed(tasting.date) : false);
   let headerSubtitle = $derived(tasting
-    ? [formatDate(tasting.date), tasting.location, tasting.start_time ? `depuis ${formatTime(tasting.start_time)}` : ""].filter(Boolean).join(" · ")
+    ? [formatDate(tasting.date), tasting.location, tasting.start_time ? `${isLiveDay ? "depuis" : "à"} ${formatTime(tasting.start_time)}` : ""].filter(Boolean).join(" · ")
     : "");
   function wishFor(w: { items: unknown }, vintageId: string): number {
     return wishItems(w.items).filter((i) => i.wine_vintage_id === vintageId).reduce((n, i) => n + i.quantity, 0);
@@ -392,9 +398,11 @@
           <Button variant="ghost" href="/tastings/{tastingId}/live" target="_blank" rel="noopener noreferrer">
             <IconExternal size={16} strokeWidth={1.75} /> Vue invité
           </Button>
-          <Button variant="ghost" onclick={() => (projecting = true)}>
-            <IconMonitor size={16} strokeWidth={1.75} /> Projeter le visuel
-          </Button>
+          {#if !finished}
+            <Button variant="ghost" onclick={() => (projecting = true)}>
+              <IconMonitor size={16} strokeWidth={1.75} /> Projeter le visuel
+            </Button>
+          {/if}
         {/if}
       {/snippet}
 
@@ -429,7 +437,11 @@
         </a>
         <div class="band-item">
           <span class="t-caption">Progression</span>
-          <span class="band-v">{currentLabel} {position + 1} <small>sur {wines.length}</small></span>
+          {#if finished}
+            <span class="band-v">Terminée <small>· {wines.length} au déroulé</small></span>
+          {:else}
+            <span class="band-v">{currentLabel} {position + 1} <small>sur {wines.length}</small></span>
+          {/if}
         </div>
       </section>
 
@@ -443,7 +455,7 @@
               {#each wines as w, i (w.id)}
                 {@const st = stats.get(w.id)}
                 <li>
-                  <button type="button" class="step" class:current={i === position} aria-current={i === position ? "step" : undefined} onclick={() => setPosition(i)}>
+                  <button type="button" class="step" class:current={i === position} aria-current={i === position ? (finished ? "true" : "step") : undefined} onclick={() => setPosition(i)}>
                     <span class="step-num">{i + 1}</span>
                     <WineDot type={w.wine?.wine_type} />
                     <span class="step-main">
@@ -452,10 +464,13 @@
                         {w.wine?.winery?.name ?? ""}{soldByWine.get(w.id) ? ` · ${soldByWine.get(w.id)} bt. vendues` : ""}{st?.wanted ? ` · ${st.wanted} demandées` : ""}{st?.avg != null ? ` · ★ ${st.avg.toFixed(1)}` : ""}
                       </span>
                     </span>
-                    {#if i < position}
-                      <span class="step-badge done"><IconCheck size={13} strokeWidth={2} aria-hidden="true" /> Servi</span>
-                    {:else if i === position}
-                      <span class="step-badge is-now"><IconPlay size={12} strokeWidth={2} aria-hidden="true" /> En cours</span>
+                    <!-- Soirée terminée : ni servi ni en cours, la ligne surlignée est juste celle consultée. -->
+                    {#if !finished}
+                      {#if i < position}
+                        <span class="step-badge done"><IconCheck size={13} strokeWidth={2} aria-hidden="true" /> Servi</span>
+                      {:else if i === position}
+                        <span class="step-badge is-now"><IconPlay size={12} strokeWidth={2} aria-hidden="true" /> En cours</span>
+                      {/if}
                     {/if}
                   </button>
                 </li>
@@ -465,7 +480,7 @@
 
           <Card title="Invités" id="invites">
             {#snippet actions()}
-                                <span class="t-caption"><IconUsers size={14} strokeWidth={1.75} aria-hidden="true" /> {guestCount} connecté{guestCount > 1 ? "s" : ""}</span>
+                                {#if !finished}<span class="t-caption"><IconUsers size={14} strokeWidth={1.75} aria-hidden="true" /> {guestCount} connecté{guestCount > 1 ? "s" : ""}</span>{/if}
                               {/snippet}
             <div class="qr-row">
               {#if qr}<img src={qr} alt="QR code vers la vue invité" class="qr" />{/if}
@@ -487,7 +502,7 @@
               <h2 id="now-title" class="now-title">{vintageShortLabel(current)}</h2>
               <p>{current.wine?.winery?.name ?? ""}{current.price ? " · " : ""}{#if current.price}<strong>{formatEUR(current.price)}</strong> la bouteille{/if}</p>
               <p class="t-caption">
-                Stock : <strong>{currentStock == null ? "indisponible" : `${currentStock} bt.`}</strong> · vendues ce soir : <strong>{soldByWine.get(current.id) ?? 0} bt.</strong>{#if currentOrdered} · demandées : <strong>{currentOrdered} bt.</strong>{/if}
+                Stock : <strong>{currentStock == null ? "indisponible" : `${currentStock} bt.`}</strong> · vendues {finished ? "à la soirée" : "ce soir"} : <strong>{soldByWine.get(current.id) ?? 0} bt.</strong>{#if currentOrdered} · demandées : <strong>{currentOrdered} bt.</strong>{/if}
               </p>
             </div>
             <div class="now-actions">
@@ -502,7 +517,7 @@
 
           <Card title="Commandes des participants" id="orders" padded={false}>
             {#snippet actions()}
-                                <span class="t-caption">Flèches ← → ou espace pour avancer</span>
+                                {#if !finished}<span class="t-caption">Flèches ← → ou espace pour avancer</span>{/if}
                               {/snippet}
             {#if wishes.length === 0 && preorders.length === 0}
               <EmptyState icon={IconInbox} title="Aucune commande pour l’instant" text="Les invités commandent depuis leur téléphone (« J’en veux »)." compact />

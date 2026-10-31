@@ -5,11 +5,14 @@ import { DEFAULT_KIND, PRODUCT_KIND_OPTIONS } from "$lib/productKinds";
 
 export type RefOption = { value: string; label: string };
 
-/** Champ du formulaire. Les valeurs vides des champs facultatifs sont enregistrées à `null`. */
+/**
+ * Champ du formulaire. Les valeurs vides des champs facultatifs sont enregistrées à `null` ; une case à
+ * cocher (`checkbox`, colonne booléenne non nulle) à `true` ou `false`.
+ */
 export type RefField = {
   key: string;
   label: string;
-  type?: "text" | "textarea" | "email" | "tel" | "url" | "number" | "select";
+  type?: "text" | "textarea" | "email" | "tel" | "url" | "number" | "select" | "checkbox";
   required?: boolean;
   /** Options d'un `select` (souvent issues d'un autre référentiel, donc réactives). */
   options?: RefOption[];
