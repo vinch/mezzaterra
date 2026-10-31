@@ -11,6 +11,8 @@
   import ProductVintageAutocomplete from "$lib/components/manage/ProductVintageAutocomplete.svelte";
   import CustomerAutocomplete from "$lib/components/manage/CustomerAutocomplete.svelte";
   import Spinner from "$lib/ui/Spinner.svelte";
+  import EmptyState from "$lib/ui/EmptyState.svelte";
+  import { IconUsers } from "$lib/ui/icons";
   import { compareCustomersByLabel, customerDisplayLabel } from "$lib/customerDisplay";
   import { fetchCustomers, fetchPickerVintages } from "$lib/manageData";
   import { errorMessage, latestOnly } from "$lib/async";
@@ -706,6 +708,8 @@
 <Modal open={participantsView != null} title={participantsView?.title} maxWidth={480} onclose={closeParticipants}>
   {#if !participantsView?.entries}
     <Spinner />
+  {:else if participantsView.entries.length === 0}
+    <EmptyState icon={IconUsers} title="Aucun participant" compact />
   {:else}
     <ul class="participants">
       {#each participantsView.entries as entry (entry.customer_id)}
