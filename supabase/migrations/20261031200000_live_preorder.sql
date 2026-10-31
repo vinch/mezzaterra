@@ -50,6 +50,7 @@ SET search_path = public
 AS $$
 DECLARE
   v_raw jsonb := coalesce(p_items, '[]'::jsonb);
+  v_confirm boolean := coalesce(p_confirm, false);
   v_items jsonb;
   v_draft live_preorder;
   v_id uuid;
@@ -77,7 +78,7 @@ BEGIN
   );
 
   IF jsonb_array_length(v_items) = 0 THEN
-    IF p_confirm THEN
+    IF v_confirm THEN
       RAISE EXCEPTION 'La pré-commande est vide.';
     END IF;
     DELETE FROM live_preorder WHERE tasting_id = p_tasting_id AND guest_id = p_guest_id;
@@ -104,7 +105,7 @@ BEGIN
     updated_at = now()
   RETURNING * INTO v_draft;
 
-  IF NOT p_confirm THEN
+  IF NOT v_confirm THEN
     RETURN NULL;
   END IF;
 
