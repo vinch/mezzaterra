@@ -81,20 +81,21 @@ supérieure au montant de la ligne (`NOT VALID` : nouvelles lignes seulement). L
 aussi avec un message clair, et le total d'une ligne n'est jamais négatif.
 
 `20261031120000_registrations_participants_contact.sql` simplifie ce qui arrive du site. Une
-réservation en ligne confirmée devient aussitôt un participant (client retrouvé par email ou téléphone,
-sinon créé) ; les réservations confirmées des dégustations à venir sont rattachées par la migration. Les
-places d'une dégustation comptent tous les participants, ceux ajoutés à la main compris
-(`tasting_seats_taken`) : le site passe en liste d'attente une fois la capacité atteinte. Les messages
+réservation en ligne confirmée devient aussitôt un participant (client retrouvé par email, sinon créé) ;
+retirer un participant annule sa réservation. Les places d'une dégustation comptent tous les
+participants, ceux ajoutés à la main compris (`tasting_seats_taken`) : le site passe en liste d'attente
+une fois la capacité atteinte. Les messages
 du formulaire de contact sont enregistrés (`contact_message`) par `/api/contact` avec la clé
 `SUPABASE_SERVICE_ROLE_KEY` (variable serveur à définir sur Vercel ; sans elle, email seulement) et
 s'affichent dans Demandes. À appliquer avant de déployer le code, qui lit `contact_message`.
 
-`20261031140000_tasting_seats_per_participant.sql` ajoute `tasting_customer.seats` : 1 pour un
-participant ajouté à la main, les places de sa réservation s'il vient du site, 0 s'il n'est rattaché
-que par un « J'en veux » pendant la soirée. Une réservation retrouve aussi un participant ajouté à la
-main sans email (seul de ce nom dans la dégustation) et complète ses coordonnées, et elle remplace sa
-place au lieu de s'y ajouter dans le contrôle de capacité. Elle rattache les réservations confirmées
-des dégustations à venir (déplacé depuis la migration précédente).
+`20261031140000_tasting_seats_per_participant.sql` affine les places : un participant compte les places
+de ses réservations en ligne confirmées, sinon `tasting_customer.seats` (1 ajouté à la main, 0 rattaché
+par un « J'en veux » pendant la soirée). Une réservation retrouve aussi un participant ajouté à la main
+sans email (seul de ce nom dans la dégustation), sans modifier ses coordonnées, et remplace sa place au
+lieu de s'y ajouter dans le contrôle de capacité. Un admin peut rétablir une réservation annulée. La
+migration rattache les réservations confirmées des dégustations à venir (une erreur n'arrête pas la
+migration) et annule celles dont le participant avait été retiré.
 
 ```sh
 supabase link --project-ref wmerreifcpttrhxwmkmn

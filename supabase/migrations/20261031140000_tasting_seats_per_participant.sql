@@ -1,32 +1,39 @@
 -- Places par participant et rattachement plus fin des réservations en ligne.
 --
--- 1. tasting_customer.seats : places occupées par le participant. 1 quand il est ajouté à la main,
---    les places de sa réservation quand il vient du site, 0 quand il n'est rattaché que par un
---    « J'en veux » pendant la soirée (il occupe déjà la place de celui qui l'a amené).
---    Les places prises deviennent la somme de cette colonne.
+-- 1. Places d'un participant : celles de ses réservations en ligne confirmées s'il en a, calculées à
+--    la volée ; sinon tasting_customer.seats, 1 quand il est ajouté à la main, 0 quand il n'est
+--    rattaché que par un « J'en veux » pendant la soirée (il occupe déjà la place de celui qui l'a
+--    amené). Rien n'est recopié : changer une réservation change aussitôt les places.
 -- 2. Une réservation retrouve aussi un participant ajouté à la main sans email, s'il est seul de ce
---    nom dans la dégustation : pas de second client, et son email et son téléphone sont complétés.
+--    nom dans la dégustation : pas de second client. Ses coordonnées ne sont pas modifiées, car
+--    rien ne garantit que l'email saisi sur le site est le sien.
 -- 3. Le contrôle de capacité remplace les places d'un participant déjà inscrit à la main par celles
 --    de sa réservation, au lieu de les ajouter.
+-- 4. Un admin peut rétablir une réservation annulée (par exemple un participant retiré par erreur).
 
 ALTER TABLE public.tasting_customer
   ADD COLUMN IF NOT EXISTS seats integer NOT NULL DEFAULT 1 CHECK (seats BETWEEN 0 AND 10);
 
 COMMENT ON COLUMN public.tasting_customer.seats IS
-  'Places occupées : 1 ajouté à la main, celles de la réservation en ligne, 0 rattaché par un « J''en veux »';
-
--- Participants déjà rattachés à une réservation confirmée : places de la réservation.
-UPDATE public.tasting_customer tc
-SET seats = r.seats
-FROM (
-  SELECT tasting_id, customer_id, least(sum(seats), 10)::integer AS seats
-  FROM public.tasting_registration
-  WHERE status = 'confirmed' AND customer_id IS NOT NULL
-  GROUP BY tasting_id, customer_id
-) r
-WHERE tc.tasting_id = r.tasting_id AND tc.customer_id = r.customer_id;
+  'Places sans réservation en ligne confirmée : 1 ajouté à la main, 0 rattaché par un « J''en veux »';
 
 -- ——— Places prises ———
+CREATE OR REPLACE FUNCTION public.participant_seats(p_tasting_id uuid, p_customer_id uuid)
+RETURNS integer
+LANGUAGE sql
+STABLE
+SET search_path = public
+AS $$
+  SELECT coalesce(
+    (
+      SELECT sum(seats) FROM tasting_registration
+      WHERE tasting_id = p_tasting_id AND customer_id = p_customer_id AND status = 'confirmed'
+    ),
+    (SELECT seats FROM tasting_customer WHERE tasting_id = p_tasting_id AND customer_id = p_customer_id),
+    0
+  )::integer;
+$$;
+
 CREATE OR REPLACE FUNCTION public.tasting_seats_taken(p_tasting_id uuid)
 RETURNS integer
 LANGUAGE sql
@@ -34,7 +41,11 @@ STABLE
 SET search_path = public
 AS $$
   SELECT (
-    coalesce((SELECT sum(seats) FROM tasting_customer WHERE tasting_id = p_tasting_id), 0)
+    coalesce((
+      SELECT sum(participant_seats(tc.tasting_id, tc.customer_id))
+      FROM tasting_customer tc
+      WHERE tc.tasting_id = p_tasting_id
+    ), 0)
     + coalesce((
       SELECT sum(seats) FROM tasting_registration
       WHERE tasting_id = p_tasting_id AND status = 'confirmed' AND customer_id IS NULL
@@ -43,8 +54,8 @@ AS $$
 $$;
 
 -- ——— Client d'une réservation, sans en créer ———
--- Même email (le client le plus ancien, comme find_or_create_customer), sinon le seul participant de
--- la dégustation sans email qui porte ce prénom et ce nom.
+-- Même email (de préférence un participant de la dégustation, sinon le client le plus ancien), sinon
+-- le seul participant de la dégustation sans email qui porte ce prénom et ce nom.
 CREATE OR REPLACE FUNCTION public.registration_customer_match(
   p_tasting_id uuid,
   p_first_name text,
@@ -62,7 +73,13 @@ DECLARE
   v_ids uuid[];
 BEGIN
   IF v_email IS NOT NULL THEN
-    SELECT id INTO v_id FROM customer WHERE lower(email) = v_email ORDER BY created_at LIMIT 1;
+    SELECT c.id INTO v_id
+    FROM customer c
+    WHERE lower(c.email) = v_email
+    ORDER BY EXISTS (
+      SELECT 1 FROM tasting_customer tc WHERE tc.tasting_id = p_tasting_id AND tc.customer_id = c.id
+    ) DESC, c.created_at
+    LIMIT 1;
     IF v_id IS NOT NULL THEN
       RETURN v_id;
     END IF;
@@ -88,35 +105,42 @@ AS $$
 DECLARE
   r tasting_registration;
   v_customer uuid;
-  v_seats integer;
 BEGIN
   SELECT * INTO r FROM tasting_registration WHERE id = p_registration_id;
   IF NOT FOUND THEN
     RAISE EXCEPTION 'Réservation introuvable';
   END IF;
-
   v_customer := coalesce(
     r.customer_id,
     registration_customer_match(r.tasting_id, r.first_name, r.last_name, r.email),
     find_or_create_customer(r.first_name, r.last_name, r.email, r.phone, false)
   );
-  -- Participant retrouvé par son nom : on complète ses coordonnées sans rien écraser.
-  UPDATE customer
-  SET email = coalesce(nullif(trim(coalesce(email, '')), ''), lower(trim(r.email))),
-      phone_number = coalesce(nullif(trim(coalesce(phone_number, '')), ''), r.phone)
-  WHERE id = v_customer;
-
   UPDATE tasting_registration SET customer_id = v_customer WHERE id = r.id;
-
-  -- Ses places sont celles de ses réservations confirmées (et remplacent la place d'un ajout à la main).
-  SELECT least(coalesce(sum(seats), 0), 10)::integer INTO v_seats
-  FROM tasting_registration
-  WHERE tasting_id = r.tasting_id AND customer_id = v_customer AND status = 'confirmed';
-  INSERT INTO tasting_customer (tasting_id, customer_id, seats)
-  VALUES (r.tasting_id, v_customer, greatest(v_seats, 1))
-  ON CONFLICT (tasting_id, customer_id) DO UPDATE SET seats = EXCLUDED.seats;
-
+  INSERT INTO tasting_customer (tasting_id, customer_id) VALUES (r.tasting_id, v_customer) ON CONFLICT DO NOTHING;
   RETURN v_customer;
+END;
+$$;
+
+-- Gestion : confirmer une réservation (liste d'attente, rattachement qui aurait échoué) ou rétablir une
+-- réservation annulée. L'admin décide : la capacité peut être dépassée.
+CREATE OR REPLACE FUNCTION public.confirm_tasting_registration(p_registration_id uuid)
+RETURNS uuid
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+DECLARE
+  v_tasting_id uuid;
+BEGIN
+  PERFORM assert_admin();
+  SELECT tasting_id INTO v_tasting_id FROM tasting_registration WHERE id = p_registration_id;
+  IF NOT FOUND THEN
+    RAISE EXCEPTION 'Réservation introuvable';
+  END IF;
+  -- Même verrou que register_for_tasting : pas de calcul de places concurrent.
+  PERFORM 1 FROM tasting WHERE id = v_tasting_id FOR UPDATE;
+  UPDATE tasting_registration SET status = 'confirmed' WHERE id = p_registration_id;
+  RETURN link_registration_to_customer(p_registration_id);
 END;
 $$;
 
@@ -139,7 +163,9 @@ DECLARE
   v_private boolean;
   v_status text;
   v_id uuid;
-  v_already integer;
+  v_match uuid;
+  v_before integer := 0;
+  v_after integer := p_seats;
   v_email text := lower(trim(coalesce(p_email, '')));
 BEGIN
   IF v_email !~ '^[^@\s]+@[^@\s]+\.[^@\s]+$' THEN
@@ -169,14 +195,23 @@ BEGIN
     RETURN 'already_registered';
   END IF;
 
-  -- Déjà participant (ajouté à la main) : sa réservation remplace ses places au lieu de s'y ajouter.
-  SELECT coalesce(tc.seats, 0) INTO v_already
-  FROM tasting_customer tc
-  WHERE tc.tasting_id = p_tasting_id
-    AND tc.customer_id = registration_customer_match(p_tasting_id, p_first_name, p_last_name, v_email);
+  -- Déjà participant (ajouté à la main) : ses places deviennent celles de ses réservations, la
+  -- nouvelle comprise, au lieu de s'y ajouter.
+  IF v_capacity IS NOT NULL THEN
+    v_match := registration_customer_match(p_tasting_id, p_first_name, p_last_name, v_email);
+    IF v_match IS NOT NULL THEN
+      IF EXISTS (SELECT 1 FROM tasting_customer WHERE tasting_id = p_tasting_id AND customer_id = v_match) THEN
+        v_before := participant_seats(p_tasting_id, v_match);
+      END IF;
+      v_after := p_seats + coalesce((
+        SELECT sum(seats) FROM tasting_registration
+        WHERE tasting_id = p_tasting_id AND customer_id = v_match AND status = 'confirmed'
+      ), 0);
+    END IF;
+  END IF;
 
   v_status := CASE
-    WHEN v_capacity IS NULL OR tasting_seats_taken(p_tasting_id) - coalesce(v_already, 0) + p_seats <= v_capacity THEN 'confirmed'
+    WHEN v_capacity IS NULL OR tasting_seats_taken(p_tasting_id) - v_before + v_after <= v_capacity THEN 'confirmed'
     ELSE 'waitlist'
   END;
 
@@ -213,7 +248,22 @@ BEGIN
 END;
 $$;
 
--- Réservations confirmées des dégustations à venir, pas encore rattachées.
+-- ——— Réservations existantes des dégustations à venir ———
+-- Rattachées à un participant qui a été retiré avant le trigger d'annulation : annulées, comme le
+-- ferait aujourd'hui le retrait.
+UPDATE public.tasting_registration reg
+SET status = 'cancelled'
+FROM public.tasting t
+WHERE t.id = reg.tasting_id
+  AND t.date >= brussels_today()
+  AND reg.status = 'confirmed'
+  AND reg.customer_id IS NOT NULL
+  AND NOT EXISTS (
+    SELECT 1 FROM public.tasting_customer tc WHERE tc.tasting_id = reg.tasting_id AND tc.customer_id = reg.customer_id
+  );
+
+-- Confirmées et pas encore rattachées : rattachées, une à une (une erreur n'arrête pas la migration,
+-- la réservation reste alors à « Ajouter aux participants » dans Piloter).
 DO $$
 DECLARE
   r record;
@@ -225,8 +275,13 @@ BEGIN
     WHERE reg.status = 'confirmed' AND reg.customer_id IS NULL AND t.date >= brussels_today()
     ORDER BY reg.created_at
   LOOP
-    PERFORM link_registration_to_customer(r.id);
+    BEGIN
+      PERFORM link_registration_to_customer(r.id);
+    EXCEPTION WHEN others THEN
+      RAISE WARNING 'Réservation % non rattachée : %', r.id, SQLERRM;
+    END;
   END LOOP;
 END $$;
 
+REVOKE ALL ON FUNCTION public.participant_seats(uuid, uuid) FROM PUBLIC, anon, authenticated;
 REVOKE ALL ON FUNCTION public.registration_customer_match(uuid, text, text, text) FROM PUBLIC, anon, authenticated;
