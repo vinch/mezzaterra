@@ -14,7 +14,7 @@
   import { compareCustomersByLabel, customerDisplayLabel } from "$lib/customerDisplay";
   import { fetchCustomers, fetchPickerVintages } from "$lib/manageData";
   import { errorMessage, latestOnly } from "$lib/async";
-  import { fetchTastingWithWines } from "$lib/publicData";
+  import { fetchTastingWithWines, onlineSeatsByCustomer } from "$lib/publicData";
   import { todayIso } from "$lib/dates";
   import { formatDate } from "$lib/format";
   import { isDiscontinued, vintageLabel } from "$lib/wine";
@@ -161,15 +161,12 @@
       .eq("tasting_id", tastingId),
       supabase
         .from("tasting_registration")
-        .select("customer_id, seats")
-        .eq("tasting_id", tastingId)
-        .eq("status", "confirmed")
-        .not("customer_id", "is", null),
+        .select("customer_id, seats, status")
+        .eq("tasting_id", tastingId),
     ]);
 
     if (fetchError || regError) throw new Error((fetchError || regError)!.message);
-    const onlineSeats = new Map<string, number>();
-    for (const r of regs || []) onlineSeats.set(r.customer_id!, (onlineSeats.get(r.customer_id!) ?? 0) + r.seats);
+    const onlineSeats = onlineSeatsByCustomer(regs || []);
     const entries = (data || [])
       .filter((r) => r.customer)
       .map((r) => ({
@@ -451,7 +448,9 @@
               </td>
               <td>{tasting.location || "—"}</td>
               <td class="num">{wineCount(tasting)}</td>
-              <td class="num">{customerCount(tasting)}</td>
+              <td class="num">
+                <a href="/manage/tastings/{tasting.id}/live#participants" title="Voir les participants">{customerCount(tasting)}</a>
+              </td>
               <td>
                 <div class="actions">
                   <a

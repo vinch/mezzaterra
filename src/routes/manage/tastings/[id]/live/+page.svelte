@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { onDestroy, onMount } from "svelte";
+  import { onDestroy, onMount, tick } from "svelte";
   import { errorMessage } from "$lib/async";
   import { fade } from "svelte/transition";
   import { page } from "$app/stores";
@@ -27,7 +27,8 @@
   import { formatTime, isLiveNow } from "$lib/dates";
   import WineBottle from "$lib/components/site/WineBottle.svelte";
   import Spinner from "$lib/ui/Spinner.svelte";
-  import { fetchSeats, fetchTastingWithWines, onlineSeats, tastingTitle, type SeatInfo } from "$lib/publicData";
+  import { fetchSeats, fetchTastingWithWines, isParticipantRegistration, onlineSeats, onlineSeatsByCustomer, tastingTitle, type SeatInfo } from "$lib/publicData";
+  import { compareCustomersByLabel, customerDisplayLabel } from "$lib/customerDisplay";
   import { broadcastPosition, joinLiveChannel } from "$lib/live";
   import { qrDataUrl } from "$lib/qr";
   import { swatchStyle, vintageShortLabel, wineRobe, wineStyle, wineSubtitle, wineTitle, wineTypeLabel } from "$lib/wine";
@@ -61,7 +62,9 @@
 
   let feedback = $state.raw<any[]>([]);
   let wishes = $state.raw<WishRequest[]>([]);
-  let registrations = $state<any[]>([]);
+  let registrations = $state.raw<any[]>([]);
+  /** Participants (tasting_customer), triés par nom, avec leurs places hors réservation en ligne. */
+  let participants = $state.raw<any[]>([]);
   let busyId = $state("");
   let poll: ReturnType<typeof setInterval> | null = null;
   /* onDestroy peut passer pendant les await d'onMount : on ne crée alors ni canal ni polling. */
@@ -96,6 +99,11 @@
 
     await refresh();
     if (destroyed) return;
+    /* Lien direct vers une carte (#participants depuis la liste) : elle n'existe qu'une fois chargée. */
+    if (location.hash) {
+      await tick();
+      document.getElementById(location.hash.slice(1))?.scrollIntoView();
+    }
     /* Pas de rafraîchissement quand l'onglet est caché. */
     poll = setInterval(() => document.hidden || refresh(), 8000);
   });
@@ -167,6 +175,16 @@
           .order("created_at", { ascending: true });
         registrations = data || [];
       })(),
+      (async () => {
+        const { data } = await supabase
+          .from("tasting_customer")
+          .select("seats, customer ( id, first_name, last_name, company_name, email, phone_number )")
+          .eq("tasting_id", tastingId);
+        participants = (data || [])
+          .filter((r) => r.customer)
+          .map((r) => ({ ...r.customer!, seats: r.seats }))
+          .sort(compareCustomersByLabel);
+      })(),
     ]);
   }
 
@@ -203,6 +221,9 @@
   let prices = $derived(new Map(wines.map((w) => [w.id, Number(w.price ?? 0)])));
   let wineById = $derived(new Map(wines.map((w) => [w.id, w])));
   let seatsOnline = $derived(onlineSeats(registrations));
+  let seatsByCustomer = $derived(onlineSeatsByCustomer(registrations));
+  /* Les réservations confirmées et rattachées à un client figurent déjà parmi les participants. */
+  let pendingRegistrations = $derived(registrations.filter((r) => !isParticipantRegistration(r)));
 
   let current = $derived(wines[position]);
   let style = $derived(wineStyle(current?.wine?.wine_type));
@@ -299,23 +320,43 @@
 </svelte:head>
 
 <!-- Visible aussi sans produit au programme : les réservations arrivent bien avant la soirée. -->
-{#snippet registrationsCard()}
-  {#if registrations.length}
+{#snippet peopleCards()}
+  <Card title="Participants" id="participants">
+    {#snippet actions()}
+      <a class="edit-link" href="/manage/tastings?id={tastingId}">Modifier</a>
+    {/snippet}
+    {#if participants.length === 0}
+      <EmptyState icon={IconUsers} title="Aucun participant" text="Les réservations faites sur le site s’ajoutent ici toutes seules." compact />
+    {:else}
+      <ul class="list">
+        {#each participants as c (c.id)}
+          {@const online = seatsByCustomer.get(c.id)}
+          <!-- Même règle que participant_seats (SQL) : places réservées en ligne, sinon celles du participant. -->
+          {@const placesTaken = online ?? c.seats}
+          {@const contact = [c.email, c.phone_number].filter(Boolean).join(" · ")}
+          <li>
+            <span class="list-main">
+              <strong>{customerDisplayLabel(c)}</strong>
+              {#if contact}<span class="t-caption">{contact}</span>{/if}
+            </span>
+            {#if placesTaken}<span class="t-caption">{placesTaken} place{placesTaken > 1 ? "s" : ""}{online ? " · en ligne" : ""}</span>{/if}
+          </li>
+        {/each}
+      </ul>
+    {/if}
+  </Card>
+  {#if pendingRegistrations.length}
     <Card title="Réservations en ligne" id="registrations">
       <ul class="list">
-        {#each registrations as r (r.id)}
+        {#each pendingRegistrations as r (r.id)}
           <li>
             <span class="list-main">
               <strong>{r.first_name} {r.last_name || ""}</strong>
               <span class="t-caption">{r.seats} place{r.seats > 1 ? "s" : ""}{r.status === "waitlist" ? " · liste d’attente" : r.status === "cancelled" ? " · annulée" : ""}</span>
             </span>
-            {#if r.status === "confirmed" && r.customer_id}
-              <span class="t-caption ok"><IconCheck size={13} strokeWidth={2} aria-hidden="true" /> Participant</span>
-            {:else}
-              <Button size="sm" variant="ghost" disabled={busyId === r.id} onclick={() => confirmRow(r)}>
-                {r.status === "waitlist" ? "Confirmer" : r.status === "cancelled" ? "Rétablir" : "Ajouter aux participants"}
-              </Button>
-            {/if}
+            <Button size="sm" variant="ghost" disabled={busyId === r.id} onclick={() => confirmRow(r)}>
+              {r.status === "waitlist" ? "Confirmer" : r.status === "cancelled" ? "Rétablir" : "Ajouter aux participants"}
+            </Button>
           </li>
         {/each}
       </ul>
@@ -359,7 +400,7 @@
             <Button href="/manage/tastings?id={tastingId}">Modifier la dégustation</Button>
           </EmptyState>
         </Card>
-        {@render registrationsCard()}
+        {@render peopleCards()}
       </div>
     {:else}
 
@@ -496,7 +537,7 @@
             {/if}
           </Card>
 
-          {@render registrationsCard()}
+          {@render peopleCards()}
 
           {#if comments.length}
             <Card title="Ce qu’ils en disent" id="comments">
@@ -843,13 +884,6 @@
     display: flex;
     flex-direction: column;
     line-height: 18px;
-  }
-
-  .ok {
-    display: inline-flex;
-    align-items: center;
-    gap: 4px;
-    color: var(--st-paid-fg);
   }
 
   .mobile-next {
