@@ -54,6 +54,7 @@
   let winePairings = $state<any[]>([]);
   let allPairings = $state<any[]>([]);
   let selectedPairingId = $state("");
+  let pairingError = $state("");
 
   // Filter state
   let filterWineryId = $state("");
@@ -258,19 +259,20 @@
   }
 
   async function addPairing() {
-    if (!selectedPairingId || !selectedWine) return;
+    const pairingId = selectedPairingId;
+    selectedPairingId = "";
+    if (!pairingId || !selectedWine || linkedPairingIds.has(pairingId)) return;
+
+    /* Affiché tout de suite : l'option est grisée avant la fin de l'insertion, pas de doublon. */
+    winePairings = [...winePairings, { pairing_id: pairingId, pairing: allPairings.find((p) => p.id === pairingId) }];
+    pairingError = "";
 
     const { error: insertError } = await supabase.from("wine_pairing").insert({
       wine_id: selectedWine.id,
-      pairing_id: selectedPairingId,
+      pairing_id: pairingId,
     });
 
-    if (insertError) {
-      error = insertError.message;
-      return;
-    }
-
-    selectedPairingId = "";
+    if (insertError) pairingError = insertError.message;
     await loadWinePairings();
   }
 
@@ -288,10 +290,11 @@
       .eq("pairing_id", pairingId);
 
     if (deleteError) {
-      error = deleteError.message;
+      pairingError = deleteError.message;
       return;
     }
 
+    pairingError = "";
     await loadWinePairings();
   }
 
@@ -300,6 +303,7 @@
     selectedWine = null;
     winePairings = [];
     selectedPairingId = "";
+    pairingError = "";
   }
 
   function clearFilters() {
@@ -700,6 +704,7 @@
 
 <Modal open={showPairingsModal} title="Accords mets & vins" maxWidth={520} onclose={closePairingsModal}>
   {#if selectedWine}<p class="t-muted pairing-intro">{wineTitle(selectedWine)} · {selectedWine.winery?.name ?? ""}</p>{/if}
+  {#if pairingError}<div class="error-message" role="alert">{pairingError}</div>{/if}
   {#if winePairings.length === 0}
     <EmptyState icon={IconPlate} title="Aucun accord pour ce vin" compact />
   {:else}
