@@ -21,7 +21,12 @@ export const load: PageLoad = async ({ params }) => {
       .eq("wine.winery_id", params.id)
       .not("wine", "is", null)
       .order("year", { ascending: false, nullsFirst: false }),
-    supabase.from("winery").select("id, name, city, latitude, longitude").neq("id", params.id).order("name"),
+    supabase
+      .from("winery")
+      .select("id, name, city, latitude, longitude")
+      .neq("id", params.id)
+      .eq("hidden", false)
+      .order("name"),
   ]);
 
   if (wineryRes.error) throw error(500, "Impossible de charger ce domaine");

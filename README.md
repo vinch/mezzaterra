@@ -97,6 +97,13 @@ lieu de s'y ajouter dans le contrôle de capacité. Un admin peut rétablir une 
 migration rattache les réservations confirmées des dégustations à venir (une erreur n'arrête pas la
 migration) et annule celles dont le participant avait été retiré.
 
+`20261031180000_winery_hidden.sql` ajoute `winery.hidden` : un domaine masqué (pas encore annoncé)
+n'est plus listé sur le site public, ses produits non plus (carte et liste de l'accueil, autres
+domaines, catalogue, lien « Nos huiles »). Comme une dégustation privée, sa page et celles de ses
+produits restent accessibles par lien (dégustations, QR des fiches de table). Masque
+Donato Di Tommaso Vignaiolo. À appliquer avant de déployer le code, qui lit et enregistre
+`winery.hidden`.
+
 ```sh
 supabase link --project-ref wmerreifcpttrhxwmkmn
 supabase db push
