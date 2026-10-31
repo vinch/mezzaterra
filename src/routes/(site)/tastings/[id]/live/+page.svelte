@@ -226,6 +226,7 @@
   function openCart() {
     editingContact = !hasContact(profile);
     sendError = "";
+    sendResult = null;
     showCart = true;
   }
 
