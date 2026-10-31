@@ -468,6 +468,7 @@
         </thead>
         <tbody>
           {#each tastings as tasting (tasting.id)}
+            {@const count = customerCount(tasting)}
             <tr>
               <td>{formatDate(tasting.date)}</td>
               <td>
@@ -477,8 +478,8 @@
               <td>{tasting.location || "—"}</td>
               <td class="num">{wineCount(tasting)}</td>
               <td class="num">
-                {#if customerCount(tasting)}
-                  <Button size="sm" variant="ghost" title="Voir les participants" onclick={() => showParticipants(tasting)}>{customerCount(tasting)}</Button>
+                {#if count}
+                  <Button size="sm" variant="ghost" title="Voir les participants" ariaLabel="Voir les {count} participants" onclick={() => showParticipants(tasting)}>{count}</Button>
                 {:else}
                   0
                 {/if}

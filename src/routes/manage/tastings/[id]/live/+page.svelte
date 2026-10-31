@@ -27,7 +27,7 @@
   import { formatTime, isLiveNow } from "$lib/dates";
   import WineBottle from "$lib/components/site/WineBottle.svelte";
   import Spinner from "$lib/ui/Spinner.svelte";
-  import { fetchSeats, fetchTastingWithWines, isParticipantRegistration, onlineSeats, onlineSeatsByCustomer, participantOrigin, tastingTitle, type SeatInfo } from "$lib/publicData";
+  import { fetchSeats, fetchTastingWithWines, isParticipantRegistration, onlineSeats, onlineSeatsByCustomer, participantOrigin, placesLabel, tastingTitle, type SeatInfo } from "$lib/publicData";
   import { compareCustomersByLabel, customerDisplayLabel } from "$lib/customerDisplay";
   import { broadcastPosition, joinLiveChannel } from "$lib/live";
   import { qrDataUrl } from "$lib/qr";
@@ -351,7 +351,7 @@
           <li>
             <span class="list-main">
               <strong>{r.first_name} {r.last_name || ""}</strong>
-              <span class="t-caption">{r.seats} place{r.seats > 1 ? "s" : ""}{r.status === "waitlist" ? " · liste d’attente" : r.status === "cancelled" ? " · annulée" : ""}</span>
+              <span class="t-caption">{placesLabel(r.seats)}{r.status === "waitlist" ? " · liste d’attente" : r.status === "cancelled" ? " · annulée" : ""}</span>
             </span>
             <Button size="sm" variant="ghost" disabled={busyId === r.id} onclick={() => confirmRow(r)}>
               {r.status === "waitlist" ? "Confirmer" : r.status === "cancelled" ? "Rétablir" : "Ajouter aux participants"}

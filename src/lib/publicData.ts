@@ -90,15 +90,18 @@ export function onlineSeatsByCustomer(registrations: RegistrationSeats[]): Map<s
   return m;
 }
 
+export function placesLabel(n: number): string {
+  return `${n} place${n > 1 ? "s" : ""}`;
+}
+
 /**
  * Comment un participant est rattaché à la dégustation, avec ses places (même règle que
  * participant_seats en SQL) : réservation en ligne, sinon tasting_customer.seats.
  */
 export function participantOrigin(onlineSeats: number | undefined, seats: number): string {
-  const places = (n: number) => `${n} place${n > 1 ? "s" : ""}`;
-  if (onlineSeats) return `Réservation en ligne · ${places(onlineSeats)}`;
+  if (onlineSeats) return `Réservation en ligne · ${placesLabel(onlineSeats)}`;
   if (seats === 0) return "« J’en veux » pendant la soirée";
-  return `Ajouté à la main · ${places(seats)}`;
+  return `Ajouté à la main · ${placesLabel(seats)}`;
 }
 
 export async function fetchSeats(tastingId: string): Promise<SeatInfo | null> {
