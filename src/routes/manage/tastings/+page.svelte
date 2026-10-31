@@ -661,7 +661,7 @@
               <li class="customer-list-item">
                 <span>
                   {customerDisplayLabel(entry.customer)}
-                  {#if entry.onlineSeats}<span class="t-caption online">{participantOrigin(entry.onlineSeats, entry.seats)}</span>{/if}
+                  <span class="t-caption origin">{participantOrigin(entry.onlineSeats, entry.seats)}</span>
                 </span>
                 <button
                   type="button"
@@ -746,7 +746,7 @@
     font-size: 0.8rem;
   }
 
-  .online {
+  .origin {
     display: block;
   }
 
