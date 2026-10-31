@@ -12,7 +12,7 @@
     class:active={onContact}
     aria-current={onContact ? "page" : undefined}
   >
-    <IconMail class="footer-icon" size={20} strokeWidth={1.8} aria-hidden="true" />
+    <IconMail class="footer-icon" strokeWidth={1.8} aria-hidden="true" />
     <span>Contact</span>
   </a>
   <a
