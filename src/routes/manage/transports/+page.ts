@@ -3,7 +3,7 @@ import type { PageLoad } from "./$types";
 
 export const load: PageLoad = async () => {
   /* Transporteurs chargés en même temps que la liste : le formulaire n'attend plus après. */
-  const [{ data: transports, error: transportsError }, { data: transporters }] = await Promise.all([
+  const [{ data: transports, error: transportsError }, { data: transporters, error: transportersError }] = await Promise.all([
     supabase
       .from("transport")
       .select("*, transporter (*), order ( count )")
@@ -13,6 +13,9 @@ export const load: PageLoad = async () => {
 
   if (transportsError) {
     throw new Error(`Erreur lors du chargement des transports: ${transportsError.message}`);
+  }
+  if (transportersError) {
+    throw new Error(`Erreur lors du chargement des transporteurs: ${transportersError.message}`);
   }
 
   return {

@@ -3,7 +3,7 @@ import type { PageLoad } from "./$types";
 
 export const load: PageLoad = async () => {
   /* Fournisseurs chargés en même temps que la liste ; le catalogue, lui, en arrière-plan par la page. */
-  const [{ data: orders, error: ordersError }, { data: suppliers }] = await Promise.all([
+  const [{ data: orders, error: ordersError }, { data: suppliers, error: suppliersError }] = await Promise.all([
     supabase
       .from("order")
       .select("*, supplier (*), transport ( *, transporter (*) )")
@@ -13,6 +13,9 @@ export const load: PageLoad = async () => {
 
   if (ordersError) {
     throw new Error(`Erreur lors du chargement des commandes: ${ordersError.message}`);
+  }
+  if (suppliersError) {
+    throw new Error(`Erreur lors du chargement des fournisseurs: ${suppliersError.message}`);
   }
 
   return { orders: orders || [], suppliers: suppliers || [] };
