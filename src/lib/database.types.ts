@@ -1216,6 +1216,7 @@ export type Database = {
           email: string | null
           hidden: boolean
           id: string
+          instagram: string | null
           latitude: number | null
           longitude: number | null
           name: string
@@ -1234,6 +1235,7 @@ export type Database = {
           email?: string | null
           hidden?: boolean
           id?: string
+          instagram?: string | null
           latitude?: number | null
           longitude?: number | null
           name: string
@@ -1252,6 +1254,7 @@ export type Database = {
           email?: string | null
           hidden?: boolean
           id?: string
+          instagram?: string | null
           latitude?: number | null
           longitude?: number | null
           name?: string
@@ -1412,11 +1415,11 @@ export type Database = {
         Returns: undefined
       }
       my_notebook: { Args: never; Returns: Json }
-      product_kind_vat_rate: { Args: { p_kind: unknown }; Returns: number }
       participant_seats: {
         Args: { p_customer_id: string; p_tasting_id: string }
         Returns: number
       }
+      product_kind_vat_rate: { Args: { p_kind: unknown }; Returns: number }
       public_wine_availability: {
         Args: never
         Returns: {

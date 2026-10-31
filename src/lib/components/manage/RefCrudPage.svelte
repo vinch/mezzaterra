@@ -143,7 +143,7 @@
         const raw = (form[f.key] ?? "").trim();
         if (f.type === "number") return [f.key, raw ? Number(raw.replace(",", ".")) : null];
         if (f.type === "checkbox") return [f.key, raw === "true"];
-        return [f.key, raw || null];
+        return [f.key, raw && f.normalize ? f.normalize(raw) : raw || null];
       }),
     );
   }
@@ -160,6 +160,11 @@
     );
     if (notNumber) {
       error = `« ${notNumber.label} » doit être un nombre (ex. 42.35).`;
+      return;
+    }
+    const refused = formFields.find((f) => f.normalize && (form[f.key] ?? "").trim() && !f.normalize(form[f.key].trim()));
+    if (refused) {
+      error = refused.invalid ?? `« ${refused.label} » n’est pas valide.`;
       return;
     }
     const target = editing;

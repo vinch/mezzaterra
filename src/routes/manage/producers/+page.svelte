@@ -4,6 +4,7 @@
   import { countryLabel, countryOptions, regionOptions } from "$lib/components/manage/refCrud";
   import { fetchCountries, fetchRegions } from "$lib/manageData";
   import type { Country, Region } from "$lib/types";
+  import { instagramAccount, wineryInstagram } from "$lib/wine";
 
   let countries = $state<Country[]>([]);
   let regions = $state<Region[]>([]);
@@ -31,7 +32,15 @@
     { key: "region_id", label: "Région", type: "select", options: regionOptions(regions) },
     { key: "latitude", label: "Latitude", type: "number", placeholder: "42.35" },
     { key: "longitude", label: "Longitude", type: "number", placeholder: "13.99" },
-    { key: "url", label: "Site web", type: "url", full: true, placeholder: "https://" },
+    { key: "url", label: "Site web", type: "url", placeholder: "https://" },
+    {
+      key: "instagram",
+      label: "Instagram",
+      placeholder: "@compte",
+      help: "Le compte ou le lien du profil.",
+      normalize: instagramAccount,
+      invalid: "Instagram : indiquer le compte (@compte) ou le lien du profil, pas d’une publication.",
+    },
     {
       key: "description",
       label: "Présentation (page publique du domaine)",
@@ -51,6 +60,7 @@
     { label: "Région", value: (w) => w.region?.name },
     { label: "Pays", value: (w) => countryLabel(w.country) },
     { label: "Site web", value: (w) => w.url && "Visiter", href: (w) => w.url },
+    { label: "Instagram", value: (w) => wineryInstagram(w)?.handle, href: (w) => wineryInstagram(w)?.url },
     { label: "Site public", value: (w) => (w.hidden ? "Masqué" : "Visible") },
   ]}
 />

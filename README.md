@@ -97,7 +97,13 @@ lieu de s'y ajouter dans le contrôle de capacité. Un admin peut rétablir une 
 migration rattache les réservations confirmées des dégustations à venir (une erreur n'arrête pas la
 migration) et annule celles dont le participant avait été retiré.
 
-`20261031180000_winery_hidden.sql` ajoute `winery.hidden` : un domaine masqué (pas encore annoncé)
+`20261031180000_winery_instagram.sql` ajoute `winery.instagram` : le compte Instagram d'un domaine
+(saisi « @compte » ou en lien de profil, enregistré sans « @ » et en minuscules), affiché sur sa page
+publique et, comme son site, dans « Du même domaine » des fiches produits. À appliquer avant de
+déployer le code : la page Domaines de la gestion envoie toujours `instagram`, et tout enregistrement
+d'un domaine échouerait sans la colonne.
+
+`20261031190000_winery_hidden.sql` ajoute `winery.hidden` : un domaine masqué (pas encore annoncé)
 n'est plus listé sur le site public, ses produits non plus (carte et liste de l'accueil, autres
 domaines, catalogue, lien « Nos huiles »). Comme une dégustation privée, sa page et celles de ses
 produits restent accessibles par lien (dégustations, QR des fiches de table). Masque
