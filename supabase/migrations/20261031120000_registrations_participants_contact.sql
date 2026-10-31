@@ -208,7 +208,8 @@ BEGIN
   IF NOT FOUND OR v_private THEN
     RAISE EXCEPTION 'not_found';
   END IF;
-  IF v_date < current_date THEN
+  -- Date du jour à Bruxelles : entre minuit et 1–2 h, current_date (UTC) est encore la veille.
+  IF v_date < brussels_today() THEN
     RAISE EXCEPTION 'past';
   END IF;
 
@@ -266,7 +267,7 @@ BEGIN
     SELECT reg.id
     FROM tasting_registration reg
     JOIN tasting t ON t.id = reg.tasting_id
-    WHERE reg.status = 'confirmed' AND reg.customer_id IS NULL AND t.date >= current_date
+    WHERE reg.status = 'confirmed' AND reg.customer_id IS NULL AND t.date >= brussels_today()
     ORDER BY reg.created_at
   LOOP
     PERFORM link_registration_to_customer(r.id);
