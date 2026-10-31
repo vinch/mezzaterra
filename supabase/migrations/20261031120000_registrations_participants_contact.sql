@@ -53,11 +53,14 @@ AS $$
 $$;
 
 -- ——— Client retrouvé ou créé : réservations en ligne et, via admin_find_or_create_customer, « J'en veux » ———
+-- p_match_phone : sans admin pour vérifier (réservation en ligne), seul l'email désigne un client
+-- existant ; un téléphone partagé ou mal saisi rattacherait la réservation à quelqu'un d'autre.
 CREATE OR REPLACE FUNCTION public.find_or_create_customer(
   p_first_name text,
   p_last_name text,
   p_email text,
-  p_phone text
+  p_phone text,
+  p_match_phone boolean DEFAULT true
 )
 RETURNS uuid
 LANGUAGE plpgsql
@@ -71,7 +74,7 @@ BEGIN
   IF v_email IS NOT NULL THEN
     SELECT id INTO v_id FROM customer WHERE lower(email) = v_email ORDER BY created_at LIMIT 1;
   END IF;
-  IF v_id IS NULL AND v_phone IS NOT NULL THEN
+  IF v_id IS NULL AND v_phone IS NOT NULL AND p_match_phone THEN
     SELECT id INTO v_id FROM customer WHERE phone_number = v_phone ORDER BY created_at LIMIT 1;
   END IF;
   IF v_id IS NULL THEN
@@ -115,7 +118,7 @@ BEGIN
   IF NOT FOUND THEN
     RAISE EXCEPTION 'Réservation introuvable';
   END IF;
-  v_customer := coalesce(r.customer_id, find_or_create_customer(r.first_name, r.last_name, r.email, r.phone));
+  v_customer := coalesce(r.customer_id, find_or_create_customer(r.first_name, r.last_name, r.email, r.phone, false));
   INSERT INTO tasting_customer (tasting_id, customer_id) VALUES (r.tasting_id, v_customer) ON CONFLICT DO NOTHING;
   UPDATE tasting_registration SET customer_id = v_customer WHERE id = r.id;
   RETURN v_customer;
@@ -268,7 +271,7 @@ CREATE POLICY "admins can delete" ON public.contact_message FOR DELETE USING (is
 -- Les fonctions internes ne sont appelées que par les fonctions SECURITY DEFINER ci-dessus (Supabase
 -- accorde par défaut l'exécution à anon et authenticated : on la retire explicitement).
 REVOKE ALL ON FUNCTION public.tasting_seats_taken(uuid) FROM PUBLIC, anon, authenticated;
-REVOKE ALL ON FUNCTION public.find_or_create_customer(text, text, text, text) FROM PUBLIC, anon, authenticated;
+REVOKE ALL ON FUNCTION public.find_or_create_customer(text, text, text, text, boolean) FROM PUBLIC, anon, authenticated;
 REVOKE ALL ON FUNCTION public.link_registration_to_customer(uuid) FROM PUBLIC, anon, authenticated;
 REVOKE ALL ON FUNCTION public.confirm_tasting_registration(uuid) FROM PUBLIC, anon;
 GRANT EXECUTE ON FUNCTION public.confirm_tasting_registration(uuid) TO authenticated;

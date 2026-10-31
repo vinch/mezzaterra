@@ -1391,6 +1391,7 @@ export type Database = {
           p_email: string
           p_first_name: string
           p_last_name: string
+          p_match_phone?: boolean
           p_phone: string
         }
         Returns: string
