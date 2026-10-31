@@ -62,6 +62,12 @@ export function styleLabel(type: TypeLike): string {
   return (kindInfo(type).style && type?.name) || wineStyle(type).label;
 }
 
+/** Tri des types (`wine_type`) pour les listes : selon `typeOrder` du type de produit (fruité léger, moyen, intense), puis par nom. */
+export function byWineType(a: TypeLike, b: TypeLike): number {
+  const rank = (t: TypeLike) => kindInfo(t).typeOrder?.indexOf(t?.name ?? "") ?? -1;
+  return rank(a) - rank(b) || (a?.name ?? "").localeCompare(b?.name ?? "", "fr");
+}
+
 /** Style CSS d'une pastille ou d'une silhouette à la couleur de la robe (liseré pour les teintes claires). */
 export function swatchStyle(style: WineStyle): string {
   return `background: ${style.color};${style.ring ? ` box-shadow: inset 0 0 0 1px ${style.ring};` : ""}`;

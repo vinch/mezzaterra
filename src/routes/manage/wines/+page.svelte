@@ -21,7 +21,7 @@
   import Spinner from "$lib/ui/Spinner.svelte";
   import Tabs from "$lib/ui/Tabs.svelte";
   import Combobox, { type ComboOption } from "$lib/ui/Combobox.svelte";
-  import { byVolume, styleByKey, vintageShortLabel, wineRobe, type WineStyleKey, wineTitle, wineTypeLabel, withVolume } from "$lib/wine";
+  import { byVolume, byWineType, styleByKey, vintageShortLabel, wineRobe, type WineStyleKey, wineTitle, wineTypeLabel, withVolume } from "$lib/wine";
   import {
     IconArchive,
     IconArchiveRestore,
@@ -147,8 +147,8 @@
   }
 
   async function loadWineTypes() {
-    const { data } = await supabase.from("wine_type").select("*").order("name");
-    if (data) wineTypes = data;
+    const { data } = await supabase.from("wine_type").select("*");
+    if (data) wineTypes = data.sort(byWineType);
   }
 
   function openCreateModal() {
