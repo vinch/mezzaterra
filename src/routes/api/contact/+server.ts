@@ -147,7 +147,7 @@ export const POST: RequestHandler = async ({ request, getClientAddress }) => {
   });
   const [saved, failure] = await Promise.all([save, send]);
 
-  if (failure) {
+  if (failure !== null) {
     if (!saved) throw error(502, "L’envoi a échoué. Merci de réessayer dans un instant.");
     console.error(`Email de contact non envoyé (message enregistré dans Demandes) : ${failure}`);
   }

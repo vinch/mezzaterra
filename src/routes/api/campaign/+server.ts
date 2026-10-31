@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import { json, error } from "@sveltejs/kit";
 import { createClient } from "@supabase/supabase-js";
 import { env as publicEnv } from "$env/dynamic/public";
@@ -48,6 +49,14 @@ ${hasImage ? '<p style="margin:0 0 16px;color:#66787a;font-size:14px">Le visuel 
 </td></tr></table></body></html>`;
 }
 
+/**
+ * Clé d'idempotence d'un envoi, tirée de son contenu : relancer la même campagne dans les 24 h
+ * (après un échec dont la réponse s'est perdue alors que Resend avait envoyé) n'envoie pas de doublon.
+ */
+function idempotencyKey(payload: unknown): string {
+  return `campaign-${createHash("sha256").update(JSON.stringify(payload)).digest("hex")}`;
+}
+
 async function assertAdmin(request: Request) {
   const auth = request.headers.get("authorization") || "";
   if (!auth.toLowerCase().startsWith("bearer ")) throw error(401, "Non authentifié");
@@ -87,6 +96,8 @@ export const POST: RequestHandler = async ({ request, url }) => {
     : undefined;
 
   let sent = 0;
+  /** Destinataires non servis (un lot en échec les compte tous) ; `failures` en donne le détail. */
+  let failed = 0;
   const failures: string[] = [];
 
   for (let i = 0; i < recipients.length; i += BATCH_SIZE) {
@@ -109,16 +120,22 @@ export const POST: RequestHandler = async ({ request, url }) => {
        L'API batch de Resend n'accepte pas les pièces jointes : envoi unitaire dans ce cas. */
     if (attachment) {
       for (const p of payload) {
-        const failure = await resendPost("/emails", p);
-        if (failure) failures.push(`${p.to[0]} : ${failure}`);
-        else sent += 1;
+        const failure = await resendPost("/emails", p, idempotencyKey(p));
+        if (failure === null) sent += 1;
+        else {
+          failed += 1;
+          failures.push(`${p.to[0]} : ${failure}`);
+        }
       }
     } else {
-      const failure = await resendPost("/emails/batch", payload);
-      if (failure) failures.push(`Lot ${i / BATCH_SIZE + 1} : ${failure}`);
-      else sent += chunk.length;
+      const failure = await resendPost("/emails/batch", payload, idempotencyKey(payload));
+      if (failure === null) sent += chunk.length;
+      else {
+        failed += chunk.length;
+        failures.push(`Lot ${i / BATCH_SIZE + 1} : ${failure}`);
+      }
     }
   }
 
-  return json({ sent, failed: failures.length, failures });
+  return json({ sent, failed, failures });
 };
