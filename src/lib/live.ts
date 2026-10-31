@@ -46,13 +46,17 @@ function uuid(): string {
   });
 }
 
+/* Gardé en mémoire : sans localStorage, le même téléphone garde le même id jusqu'au rechargement. */
+let guestId: string | null = null;
+
 export function getGuestId(): string {
-  let id = read<string | null>(GUEST_ID_KEY, null);
-  if (!id) {
-    id = uuid();
-    write(GUEST_ID_KEY, id);
+  if (!browser) return uuid();
+  guestId ??= read<string | null>(GUEST_ID_KEY, null);
+  if (!guestId) {
+    guestId = uuid();
+    write(GUEST_ID_KEY, guestId);
   }
-  return id;
+  return guestId;
 }
 
 export function getProfile(): GuestProfile {
