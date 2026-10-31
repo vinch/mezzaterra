@@ -532,7 +532,7 @@
             disableWhenNoStock={false}
             {isVintageAlreadyAdded}
             formatLabel={vintageProductLabel}
-            getAvailableStock={() => 0}
+            showStock={false}
             onchange={handleVintageChange}
           />
         </div>

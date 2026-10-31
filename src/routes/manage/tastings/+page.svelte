@@ -606,7 +606,7 @@
           disableWhenNoStock={false}
           isVintageAlreadyAdded={isVintageInModal}
           formatLabel={vintageLabel}
-          getAvailableStock={() => 0}
+          showStock={false}
           placeholder="Rechercher un produit…"
         />
         <Button disabled={!selectedVintageId} onclick={addWineToTasting}><IconPlus size={16} strokeWidth={1.75} /> Ajouter</Button>

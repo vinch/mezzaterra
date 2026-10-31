@@ -19,6 +19,8 @@
     includeTastingOption?: boolean;
     /** Désactiver les millésimes sans stock disponible. */
     disableWhenNoStock?: boolean;
+    /** Stock et prix de vente à côté de chaque produit (ventes) ; masqués ailleurs (commandes, dégustations). */
+    showStock?: boolean;
   }
 
   let {
@@ -31,6 +33,7 @@
     formatLabel = (_v, _s) => "",
     includeTastingOption = true,
     disableWhenNoStock = true,
+    showStock = true,
     onchange
   }: Props = $props();
 
@@ -82,8 +85,10 @@
           <strong>{option.name}</strong>
           <small>{option.winery}{option.added ? " · déjà ajouté" : ""}</small>
         </span>
-        <span class="opt-stock" class:low={option.stock != null && option.stock <= 3}>{option.stock ?? "—"} bt.</span>
-        <span class="opt-price">{option.price != null ? formatEUR(option.price) : ""}</span>
+        {#if showStock}
+          <span class="opt-stock" class:low={option.stock != null && option.stock <= 3}>{option.stock ?? "—"} bt.</span>
+          <span class="opt-price">{option.price != null ? formatEUR(option.price) : ""}</span>
+        {/if}
       {/if}
   {/snippet}
 </Combobox>
