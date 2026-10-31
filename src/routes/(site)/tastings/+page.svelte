@@ -1,14 +1,13 @@
 <script lang="ts">
   import { daysUntil, formatDayMonth, formatDateLong, formatTime } from "$lib/dates";
-  import { isPrivateTasting, tastingTitle } from "$lib/publicData";
+  import { tastingTitle } from "$lib/publicData";
   import { formatEUR } from "$lib/format";
   import { contactHref } from "$lib/contact";
 
   let { data } = $props();
 
   let { error } = $derived(data);
-  /* Les dégustations privées (chez un client, en externe) ne sont pas listées. */
-  let tastings = $derived(data.tastings.filter((t: any) => !isPrivateTasting(t)));
+  let tastings = $derived(data.tastings);
   /* À venir : la plus proche d'abord. Passées : la plus récente d'abord. */
   let upcoming = $derived(tastings.filter((t: any) => daysUntil(t.date) >= 0).reverse());
   let past = $derived(tastings.filter((t: any) => daysUntil(t.date) < 0));

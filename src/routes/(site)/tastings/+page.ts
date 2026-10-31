@@ -6,6 +6,9 @@ export const load: PageLoad = async () => {
     const { data, error: fetchError } = await supabase
       .from("tasting")
       .select("*, tasting_wine_vintage ( wine_vintage_id )")
+      /* Les dégustations privées (chez un client, en externe) ne sont pas listées : filtrées ici,
+         elles n'arrivent pas au navigateur. */
+      .eq("is_private", false)
       .order("date", { ascending: false });
 
     if (fetchError) {
