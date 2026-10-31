@@ -76,6 +76,20 @@ export function onlineSeats(registrations: { status: string; seats: number }[]):
   return registrations.filter((r) => r.status === "confirmed").reduce((n, r) => n + r.seats, 0);
 }
 
+type RegistrationSeats = { status: string; seats: number; customer_id: string | null };
+
+/** Réservation confirmée et rattachée à un client : elle figure parmi les participants. */
+export function isParticipantRegistration(r: RegistrationSeats): r is RegistrationSeats & { customer_id: string } {
+  return r.status === "confirmed" && r.customer_id != null;
+}
+
+/** Places réservées en ligne (confirmées) par client participant. */
+export function onlineSeatsByCustomer(registrations: RegistrationSeats[]): Map<string, number> {
+  const m = new Map<string, number>();
+  for (const r of registrations.filter(isParticipantRegistration)) m.set(r.customer_id, (m.get(r.customer_id) ?? 0) + r.seats);
+  return m;
+}
+
 export async function fetchSeats(tastingId: string): Promise<SeatInfo | null> {
   try {
     const { data, error } = await supabase.rpc("tasting_availability", { p_tasting_id: tastingId });
