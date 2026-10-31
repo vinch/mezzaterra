@@ -294,10 +294,10 @@
         </KpiCard>
         <KpiCard label="Bouteilles en stock" value={String(kpi.bottles)} icon={IconBox} href="/manage/stock">
           {formatEUR(kpi.stockValue)} au prix d’achat
-          {#if kpi.lowCount}<br /><span class="t-warn">{kpi.lowCount} millésime{kpi.lowCount > 1 ? "s" : ""} ≤ {LOW_STOCK} bt.</span>{/if}
+          {#if kpi.lowCount}<br /><span class="t-warn">{kpi.lowCount} lot{kpi.lowCount > 1 ? "s" : ""} ≤ {LOW_STOCK} bt.</span>{/if}
         </KpiCard>
         <KpiCard label="Produits au catalogue" value={String(kpi.wines)} icon={IconProduct} href="/manage/products">
-          {kpi.vintages} millésime{kpi.vintages > 1 ? "s" : ""}
+          {kpi.vintages} lot{kpi.vintages > 1 ? "s" : ""}
         </KpiCard>
         <KpiCard label="Clients" value={String(kpi.customers)} icon={IconUsers} href="/manage/customers" />
         <KpiCard label="Dégustations" value={String(kpi.tastings)} icon={IconGlasses} href="/manage/tastings" />

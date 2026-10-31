@@ -434,7 +434,7 @@
           <h2 class="t-card-title">Cartes et indicateurs</h2>
           <div class="kpis">
             <KpiCard label="Chiffre d’affaires" value={formatEUR(12480)} icon={IconEuro} href="#cartes">+12 % sur 12 mois</KpiCard>
-            <KpiCard label="Bouteilles en stock" value="418" icon={IconBox}>Dont 3 vins en rupture</KpiCard>
+            <KpiCard label="Bouteilles en stock" value="418" icon={IconBox}>Dont 3 produits en rupture</KpiCard>
             <KpiCard label="Produits au catalogue" value="64" icon={IconProduct} />
           </div>
           <div class="cards">
