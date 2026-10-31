@@ -374,13 +374,11 @@
       return;
     }
 
-    const [{ error: customersErr }, { error: linkErr }] = await Promise.all([
-      supabase.from("tasting_customer").delete().eq("tasting_id", tasting.id),
-      supabase.from("tasting_wine_vintage").delete().eq("tasting_id", tasting.id),
-    ]);
-
-    if (customersErr || linkErr) {
-      error = (customersErr || linkErr)!.message;
+    /* Les participants partent avec la dégustation (cascade) : les supprimer avant annulerait leurs
+       réservations en ligne même si la suppression de la dégustation échouait. */
+    const { error: linkErr } = await supabase.from("tasting_wine_vintage").delete().eq("tasting_id", tasting.id);
+    if (linkErr) {
+      error = linkErr.message;
       return;
     }
 
@@ -637,15 +635,18 @@
                 <button
                   type="button"
                   class="ui-remove"
-                  title="Retirer"
+                  title={entry.onlineSeats ? "Retirer et annuler sa réservation en ligne" : "Retirer"}
                   onclick={() => removeCustomerFromList(i)}
-                  aria-label="Retirer"
+                  aria-label={entry.onlineSeats ? "Retirer et annuler sa réservation en ligne" : "Retirer"}
                 >
                   ×
                 </button>
               </li>
             {/each}
           </ul>
+          {#if modalCustomers.some((e) => e.onlineSeats)}
+            <small class="field-hint">Retirer un inscrit du site annule sa réservation en ligne (elle peut être rétablie depuis Piloter).</small>
+          {/if}
         {/if}
 
         <div class="add-customer-row">
