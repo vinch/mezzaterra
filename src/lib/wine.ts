@@ -78,20 +78,19 @@ function typePosition(t: TypeLike): number {
   return i < 0 ? order.length : i;
 }
 
+type CompareProduct = { year?: number | null; production_year?: number | null; wine?: WineLike };
+
 /**
  * Tri des lots du site : couleur du plus léger au plus corsé, ordre des types du produit (fruité
- * léger à intense pour les huiles), nom, puis année la plus récente.
+ * léger à intense pour les huiles), nom, puis année la plus récente (millésime, sinon mise en bouteille).
  */
-export function compareProducts(
-  a: { year?: number | null; wine?: WineLike },
-  b: { year?: number | null; wine?: WineLike },
-): number {
+export function compareProducts(a: CompareProduct, b: CompareProduct): number {
   const style = (v: typeof a) => STYLE_ORDER.indexOf(wineStyle(v.wine?.wine_type).key);
   return (
     style(a) - style(b) ||
     typePosition(a.wine?.wine_type) - typePosition(b.wine?.wine_type) ||
     wineTitle(a.wine).localeCompare(wineTitle(b.wine), "fr") ||
-    (b.year ?? 0) - (a.year ?? 0)
+    (b.year ?? b.production_year ?? 0) - (a.year ?? a.production_year ?? 0)
   );
 }
 
