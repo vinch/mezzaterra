@@ -1215,6 +1215,7 @@ export type Database = {
           description: string | null
           email: string | null
           id: string
+          instagram: string | null
           latitude: number | null
           longitude: number | null
           name: string
@@ -1232,6 +1233,7 @@ export type Database = {
           description?: string | null
           email?: string | null
           id?: string
+          instagram?: string | null
           latitude?: number | null
           longitude?: number | null
           name: string
@@ -1249,6 +1251,7 @@ export type Database = {
           description?: string | null
           email?: string | null
           id?: string
+          instagram?: string | null
           latitude?: number | null
           longitude?: number | null
           name?: string

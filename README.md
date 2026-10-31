@@ -97,6 +97,10 @@ lieu de s'y ajouter dans le contrôle de capacité. Un admin peut rétablir une 
 migration rattache les réservations confirmées des dégustations à venir (une erreur n'arrête pas la
 migration) et annule celles dont le participant avait été retiré.
 
+`20261031180000_winery_instagram.sql` ajoute `winery.instagram` : le compte Instagram d'un domaine
+(saisi « @compte » ou en lien de profil), affiché sur sa page publique et sur les fiches de ses
+produits. À appliquer avant de déployer le code : la page Domaines de la gestion l'enregistre.
+
 ```sh
 supabase link --project-ref wmerreifcpttrhxwmkmn
 supabase db push

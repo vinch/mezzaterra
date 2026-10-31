@@ -327,6 +327,17 @@ export function wineryMapUrl(w: WineryLike): string | null {
   return `https://www.openstreetmap.org/?mlat=${w.latitude}&mlon=${w.longitude}#map=12/${w.latitude}/${w.longitude}`;
 }
 
+/** Compte Instagram d'un domaine, saisi « @compte », « compte » ou en lien instagram.com/compte. */
+export function wineryInstagram(w: { instagram?: string | null } | null | undefined): { handle: string; url: string } | null {
+  const account = w?.instagram
+    ?.trim()
+    .replace(/^(https?:\/\/)?(www\.)?instagram\.com\//i, "")
+    .replace(/^@/, "")
+    .split(/[/?#]/)[0];
+  if (!account || !/^[\w.]{1,30}$/.test(account)) return null;
+  return { handle: `@${account}`, url: `https://www.instagram.com/${account}/` };
+}
+
 /** Carte OpenStreetMap intégrable (iframe) centrée sur le domaine. */
 export function wineryMapEmbedUrl(w: WineryLike): string | null {
   if (w?.latitude == null || w?.longitude == null) return null;

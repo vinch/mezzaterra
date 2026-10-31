@@ -15,6 +15,7 @@
     vintageVolume,
     winePairings,
     wineryFlag,
+    wineryInstagram,
     wineryPlace,
     wineStyle,
     wineSubtitle,
@@ -36,6 +37,7 @@
   let winery = $derived(wine?.winery);
   let region = $derived(wineryPlace(winery));
   let flag = $derived(wineryFlag(winery));
+  let instagram = $derived(wineryInstagram(winery));
   let ogDescription = $derived([
     wineSubtitle(wine),
     winery?.name,
@@ -221,6 +223,9 @@
             {/if}
             {#if winery?.url}
               <a class="mz-link" href={winery.url} target="_blank" rel="noopener noreferrer">Site du domaine ↗</a>
+            {/if}
+            {#if instagram}
+              <a class="mz-link" href={instagram.url} target="_blank" rel="noopener noreferrer">Instagram ↗</a>
             {/if}
           </div>
         </div>
