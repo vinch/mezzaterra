@@ -3,7 +3,7 @@
  * l'admin. Le vocabulaire propre à chaque type de produit est dans productKinds.ts.
  */
 
-import { formatVolume, kindInfo, kindOf, type ProductKind } from "./productKinds";
+import { formatVolume, kindInfo, kindOf, PRODUCT_KIND_LIST, type ProductKind } from "./productKinds";
 
 export type WineStyleKey = "red" | "white" | "rose" | "orange" | "sparkling" | "oil" | "other";
 
@@ -60,6 +60,20 @@ export function wineRobe(type: TypeLike): WineStyle {
 /** Libellé de la pastille d'un produit : la robe d'un vin (« Rouge », « Pétillant »), le fruité d'une huile. */
 export function styleLabel(type: TypeLike): string {
   return (kindInfo(type).style && type?.name) || wineStyle(type).label;
+}
+
+/**
+ * Tri des types (`wine_type`) pour les listes : par type de produit (vins puis huiles), selon son
+ * `typeOrder` (fruité léger, moyen, intense ; un type absent de cet ordre vient après), puis par nom.
+ */
+export function byWineType(a: TypeLike, b: TypeLike): number {
+  const kind = (t: TypeLike) => PRODUCT_KIND_LIST.indexOf(kindInfo(t));
+  const position = (t: TypeLike) => {
+    const order = kindInfo(t).typeOrder ?? [];
+    const i = order.indexOf(t?.name ?? "");
+    return i < 0 ? order.length : i;
+  };
+  return kind(a) - kind(b) || position(a) - position(b) || (a?.name ?? "").localeCompare(b?.name ?? "", "fr");
 }
 
 /** Style CSS d'une pastille ou d'une silhouette à la couleur de la robe (liseré pour les teintes claires). */
@@ -241,10 +255,14 @@ export function vintageNotes(
     .filter((n) => n.content);
 }
 
-/** Accords mets-vins d'un vin chargé avec `VINTAGE_PUBLIC_SELECT`. */
+/** Accords mets-vins d'un vin chargé avec `VINTAGE_PUBLIC_SELECT` ; aucun pour un type sans accords (huile). */
 export function winePairings(
-  wine: { wine_pairing?: { pairing?: { description?: string | null } | null }[] | null } | null | undefined,
+  wine:
+    | { kind?: string | null; wine_pairing?: { pairing?: { description?: string | null } | null }[] | null }
+    | null
+    | undefined,
 ): string[] {
+  if (!kindInfo(wine).pairingsLabel) return [];
   return (wine?.wine_pairing || []).map((wp) => wp.pairing?.description).filter((d): d is string => !!d);
 }
 

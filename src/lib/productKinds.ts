@@ -43,6 +43,8 @@ export type ProductKindInfo = {
   untitled: string;
   /** Ce qui distingue les types de ce produit (`wine_type`) : « Robe », « Fruité ». */
   typeLabel: string;
+  /** Ordre des types (noms `wine_type`) dans les listes, quand l'alphabet ne convient pas : du fruité léger à l'intense. */
+  typeOrder?: string[];
   /**
    * Couleur unique du produit (pastilles, bouteille, liserés) ; `null` : couleur de la robe, propre à
    * chaque type (vin). Un type de produit à couleur unique affiche le nom de son type (« Fruité intense »).
@@ -85,8 +87,8 @@ export type ProductKindInfo = {
   organicLabel: string;
   /** Titre de la description du produit sur sa fiche : « Le vin ». */
   aboutTitle: string;
-  /** Accords mets (`wine_pairing`) : « Accords mets & vins ». */
-  pairingsLabel: string;
+  /** Accords mets (`wine_pairing`) : « Accords mets & vins » ; `null` : pas d'accords pour ce type (huile). */
+  pairingsLabel: string | null;
   /** Notes de dégustation, dans l'ordre d'affichage (`note.type`). */
   noteTypes: { key: string; label: string }[];
 };
@@ -152,6 +154,7 @@ export const PRODUCT_KINDS: Record<ProductKind, ProductKindInfo> = {
     noProduct: "Aucune huile au catalogue",
     untitled: "Huile sans nom",
     typeLabel: "Fruité",
+    typeOrder: ["Fruité léger", "Fruité moyen", "Fruité intense"],
     style: "oil",
     batch: "Lot",
     batchPlural: "Lots",
@@ -174,7 +177,7 @@ export const PRODUCT_KINDS: Record<ProductKind, ProductKindInfo> = {
     standardVolume: null,
     organicLabel: "Huile biologique",
     aboutTitle: "L’huile",
-    pairingsLabel: "Accords mets & huile",
+    pairingsLabel: null,
     noteTypes: [
       { key: "color", label: "Couleur" },
       { key: "nose", label: "Nez" },

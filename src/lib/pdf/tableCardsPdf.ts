@@ -9,6 +9,7 @@ import {
   grapesText,
   wineStyle,
   wineSubtitle,
+  winePairings,
   wineTitle,
 } from "$lib/wine";
 import { formatEUR } from "$lib/format";
@@ -140,7 +141,7 @@ export async function downloadTableCardsPdf(tasting: any, wines: any[], origin: 
       if (y > H - 62) break;
     }
 
-    const pairings = (wine?.wine_pairing || []).map((wp: any) => wp.pairing?.description).filter(Boolean);
+    const pairings = winePairings(wine);
     if (pairings.length && y < H - 58) {
       doc.setFont(font, "bold");
       doc.setFontSize(10);
