@@ -18,8 +18,6 @@ import { supabaseAdmin } from "$lib/server/supabaseAdmin";
  */
 
 const MAX_MESSAGE = 5000;
-/** Au-delà, on n'attend plus la base : l'email suffit. */
-const SAVE_TIMEOUT_MS = 5000;
 
 function from(): string | undefined {
   return env.CONTACT_FROM || env.CAMPAIGN_FROM;
@@ -110,8 +108,7 @@ export const POST: RequestHandler = async ({ request, getClientAddress }) => {
             phone: phone || null,
             page: page || null,
             message,
-          })
-          .abortSignal(AbortSignal.timeout(SAVE_TIMEOUT_MS)),
+          }),
       ).then(
         ({ error: e }) => {
           if (e) console.error("Message de contact non enregistré :", e.message);
