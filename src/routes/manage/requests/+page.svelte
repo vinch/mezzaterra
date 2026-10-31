@@ -27,7 +27,7 @@
       loadWishes(),
       supabase
         .from("wine_vintage")
-        .select("id, year, production_year, price, wine ( name, winery ( name ), appelation ( name, label ( name ) ) )"),
+        .select("id, year, production_year, volume_ml, price, wine ( kind, name, winery ( name ), appelation ( name, label ( name ) ) )"),
       supabase.from("tasting").select("id, name, date"),
     ]);
     vintages = new Map((vRes.data || []).map((v: any) => [v.id, v]));

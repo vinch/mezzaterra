@@ -1,24 +1,28 @@
 <script lang="ts">
   import RefCrudPage from "$lib/components/manage/RefCrudPage.svelte";
+  import { KIND_COLUMN, KIND_FIELD } from "$lib/components/manage/refCrud";
 </script>
 
 <svelte:head>
-  <title>Cépages - Gestion</title>
+  <title>Cépages et variétés - Gestion</title>
 </svelte:head>
 
+<!-- Même table pour les cépages des vins et les variétés d'olives des huiles (colonne kind). -->
 <RefCrudPage
-  title="Cépages"
+  title="Cépages et variétés"
   table="grape"
-  newLabel="Nouveau cépage"
-  editLabel="Modifier le cépage"
-  thisLabel="ce cépage"
-  emptyText="Les cépages s’associent ensuite aux millésimes."
+  newLabel="Nouveau cépage ou variété"
+  editLabel="Modifier"
+  thisLabel="ce cépage ou cette variété"
+  emptyText="Les cépages s’associent ensuite aux millésimes, les variétés d’olives aux lots d’huile."
   fields={[
-    { key: "name", label: "Nom du cépage", required: true, full: true },
+    { key: "name", label: "Nom", required: true },
+    KIND_FIELD,
     { key: "description", label: "Description", type: "textarea" },
   ]}
   columns={[
     { label: "Nom", value: (g) => g.name },
+    KIND_COLUMN,
     { label: "Description", value: (g) => g.description, truncate: 50 },
   ]}
 />

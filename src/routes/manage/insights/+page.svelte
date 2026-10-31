@@ -74,14 +74,14 @@
     <div class="error-message">{error}</div>
   {:else}
     <div class="kpis">
-      <div class="kpi"><span class="kpi-value">{formatEUR(totals.revenue, true)}</span><span class="kpi-label">CA vins encaissé</span></div>
+      <div class="kpi"><span class="kpi-value">{formatEUR(totals.revenue, true)}</span><span class="kpi-label">CA produits encaissé</span></div>
       <div class="kpi"><span class="kpi-value">{formatEUR(totals.revenue - totals.cost, true)}</span><span class="kpi-label">Marge brute</span></div>
       <div class="kpi"><span class="kpi-value">{pct(totals.revenue ? ((totals.revenue - totals.cost) / totals.revenue) * 100 : null)}</span><span class="kpi-label">Taux de marge</span></div>
       <div class="kpi"><span class="kpi-value">{totals.sold}</span><span class="kpi-label">Bouteilles vendues</span></div>
     </div>
 
     <div class="tabs" role="tablist">
-      <button type="button" role="tab" class:active={tab === "margins"} aria-selected={tab === "margins"} onclick={() => (tab = "margins")}>Marges par vin</button>
+      <button type="button" role="tab" class:active={tab === "margins"} aria-selected={tab === "margins"} onclick={() => (tab = "margins")}>Marges par produit</button>
       <button type="button" role="tab" class:active={tab === "rotation"} aria-selected={tab === "rotation"} onclick={() => (tab = "rotation")}>Rotation du stock</button>
       <button type="button" role="tab" class:active={tab === "tastings"} aria-selected={tab === "tastings"} onclick={() => (tab = "tastings")}>Rentabilité des dégustations</button>
     </div>
@@ -95,7 +95,7 @@
         <table>
           <thead>
             <tr>
-              <th>Vin</th>
+              <th>Produit</th>
               <th class="num">Achat</th>
               <th class="num">Vente</th>
               <th class="num sortable" class:on={sortKey === "unitMarginPct"} onclick={() => (sortKey = "unitMarginPct")}>Marge unit.</th>
@@ -130,14 +130,14 @@
       </div>
     {:else if tab === "rotation"}
       <p class="explain">
-        Vins en stock, du plus « endormi » au plus actif. Les mois de stock sont estimés à partir du rythme
+        Produits en stock, du plus « endormi » au plus actif. Les mois de stock sont estimés à partir du rythme
         de vente observé.
       </p>
       <div class="table-container">
         <table>
           <thead>
             <tr>
-              <th>Vin</th>
+              <th>Produit</th>
               <th class="num">Stock</th>
               <th class="num">Valeur (achat)</th>
               <th>Dernière vente</th>

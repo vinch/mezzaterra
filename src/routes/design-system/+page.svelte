@@ -220,6 +220,7 @@
             <li><strong>Chiffres</strong> alignés à droite (<code>.num</code>, y compris l’en-tête de colonne), montants avec <code>formatEUR</code>, dates avec <code>formatDate</code>.</li>
             <li><strong>Accessibilité</strong> : chaque champ a un libellé (<code>Field</code>), chaque bouton icône un <code>label</code>, cibles de 44 px sur mobile (déjà géré par les composants).</li>
             <li><strong>Textes en français</strong>, phrases courtes, guillemets « » et apostrophe typographique ’.</li>
+            <li><strong>Vocabulaire produit</strong> : un écran qui montre des vins peut montrer des huiles. Millésime ou lot, cépages ou variétés, « ce vin » ou « cette huile » viennent de <code>kindInfo()</code> (<code>src/lib/productKinds.ts</code>), pas de « vin » en dur.</li>
           </ul>
         </section>
 
@@ -253,8 +254,8 @@
             {/each}
           </div>
 
-          <h3 class="ds-h3">Robes</h3>
-          <p class="t-muted">Dans <code>STYLES</code> (<code>src/lib/wine.ts</code>) : passer par <code>WineDot</code>, <code>wineRobe()</code> ou <code>swatchStyle()</code>.</p>
+          <h3 class="ds-h3">Robes et produits</h3>
+          <p class="t-muted">Dans <code>STYLES</code> (<code>src/lib/wine.ts</code>) : passer par <code>WineDot</code>, <code>wineRobe()</code> ou <code>swatchStyle()</code>. Une huile d’olive prend le vert olive, d’après le <code>kind</code> de son type.</p>
           <div class="row">
             {#each WINE_STYLES as s}
               <span class="inline"><WineDot robe={s.key} size={14} />{s.label}</span>

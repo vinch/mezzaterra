@@ -11,12 +11,15 @@
   import { daysUntil, formatDateLong, winesRevealed } from "$lib/dates";
   import {
     grapesText,
+    styleLabel,
+    withVolume,
     vintageNotes,
     winePairings,
     wineStyle,
     wineSubtitle,
     wineTitle,
   } from "$lib/wine";
+  import { kindInfo } from "$lib/productKinds";
   import { formatEUR } from "$lib/format";
   import {
     getCart,
@@ -135,7 +138,8 @@
   let current = $derived(wines[index]);
   let style = $derived(wineStyle(current?.wine?.wine_type));
   let currentRating = $derived(current ? ratings[current.id] : undefined);
-  let notes = $derived(vintageNotes(current?.note));
+  let kind = $derived(kindInfo(current?.wine));
+  let notes = $derived(vintageNotes(current?.note, kind.key));
   let pairings = $derived(winePairings(current?.wine));
   let cartLines = $derived(wines.filter((w) => (cart[w.id] ?? 0) > 0).map((w) => ({ wine: w, qty: cart[w.id] })));
   let cartCount = $derived(cartLines.reduce((s, l) => s + l.qty, 0));
@@ -278,7 +282,7 @@
       <div class="progress">
         <GlassProgress value={index + 1} {total} color={style.color} size="2.6rem" />
         <div class="progress-text">
-          <span class="progress-count">Vin {index + 1}<span class="muted"> / {total}</span></span>
+          <span class="progress-count">{kind.label} {index + 1}<span class="muted"> / {total}</span></span>
           <span class="live-state" class:on={connected}>
             <span class="dot" aria-hidden="true"></span>
             {connected ? (follow ? "En direct" : "Navigation libre") : "Hors ligne"}
@@ -292,7 +296,7 @@
 
     {#if !follow && hostPosition != null && hostPosition !== index}
       <button type="button" class="rejoin" onclick={backToHost} transition:fly={{ y: -10, duration: 200 }}>
-        Le vin {hostPosition + 1} est servi — y retourner →
+        En ce moment : {kindInfo(wines[hostPosition]?.wine).label.toLowerCase()} n° {hostPosition + 1} — y retourner →
       </button>
     {/if}
 
@@ -310,7 +314,7 @@
 
           <div class="identity">
             <span class="eyebrow">
-              <span class="robe-dot" aria-hidden="true"></span>{style.label}{current.year ? ` · ${current.year}` : ""}{current.organic ? " · Bio" : ""}
+              <span class="robe-dot" aria-hidden="true"></span>{styleLabel(current.wine?.wine_type)}{current.year ? ` · ${current.year}` : ""}{current.organic ? " · Bio" : ""}
             </span>
             <h1>{wineTitle(current.wine)}</h1>
             {#if wineSubtitle(current.wine)}<p class="sub">{wineSubtitle(current.wine)}</p>{/if}
@@ -323,7 +327,7 @@
               <span>Votre note</span>
               {#if savedFlash}<span class="saved" transition:fade={{ duration: 150 }}>✓ enregistrée</span>{/if}
             </div>
-            <StarRating value={currentRating?.rating ?? null} size="2.2rem" label="Notez ce vin" onchange={rate} />
+            <StarRating value={currentRating?.rating ?? null} size="2.2rem" label="Notez {kind.thisLabel}" onchange={rate} />
             <textarea
               rows="2"
               placeholder="Vos impressions… (fruité, épicé, coup de cœur ?)"
@@ -368,8 +372,8 @@
       {/key}
     </main>
 
-    <nav class="dots" aria-label="Vins de la soirée">
-      <button type="button" class="nav-arrow" onclick={() => goTo(index - 1)} disabled={index === 0} aria-label="Vin précédent">‹</button>
+    <nav class="dots" aria-label="Déroulé de la soirée">
+      <button type="button" class="nav-arrow" onclick={() => goTo(index - 1)} disabled={index === 0} aria-label="Précédent">‹</button>
       <div class="dot-row">
         {#each wines as w, i}
           {@const s = wineStyle(w.wine?.wine_type)}
@@ -382,18 +386,18 @@
               class:rated={!!ratings[w.id]?.rating}
               style="--c: {s.color}"
               onclick={() => goTo(i)}
-              aria-label="Vin {i + 1} : {wineTitle(w.wine)}"
+              aria-label="{kindInfo(w.wine).label} {i + 1} : {wineTitle(w.wine)}"
               aria-current={i === index}
             ></button>
           {:else}
-            <span class="wine-dot locked" aria-label="Vin {i + 1} : à venir" role="img"></span>
+            <span class="wine-dot locked" aria-label="{i + 1} : à venir" role="img"></span>
           {/if}
         {/each}
       </div>
       {#if index === total - 1}
         <button type="button" class="nav-arrow recap-btn" onclick={() => (showRecap = true)}>Récap</button>
       {:else}
-        <button type="button" class="nav-arrow" onclick={() => goTo(index + 1)} disabled={index >= unlocked} aria-label={index >= unlocked ? "Le vin suivant n’est pas encore servi" : "Vin suivant"}>›</button>
+        <button type="button" class="nav-arrow" onclick={() => goTo(index + 1)} disabled={index >= unlocked} aria-label={index >= unlocked ? "La suite n’est pas encore servie" : "Suivant"}>›</button>
       {/if}
     </nav>
 
@@ -438,7 +442,7 @@
           {#each cartLines as l (l.wine.id)}
             <li>
               <span class="mz-dot" style="background: {wineStyle(l.wine.wine?.wine_type).color}"></span>
-              <span class="cart-name">{wineTitle(l.wine.wine)}{l.wine.year ? ` ${l.wine.year}` : ""}</span>
+              <span class="cart-name">{withVolume(`${wineTitle(l.wine.wine)}${l.wine.year ? ` ${l.wine.year}` : ""}`, l.wine)}</span>
               <div class="stepper small">
                 <button type="button" onclick={() => setQty(l.wine.id, l.qty - 1)} aria-label="Moins">−</button>
                 <output>{l.qty}</output>

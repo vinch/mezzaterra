@@ -4,12 +4,16 @@
   import { fade } from "svelte/transition";
   import { page } from "$app/stores";
   import WineCard from "$lib/components/site/WineCard.svelte";
-  import { fetchAvailability, type AvailabilityOf } from "$lib/publicData";
+  import { combinedAvailability, fetchAvailability, firstAvailable, type AvailabilityOf } from "$lib/publicData";
   import { fold } from "$lib/format";
+  import { kindCount, PRODUCT_KINDS, productHref } from "$lib/productKinds";
   import {
     STYLE_ORDER,
     allWineStyles,
+    groupFormats,
+    type FormatGroup,
     wineStyle,
+    vintageVolume,
     wineTitle,
     wineryFlag,
     wineryPlace,
@@ -19,14 +23,16 @@
   let { data } = $props();
 
   let availability = $state<AvailabilityOf | null>(null);
-  let styleFilter = $state<WineStyleKey | "">("");
-  let inStockOnly = $state(false);
-  let query = $state("");
+  /* /vins et /huiles partagent ce composant : les filtres repartent de zéro au changement de catalogue. */
+  let styleFilter = $derived.by<WineStyleKey | "">(() => (data.kind, ""));
+  let inStockOnly = $derived.by(() => (data.kind, false));
+  let query = $derived.by(() => (data.kind, ""));
 
   onMount(async () => {
     availability = await fetchAvailability();
   });
 
+  let kind = $derived(PRODUCT_KINDS[data.kind]);
   let vintages = $derived(data.vintages as any[]);
   let presentStyles = $derived(allWineStyles().filter((s) =>
     vintages.some((v) => wineStyle(v.wine?.wine_type).key === s.key),
@@ -43,6 +49,7 @@
           v.wine?.appelation?.name,
           v.wine?.winery?.name,
           v.year,
+          vintageVolume(v),
           ...(v.wine_vintage_grape || []).map((g: any) => g.grape?.name),
         ]
           .filter(Boolean)
@@ -59,13 +66,13 @@
       return wineTitle(a.wine).localeCompare(wineTitle(b.wine), "fr");
     }));
 
-  type WineryGroup = { winery: any; items: any[] };
+  type WineryGroup = { winery: any; items: FormatGroup<any>[] };
 
-  /* Regroupement par domaine. */
+  /* Regroupement par domaine, une carte par produit et par année (ses contenants dedans). */
   function groupByWinery(list: any[]): WineryGroup[] {
     const acc = new Map<string, WineryGroup>();
-    for (const v of list) {
-      const w = v.wine?.winery;
+    for (const v of groupFormats(list)) {
+      const w = v.vintage.wine?.winery;
       const key = w?.id || "autres";
       if (!acc.has(key)) acc.set(key, { winery: w, items: [] });
       acc.get(key)!.items.push(v);
@@ -81,25 +88,23 @@
 </script>
 
 <svelte:head>
-  <title>Nos vins — Mezzaterra</title>
-  <meta property="og:title" content="Nos vins — Mezzaterra" />
-  <meta property="og:description" content="Montepulciano, Pecorino, Cerasuolo… la cave Mezzaterra, domaine par domaine." />
+  <title>{kind.catalogTitle} — Mezzaterra</title>
+  <meta property="og:title" content="{kind.catalogTitle} — Mezzaterra" />
+  <meta property="og:description" content={kind.catalogShare} />
   <meta property="og:url" content={$page.url.href} />
 </svelte:head>
 
 <section class="intro">
   <div class="mz-container mz-rise">
-    <h1 class="mz-display mz-h1">Nos vins</h1>
-    <p class="mz-lead">
-      Des domaines familiaux des Abruzzes, entre mer Adriatique et massif du Gran Sasso.
-    </p>
+    <h1 class="mz-display mz-h1">{kind.catalogTitle}</h1>
+    <p class="mz-lead">{kind.catalogLead}</p>
     {#if wineries.length}
       <nav class="wineries" aria-label="Les domaines">
         {#each wineries as g (g.winery.id)}
           <a class="mz-card winery-card" href="/domaines/{g.winery.id}">
             <span class="winery-card-name">{g.winery.name}</span>
             <span class="mz-muted">
-              {[g.winery.city, `${g.items.length} vin${g.items.length > 1 ? "s" : ""}`].filter(Boolean).join(" · ")}
+              {[g.winery.city, kindCount(kind, g.items.length)].filter(Boolean).join(" · ")}
             </span>
             <span class="arrow" aria-hidden="true">→</span>
           </a>
@@ -112,18 +117,21 @@
 <div class="mz-container">
   <div class="toolbar">
     <div class="chips" role="group" aria-label="Filtrer par couleur">
-      <button type="button" class="filter-chip" class:on={!styleFilter} onclick={() => (styleFilter = "")}>Tous</button>
-      {#each presentStyles as s}
-        <button
-          type="button"
-          class="filter-chip"
-          class:on={styleFilter === s.key}
-          onclick={() => (styleFilter = styleFilter === s.key ? "" : s.key)}
-          aria-pressed={styleFilter === s.key}
-        >
-          <span class="mz-dot" style="background: {s.color}"></span>{s.label}
-        </button>
-      {/each}
+      <!-- Une seule couleur (les huiles) : rien à filtrer. -->
+      {#if presentStyles.length > 1}
+        <button type="button" class="filter-chip" class:on={!styleFilter} onclick={() => (styleFilter = "")}>Tous</button>
+        {#each presentStyles as s}
+          <button
+            type="button"
+            class="filter-chip"
+            class:on={styleFilter === s.key}
+            onclick={() => (styleFilter = styleFilter === s.key ? "" : s.key)}
+            aria-pressed={styleFilter === s.key}
+          >
+            <span class="mz-dot" style="background: {s.color}"></span>{s.label}
+          </button>
+        {/each}
+      {/if}
       {#if availability}
         <label class="filter-chip toggle" class:on={inStockOnly}>
           <input type="checkbox" bind:checked={inStockOnly} />
@@ -131,13 +139,13 @@
         </label>
       {/if}
     </div>
-    <input class="mz-input search" type="search" placeholder="Rechercher un vin, un cépage…" bind:value={query} aria-label="Rechercher" />
+    <input class="mz-input search" type="search" placeholder={kind.searchPlaceholder} bind:value={query} aria-label="Rechercher" />
   </div>
 
   {#if data.error}
     <p class="mz-empty">{data.error}</p>
   {:else if groups.length === 0}
-    <p class="mz-empty">Aucun vin ne correspond à ces critères.</p>
+    <p class="mz-empty">{vintages.length ? "Aucun produit ne correspond à ces critères." : "Bientôt à la cave."}</p>
   {:else}
     {#each groups as group (group.winery?.id || "autres")}
       <section class="winery" id={group.winery?.id ? `domaine-${group.winery.id}` : undefined} transition:fade={{ duration: 150 }}>
@@ -160,9 +168,14 @@
           {/if}
         </header>
         <div class="grid">
-          {#each group.items as v (v.id)}
+          {#each group.items as { vintage: v, formats } (v.id)}
             <div animate:flip={{ duration: 250 }}>
-              <WineCard vintage={v} href="/vins/{v.id}" availability={availability?.(v.id) ?? null} />
+              <WineCard
+                vintage={v}
+                {formats}
+                href={productHref(firstAvailable(availability, formats))}
+                availability={combinedAvailability(availability, formats)}
+              />
             </div>
           {/each}
         </div>

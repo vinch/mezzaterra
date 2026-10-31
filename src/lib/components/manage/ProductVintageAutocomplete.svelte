@@ -2,7 +2,7 @@
   import Combobox, { type ComboOption } from "$lib/ui/Combobox.svelte";
   import { fold } from "$lib/format";
   import WineDot from "$lib/ui/WineDot.svelte";
-  import { wineRobe } from "$lib/wine";
+  import { vintageShortLabel, vintageVolume, wineRobe } from "$lib/wine";
   import { formatEUR } from "$lib/format";
 
   interface Props {
@@ -38,12 +38,12 @@
     const w = v?.wine;
     if (!w) return "";
     const year = v.year != null && v.year !== "" ? String(v.year) : String(v.production_year ?? "");
-    return fold(`${w.winery?.name || ""} ${w.name || w.appelation?.name || ""} ${year}`);
+    return fold(`${w.winery?.name || ""} ${w.name || w.appelation?.name || ""} ${year} ${vintageVolume(v)}`);
   }
 
-  function wineName(v: any): string {
-    const w = v?.wine;
-    return (w?.name?.trim() || w?.appelation?.name?.trim() || "Vin").trim();
+  /** « Riserva 2019 », « Olio 2025 · 5 L » ; un non-millésimé sans année (pas de confusion avec un millésime). */
+  function optionName(v: any): string {
+    return vintageShortLabel({ ...v, production_year: null });
   }
 
   function buildOptions(list: any[]): ComboOption[] {
@@ -51,12 +51,12 @@
       const stock = getAvailableStock(v.id);
       return {
         id: v.id,
-        label: formatLabel(v, stock) || `${wineName(v)} ${v.year ?? ""}`.trim(),
+        label: formatLabel(v, stock) || optionName(v),
         searchText: vintageSearchText(v),
         disabled: (disableWhenNoStock && !stock) || isVintageAlreadyAdded(v.id),
         kind: "wine",
         robe: wineRobe(v.wine?.wine_type).key,
-        name: `${wineName(v)}${v.year ? ` ${v.year}` : ""}`,
+        name: optionName(v),
         winery: v.wine?.winery?.name || "",
         stock,
         price: v.price,

@@ -83,7 +83,7 @@ export async function loadDataset(): Promise<Dataset> {
       supabase
         .from("wine_vintage")
         .select(
-          "*, wine ( id, name, winery ( id, name ), appelation ( name, label ( name ) ), wine_type ( name, category ) )",
+          "*, wine ( id, name, winery ( id, name ), appelation ( name, label ( name ) ), wine_type ( name, category, kind ) )",
         )
         .order("id")
         .range(a, b),
@@ -93,7 +93,7 @@ export async function loadDataset(): Promise<Dataset> {
   return { sales, items, vintages, stock };
 }
 
-/** Total d'une ligne après remise (même règle que /manage/sales). */
+/** Total d'une ligne après remise (même règle que /manage/sales), jamais négatif. */
 export function lineTotal(item: Pick<SaleItemRow, "price" | "quantity" | "discount" | "discount_type">): number {
   let t = toNumber(item.price) * (Number(item.quantity) || 0);
   const d = toNumber(item.discount);
@@ -102,7 +102,7 @@ export function lineTotal(item: Pick<SaleItemRow, "price" | "quantity" | "discou
     if (kind === "percent") t *= 1 - d / 100;
     else if (kind === "amount") t -= d;
   }
-  return Math.round(t * 100) / 100;
+  return Math.max(0, Math.round(t * 100) / 100);
 }
 
 export type RevenueLine = {

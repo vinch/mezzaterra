@@ -79,7 +79,7 @@
     try {
       const res = await fetchTastingWithWines(tasting.id);
       if (!res.tasting || res.wineVintages.length === 0) {
-        error = "Ajoutez des vins à la dégustation pour générer les fiches.";
+        error = "Ajoutez des produits à la dégustation pour générer les fiches.";
         return;
       }
       /* jsPDF et qrcode ne sont chargés qu'au moment de générer les fiches. */
@@ -177,7 +177,9 @@
           id,
           production_year,
           year,
+          volume_ml,
           wine (
+            kind,
             name,
             winery (name),
             appelation (name, label (name))
@@ -286,7 +288,7 @@
   function addWineToTasting() {
     if (!selectedVintageId) return;
     if (isVintageInModal(selectedVintageId)) {
-      error = "Ce millésime est déjà dans la liste.";
+      error = "Ce lot est déjà dans la liste.";
       return;
     }
     const vintage = wineVintages.find((v) => v.id === selectedVintageId);
@@ -427,7 +429,7 @@
             <th>Date</th>
             <th>Nom</th>
             <th>Lieu</th>
-            <th class="num">Vins</th>
+            <th class="num">Produits</th>
             <th class="num">Clients</th>
             <th>Actions</th>
           </tr>
@@ -539,10 +541,10 @@
       </div>
 
       <div class="form-group full-width tasting-wines-block">
-        <span class="section-title" id="tasting-wines-label">Vins (ordre de passage)</span>
+        <span class="section-title" id="tasting-wines-label">Produits (ordre de passage)</span>
 
       {#if modalWines.length === 0}
-        <p class="empty-text">Aucun vin ajouté.</p>
+        <p class="empty-text">Aucun produit ajouté.</p>
       {:else}
         <ol class="wine-order-list">
           {#each modalWines as entry, i (entry.wine_vintage_id)}

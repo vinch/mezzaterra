@@ -63,5 +63,5 @@ export function vintageStock(vintageId: string): Promise<number | null> {
 
 /** Lignes d'articles (vente ou commande) : de quoi les libeller et les chiffrer. */
 export const LINE_ITEMS_SELECT =
-  "price, quantity, wine_vintage_id, wine_vintage ( year, production_year, wine ( name, winery ( name ), appelation ( name ) ) )";
+  "price, quantity, wine_vintage_id, wine_vintage ( year, production_year, volume_ml, wine ( kind, name, winery ( name ), appelation ( name ) ) )";
 

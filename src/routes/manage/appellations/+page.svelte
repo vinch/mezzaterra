@@ -2,7 +2,7 @@
   import { onMount } from "svelte";
   import { supabase } from "$lib/supabase";
   import RefCrudPage from "$lib/components/manage/RefCrudPage.svelte";
-  import { regionOptions } from "$lib/components/manage/refCrud";
+  import { KIND_COLUMN, KIND_FIELD, regionOptions } from "$lib/components/manage/refCrud";
   import { fetchRegions } from "$lib/manageData";
   import type { Label, Region } from "$lib/types";
 
@@ -28,15 +28,17 @@
   newLabel="Nouvelle appellation"
   editLabel="Modifier l’appellation"
   thisLabel="cette appellation"
-  emptyText="Les appellations rattachent les vins à une région et un label."
+  emptyText="Les appellations rattachent les vins et les huiles à une région et un label (DOC, DOP…)."
   fields={[
     { key: "name", label: "Nom de l’appellation", required: true, full: true },
+    KIND_FIELD,
     { key: "region_id", label: "Région", type: "select", options: regionOptions(regions) },
     { key: "label_id", label: "Label", type: "select", options: labelOptions },
     { key: "description", label: "Description", type: "textarea" },
   ]}
   columns={[
     { label: "Nom", value: (a) => a.name },
+    KIND_COLUMN,
     { label: "Description", value: (a) => a.description, truncate: 60 },
     { label: "Région", value: (a) => a.region && [a.region.country?.flag, a.region.name].filter(Boolean).join(" ") },
     { label: "Label", value: (a) => a.label?.name },

@@ -57,6 +57,29 @@ de dégustation, ceux du millésime plus ancien le plus proche du même vin qui 
 millésime plus récent). Un millésime qui a déjà au moins un cépage, ou au moins une note, n'est pas
 touché.
 
+`20261030120000_product_kind.sql` ouvre le catalogue à l'huile d'olive. Les tables gardent leur nom
+(`wine` = produit, `wine_vintage` = millésime ou lot, `grape` = cépage ou variété d'olive,
+`wine_type` = robe ou fruité) ; `wine`, `wine_type`, `appelation` et `grape` reçoivent une colonne
+`kind` (`wine` ou `olive_oil`, domaine SQL `product_kind`, `wine` par défaut pour l'existant). Des
+triggers refusent un produit dont le type, l'appellation ou les cépages sont d'un autre `kind`, et le
+changement de `kind` d'une ligne déjà utilisée. Elle crée aussi les fruités (léger, moyen, intense),
+le label DOP, les trois DOP oléicoles des Abruzzes et les principales variétés d'olives. Année de
+récolte et appellation restent facultatives. Chaque lot reçoit enfin son contenant
+(`wine_vintage.volume_ml`, 750 pour l'existant) : 50 cl, 1 L et 5 L d'une même huile, ou le magnum
+d'un vin, sont des lots distincts, chacun avec son prix d'achat, son prix de vente (dégressif au
+besoin) et son stock ; `create_wine_vintage` le reprend. Le site regroupe les contenants d'un même
+produit et d'une même année sur une carte (« dès … ») et propose de passer de l'un à l'autre sur la
+fiche. Un seul lot par produit, année (ou mise en bouteille sans année) et contenant (index uniques).
+Les triggers de cohérence sont SECURITY DEFINER et verrouillent en partage les lignes qu'ils lisent
+(sûrs en concurrence). Enfin, `sale_item.vat_rate` fige la TVA de chaque ligne à son enregistrement
+(`product_kind_vat_rate` : huile 6 %, vin et dégustation 21 %, existant à 21 %) ; la facture d'un
+professionnel la détaille par taux. À appliquer avant de déployer le code, qui lit `kind`,
+`volume_ml` et `vat_rate`.
+
+`20261030130000_sale_item_discount_check.sql` refuse une remise de ligne négative, au-delà de 100 % ou
+supérieure au montant de la ligne (`NOT VALID` : nouvelles lignes seulement). La page Ventes le vérifie
+aussi avec un message clair, et le total d'une ligne n'est jamais négatif.
+
 ```sh
 supabase link --project-ref wmerreifcpttrhxwmkmn
 supabase db push
@@ -71,6 +94,7 @@ pnpm update-types
 | `/tastings`, `/tastings/[id]` | Dégustations à venir / passées, réservation, ajout à l'agenda |
 | `/tastings/[id]/live` | Mode live (thème sombre) : vin servi en direct, notes, « J'en veux » |
 | `/vins`, `/vins/[id]` | Catalogue et fiches vin partageables (Open Graph) |
+| `/huiles`, `/huiles/[id]` | Idem pour les huiles d'olive ; lien « Nos huiles » dès qu'une huile existe |
 | `/domaines/[id]` | Page d'un domaine : présentation, carte, cépages, tous ses vins |
 | `/contact` | Formulaire de contact → email à gianni@mezzaterra.be (Resend), raison préremplie via `?raison=prive\|commande\|degustation\|pro\|autre` (+ `&sujet=…`), CAPTCHA Turnstile |
 | `/design-system` | Vitrine du design system (composants, tokens, règles) : référence pour tout nouvel écran, non indexée |

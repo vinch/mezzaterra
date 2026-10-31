@@ -272,7 +272,7 @@
             <a class="warn" href="#stock-alerts">{lowStock.length} millésime{lowStock.length > 1 ? "s" : ""} presque épuisé{lowStock.length > 1 ? "s" : ""}</a>
           {/if}
           {#if dormant.length}
-            <a href="#stock-dormant">{dormant.length} vin{dormant.length > 1 ? "s" : ""} dormant{dormant.length > 1 ? "s" : ""}</a>
+            <a href="#stock-dormant">{dormant.length} produit{dormant.length > 1 ? "s" : ""} dormant{dormant.length > 1 ? "s" : ""}</a>
           {/if}
         </nav>
       {/if}
@@ -281,14 +281,14 @@
         <KpiCard label="Chiffre d’affaires" value={formatEUR(kpi.revenueAll)} icon={IconEuro} href="/manage/sales">
           {formatEUR(kpi.revenueMonth)} ce mois-ci · {kpi.pendingSales} vente{kpi.pendingSales > 1 ? "s" : ""} en attente
         </KpiCard>
-        <KpiCard label="Marge brute sur les vins" value={formatEUR(kpi.wineMargin)} icon={IconChart} href="/manage/insights">
-          {kpi.marginPct != null ? `${kpi.marginPct} % du CA vin` : "Aucune vente encaissée"}
+        <KpiCard label="Marge brute sur les produits" value={formatEUR(kpi.wineMargin)} icon={IconChart} href="/manage/insights">
+          {kpi.marginPct != null ? `${kpi.marginPct} % du CA produits` : "Aucune vente encaissée"}
         </KpiCard>
         <KpiCard label="Bouteilles en stock" value={String(kpi.bottles)} icon={IconBox} href="/manage/stock">
           {formatEUR(kpi.stockValue)} au prix d’achat
           {#if kpi.lowCount}<br /><span class="t-warn">{kpi.lowCount} millésime{kpi.lowCount > 1 ? "s" : ""} ≤ {LOW_STOCK} bt.</span>{/if}
         </KpiCard>
-        <KpiCard label="Vins au catalogue" value={String(kpi.wines)} icon={IconWine} href="/manage/wines">
+        <KpiCard label="Produits au catalogue" value={String(kpi.wines)} icon={IconWine} href="/manage/wines">
           {kpi.vintages} millésime{kpi.vintages > 1 ? "s" : ""}
         </KpiCard>
         <KpiCard label="Clients" value={String(kpi.customers)} icon={IconUsers} href="/manage/customers" />
@@ -315,7 +315,7 @@
             <p class="t-muted">{formatDateLong(nextTasting.date)}{nextTasting.location ? ` · ${nextTasting.location}` : ""}</p>
             <p class="countdown">{daysUntil(nextTasting.date) === 0 ? "C’est aujourd’hui !" : `Dans ${daysUntil(nextTasting.date)} jours`}</p>
             <ul class="next-facts">
-              <li><strong>{nextTasting.tasting_wine_vintage?.length ?? 0}</strong> vins</li>
+              <li><strong>{nextTasting.tasting_wine_vintage?.length ?? 0}</strong> au programme</li>
               <li><strong>{nextTasting.tasting_customer?.length ?? 0}</strong> participants</li>
               {#if nextTastingSeats != null}
                 <li><strong>{nextTastingSeats}</strong>{nextTasting.capacity ? ` / ${nextTasting.capacity}` : ""} places réservées en ligne</li>
@@ -337,7 +337,7 @@
           {/if}
         </Card>
 
-        <Card title="Top 5 des vins" id="top-wines">
+        <Card title="Top 5 des produits" id="top-wines">
           {#snippet actions()}
                     <span class="t-caption">par chiffre d’affaires</span>
                   {/snippet}
@@ -365,7 +365,7 @@
                   {/snippet}
           {#if reorderMsg}<p class="notice" role="status">{reorderMsg}</p>{/if}
           {#if stockAlerts.length === 0}
-            <EmptyState icon={IconBox} title="Rien à signaler" text="Aucun millésime en rupture ni presque épuisé." compact />
+            <EmptyState icon={IconBox} title="Rien à signaler" text="Aucun lot en rupture ni presque épuisé." compact />
           {:else}
             <ul class="list">
               {#each stockAlerts.slice(0, 8) as s}
