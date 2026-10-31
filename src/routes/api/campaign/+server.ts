@@ -5,6 +5,7 @@ import { env } from "$env/dynamic/private";
 import type { RequestHandler } from "./$types";
 import type { Database } from "$lib/database.types";
 import { escapeHtml, isValidEmail, resendPost } from "$lib/server/email";
+import { errorMessage } from "$lib/async";
 
 /**
  * Envoi de campagnes email via Resend (https://resend.com).
@@ -46,6 +47,20 @@ ${hasImage ? '<p style="margin:0 0 16px;color:#66787a;font-size:14px">Le visuel 
     unsubscribeUrl ? ` · <a href="${unsubscribeUrl}" style="color:#66787a">Se désinscrire</a>` : ""
   }</p>
 </td></tr></table></body></html>`;
+}
+
+/**
+ * Envoi via Resend : motif de l'échec, ou `null` si l'envoi est accepté. Une erreur réseau
+ * compte comme un échec sans interrompre la campagne : une réponse 500 après des emails déjà
+ * partis pousserait à relancer l'envoi, donc à envoyer des doublons.
+ */
+async function trySend(path: "/emails" | "/emails/batch", payload: unknown): Promise<string | null> {
+  try {
+    const res = await resendPost(path, payload);
+    return res.ok ? null : `${res.status} ${(await res.text()).slice(0, 200)}`;
+  } catch (e) {
+    return errorMessage(e);
+  }
 }
 
 async function assertAdmin(request: Request) {
@@ -107,14 +122,14 @@ export const POST: RequestHandler = async ({ request, url }) => {
     /* L'API batch de Resend n'accepte pas les pièces jointes : envoi unitaire dans ce cas. */
     if (attachment) {
       for (const p of payload) {
-        const res = await resendPost("/emails", p);
-        if (res.ok) sent += 1;
-        else failures.push(`${p.to[0]} : ${res.status}`);
+        const failure = await trySend("/emails", p);
+        if (failure) failures.push(`${p.to[0]} : ${failure}`);
+        else sent += 1;
       }
     } else {
-      const res = await resendPost("/emails/batch", payload);
-      if (res.ok) sent += chunk.length;
-      else failures.push(`Lot ${i / BATCH_SIZE + 1} : ${res.status} ${(await res.text()).slice(0, 200)}`);
+      const failure = await trySend("/emails/batch", payload);
+      if (failure) failures.push(`Lot ${i / BATCH_SIZE + 1} : ${failure}`);
+      else sent += chunk.length;
     }
   }
 
