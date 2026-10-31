@@ -644,7 +644,7 @@
           isVintageAlreadyAdded={isVintageInModal}
           formatLabel={vintageLabel}
           getAvailableStock={() => 0}
-          placeholder="Rechercher un millésime…"
+          placeholder="Rechercher un produit…"
         />
         <button
           type="button"

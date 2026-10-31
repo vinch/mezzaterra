@@ -54,7 +54,7 @@
         label: formatLabel(v, stock) || optionName(v),
         searchText: vintageSearchText(v),
         disabled: (disableWhenNoStock && !stock) || isVintageAlreadyAdded(v.id),
-        kind: "wine",
+        kind: "product",
         robe: wineRobe(v.wine?.wine_type).key,
         name: optionName(v),
         winery: v.wine?.winery?.name || "",
@@ -75,7 +75,7 @@
 <Combobox bind:value {options} {placeholder} emptyText="Aucun produit trouvé" {onchange}>
   {#snippet option({ option })}
       {#if option.kind === "tasting"}
-        <span class="opt-main"><strong>Dégustation</strong><small>Ligne sans millésime (entrée, participation…)</small></span>
+        <span class="opt-main"><strong>Dégustation</strong><small>Ligne sans produit (entrée, participation…)</small></span>
       {:else}
         <WineDot robe={option.robe} />
         <span class="opt-main">

@@ -34,7 +34,7 @@ export const load: PageLoad = async ({ params }) => {
 
   if (vintageError) {
     throw new Error(
-      `Erreur lors du chargement du millésime: ${vintageError.message}`
+      `Erreur lors du chargement du lot : ${vintageError.message}`
     );
   }
 

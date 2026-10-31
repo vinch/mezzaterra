@@ -18,7 +18,7 @@ export const load: PageLoad = async ({ params }) => {
     .single();
 
   if (wineError) {
-    throw new Error(`Erreur lors du chargement du vin: ${wineError.message}`);
+    throw new Error(`Erreur lors du chargement du produit : ${wineError.message}`);
   }
 
   return {

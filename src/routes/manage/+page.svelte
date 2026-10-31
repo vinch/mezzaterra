@@ -274,10 +274,10 @@
             <a href="/manage/requests">{newRequests.wishes} demande{newRequests.wishes > 1 ? "s" : ""} « J’en veux »</a>
           {/if}
           {#if outOfStock.length}
-            <a class="danger" href="#stock-alerts">{outOfStock.length} millésime{outOfStock.length > 1 ? "s" : ""} en rupture</a>
+            <a class="danger" href="#stock-alerts">{outOfStock.length} lot{outOfStock.length > 1 ? "s" : ""} en rupture</a>
           {/if}
           {#if lowStock.length}
-            <a class="warn" href="#stock-alerts">{lowStock.length} millésime{lowStock.length > 1 ? "s" : ""} presque épuisé{lowStock.length > 1 ? "s" : ""}</a>
+            <a class="warn" href="#stock-alerts">{lowStock.length} lot{lowStock.length > 1 ? "s" : ""} presque épuisé{lowStock.length > 1 ? "s" : ""}</a>
           {/if}
           {#if dormant.length}
             <a href="#stock-dormant">{dormant.length} produit{dormant.length > 1 ? "s" : ""} dormant{dormant.length > 1 ? "s" : ""}</a>
