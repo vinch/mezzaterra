@@ -724,6 +724,7 @@
       id="add-pairing"
       bind:value={selectedPairingId}
       options={pairingOptions}
+      maxResults={pairingOptions.length}
       placeholder="Rechercher un plat…"
       emptyText="Aucun plat trouvé"
       onchange={addPairing}
