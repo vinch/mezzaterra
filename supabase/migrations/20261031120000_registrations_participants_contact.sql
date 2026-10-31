@@ -72,6 +72,9 @@ DECLARE
   v_email text := nullif(lower(trim(coalesce(p_email, ''))), '');
   v_phone text := nullif(trim(coalesce(p_phone, '')), '');
 BEGIN
+  -- Deux appels simultanés pour la même personne (deux réservations, une réservation et un
+  -- « J'en veux ») ne créent pas deux clients : verrou jusqu'à la fin de la transaction.
+  PERFORM pg_advisory_xact_lock(hashtext('customer:' || coalesce(v_email, v_phone, '')));
   IF v_email IS NOT NULL THEN
     SELECT id INTO v_id FROM customer WHERE lower(email) = v_email ORDER BY created_at LIMIT 1;
   END IF;
