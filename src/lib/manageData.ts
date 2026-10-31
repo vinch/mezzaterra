@@ -1,7 +1,7 @@
 import { fetchAllRows, supabase } from "./supabase";
 import { sortCustomersByLabel } from "./customerDisplay";
-import { compareVintages } from "./wine";
-import type { Country, Customer, Region } from "./types";
+import { byWineType, compareVintages } from "./wine";
+import type { Country, Customer, Region, WineType } from "./types";
 
 /** Chargements partagés par les pages de l'admin. */
 
@@ -21,6 +21,12 @@ export async function fetchCountries(): Promise<Country[]> {
 export async function fetchRegions(): Promise<Region[]> {
   const { data } = await supabase.from("region").select("*, country (*)").order("name");
   return data || [];
+}
+
+/** Types de produit (robes, fruités) dans l'ordre des listes : vins puis huiles, du fruité léger à l'intense. */
+export async function fetchWineTypes(): Promise<WineType[]> {
+  const { data } = await supabase.from("wine_type").select("*");
+  return (data || []).sort(byWineType);
 }
 
 /** Millésimes des sélecteurs de produit, triés domaine → cuvée → année décroissante. */

@@ -13,7 +13,8 @@
     type StockDocVintage,
   } from "$lib/stockDocuments";
   import { todayIso } from "$lib/dates";
-  import { byWineType, wineTypeLabel } from "$lib/wine";
+  import { wineTypeLabel } from "$lib/wine";
+  import { fetchWineTypes } from "$lib/manageData";
 
   let rows = $state.raw<StockDocVintage[]>([]);
   let loading = $state(true);
@@ -46,8 +47,7 @@
   }
 
   async function loadWineTypes() {
-    const { data } = await supabase.from("wine_type").select("*");
-    if (data) wineTypes = data.sort(byWineType);
+    wineTypes = await fetchWineTypes();
   }
 
   async function loadStockRows() {
