@@ -60,6 +60,13 @@ BEGIN
   IF jsonb_typeof(v_raw) <> 'array' THEN
     RAISE EXCEPTION 'Pré-commande illisible.';
   END IF;
+  -- Comme les notes, une pré-commande ne s'enregistre qu'autour de la soirée : pas de lignes laissées
+  -- dans Piloter par n'importe qui à n'importe quelle date. La confirmation, elle, reste possible après.
+  IF NOT v_confirm AND NOT EXISTS (
+    SELECT 1 FROM tasting t WHERE t.id = p_tasting_id AND t.date BETWEEN current_date - 1 AND current_date + 1
+  ) THEN
+    RETURN NULL;
+  END IF;
 
   -- Une ligne par vin de la dégustation, quantités entières de 1 à 60 ; le reste est ignoré.
   SELECT coalesce(jsonb_agg(jsonb_build_object('wine_vintage_id', l.vid, 'quantity', l.qty) ORDER BY l.vid), '[]'::jsonb)
