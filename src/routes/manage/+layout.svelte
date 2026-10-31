@@ -19,7 +19,6 @@
     IconFile,
     IconGlasses,
     IconGlobe,
-    IconGrape,
     IconHome,
     IconImage,
     IconInbox,
@@ -27,13 +26,14 @@
     IconMap,
     IconMapPin,
     IconMenu,
+    IconProduct,
     IconReceipt,
     IconRoute,
     IconSearch,
     IconTag,
     IconTruck,
     IconUsers,
-    IconWine,
+    IconVariety,
     IconX,
   } from "$lib/ui/icons";
   import IconPlate from "@lucide/svelte/icons/utensils-crossed";
@@ -65,7 +65,7 @@
     {
       title: "Produits",
       links: [
-        { href: "/manage/wines", label: "Produits", icon: IconWine },
+        { href: "/manage/products", label: "Produits", icon: IconProduct },
         { href: "/manage/stock", label: "Stock", icon: IconBox },
       ],
     },
@@ -104,10 +104,10 @@
       collapsible: "Référentiels",
       links: [
         { href: "/manage/appellations", label: "Appellations", icon: IconMapPin },
-        { href: "/manage/grapes", label: "Cépages et variétés", icon: IconGrape },
+        { href: "/manage/varieties", label: "Cépages et variétés", icon: IconVariety },
         { href: "/manage/labels", label: "Labels", icon: IconTag },
         { href: "/manage/pairings", label: "Accords", icon: IconPlate },
-        { href: "/manage/wineries", label: "Domaines", icon: IconCastle },
+        { href: "/manage/producers", label: "Domaines", icon: IconCastle },
         { href: "/manage/countries", label: "Pays", icon: IconGlobe },
         { href: "/manage/regions", label: "Régions", icon: IconMap },
       ],

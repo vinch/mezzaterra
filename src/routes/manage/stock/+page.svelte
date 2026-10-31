@@ -68,7 +68,7 @@
             <td>{stockVintageLabel(row)}</td>
             <td class="num">{bottleLabel(row.quantity_on_hand)}</td>
             <td class="col-actions">
-              <Button size="sm" href="/manage/wines/{row.wine_id}/stock/{row.id}">Détail</Button>
+              <Button size="sm" href="/manage/products/{row.wine_id}/stock/{row.id}">Détail</Button>
             </td>
           </tr>
         {/each}

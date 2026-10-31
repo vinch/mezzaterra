@@ -39,11 +39,11 @@
     IconInbox,
     IconPencil,
     IconPlus,
+    IconProduct,
     IconReceipt,
     IconSearch,
     IconTrash,
     IconUsers,
-    IconWine,
   } from "$lib/ui/icons";
   import { preventDefault } from "$lib/ui/events";
   import {
@@ -223,7 +223,7 @@
             <li><strong>Chiffres</strong> alignés à droite (<code>.num</code>, y compris l’en-tête de colonne), montants avec <code>formatEUR</code>, dates avec <code>formatDate</code>.</li>
             <li><strong>Accessibilité</strong> : chaque champ a un libellé (<code>Field</code>), chaque bouton icône un <code>label</code>, cibles de 44 px sur mobile (déjà géré par les composants).</li>
             <li><strong>Textes en français</strong>, phrases courtes, guillemets « » et apostrophe typographique ’.</li>
-            <li><strong>Vocabulaire produit</strong> : un écran qui montre des vins peut montrer des huiles. Millésime ou lot, cépages ou variétés, « ce vin » ou « cette huile » viennent de <code>kindInfo()</code> (<code>src/lib/productKinds.ts</code>), pas de « vin » en dur. Idem pour les icônes : <code>KIND_ICONS</code> (<code>src/lib/ui/kindIcons.ts</code>) donne celle du produit (verre ou goutte) et de sa composition (grappe ou feuille) ; un état vide qui mêle les types prend une icône neutre (<code>IconReceipt</code>, <code>IconBox</code>…) ; la navigation et le tableau de bord gardent le verre, emblème de la cave.</li>
+            <li><strong>Vocabulaire produit</strong> : un écran qui montre des vins peut montrer des huiles. Millésime ou lot, cépages ou variétés, « ce vin » ou « cette huile » viennent de <code>kindInfo()</code> (<code>src/lib/productKinds.ts</code>), pas de « vin » en dur. Idem pour les icônes : <code>KIND_ICONS</code> (<code>src/lib/ui/kindIcons.ts</code>) donne celle du produit (verre ou goutte) et de sa composition (grappe ou feuille) ; un état vide qui mêle les types prend une icône neutre (<code>IconReceipt</code>, <code>IconBox</code>…) ; la navigation et le tableau de bord, communs à tous les types, prennent aussi des icônes neutres : <code>IconProduct</code> (amphore) pour les produits, <code>IconVariety</code> (pousse) pour les cépages et variétés.</li>
           </ul>
         </section>
 
@@ -434,8 +434,8 @@
           <h2 class="t-card-title">Cartes et indicateurs</h2>
           <div class="kpis">
             <KpiCard label="Chiffre d’affaires" value={formatEUR(12480)} icon={IconEuro} href="#cartes">+12 % sur 12 mois</KpiCard>
-            <KpiCard label="Bouteilles en stock" value="418" icon={IconBox}>Dont 3 vins en rupture</KpiCard>
-            <KpiCard label="Vins au catalogue" value="64" icon={IconWine} />
+            <KpiCard label="Bouteilles en stock" value="418" icon={IconBox}>Dont 3 produits en rupture</KpiCard>
+            <KpiCard label="Produits au catalogue" value="64" icon={IconProduct} />
           </div>
           <div class="cards">
             <Card title="Coordonnées" subtitle="Carte avec titre, sous-titre et actions">
