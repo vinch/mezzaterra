@@ -84,8 +84,8 @@ BEGIN
     RETURN NULL;
   END IF;
 
-  -- Coordonnées : celles déjà connues restent si l'invité ne les renvoie pas.
-  INSERT INTO live_preorder AS d (tasting_id, guest_id, first_name, last_name, email, phone, items)
+  -- Coordonnées : celles du téléphone, qui les renvoie toutes à chaque fois (un champ vidé est effacé).
+  INSERT INTO live_preorder (tasting_id, guest_id, first_name, last_name, email, phone, items)
   VALUES (
     p_tasting_id,
     p_guest_id,
@@ -97,10 +97,10 @@ BEGIN
   )
   ON CONFLICT (tasting_id, guest_id) DO UPDATE SET
     items = EXCLUDED.items,
-    first_name = coalesce(EXCLUDED.first_name, d.first_name),
-    last_name = coalesce(EXCLUDED.last_name, d.last_name),
-    email = coalesce(EXCLUDED.email, d.email),
-    phone = coalesce(EXCLUDED.phone, d.phone),
+    first_name = EXCLUDED.first_name,
+    last_name = EXCLUDED.last_name,
+    email = EXCLUDED.email,
+    phone = EXCLUDED.phone,
     updated_at = now()
   RETURNING * INTO v_draft;
 
