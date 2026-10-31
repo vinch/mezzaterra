@@ -166,8 +166,7 @@
 
 /* ——— Boutons (pages pas encore migrées vers <Button>) ——— */
 .app .btn-primary,
-.app .btn-secondary,
-.app .ui-btn {
+.app .btn-secondary {
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -195,89 +194,21 @@
   color: #fff;
 }
 
-.app .btn-secondary,
-.app .ui-btn--secondary {
+.app .btn-secondary {
   background: #fff;
   border-color: var(--btn-border);
   color: var(--ink);
 }
 
-.app .btn-secondary:hover:not(:disabled),
-.app .ui-btn--secondary:hover:not(:disabled) {
+.app .btn-secondary:hover:not(:disabled) {
   border-color: var(--teal-600);
   color: var(--teal-700);
 }
 
-.app .ui-btn--danger {
-  background: #fff;
-  border-color: var(--danger);
-  color: var(--danger);
-}
-
-.app .ui-btn--danger:hover:not(:disabled) {
-  background: #fbefef;
-}
-
-.app .ui-btn--sm {
-  height: 32px;
-  padding: 0 12px;
-  font-size: 13px;
-}
-
 .app .btn-primary:disabled,
-.app .btn-secondary:disabled,
-.app .ui-btn:disabled {
+.app .btn-secondary:disabled {
   opacity: 0.5;
   cursor: not-allowed;
-}
-
-/* Bouton « retirer » d'une ligne de formulaire (×) */
-.app .ui-remove {
-  display: inline-grid;
-  place-items: center;
-  width: 32px;
-  height: 32px;
-  border: none;
-  border-radius: var(--r-sm);
-  background: none;
-  color: var(--danger);
-  font-size: 20px;
-  line-height: 1;
-  cursor: pointer;
-}
-
-.app .ui-remove:hover {
-  background: #fbefef;
-}
-
-.app .language-selection p {
-  margin: 0 0 16px 0;
-  color: var(--ink);
-}
-
-.app .language-buttons {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-}
-
-.app .btn-language {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  min-height: 48px;
-  padding: 0 16px;
-  background: #fff;
-  border: 1px solid var(--btn-border);
-  border-radius: var(--r-sm);
-  font: inherit;
-  text-align: left;
-  cursor: pointer;
-}
-
-.app .btn-language:hover {
-  border-color: var(--teal-600);
-  background: var(--mist);
 }
 
 /* ——— Formulaires des modales (grille .form-grid / .form-group) ——— */
@@ -377,15 +308,9 @@
   /* Cibles tactiles ≥ 44 px. */
   .app .btn-primary,
   .app .btn-secondary,
-  .app .ui-btn,
-  .app .ui-remove,
   .app .table-container td button,
   .app .table-container td a {
     min-height: 44px;
-  }
-
-  .app .ui-remove {
-    min-width: 44px;
   }
 
   .app .form-grid {
@@ -396,25 +321,3 @@
     min-width: 560px;
   }
 }
-
-/* ——— Liste de choix de statut (commandes, transports), aux tons des badges ——— */
-.app .status-select {
-  padding: 0.25rem 2em 0.25rem 0.5rem;
-  border-radius: 4px;
-  font-size: 0.85rem;
-  font-weight: 500;
-  border: 1px solid rgba(0, 0, 0, 0.1);
-  cursor: pointer;
-  min-width: 120px;
-}
-
-.app .status-select:disabled {
-  cursor: not-allowed;
-  opacity: 0.7;
-}
-
-.app .status-select.tone-pending { background-color: var(--st-pending-bg); color: var(--st-pending-fg); }
-.app .status-select.tone-paid { background-color: var(--st-paid-bg); color: var(--st-paid-fg); }
-.app .status-select.tone-delivered { background-color: var(--st-delivered-bg); color: var(--st-delivered-fg); }
-.app .status-select.tone-closed { background-color: var(--st-closed-bg); color: var(--st-closed-fg); }
-.app .status-select.tone-cancelled { background-color: var(--st-cancelled-bg); color: var(--st-cancelled-fg); }
