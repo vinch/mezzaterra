@@ -2,11 +2,7 @@ import { env } from "$env/dynamic/private";
 
 /** Envoi d'emails via Resend (https://resend.com), partagé par le contact et les campagnes. */
 
-const EMAIL_RE = /^[^@\s]+@[^@\s]+\.[^@\s]+$/;
-
-export function isValidEmail(email: string): boolean {
-  return EMAIL_RE.test(email);
-}
+export { isValidEmail } from "$lib/contact";
 
 export function escapeHtml(s: string): string {
   return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");

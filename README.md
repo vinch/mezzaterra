@@ -110,6 +110,14 @@ produits restent accessibles par lien (dégustations, QR des fiches de table). M
 Donato Di Tommaso Vignaiolo. À appliquer avant de déployer le code, qui lit et enregistre
 `winery.hidden`.
 
+`20261031200000_live_preorder.sql` simplifie le « J'en veux » du mode dégustation : chaque ajout
+enregistre une pré-commande (`live_preorder`, une par téléphone et par dégustation, sans nom ni contact
+obligatoires) via la fonction `save_live_preorder`, et l'animateur la voit dans Piloter. L'invité
+l'ajuste depuis son récap puis la confirme (prénom et email ou téléphone) : elle devient une demande
+`wish_request` comme avant, que l'admin transforme en vente. À appliquer avant de déployer le code :
+la page live appelle `save_live_preorder`. L'insertion publique directe dans `wish_request` (ancien
+code) reste permise jusqu'à une migration de suivi, après le déploiement.
+
 ```sh
 supabase link --project-ref wmerreifcpttrhxwmkmn
 supabase db push

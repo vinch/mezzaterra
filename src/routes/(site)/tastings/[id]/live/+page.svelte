@@ -21,17 +21,22 @@
   } from "$lib/wine";
   import { kindInfo } from "$lib/productKinds";
   import { formatEUR } from "$lib/format";
+  import { isValidEmail } from "$lib/contact";
   import {
     getCart,
     getGuestId,
     getProfile,
     getRatings,
     getServed,
+    guestName,
+    isPreorderDirty,
     joinLiveChannel,
     pushFeedback,
     requestSync,
     saveCart,
+    savePreorder,
     saveProfile,
+    setPreorderDirty,
     saveRatings,
     saveServed,
     type GuestProfile,
@@ -65,11 +70,16 @@
   let commentTimer: ReturnType<typeof setTimeout> | null = null;
   let savedFlash = $state(false);
 
-  /* ——— Envoi de la demande ——— */
+  /* ——— Pré-commande (le panier, enregistré en base à chaque changement) ——— */
+  let preorderTimer: ReturnType<typeof setTimeout> | null = null;
+  /* Un envoi à la fois : une pré-commande en retard ne doit pas revenir après la confirmation. */
+  let preorderQueue: Promise<unknown> = Promise.resolve();
+  /** Numéro du dernier changement : seul son envoi réussi marque le panier comme enregistré. */
+  let preorderVersion = 0;
+  let editingContact = $state(false);
   let sending = $state(false);
   let sendResult = $state<"ok" | "offline" | null>(null);
   let sendError = $state("");
-  let message = $state("");
 
   onMount(() => {
     if (!tasting) return;
@@ -78,6 +88,8 @@
     cart = getCart(tasting.id);
     getGuestId();
     showWelcome = !profile.firstName;
+    /* Changement pas encore enregistré (hors ligne, page quittée) : on le renvoie. */
+    if (isPreorderDirty(tasting.id)) schedulePreorder();
 
     maxServed = getServed(tasting.id);
     /* Soirée terminée : tout est débloqué, plus de vin servi à suivre (live_position est périmée). */
@@ -97,6 +109,7 @@
       onStatus: (ok) => {
         connected = ok;
         if (ok && channel) void requestSync(channel);
+        if (ok && isPreorderDirty(tasting.id)) schedulePreorder();
       },
     });
   });
@@ -104,6 +117,8 @@
   onDestroy(() => {
     if (channel) void supabase.removeChannel(channel);
     if (commentTimer) clearTimeout(commentTimer);
+    /* Changement de moins de 700 ms : envoyé quand même en quittant la page. */
+    if (preorderTimer) void pushPreorder();
   });
 
   function clamp(p: number): number {
@@ -191,43 +206,69 @@
     else next[vintageId] = q;
     cart = next;
     saveCart(tasting.id, cart);
+    schedulePreorder();
+  }
+
+  /** Envoie le panier tel qu'il est au moment de l'envoi, après les envois précédents. */
+  function pushPreorder(confirm = false): Promise<boolean> {
+    if (preorderTimer) clearTimeout(preorderTimer);
+    preorderTimer = null;
+    const run = preorderQueue.then(() => savePreorder({ tastingId: tasting.id, cart, profile, confirm }));
+    preorderQueue = run;
+    return run;
+  }
+
+  function schedulePreorder() {
+    const version = ++preorderVersion;
+    setPreorderDirty(tasting.id, true);
+    if (preorderTimer) clearTimeout(preorderTimer);
+    preorderTimer = setTimeout(async () => {
+      if ((await pushPreorder()) && version === preorderVersion) setPreorderDirty(tasting.id, false);
+    }, 700);
+  }
+
+  /** Prénom, et un email valide ou à défaut un téléphone. */
+  function hasContact(p: GuestProfile): boolean {
+    const email = p.email.trim();
+    return !!p.firstName.trim() && (email ? isValidEmail(email) : !!p.phone.trim());
+  }
+
+  function openCart() {
+    editingContact = !hasContact(profile);
+    sendError = "";
+    sendResult = null;
+    showCart = true;
   }
 
   function saveWelcome() {
     saveProfile(profile);
     showWelcome = false;
+    /* La pré-commande en cours prend le prénom : l'animateur sait à qui elle est. */
+    if (cartCount > 0) schedulePreorder();
   }
 
-  async function sendRequest() {
+  async function confirmOrder() {
     sendError = "";
-    if (!profile.firstName.trim()) {
-      sendError = "Merci d’indiquer votre prénom.";
-      return;
-    }
-    if (!profile.email.trim() && !profile.phone.trim()) {
-      sendError = "Laissez-nous un email ou un téléphone pour vous recontacter.";
+    if (!profile.firstName.trim()) sendError = "Merci d’indiquer votre prénom.";
+    else if (profile.email.trim() && !isValidEmail(profile.email.trim())) sendError = "Cette adresse email ne semble pas valide.";
+    else if (!hasContact(profile)) sendError = "Laissez-nous un email ou un téléphone pour vous recontacter.";
+    if (sendError) {
+      editingContact = true;
       return;
     }
     saveProfile(profile);
     sending = true;
-    const { error } = await supabase.from("wish_request").insert({
-      tasting_id: tasting.id,
-      source: "live",
-      guest_id: getGuestId(),
-      first_name: profile.firstName.trim(),
-      last_name: profile.lastName.trim() || null,
-      email: profile.email.trim().toLowerCase() || null,
-      phone: profile.phone.trim() || null,
-      items: cartLines.map((l) => ({ wine_vintage_id: l.wine.id, quantity: l.qty })),
-      message: message.trim() || null,
-    });
+    const ok = await pushPreorder(true);
     sending = false;
-    if (error) {
-      /* Table absente ou réseau capricieux : la sélection reste sur le téléphone. */
+    if (!ok) {
+      /* Réseau capricieux : la sélection reste sur le téléphone, et la pré-commande sera renvoyée. */
       sendResult = "offline";
+      schedulePreorder();
       return;
     }
     sendResult = "ok";
+    preorderVersion++;
+    setPreorderDirty(tasting.id, false);
     cart = {};
     saveCart(tasting.id, cart);
   }
@@ -361,7 +402,11 @@
           <div class="panel want">
             <div>
               <span class="want-title">J’en veux !</span>
-              {#if current.price}<span class="want-price">{formatEUR(current.price)} la bouteille</span>{/if}
+              {#if cart[current.id]}
+                <span class="want-price">Dans votre pré-commande</span>
+              {:else if current.price}
+                <span class="want-price">{formatEUR(current.price)} la bouteille</span>
+              {/if}
             </div>
             <div class="stepper" role="group" aria-label="Nombre de bouteilles">
               <button type="button" onclick={() => setQty(current.id, (cart[current.id] ?? 0) - 1)} disabled={!cart[current.id]} aria-label="Une bouteille de moins">−</button>
@@ -403,8 +448,8 @@
     </nav>
 
     {#if cartCount > 0}
-      <button type="button" class="cart-bar" onclick={() => (showCart = true)} transition:fly={{ y: 40, duration: 250 }}>
-        <span>🛒 {cartCount} bouteille{cartCount > 1 ? "s" : ""}</span>
+      <button type="button" class="cart-bar" onclick={openCart} transition:fly={{ y: 40, duration: 250 }}>
+        <span>Ma pré-commande ({cartCount})</span>
         <strong>{formatEUR(cartTotal)} →</strong>
       </button>
     {/if}
@@ -430,24 +475,28 @@
 {/if}
 
 {#if showCart}
-  <div class="sheet-backdrop" transition:fade={{ duration: 150 }} onclick={self(() => (showCart = false))} role="presentation">
+  <!-- Pas de fermeture pendant la confirmation : un ajout fait entre-temps serait effacé avec le panier. -->
+  <div class="sheet-backdrop" transition:fade={{ duration: 150 }} onclick={self(() => (showCart = sending))} role="presentation">
     <div class="sheet" transition:fly={{ y: 40, duration: 250 }} role="dialog" aria-modal="true" aria-labelledby="cart-title">
-      <button type="button" class="sheet-close" onclick={() => (showCart = false)} aria-label="Fermer">×</button>
+      <button type="button" class="sheet-close" onclick={() => (showCart = false)} disabled={sending} aria-label="Fermer">×</button>
       {#if sendResult === "ok"}
         <h2 id="cart-title">Merci {profile.firstName} !</h2>
-        <p class="sheet-lead">Votre demande est bien partie. On prépare vos bouteilles et on revient vers vous très vite.</p>
+        <p class="sheet-lead">Votre commande est confirmée. On prépare vos bouteilles et on revient vers vous très vite.</p>
         <button type="button" class="solid-btn" onclick={() => { showCart = false; sendResult = null; }}>Continuer la dégustation</button>
       {:else}
-        <h2 id="cart-title">Mes coups de cœur</h2>
+        <h2 id="cart-title">Ma pré-commande</h2>
+        <p class="sheet-lead">
+          Rien n’est commandé tant que vous n’avez pas confirmé : ajustez les quantités à votre guise.
+        </p>
         <ul class="cart-lines">
           {#each cartLines as l (l.wine.id)}
             <li>
               <span class="mz-dot" style="background: {wineStyle(l.wine.wine?.wine_type).color}"></span>
               <span class="cart-name">{withVolume(`${wineTitle(l.wine.wine)}${l.wine.year ? ` ${l.wine.year}` : ""}`, l.wine)}</span>
               <div class="stepper small">
-                <button type="button" onclick={() => setQty(l.wine.id, l.qty - 1)} aria-label="Moins">−</button>
+                <button type="button" onclick={() => setQty(l.wine.id, l.qty - 1)} disabled={sending} aria-label={l.qty === 1 ? "Retirer" : "Moins"}>−</button>
                 <output>{l.qty}</output>
-                <button type="button" onclick={() => setQty(l.wine.id, l.qty + 1)} aria-label="Plus">+</button>
+                <button type="button" onclick={() => setQty(l.wine.id, l.qty + 1)} disabled={sending} aria-label="Plus">+</button>
               </div>
               <span class="cart-price">{formatEUR(l.qty * Number(l.wine.price ?? 0))}</span>
             </li>
@@ -457,26 +506,32 @@
 
         {#if sendResult === "offline"}
           <p class="offline">
-            Impossible d’envoyer la demande pour l’instant : votre sélection reste enregistrée sur ce téléphone.
+            Impossible de confirmer pour l’instant : votre sélection reste enregistrée sur ce téléphone.
             Montrez cet écran à l’équipe Mezzaterra, on s’en occupe !
           </p>
         {/if}
 
-        <form onsubmit={preventDefault(sendRequest)} class="sheet-form">
-          <div class="row">
-            <label>Prénom *<input bind:value={profile.firstName} autocomplete="given-name" required /></label>
-            <label>Nom<input bind:value={profile.lastName} autocomplete="family-name" /></label>
-          </div>
-          <div class="row">
-            <label>Email<input type="email" bind:value={profile.email} autocomplete="email" /></label>
-            <label>Téléphone<input type="tel" bind:value={profile.phone} autocomplete="tel" /></label>
-          </div>
-          <label>Un mot ?<textarea rows="2" bind:value={message} placeholder="Livraison, retrait à la prochaine soirée…"></textarea></label>
+        <form onsubmit={preventDefault(confirmOrder)} class="sheet-form">
+          {#if editingContact}
+            <div class="row">
+              <label>Prénom *<input bind:value={profile.firstName} autocomplete="given-name" required /></label>
+              <label>Nom<input bind:value={profile.lastName} autocomplete="family-name" /></label>
+            </div>
+            <div class="row">
+              <label>Email<input type="email" bind:value={profile.email} autocomplete="email" /></label>
+              <label>Téléphone<input type="tel" bind:value={profile.phone} autocomplete="tel" /></label>
+            </div>
+          {:else}
+            <p class="contact">
+              <span>Au nom de <strong>{guestName(profile)}</strong> · {profile.email || profile.phone}</span>
+              <button type="button" class="link-btn" onclick={() => (editingContact = true)}>Modifier</button>
+            </p>
+          {/if}
           {#if sendError}<p class="error" role="alert">{sendError}</p>{/if}
           <button type="submit" class="solid-btn" disabled={sending || cartCount === 0}>
-            {sending ? "Envoi…" : "Envoyer ma demande"}
+            {sending ? "Confirmation…" : "Confirmer ma commande"}
           </button>
-          <p class="fine">Aucun paiement maintenant : nous vous recontactons pour confirmer.</p>
+          <p class="fine">Aucun paiement maintenant : nous vous recontactons pour la livraison.</p>
         </form>
       {/if}
     </div>
@@ -496,7 +551,10 @@
             {#if i <= unlocked}
               <button type="button" onclick={() => { showRecap = false; goTo(i); }}>
                 <span class="recap-num" style="--c: {wineStyle(w.wine?.wine_type).color}">{i + 1}</span>
-                <span class="recap-name">{wineTitle(w.wine)}</span>
+                <span class="recap-name">
+                  {wineTitle(w.wine)}
+                  {#if cart[w.id]}<span class="recap-qty">× {cart[w.id]} en pré-commande</span>{/if}
+                </span>
                 <StarRating value={r?.rating ?? null} readonly size="0.95rem" />
               </button>
             {:else}
@@ -508,7 +566,7 @@
       </ol>
       {#if cartCount > 0}
         <div class="recap-actions">
-          <button type="button" class="solid-btn" onclick={() => { showRecap = false; showCart = true; }}>Commander mes coups de cœur</button>
+          <button type="button" class="solid-btn" onclick={() => { showRecap = false; openCart(); }}>Voir et confirmer ma pré-commande</button>
         </div>
       {/if}
     </div>
@@ -1179,6 +1237,39 @@
   .error {
     margin: 0;
     color: #f19a9a;
+  }
+
+  .contact {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    gap: 0.75rem;
+    margin: 0;
+    color: var(--mz-cave-muted);
+    overflow-wrap: anywhere;
+  }
+
+  .contact strong {
+    color: var(--mz-cave-text);
+  }
+
+  .link-btn {
+    flex-shrink: 0;
+    padding: 0;
+    border: none;
+    background: none;
+    color: var(--mz-cave-text);
+    font: inherit;
+    font-size: 0.9rem;
+    text-decoration: underline;
+    cursor: pointer;
+  }
+
+  .recap-qty {
+    display: block;
+    font-family: var(--mz-font-body);
+    font-size: 0.8rem;
+    color: var(--mz-cave-muted);
   }
 
   .fine {

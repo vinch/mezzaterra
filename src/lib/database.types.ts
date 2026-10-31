@@ -331,6 +331,47 @@ export type Database = {
           },
         ]
       }
+      live_preorder: {
+        Row: {
+          email: string | null
+          first_name: string | null
+          guest_id: string
+          items: Json
+          last_name: string | null
+          phone: string | null
+          tasting_id: string
+          updated_at: string
+        }
+        Insert: {
+          email?: string | null
+          first_name?: string | null
+          guest_id: string
+          items: Json
+          last_name?: string | null
+          phone?: string | null
+          tasting_id: string
+          updated_at?: string
+        }
+        Update: {
+          email?: string | null
+          first_name?: string | null
+          guest_id?: string
+          items?: Json
+          last_name?: string | null
+          phone?: string | null
+          tasting_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "live_preorder_tasting_id_fkey"
+            columns: ["tasting_id"]
+            isOneToOne: false
+            referencedRelation: "tasting"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       order: {
         Row: {
           created_at: string
@@ -1450,6 +1491,19 @@ export type Database = {
       }
       save_order: {
         Args: { p_items: Json; p_order: Json; p_order_id: string }
+        Returns: string
+      }
+      save_live_preorder: {
+        Args: {
+          p_confirm?: boolean
+          p_email?: string
+          p_first_name?: string
+          p_guest_id: string
+          p_items: Json
+          p_last_name?: string
+          p_phone?: string
+          p_tasting_id: string
+        }
         Returns: string
       }
       save_sale: {
