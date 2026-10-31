@@ -33,11 +33,12 @@
     IconX,
   } from "$lib/ui/icons";
   import { fold, formatDate, formatEUR, initials, toNumber } from "$lib/format";
-  import { todayIso } from "$lib/dates";
+  import { isoDateOnly, todayIso } from "$lib/dates";
   import { lineTotal } from "$lib/analytics";
   import { styleByKey, vintageProductLabel, vintageShortLabel, wineRobe, type WineStyleKey } from "$lib/wine";
   import {
     PAYMENT_METHOD_OPTIONS,
+    SALE_LINE_ITEMS_SELECT,
     TASTING_LINE_NOTE,
     globalDiscountAmount,
     itemsSubtotal,
@@ -46,7 +47,7 @@
     saleItemDescription,
     saleTotal,
   } from "$lib/sales";
-  import { fetchCustomers, fetchPickerVintages, fetchStockMap } from "$lib/manageData";
+  import { fetchCustomers, fetchLineItems, fetchPickerVintages, fetchStockMap } from "$lib/manageData";
   import { errorMessage, latestOnly } from "$lib/async";
   import { invalidateAll } from "$app/navigation";
   import ProductVintageAutocomplete from "$lib/components/manage/ProductVintageAutocomplete.svelte";
@@ -208,7 +209,7 @@
     wineVintages = vintages;
     editingSale = sale;
     formData = {
-      date: sale.date.split("T")[0],
+      date: isoDateOnly(sale.date),
       customer_id: sale.customer_id || "",
       note: sale.note || "",
       global_discount:
@@ -240,28 +241,7 @@
     formOpen = true;
   }
 
-  /** Lève une erreur : une édition ouverte sans ses lignes les effacerait à l'enregistrement. */
-  async function loadSaleItems(saleId: string): Promise<any[]> {
-    const { data, error: itemsError } = await supabase
-      .from("sale_item")
-      .select(
-        `
-        *,
-        wine_vintage (
-          *,
-          wine (
-            *,
-            winery (*),
-            appelation (*)
-          )
-        )
-      `,
-      )
-      .eq("sale_id", saleId);
-
-    if (itemsError) throw new Error(itemsError.message);
-    return data || [];
-  }
+  const loadSaleItems = (saleId: string) => fetchLineItems("sale", saleId, SALE_LINE_ITEMS_SELECT);
 
   function closeForm() {
     formOpen = false;

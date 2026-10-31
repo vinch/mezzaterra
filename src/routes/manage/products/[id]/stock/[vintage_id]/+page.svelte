@@ -3,7 +3,7 @@
   import { supabase } from "$lib/supabase";
   import { vintageStock } from "$lib/manageData";
   import type { PageData } from "./$types";
-  import { todayIso } from "$lib/dates";
+  import { isoDateOnly, todayIso } from "$lib/dates";
   import { formatDate } from "$lib/format";
   import type { StockMove } from "$lib/types";
   import ManagePageShell from "$lib/components/manage/ManagePageShell.svelte";
@@ -84,7 +84,7 @@
     formData = {
       reason: move.reason,
       quantity: normalizeQuantityForDisplay(move.quantity, move.reason),
-      date: move.date.split("T")[0], // Format YYYY-MM-DDn
+      date: isoDateOnly(move.date),
       note: move.note || "",
     };
     formOpen = true;

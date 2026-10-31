@@ -8,6 +8,11 @@ export function parseIsoDate(iso: string): Date {
   return new Date(y, (m || 1) - 1, d || 1);
 }
 
+/** « 2026-10-16 » à partir d'une date ou d'un horodatage ISO (champs `<input type="date">`) ; "" si vide. */
+export function isoDateOnly(value: string | null | undefined): string {
+  return value ? value.split("T")[0] : "";
+}
+
 export function todayIso(): string {
   const d = new Date();
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
