@@ -1,6 +1,7 @@
 <script lang="ts">
   import "$lib/styles/manage-shared.css";
   import { supabase } from "$lib/supabase";
+  import { countNewRequests } from "$lib/wishes";
   import { afterNavigate, goto } from "$app/navigation";
   import { onMount, setContext, type Snippet } from "svelte";
   import { writable } from "svelte/store";
@@ -146,12 +147,12 @@
 
   async function refreshCounts() {
     if (!$userStore || $isAdminStore === false) return;
-    const [{ count }, { count: wishes }] = await Promise.all([
+    const [{ count }, requests] = await Promise.all([
       supabase.from("sale").select("id", { count: "exact", head: true }).eq("status", "pending"),
-      supabase.from("wish_request").select("id", { count: "exact", head: true }).eq("status", "new"),
+      countNewRequests(),
     ]);
     pendingSales = count ?? 0;
-    newRequests = wishes ?? 0;
+    newRequests = requests.wishes + requests.messages;
   }
 
   onMount(() => {

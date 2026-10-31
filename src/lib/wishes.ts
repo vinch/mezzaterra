@@ -1,10 +1,10 @@
-import { NEW_ROW, escapeLike, supabase } from "./supabase";
+import { NEW_ROW, supabase } from "./supabase";
 import { todayIso } from "./dates";
 import { itemsSubtotal } from "./sales";
 
 /**
- * Transformation des demandes publiques (inscriptions, « J'en veux ») en données de gestion :
- * clients, participants de dégustation, ventes « En attente ».
+ * Demandes publiques dans la gestion : « J'en veux » transformés en ventes « En attente »,
+ * réservations en ligne confirmées, messages du formulaire de contact.
  * Aucune vente n'est passée en « Payée » ici : le déstockage reste déclenché depuis /manage/sales.
  */
 
@@ -37,40 +37,29 @@ export function wishTotal(w: WishRequest, prices: Map<string, number>): number {
   return wishItems(w.items).reduce((s, i) => s + i.quantity * (prices.get(i.wine_vintage_id) ?? 0), 0);
 }
 
-/** Client existant (même email, sinon même téléphone) ou nouveau client. */
-export async function findOrCreateCustomer(input: ContactInput): Promise<{ id: string; created: boolean }> {
-  const email = input.email?.trim().toLowerCase() || null;
-  const phone = input.phone?.trim() || null;
-
-  if (email) {
-    const { data } = await supabase.from("customer").select("id").ilike("email", escapeLike(email)).limit(1);
-    if (data?.length) return { id: data[0].id, created: false };
-  }
-  if (phone) {
-    const { data } = await supabase.from("customer").select("id").eq("phone_number", phone).limit(1);
-    if (data?.length) return { id: data[0].id, created: false };
-  }
-
-  const { data: created, error } = await supabase
-    .from("customer")
-    .insert({
-      first_name: input.first_name.trim() || "—",
-      last_name: input.last_name?.trim() || "",
-      email,
-      phone_number: phone,
-    })
-    .select("id")
-    .single();
-
-  if (error || !created) throw new Error(error?.message || "Création du client impossible");
-  return { id: created.id, created: true };
+/**
+ * Client existant (même email, sinon même téléphone) ou nouveau client : même fonction SQL
+ * que pour les réservations en ligne (find_or_create_customer).
+ */
+export async function findOrCreateCustomer(input: ContactInput): Promise<string> {
+  const { data, error } = await supabase.rpc("admin_find_or_create_customer", {
+    p_first_name: input.first_name,
+    p_last_name: input.last_name ?? "",
+    p_email: input.email ?? "",
+    p_phone: input.phone ?? "",
+  });
+  if (error || !data) throw new Error(error?.message || "Création du client impossible");
+  return data;
 }
 
-/** Lie un client à une dégustation (ignore le doublon). */
+/**
+ * Lie à la dégustation le client d'un « J'en veux » (ignore le doublon). Sans place : il était
+ * déjà dans la salle, souvent comme accompagnant d'une réservation.
+ */
 export async function linkCustomerToTasting(tastingId: string, customerId: string) {
   const { error } = await supabase
     .from("tasting_customer")
-    .insert({ tasting_id: tastingId, customer_id: customerId });
+    .insert({ tasting_id: tastingId, customer_id: customerId, seats: 0 });
   if (error && error.code !== "23505") throw new Error(error.message);
 }
 
@@ -93,8 +82,8 @@ export async function createSaleFromWish(
   const items = wishItems(wish.items);
   if (!items.length) throw new Error("La demande ne contient aucun vin.");
 
-  const customer = await findOrCreateCustomer(wish);
-  if (wish.tasting_id) await linkCustomerToTasting(wish.tasting_id, customer.id);
+  const customerId = await findOrCreateCustomer(wish);
+  if (wish.tasting_id) await linkCustomerToTasting(wish.tasting_id, customerId);
 
   const lines = items.map((i) => ({
     wine_vintage_id: i.wine_vintage_id,
@@ -113,7 +102,7 @@ export async function createSaleFromWish(
     p_sale_id: NEW_ROW,
     p_sale: {
       date: todayIso(),
-      customer_id: customer.id,
+      customer_id: customerId,
       total_price: total,
       note: noteParts.join("\n"),
       tasting_id: wish.tasting_id,
@@ -131,17 +120,41 @@ export async function setWishStatus(id: string, status: "new" | "done" | "dismis
   if (error) throw new Error(error.message);
 }
 
-/** Inscription → client + participant de la dégustation. */
-export async function confirmRegistrationAsGuest(reg: {
+/**
+ * Réservation en ligne → client + participant (fonction SQL confirm_tasting_registration).
+ * Les réservations confirmées sont rattachées dès l'inscription : ceci sert à la liste d'attente,
+ * à rétablir une réservation annulée et au cas rare où le rattachement automatique a échoué.
+ */
+export async function confirmRegistration(registrationId: string) {
+  const { error } = await supabase.rpc("confirm_tasting_registration", { p_registration_id: registrationId });
+  if (error) throw new Error(error.message);
+}
+
+/** Message du formulaire de contact du site (table contact_message). */
+export type ContactMessage = {
   id: string;
-  tasting_id: string;
+  reason: string;
+  subject: string | null;
   first_name: string;
   last_name: string | null;
   email: string;
   phone: string | null;
-}): Promise<string> {
-  const customer = await findOrCreateCustomer(reg);
-  await linkCustomerToTasting(reg.tasting_id, customer.id);
-  await supabase.from("tasting_registration").update({ customer_id: customer.id }).eq("id", reg.id);
-  return customer.id;
+  page: string | null;
+  message: string;
+  status: string;
+  created_at: string;
+};
+
+export async function setContactStatus(id: string, status: "new" | "done") {
+  const { error } = await supabase.from("contact_message").update({ status }).eq("id", id);
+  if (error) throw new Error(error.message);
+}
+
+/** Demandes à traiter : « J'en veux » et messages du site (compteur de la barre latérale, tableau de bord). */
+export async function countNewRequests(): Promise<{ wishes: number; messages: number }> {
+  const [wishes, messages] = await Promise.all([
+    supabase.from("wish_request").select("id", { count: "exact", head: true }).eq("status", "new"),
+    supabase.from("contact_message").select("id", { count: "exact", head: true }).eq("status", "new"),
+  ]);
+  return { wishes: wishes.count ?? 0, messages: messages.count ?? 0 };
 }

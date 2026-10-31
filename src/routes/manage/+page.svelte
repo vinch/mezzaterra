@@ -32,6 +32,8 @@
     type VintageStats,
   } from "$lib/analytics";
   import { promptReorder } from "$lib/reorder";
+  import { countNewRequests } from "$lib/wishes";
+  import { fetchSeats, onlineSeats, type SeatInfo } from "$lib/publicData";
   import { isDiscontinued, vintageShortLabel } from "$lib/wine";
   import { daysUntil, formatDateLong, todayIso } from "$lib/dates";
   import { formatDate, formatEUR } from "$lib/format";
@@ -72,8 +74,9 @@
   let dormant = $state<VintageStats[]>([]);
   let nextTasting = $state<any>(null);
   let lastTasting = $state<any>(null);
-  let nextTastingSeats = $state<number | null>(null);
-  let newRequests = $state(0);
+  let nextTastingSeats = $state<SeatInfo | null>(null);
+  let nextTastingOnline = $state(0);
+  let newRequests = $state({ wishes: 0, messages: 0 });
   let reorderBusy = $state("");
   let reorderMsg = $state("");
 
@@ -85,21 +88,25 @@
 
     try {
       const monthStart = todayIso().slice(0, 8) + "01";
-      const [ds, customersRes, winesRes, tastingsRes, nextRes, lastRes, requestsRes] = await Promise.all([
+      /* Promise.resolve : la requête ne part qu'une fois, lue deux fois (dégustation, puis ses places). */
+      const nextQuery = Promise.resolve(
+        supabase
+          .from("tasting")
+          .select("*, tasting_wine_vintage ( wine_vintage_id ), tasting_registration ( seats, status )")
+          .gte("date", todayIso())
+          .order("date", { ascending: true })
+          .limit(1),
+      );
+      const [ds, customersRes, winesRes, tastingsRes, nextRes, lastRes, requestsRes, seatsRes] = await Promise.all([
         loadDataset(),
         supabase.from("customer").select("id", { count: "exact", head: true }),
         supabase.from("wine").select("id", { count: "exact", head: true }),
         supabase.from("tasting").select("id", { count: "exact", head: true }),
-        supabase
-          .from("tasting")
-          .select(
-            "*, tasting_wine_vintage ( wine_vintage_id ), tasting_customer ( customer_id ), tasting_registration ( seats, status )",
-          )
-          .gte("date", todayIso())
-          .order("date", { ascending: true })
-          .limit(1),
+        nextQuery,
         supabase.from("tasting").select("id, name, date, location").lt("date", todayIso()).order("date", { ascending: false }).limit(1),
-        supabase.from("wish_request").select("id", { count: "exact", head: true }).eq("status", "new"),
+        countNewRequests(),
+        /* Places de la prochaine dégustation, pendant que le reste charge. */
+        nextQuery.then((r) => (r.data?.[0] ? fetchSeats(r.data[0].id) : null)),
       ]);
 
       const firstErr = customersRes.error || winesRes.error || tastingsRes.error;
@@ -140,12 +147,9 @@
 
       nextTasting = (nextRes.data || [])[0] ?? null;
       lastTasting = (lastRes.data || [])[0] ?? null;
-      nextTastingSeats = nextTasting
-        ? (nextTasting.tasting_registration || [])
-            .filter((r: any) => r.status === "confirmed")
-            .reduce((s: number, r: any) => s + r.seats, 0)
-        : null;
-      newRequests = requestsRes.count ?? 0;
+      nextTastingSeats = seatsRes;
+      nextTastingOnline = onlineSeats(nextTasting?.tasting_registration || []);
+      newRequests = requestsRes;
     } catch (e) {
       statsError = e instanceof Error ? e.message : "Impossible de charger les statistiques";
     } finally {
@@ -256,14 +260,17 @@
     {#if statsLoading}
       <Spinner />
     {:else}
-      {#if kpi.pendingSales || outOfStock.length || lowStock.length || dormant.length || newRequests}
+      {#if kpi.pendingSales || outOfStock.length || lowStock.length || dormant.length || newRequests.wishes || newRequests.messages}
         <nav class="todo" aria-label="À traiter">
           <span class="todo-title"><IconInbox size={16} strokeWidth={1.75} aria-hidden="true" /> À traiter</span>
           {#if kpi.pendingSales}
             <a href="/manage/sales?statut=pending">{kpi.pendingSales} vente{kpi.pendingSales > 1 ? "s" : ""} en attente de paiement</a>
           {/if}
-          {#if newRequests}
-            <a href="/manage/requests">{newRequests} demande{newRequests > 1 ? "s" : ""} « J’en veux »</a>
+          {#if newRequests.messages}
+            <a href="/manage/requests">{newRequests.messages} message{newRequests.messages > 1 ? "s" : ""} du site</a>
+          {/if}
+          {#if newRequests.wishes}
+            <a href="/manage/requests">{newRequests.wishes} demande{newRequests.wishes > 1 ? "s" : ""} « J’en veux »</a>
           {/if}
           {#if outOfStock.length}
             <a class="danger" href="#stock-alerts">{outOfStock.length} millésime{outOfStock.length > 1 ? "s" : ""} en rupture</a>
@@ -316,9 +323,12 @@
             <p class="countdown">{daysUntil(nextTasting.date) === 0 ? "C’est aujourd’hui !" : `Dans ${daysUntil(nextTasting.date)} jours`}</p>
             <ul class="next-facts">
               <li><strong>{nextTasting.tasting_wine_vintage?.length ?? 0}</strong> au programme</li>
-              <li><strong>{nextTasting.tasting_customer?.length ?? 0}</strong> participants</li>
-              {#if nextTastingSeats != null}
-                <li><strong>{nextTastingSeats}</strong>{nextTasting.capacity ? ` / ${nextTasting.capacity}` : ""} places réservées en ligne</li>
+              {#if nextTastingSeats}
+                <li>
+                  <a href="/manage/tastings?id={nextTasting.id}">
+                    <strong>{nextTastingSeats.seats_taken}</strong>{nextTastingSeats.capacity != null ? ` / ${nextTastingSeats.capacity}` : ""} places prises{nextTastingOnline ? `, dont ${nextTastingOnline} réservées en ligne` : ""}
+                  </a>
+                </li>
               {/if}
             </ul>
             <div class="row-actions">
@@ -541,6 +551,17 @@
     display: flex;
     flex-wrap: wrap;
     gap: 4px 20px;
+  }
+
+  .next-facts a {
+    color: inherit;
+    text-decoration: underline;
+    text-decoration-color: var(--border);
+    text-underline-offset: 3px;
+  }
+
+  .next-facts a:hover {
+    text-decoration-color: currentColor;
   }
 
   .row-actions {

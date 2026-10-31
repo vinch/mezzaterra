@@ -80,6 +80,23 @@ professionnel la détaille par taux. À appliquer avant de déployer le code, qu
 supérieure au montant de la ligne (`NOT VALID` : nouvelles lignes seulement). La page Ventes le vérifie
 aussi avec un message clair, et le total d'une ligne n'est jamais négatif.
 
+`20261031120000_registrations_participants_contact.sql` simplifie ce qui arrive du site. Une
+réservation en ligne confirmée devient aussitôt un participant (client retrouvé par email, sinon créé) ;
+retirer un participant annule sa réservation. Les places d'une dégustation comptent tous les
+participants, ceux ajoutés à la main compris (`tasting_seats_taken`) : le site passe en liste d'attente
+une fois la capacité atteinte. Les messages
+du formulaire de contact sont enregistrés (`contact_message`) par `/api/contact` avec la clé
+`SUPABASE_SERVICE_ROLE_KEY` (variable serveur à définir sur Vercel ; sans elle, email seulement) et
+s'affichent dans Demandes. À appliquer avant de déployer le code, qui lit `contact_message`.
+
+`20261031140000_tasting_seats_per_participant.sql` affine les places : un participant compte les places
+de ses réservations en ligne confirmées, sinon `tasting_customer.seats` (1 ajouté à la main, 0 rattaché
+par un « J'en veux » pendant la soirée). Une réservation retrouve aussi un participant ajouté à la main
+sans email (seul de ce nom dans la dégustation), sans modifier ses coordonnées, et remplace sa place au
+lieu de s'y ajouter dans le contrôle de capacité. Un admin peut rétablir une réservation annulée. La
+migration rattache les réservations confirmées des dégustations à venir (une erreur n'arrête pas la
+migration) et annule celles dont le participant avait été retiré.
+
 ```sh
 supabase link --project-ref wmerreifcpttrhxwmkmn
 supabase db push
@@ -96,14 +113,14 @@ pnpm update-types
 | `/vins`, `/vins/[id]` | Catalogue et fiches vin partageables (Open Graph) |
 | `/huiles`, `/huiles/[id]` | Idem pour les huiles d'olive ; lien « Nos huiles » dès qu'une huile existe |
 | `/domaines/[id]` | Page d'un domaine : présentation, carte, cépages, tous ses vins |
-| `/contact` | Formulaire de contact → email à gianni@mezzaterra.be (Resend), raison préremplie via `?raison=prive\|commande\|degustation\|pro\|autre` (+ `&sujet=…`), CAPTCHA Turnstile |
+| `/contact` | Formulaire de contact → Demandes dans la gestion, et email à gianni@mezzaterra.be (Resend), raison préremplie via `?raison=prive\|commande\|degustation\|pro\|autre` (+ `&sujet=…`), CAPTCHA Turnstile |
 | `/design-system` | Vitrine du design system (composants, tokens, règles) : référence pour tout nouvel écran, non indexée |
 
 | Gestion | |
 |---|---|
 | `/manage` | Tableau de bord : CA 12 mois, top vins, stock bas (réassort), stock dormant |
-| `/manage/tastings/[id]/live` | Pilotage en direct, QR code, mode projection, demandes, inscrits |
-| `/manage/requests` | Demandes « J'en veux » → ventes « En attente » |
+| `/manage/tastings/[id]/live` | Pilotage en direct, QR code, mode projection, demandes, réservations en ligne |
+| `/manage/requests` | Messages du formulaire de contact et demandes « J'en veux » (→ ventes « En attente ») |
 | `/manage/insights` | Marges, rotation du stock, rentabilité des dégustations |
 | `/manage/customers/[id]` | Fiche client : historique, goûts, suggestions |
 | `/manage/campaigns` | Invitations et rappels par email (Resend, ou copier / messagerie) |
