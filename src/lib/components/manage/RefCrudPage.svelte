@@ -16,7 +16,7 @@
   import { IconEye, IconPencil, IconPlus, IconTrash } from "$lib/ui/icons";
   import Spinner from "$lib/ui/Spinner.svelte";
   import Tabs from "$lib/ui/Tabs.svelte";
-  import { DEFAULT_KIND, kindInfo, kindOf, PRODUCT_KIND_LIST, type ProductKind, type ProductKindInfo } from "$lib/productKinds";
+  import { DEFAULT_KIND, kindInfo, kindOf, kindTabItems, type ProductKind, type ProductKindInfo } from "$lib/productKinds";
 
   /**
    * Page de référentiel (pays, régions, cépages, clients, fournisseurs…) : liste, création, édition et
@@ -89,15 +89,7 @@
     kindTabs ? [fields[0], { ...KIND_FIELD, default: kind }, ...fields.slice(1)] : fields,
   );
   let shownRows = $derived(kindTabs ? rows.filter((r) => kindOf(r) === kind) : rows);
-  let tabItems = $derived(
-    kindTabs
-      ? PRODUCT_KIND_LIST.map((k) => ({
-          key: k.key,
-          label: kindTabs(k),
-          count: loading ? undefined : rows.filter((r) => kindOf(r) === k.key).length,
-        }))
-      : [],
-  );
+  let tabItems = $derived(kindTabs ? kindTabItems(rows, kindTabs, loading) : []);
 
   const formId = `ref-form-${table}`;
   const query = () => supabase.from(table as any) as any;

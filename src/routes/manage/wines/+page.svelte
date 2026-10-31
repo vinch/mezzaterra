@@ -37,7 +37,7 @@
   import { fold, formatEUR } from "$lib/format";
   import { promptReorder } from "$lib/reorder";
   import { isDiscontinued } from "$lib/wine";
-  import { DEFAULT_KIND, kindCount, kindInfo, kindOf, PRODUCT_KIND_LIST, PRODUCT_KIND_OPTIONS, type ProductKind } from "$lib/productKinds";
+  import { DEFAULT_KIND, kindCount, kindInfo, kindOf, kindTabItems, PRODUCT_KIND_OPTIONS, type ProductKind } from "$lib/productKinds";
   import { fetchStockMap } from "$lib/manageData";
   import { errorMessage } from "$lib/async";
 
@@ -61,12 +61,11 @@
   // Filter state
   let filterWineryId = $state("");
   let filterAppelationId = $state("");
-  let filterWineTypeId = $state("");
   let searchText = $state("");
 
   // Form fields
   let formData = $state({
-    kind: DEFAULT_KIND as ProductKind,
+    kind: DEFAULT_KIND,
     name: "",
     description: "",
     winery_id: "",
@@ -328,7 +327,6 @@
   function clearFilters() {
     filterWineryId = "";
     filterAppelationId = "";
-    filterWineTypeId = "";
     searchText = "";
   }
 
@@ -353,11 +351,7 @@
   let tab = $state<ProductKind>(DEFAULT_KIND);
   let tabKind = $derived(kindInfo(tab));
   let tabWines = $derived(wines.filter((w) => kindOf(w) === tab));
-  let tabItems = $derived(PRODUCT_KIND_LIST.map((k) => ({
-    key: k.key,
-    label: k.plural,
-    count: loading ? undefined : wines.filter((w) => kindOf(w) === k.key).length,
-  })));
+  let tabItems = $derived(kindTabItems(wines, undefined, loading));
   let tabAppellations = $derived(appellations.filter((a) => kindOf(a) === tab));
   /** Les filtres propres à un type (robe, appellation) ne valent pas pour l'autre. */
   function setTab(kind: ProductKind) {
@@ -365,7 +359,6 @@
     tab = kind;
     robeFilter = "";
     filterAppelationId = "";
-    filterWineTypeId = "";
   }
 
   /** Millésimes du plus ancien au plus récent (triés au chargement). */
@@ -491,11 +484,6 @@
       return false;
     }
 
-    // Filter by wine type
-    if (filterWineTypeId && wine.wine_type_id !== filterWineTypeId) {
-      return false;
-    }
-
     // Filter by search text (domaine, nom, appellation)
     if (searchText) {
       const searchLower = searchText.toLowerCase();
@@ -538,7 +526,7 @@
       stock ? `${bottles} bouteille${bottles > 1 ? "s" : ""} en stock` : "stock indisponible",
     ].join(" · ");
   });
-  let filtersActive = $derived(!!(searchText || filterWineryId || filterAppelationId || filterWineTypeId || robeFilter || inStockOnly));
+  let filtersActive = $derived(!!(searchText || filterWineryId || filterAppelationId || robeFilter || inStockOnly));
 </script>
 
 <svelte:head>

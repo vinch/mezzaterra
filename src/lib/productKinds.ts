@@ -208,12 +208,23 @@ export function formatVolume(ml: number): string {
   return ml < 1000 ? `${n(ml / 10)} cl` : `${n(ml / 1000)} L`;
 }
 
-/** Couleurs propres à un type de produit (pastilles de filtre après les robes du vin). */
+/** Couleurs propres à un type de produit, après les robes du vin (répartition des achats d'un client). */
 export const KIND_STYLES = PRODUCT_KIND_LIST.flatMap((k) => (k.style ? [k.style] : []));
 
 /** « 1 vin », « 3 huiles d’olive ». */
 export function kindCount(kind: ProductKindInfo, n: number): string {
   return `${n} ${(n > 1 ? kind.plural : kind.label).toLowerCase()}`;
+}
+
+/** Onglets « un par type de produit » (composant `Tabs`) : libellé et nombre de lignes de chaque type, sans compte pendant le chargement. */
+export function kindTabItems(
+  rows: KindRow[],
+  label: (kind: ProductKindInfo) => string = (k) => k.plural,
+  loading = false,
+): { key: ProductKind; label: string; count?: number }[] {
+  const counts = new Map<ProductKind, number>();
+  for (const row of rows) counts.set(kindOf(row), (counts.get(kindOf(row)) ?? 0) + 1);
+  return PRODUCT_KIND_LIST.map((k) => ({ key: k.key, label: label(k), count: loading ? undefined : (counts.get(k.key) ?? 0) }));
 }
 
 /** Type de produit d'après son segment d'URL public (`vins`, `huiles`). */
