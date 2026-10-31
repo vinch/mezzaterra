@@ -6,8 +6,9 @@
 -- 2. L'invité la confirme depuis son récap : elle devient une demande « J'en veux » (wish_request
 --    « new », prénom et email ou téléphone obligatoires comme avant), que l'admin transforme en vente.
 -- 3. Les invités n'ont pas de compte : tout passe par save_live_preorder (SECURITY DEFINER), qui ne
---    touche qu'à la pré-commande du guest_id fourni, comme les notes (tasting_feedback). L'insertion
---    directe dans wish_request n'est plus ouverte au public.
+--    touche qu'à la pré-commande du guest_id fourni, comme les notes (tasting_feedback).
+--    L'insertion directe dans wish_request reste ouverte au public le temps que les pages live déjà
+--    ouvertes (ancien code) disparaissent : elle sera retirée par une migration après le déploiement.
 
 CREATE TABLE IF NOT EXISTS public.live_preorder (
   tasting_id uuid NOT NULL REFERENCES public.tasting (id) ON DELETE CASCADE,
@@ -26,8 +27,6 @@ COMMENT ON TABLE public.live_preorder IS
 
 ALTER TABLE public.live_preorder ENABLE ROW LEVEL SECURITY;
 CREATE POLICY "admins can read" ON public.live_preorder FOR SELECT USING (is_admin());
-
-DROP POLICY IF EXISTS "anyone can request" ON public.wish_request;
 
 -- ——— Pré-commande d'un invité : enregistrer, vider ou confirmer ———
 -- p_items : [{ wine_vintage_id, quantity }], vins de la dégustation uniquement. Vide : la pré-commande

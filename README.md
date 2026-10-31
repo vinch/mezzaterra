@@ -107,9 +107,9 @@ d'un domaine échouerait sans la colonne.
 enregistre une pré-commande (`live_preorder`, une par téléphone et par dégustation, sans nom ni contact
 obligatoires) via la fonction `save_live_preorder`, et l'animateur la voit dans Piloter. L'invité
 l'ajuste depuis son récap puis la confirme (prénom et email ou téléphone) : elle devient une demande
-`wish_request` comme avant, que l'admin transforme en vente. Le public ne peut plus insérer
-directement dans `wish_request`. À appliquer avant de déployer le code : la page live appelle
-`save_live_preorder`.
+`wish_request` comme avant, que l'admin transforme en vente. À appliquer avant de déployer le code :
+la page live appelle `save_live_preorder`. L'insertion publique directe dans `wish_request` (ancien
+code) reste permise jusqu'à une migration de suivi, après le déploiement.
 
 ```sh
 supabase link --project-ref wmerreifcpttrhxwmkmn
