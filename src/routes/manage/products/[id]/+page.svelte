@@ -269,7 +269,7 @@
   function rowItems(v: WineVintage): MenuItem[] {
     const gone = isDiscontinued(v);
     return [
-      { label: "Gérer le stock", icon: IconBox, href: `/manage/wines/${wine.id}/stock/${v.id}` },
+      { label: "Gérer le stock", icon: IconBox, href: `/manage/products/${wine.id}/stock/${v.id}` },
       { label: kind.ingredients, icon: kindIcons.ingredient, onSelect: () => openGrapesModal(v) },
       { label: "Modifier", icon: IconPencil, onSelect: () => openEditModal(v) },
       {
@@ -371,7 +371,7 @@
   <title>{wineTitle(wine)} - Gestion</title>
 </svelte:head>
 
-<ManagePageShell title={wineTitle(wine)} {subtitle} back={{ href: kindListHref("/manage/wines", kindOf(wine)), label: "Produits" }}>
+<ManagePageShell title={wineTitle(wine)} {subtitle} back={{ href: kindListHref("/manage/products", kindOf(wine)), label: "Produits" }}>
   {#snippet actions()}
       <Button variant="primary" onclick={openCreateModal}><IconPlus size={16} strokeWidth={1.75} /> {kind.newBatch}</Button>
   {/snippet}
@@ -406,7 +406,7 @@
             <td>
               <span class="vintage-cell">
                 {#if vintage.image_url}<img src={vintage.image_url} alt="" class="thumb" />{/if}
-                <a class="row-link" href="/manage/wines/{wine.id}/stock/{vintage.id}">{vintageYearLabel(vintage, kind.key)}</a>
+                <a class="row-link" href="/manage/products/{wine.id}/stock/{vintage.id}">{vintageYearLabel(vintage, kind.key)}</a>
                 {#if vintage.organic}<span class="ui-chip organic">Bio</span>{/if}
                 {#if isDiscontinued(vintage)}<StockBadge kind="gone" />{/if}
               </span>

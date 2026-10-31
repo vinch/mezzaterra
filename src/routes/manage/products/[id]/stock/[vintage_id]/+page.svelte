@@ -193,7 +193,7 @@
   <title>Stock - {title}</title>
 </svelte:head>
 
-<ManagePageShell {title} {subtitle} back={{ href: `/manage/wines/${vintage.wine.id}`, label: wineTitle(vintage.wine) }}>
+<ManagePageShell {title} {subtitle} back={{ href: `/manage/products/${vintage.wine.id}`, label: wineTitle(vintage.wine) }}>
   {#snippet badge()}
       {#if currentStock != null && currentStock < 0}<StockBadge kind="out" label="Stock négatif" />{/if}
   {/snippet}

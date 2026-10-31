@@ -110,7 +110,7 @@
               <tr>
                 <td>
                   <span class="wine-cell"><WineDot type={s.vintage.wine?.wine_type} />
-                  <a href="/manage/wines/{s.vintage.wine_id}/stock/{s.vintage.id}">{vintageLabel(s.vintage)}</a></span>
+                  <a href="/manage/products/{s.vintage.wine_id}/stock/{s.vintage.id}">{vintageLabel(s.vintage)}</a></span>
                 </td>
                 <td class="num">{formatEUR(s.vintage.purchase_price)}</td>
                 <td class="num">{formatEUR(s.vintage.price)}</td>

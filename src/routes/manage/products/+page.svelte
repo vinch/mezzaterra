@@ -434,9 +434,9 @@
 
   function rowItems(wine: any): MenuItem[] {
     const items: MenuItem[] = [
-      { label: "Ouvrir la fiche", icon: IconEye, href: `/manage/wines/${wine.id}` },
+      { label: "Ouvrir la fiche", icon: IconEye, href: `/manage/products/${wine.id}` },
       { label: "Modifier", icon: IconPencil, onSelect: () => openEditModal(wine) },
-      { label: kindInfo(wine).addBatch, icon: IconPlus, href: `/manage/wines/${wine.id}?nouveau=1` },
+      { label: kindInfo(wine).addBatch, icon: IconPlus, href: `/manage/products/${wine.id}?nouveau=1` },
       { label: kindInfo(wine).pairingsLabel, icon: IconPlate, onSelect: () => openPairingsModal(wine) },
     ];
     if (latestVintage(wine)) items.push({ label: "Commander (réassort)", icon: IconClipboard, onSelect: () => reorder(wine) });
@@ -451,7 +451,7 @@
 
   function openRow(wine: any, e: MouseEvent) {
     if ((e.target as HTMLElement).closest("button, a, input, select, [role=menu]")) return;
-    void goto(`/manage/wines/${wine.id}`);
+    void goto(`/manage/products/${wine.id}`);
   }
 
   let deleteTarget = $state<any>(null);
@@ -631,7 +631,7 @@
                   <span class="wine-cell">
                     <WineDot {robe} />
                     <span class="wine-name">
-                      <a class="row-link" href="/manage/wines/{wine.id}">{wineTitle(wine)}</a>
+                      <a class="row-link" href="/manage/products/{wine.id}">{wineTitle(wine)}</a>
                       <span class="t-caption">{wine.winery?.name ?? "—"}{wine.name && wine.appelation?.name ? ` · ${wine.appelation.name}` : ""}</span>
                     </span>
                   </span>
@@ -675,7 +675,7 @@
         {#each shownWines as wine (wine.id)}
           {@const { total, badge } = stockById.get(wine.id) ?? { total: 0, badge: null }}
           <li class="wine-card" class:retired={isRetired(wine)}>
-            <a class="wine-card-main" href="/manage/wines/{wine.id}">
+            <a class="wine-card-main" href="/manage/products/{wine.id}">
               <span class="wc-top">
                 <span class="wine-cell"><WineDot type={wine.wine_type} /><strong>{wineTitle(wine)}</strong></span>
                 <strong>{stock ? `${total} bt.` : "—"}</strong>

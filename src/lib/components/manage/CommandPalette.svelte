@@ -80,7 +80,7 @@
         group: "Produits",
         label,
         hint: "Stock",
-        href: `/manage/wines/${v.wine_id}/stock/${v.id}`,
+        href: `/manage/products/${v.wine_id}/stock/${v.id}`,
         icon: KIND_ICONS[kindOf(v.wine)].product,
         haystack: fold(label),
       });

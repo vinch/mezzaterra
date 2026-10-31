@@ -20,9 +20,9 @@
     IconInbox,
     IconLightbulb,
     IconPlus,
+    IconProduct,
     IconReceipt,
     IconUsers,
-    IconWine,
   } from "$lib/ui/icons";
   import {
     REVENUE_STATUSES,
@@ -296,7 +296,7 @@
           {formatEUR(kpi.stockValue)} au prix d’achat
           {#if kpi.lowCount}<br /><span class="t-warn">{kpi.lowCount} millésime{kpi.lowCount > 1 ? "s" : ""} ≤ {LOW_STOCK} bt.</span>{/if}
         </KpiCard>
-        <KpiCard label="Produits au catalogue" value={String(kpi.wines)} icon={IconWine} href="/manage/wines">
+        <KpiCard label="Produits au catalogue" value={String(kpi.wines)} icon={IconProduct} href="/manage/products">
           {kpi.vintages} millésime{kpi.vintages > 1 ? "s" : ""}
         </KpiCard>
         <KpiCard label="Clients" value={String(kpi.customers)} icon={IconUsers} href="/manage/customers" />
