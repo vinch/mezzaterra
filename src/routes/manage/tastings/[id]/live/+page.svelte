@@ -224,8 +224,11 @@
   let wineById = $derived(new Map(wines.map((w) => [w.id, w])));
   let seatsOnline = $derived(onlineSeats(registrations));
   let seatsByCustomer = $derived(onlineSeatsByCustomer(registrations));
-  /* Les réservations confirmées et rattachées à un client figurent déjà parmi les participants. */
-  let pendingRegistrations = $derived(registrations.filter((r) => !isParticipantRegistration(r)));
+  /* Les réservations confirmées et rattachées à un participant figurent déjà dans sa carte. */
+  let participantIds = $derived(new Set(participants.map((c) => c.id)));
+  let pendingRegistrations = $derived(
+    registrations.filter((r) => !isParticipantRegistration(r) || !participantIds.has(r.customer_id)),
+  );
 
   let current = $derived(wines[position]);
   let style = $derived(wineStyle(current?.wine?.wine_type));
