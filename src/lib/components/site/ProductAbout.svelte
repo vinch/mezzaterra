@@ -116,12 +116,22 @@
     padding: 0;
   }
 
+  .compact .block-title {
+    margin-bottom: 0.5rem;
+    font-size: 0.75rem;
+  }
+
+  .compact .block p {
+    line-height: 1.6;
+  }
+
   .compact .prose {
     max-width: none;
     font-size: inherit;
   }
 
   .compact .notes {
+    grid-template-columns: repeat(auto-fit, minmax(14rem, 1fr));
     gap: 0.75rem;
   }
 
@@ -134,6 +144,7 @@
   .compact .note-label {
     display: block;
     font-size: 1.05rem;
+    margin-bottom: 0.2rem;
   }
 
   .compact .note p {
