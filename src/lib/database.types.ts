@@ -1404,6 +1404,10 @@ export type Database = {
         Args: { p_registration_id: string }
         Returns: string
       }
+      merge_customers: {
+        Args: { p_from: string; p_into: string; p_keep_from_email?: boolean }
+        Returns: undefined
+      }
       my_notebook: { Args: never; Returns: Json }
       product_kind_vat_rate: { Args: { p_kind: unknown }; Returns: number }
       participant_seats: {

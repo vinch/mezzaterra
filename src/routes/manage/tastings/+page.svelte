@@ -13,7 +13,7 @@
   import Spinner from "$lib/ui/Spinner.svelte";
   import EmptyState from "$lib/ui/EmptyState.svelte";
   import { IconUsers } from "$lib/ui/icons";
-  import { compareCustomersByLabel, customerDisplayLabel } from "$lib/customerDisplay";
+  import { compareCustomersByLabel, customerDisplayLabel, namesakeIds } from "$lib/customerDisplay";
   import { fetchCustomers, fetchPickerVintages } from "$lib/manageData";
   import { errorMessage, latestOnly } from "$lib/async";
   import { fetchTastingWithWines, onlineSeatsByCustomer, participantOrigin, placesLabel, seatsTaken, tastingTitle } from "$lib/publicData";
@@ -43,6 +43,8 @@
 
   let tastings = $state<TastingRow[]>([]);
   let customers = $state.raw<Customer[]>([]);
+  /** Participants signalés « Doublon possible » (une autre fiche porte leur nom). */
+  let duplicateIds = $derived(namesakeIds(customers));
   let wineVintages = $state.raw<any[]>([]);
   let loading = $state(true);
   let error = $state("");
@@ -719,8 +721,11 @@
     <ul class="participants">
       {#each participantsView.entries as entry (entry.customer_id)}
         <li>
-          <strong>{customerDisplayLabel(entry.customer)}</strong>
+          <a href="/manage/customers/{entry.customer_id}"><strong>{customerDisplayLabel(entry.customer)}</strong></a>
           <span class="t-caption">{participantOrigin(entry.onlineSeats, entry.seats)}</span>
+          {#if duplicateIds.has(entry.customer_id)}
+            <span class="t-caption t-warn">Doublon possible : un autre client porte ce nom (fusion depuis sa fiche)</span>
+          {/if}
         </li>
       {/each}
     </ul>
