@@ -261,21 +261,8 @@ BEGIN
 END;
 $$;
 
--- Réservations confirmées des dégustations à venir, pas encore rattachées.
-DO $$
-DECLARE
-  r record;
-BEGIN
-  FOR r IN
-    SELECT reg.id
-    FROM tasting_registration reg
-    JOIN tasting t ON t.id = reg.tasting_id
-    WHERE reg.status = 'confirmed' AND reg.customer_id IS NULL AND t.date >= brussels_today()
-    ORDER BY reg.created_at
-  LOOP
-    PERFORM link_registration_to_customer(r.id);
-  END LOOP;
-END $$;
+-- Le rattachement des réservations déjà confirmées est fait par 20261031140000_tasting_seats_per_participant,
+-- qui reconnaît aussi un participant ajouté à la main sans email.
 
 -- ——— Messages du formulaire de contact ———
 CREATE TABLE IF NOT EXISTS public.contact_message (

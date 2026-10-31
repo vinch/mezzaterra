@@ -89,6 +89,13 @@ du formulaire de contact sont enregistrés (`contact_message`) par `/api/contact
 `SUPABASE_SERVICE_ROLE_KEY` (variable serveur à définir sur Vercel ; sans elle, email seulement) et
 s'affichent dans Demandes. À appliquer avant de déployer le code, qui lit `contact_message`.
 
+`20261031140000_tasting_seats_per_participant.sql` ajoute `tasting_customer.seats` : 1 pour un
+participant ajouté à la main, les places de sa réservation s'il vient du site, 0 s'il n'est rattaché
+que par un « J'en veux » pendant la soirée. Une réservation retrouve aussi un participant ajouté à la
+main sans email (seul de ce nom dans la dégustation) et complète ses coordonnées, et elle remplace sa
+place au lieu de s'y ajouter dans le contrôle de capacité. Elle rattache les réservations confirmées
+des dégustations à venir (déplacé depuis la migration précédente).
+
 ```sh
 supabase link --project-ref wmerreifcpttrhxwmkmn
 supabase db push

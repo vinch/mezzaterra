@@ -746,16 +746,19 @@ export type Database = {
         Row: {
           created_at: string
           customer_id: string
+          seats: number
           tasting_id: string
         }
         Insert: {
           created_at?: string
           customer_id: string
+          seats?: number
           tasting_id: string
         }
         Update: {
           created_at?: string
           customer_id?: string
+          seats?: number
           tasting_id?: string
         }
         Relationships: [
@@ -1418,6 +1421,15 @@ export type Database = {
           p_last_name: string
           p_phone: string
           p_seats: number
+          p_tasting_id: string
+        }
+        Returns: string
+      }
+      registration_customer_match: {
+        Args: {
+          p_email: string
+          p_first_name: string
+          p_last_name: string
           p_tasting_id: string
         }
         Returns: string

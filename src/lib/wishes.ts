@@ -52,11 +52,14 @@ export async function findOrCreateCustomer(input: ContactInput): Promise<string>
   return data;
 }
 
-/** Lie un client à une dégustation (ignore le doublon). */
+/**
+ * Lie à la dégustation le client d'un « J'en veux » (ignore le doublon). Sans place : il était
+ * déjà dans la salle, souvent comme accompagnant d'une réservation.
+ */
 export async function linkCustomerToTasting(tastingId: string, customerId: string) {
   const { error } = await supabase
     .from("tasting_customer")
-    .insert({ tasting_id: tastingId, customer_id: customerId });
+    .insert({ tasting_id: tastingId, customer_id: customerId, seats: 0 });
   if (error && error.code !== "23505") throw new Error(error.message);
 }
 
