@@ -1333,6 +1333,7 @@ export type Database = {
       }
       is_admin: { Args: never; Returns: boolean }
       my_notebook: { Args: never; Returns: Json }
+      product_kind_vat_rate: { Args: { p_kind: unknown }; Returns: number }
       public_wine_availability: {
         Args: never
         Returns: {
