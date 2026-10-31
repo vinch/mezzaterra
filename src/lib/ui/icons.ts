@@ -33,6 +33,7 @@ export { default as IconMail } from "@lucide/svelte/icons/mail";
 export { default as IconMap } from "@lucide/svelte/icons/map";
 export { default as IconMapPin } from "@lucide/svelte/icons/map-pin";
 export { default as IconMenu } from "@lucide/svelte/icons/menu";
+export { default as IconMerge } from "@lucide/svelte/icons/merge";
 export { default as IconMinus } from "@lucide/svelte/icons/minus";
 export { default as IconMonitor } from "@lucide/svelte/icons/monitor";
 export { default as IconOil } from "@lucide/svelte/icons/droplet";

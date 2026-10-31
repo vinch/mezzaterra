@@ -3,11 +3,12 @@
   import { page } from "$app/stores";
   import { escapeLike, fetchAllRows, supabase } from "$lib/supabase";
   import { errorMessage } from "$lib/async";
-  import { fetchStockMap } from "$lib/manageData";
+  import { fetchCustomers, fetchStockMap } from "$lib/manageData";
   import { goto } from "$app/navigation";
   import ManagePageShell from "$lib/components/manage/ManagePageShell.svelte";
   import StarRating from "$lib/components/site/StarRating.svelte";
-  import { customerDisplayLabel } from "$lib/customerDisplay";
+  import { customerDisplayLabel, lastNameLike, namesakes } from "$lib/customerDisplay";
+  import type { Customer } from "$lib/types";
   import { REVENUE_STATUSES, lineTotal, type SaleItemRow } from "$lib/analytics";
   import { daysUntil } from "$lib/dates";
   import { STYLE_ORDER, styleByKey, vintageLabel, vintageShortLabel, wineRobe, type WineStyleKey } from "$lib/wine";
@@ -18,11 +19,15 @@
   import Card from "$lib/ui/Card.svelte";
   import RowMenu from "$lib/ui/RowMenu.svelte";
   import ConfirmDialog from "$lib/ui/ConfirmDialog.svelte";
+  import Modal from "$lib/ui/Modal.svelte";
+  import Field from "$lib/ui/Field.svelte";
+  import Select from "$lib/ui/Select.svelte";
+  import CustomerAutocomplete from "$lib/components/manage/CustomerAutocomplete.svelte";
   import DataTable from "$lib/ui/DataTable.svelte";
   import EmptyState from "$lib/ui/EmptyState.svelte";
   import StatusBadge from "$lib/ui/StatusBadge.svelte";
   import WineDot from "$lib/ui/WineDot.svelte";
-  import { IconDownload, IconGlasses, IconPencil, IconPlus, IconReceipt, IconSend, IconSparkle, IconTrash } from "$lib/ui/icons";
+  import { IconDownload, IconGlasses, IconMerge, IconPencil, IconPlus, IconReceipt, IconSend, IconSparkle, IconTrash } from "$lib/ui/icons";
   import Spinner from "$lib/ui/Spinner.svelte";
 
   const customerId = $page.params.id ?? "";
@@ -34,12 +39,19 @@
   let tastings = $state<any[]>([]);
   let feedback = $state<any[]>([]);
   let vintages = $state.raw<any[]>([]);
+  /** Clients du même nom de famille (le bandeau « Doublon possible » filtre ensuite les homonymes). */
+  let sameLastName = $state.raw<Customer[]>([]);
   /** Lectures secondaires en échec (millésimes, stock, dégustations) : fiche affichée, incomplète. */
   let warnings = $state<string[]>([]);
   /** null : stock illisible, les suggestions (vins en stock) ne peuvent pas être calculées. */
   let stock = $state<Map<string, number> | null>(new Map());
 
-  onMount(async () => {
+  onMount(load);
+
+  async function load() {
+    loading = true;
+    error = "";
+    warnings = [];
     try {
       const [cRes, sRes, tRes, vRes, iRes] = await Promise.all([
         supabase.from("customer").select("*, country ( name, flag )").eq("id", customerId).maybeSingle(),
@@ -82,14 +94,21 @@
       vintages = vRes;
       stock = iRes;
 
-      if (customer?.email) {
-        const { data } = await supabase
-          .from("tasting_feedback")
-          .select("*")
-          .ilike("guest_email", escapeLike(customer.email))
-          .order("created_at", { ascending: true });
+      if (customer) {
+        const [namesakeRes, feedbackRes] = await Promise.all([
+          /* Simple signalement : en échec, la fiche s'affiche sans bandeau. */
+          supabase.from("customer").select("*").ilike("last_name", lastNameLike(customer)).neq("id", customerId),
+          customer.email
+            ? supabase
+                .from("tasting_feedback")
+                .select("*")
+                .ilike("guest_email", escapeLike(customer.email))
+                .order("created_at", { ascending: true })
+            : null,
+        ]);
+        sameLastName = namesakeRes.data || [];
         const latest = new Map<string, any>();
-        for (const f of data || []) latest.set(`${f.tasting_id}:${f.wine_vintage_id}`, f);
+        for (const f of feedbackRes?.data || []) latest.set(`${f.tasting_id}:${f.wine_vintage_id}`, f);
         feedback = [...latest.values()].filter((f) => f.rating || f.comment);
       }
     } catch (e) {
@@ -97,7 +116,7 @@
     } finally {
       loading = false;
     }
-  });
+  }
 
   let vintageById = $derived(new Map(vintages.map((v) => [v.id, v])));
   let paidSales = $derived(sales.filter((s) => REVENUE_STATUSES.includes(s.status)));
@@ -210,8 +229,68 @@
     await goto("/manage/customers");
   }
 
+  /* Fusion avec une autre fiche (doublon) : la plus ancienne est gardée, l'autre supprimée. */
+  let sameName = $derived(customer ? namesakes(customer, sameLastName) : []);
+  let mergeOpen = $state(false);
+  /** Tous les clients, chargés à la première ouverture de la fusion (null pendant le chargement). */
+  let customers = $state.raw<Customer[] | null>(null);
+  let mergeWithId = $state("");
+  let merging = $state(false);
+  let mergeError = $state("");
+  let mergeWith = $derived(
+    [...(customers ?? []), ...sameLastName].find((c) => c.id === mergeWithId) ?? null,
+  );
+  let mergePair = $derived(
+    mergeWith ? (mergeWith.created_at < customer.created_at ? { keep: mergeWith, drop: customer } : { keep: customer, drop: mergeWith }) : null,
+  );
+  /** Deux emails différents : l'admin choisit celui qui reste (par défaut, celui de la fiche la plus récente). */
+  let emailConflict = $derived(
+    !!mergePair?.keep.email && !!mergePair.drop.email && mergePair.keep.email.toLowerCase() !== mergePair.drop.email.toLowerCase(),
+  );
+  let emailFrom = $state<"keep" | "drop">("drop");
+
+  async function openMerge(withId = sameName.length === 1 ? sameName[0].id : "") {
+    mergeWithId = withId;
+    emailFrom = "drop";
+    mergeError = "";
+    mergeOpen = true;
+    if (customers?.length) return;
+    try {
+      customers = (await fetchCustomers()).filter((c) => c.id !== customerId);
+    } catch (e) {
+      customers = [];
+      mergeError = `Clients indisponibles : ${errorMessage(e)}`;
+    }
+  }
+
+  async function merge() {
+    if (!mergePair) return;
+    const { keep, drop } = mergePair;
+    merging = true;
+    mergeError = "";
+    const { error: mergeErr } = await supabase.rpc("merge_customers", {
+      p_from: drop.id,
+      p_into: keep.id,
+      p_keep_from_email: emailConflict && emailFrom === "drop",
+    });
+    merging = false;
+    if (mergeErr) {
+      mergeError = mergeErr.message;
+      return;
+    }
+    mergeOpen = false;
+    customers = null;
+    if (keep.id === customerId) await load();
+    else await goto(`/manage/customers/${keep.id}`);
+  }
+
+  function customerSummary(c: Customer): string {
+    return [`Client depuis le ${formatDate(c.created_at)}`, c.email, c.phone_number].filter(Boolean).join(" · ");
+  }
+
   let menuItems = $derived([
     { label: "Modifier", icon: IconPencil, href: `/manage/customers?modifier=${customerId}` },
+    { label: "Fusionner avec un autre client…", icon: IconMerge, onSelect: () => openMerge() },
     { label: "Supprimer…", icon: IconTrash, danger: true, separator: true, onSelect: () => (confirmOpen = true) },
   ]);
 </script>
@@ -243,6 +322,19 @@
     <EmptyState title="Client introuvable" text="Il a peut-être été supprimé." />
   {:else}
     {#each warnings as w}<div class="error-message" role="alert">{w}</div>{/each}
+    {#each sameName as other (other.id)}
+      <div class="namesake">
+        <Card>
+          <div class="namesake-row">
+            <span>
+              <strong>Doublon possible :</strong> <a href="/manage/customers/{other.id}">{customerDisplayLabel(other)}</a> porte le même nom.
+              <span class="t-caption">{customerSummary(other)}</span>
+            </span>
+            <Button size="sm" onclick={() => openMerge(other.id)}><IconMerge size={14} strokeWidth={1.75} /> Fusionner…</Button>
+          </div>
+        </Card>
+      </div>
+    {/each}
     <div class="top">
       <Card title="Coordonnées" id="coords">
         <dl class="coords">
@@ -454,7 +546,70 @@
   onconfirm={deleteCustomer}
 />
 
+<Modal open={mergeOpen} title="Fusionner avec un autre client" maxWidth={520} onclose={() => !merging && (mergeOpen = false)}>
+  {#if !customers}
+    <Spinner />
+  {:else}
+    <Field id="merge-with" label="Autre fiche du même client">
+      {#snippet children({ describedby, invalid })}
+        <CustomerAutocomplete id="merge-with" bind:value={mergeWithId} onchange={() => (emailFrom = "drop")} customers={customers ?? []} {describedby} {invalid} />
+      {/snippet}
+    </Field>
+  {/if}
+  {#if mergePair}
+    <dl class="coords merge-pair">
+      <dt>Gardée (la plus ancienne)</dt>
+      <dd><strong>{customerDisplayLabel(mergePair.keep)}</strong><span class="t-caption">{customerSummary(mergePair.keep)}</span></dd>
+      <dt>Supprimée</dt>
+      <dd><strong>{customerDisplayLabel(mergePair.drop)}</strong><span class="t-caption">{customerSummary(mergePair.drop)}</span></dd>
+    </dl>
+    <p class="t-muted">
+      Ventes, réservations (avec leurs places) et dégustations passent sur la fiche gardée. Email, téléphone, société et
+      adresse complètent ceux qui lui manquent. La fusion est définitive.
+    </p>
+    {#if emailConflict}
+      <Field id="merge-email" label="Email gardé" help="Celui avec lequel il réserve : sinon sa prochaine réservation recrée une fiche.">
+        {#snippet children({ describedby })}
+          <Select id="merge-email" bind:value={emailFrom} {describedby}>
+            <option value="drop">{mergePair.drop.email}</option>
+            <option value="keep">{mergePair.keep.email}</option>
+          </Select>
+        {/snippet}
+      </Field>
+    {/if}
+  {/if}
+  {#if mergeError}<div class="error-message" role="alert">{mergeError}</div>{/if}
+  {#snippet footer()}
+    <Button variant="ghost" onclick={() => (mergeOpen = false)} disabled={merging}>Annuler</Button>
+    <Button variant="primary" onclick={merge} disabled={!mergePair || merging}>{merging ? "Fusion…" : "Fusionner"}</Button>
+  {/snippet}
+</Modal>
+
 <style>
+  .namesake {
+    margin-bottom: 16px;
+  }
+
+  .namesake-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+  }
+
+  .namesake .t-caption {
+    display: block;
+  }
+
+  .merge-pair {
+    margin: 16px 0;
+  }
+
+  .merge-pair dd {
+    display: flex;
+    flex-direction: column;
+  }
+
   .top {
     display: grid;
     grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
