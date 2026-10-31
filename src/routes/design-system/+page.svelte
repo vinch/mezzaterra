@@ -223,7 +223,7 @@
             <li><strong>Chiffres</strong> alignés à droite (<code>.num</code>, y compris l’en-tête de colonne), montants avec <code>formatEUR</code>, dates avec <code>formatDate</code>.</li>
             <li><strong>Accessibilité</strong> : chaque champ a un libellé (<code>Field</code>), chaque bouton icône un <code>label</code>, cibles de 44 px sur mobile (déjà géré par les composants).</li>
             <li><strong>Textes en français</strong>, phrases courtes, guillemets « » et apostrophe typographique ’.</li>
-            <li><strong>Vocabulaire produit</strong> : un écran qui montre des vins peut montrer des huiles. Millésime ou lot, cépages ou variétés, « ce vin » ou « cette huile » viennent de <code>kindInfo()</code> (<code>src/lib/productKinds.ts</code>), pas de « vin » en dur.</li>
+            <li><strong>Vocabulaire produit</strong> : un écran qui montre des vins peut montrer des huiles. Millésime ou lot, cépages ou variétés, « ce vin » ou « cette huile » viennent de <code>kindInfo()</code> (<code>src/lib/productKinds.ts</code>), pas de « vin » en dur. Idem pour les icônes : <code>KIND_ICONS</code> (<code>src/lib/ui/kindIcons.ts</code>) donne celle du produit (verre ou goutte) et de sa composition (grappe ou feuille) ; un état vide qui mêle les types prend une icône neutre (<code>IconReceipt</code>, <code>IconBox</code>…) ; la navigation et le tableau de bord gardent le verre, emblème de la cave.</li>
           </ul>
         </section>
 

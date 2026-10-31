@@ -7,7 +7,9 @@
   import { customerDisplayLabel } from "$lib/customerDisplay";
   import { vintageLabel } from "$lib/wine";
   import { fold, formatDate, formatEUR } from "$lib/format";
-  import { IconClipboard, IconGlasses, IconReceipt, IconSearch, IconUsers, IconWine } from "$lib/ui/icons";
+  import { IconClipboard, IconGlasses, IconReceipt, IconSearch, IconUsers } from "$lib/ui/icons";
+  import { KIND_ICONS } from "$lib/ui/kindIcons";
+  import { kindOf } from "$lib/productKinds";
   import Spinner from "$lib/ui/Spinner.svelte";
 
   interface Props {
@@ -79,7 +81,7 @@
         label,
         hint: "Stock",
         href: `/manage/wines/${v.wine_id}/stock/${v.id}`,
-        icon: IconWine,
+        icon: KIND_ICONS[kindOf(v.wine)].product,
         haystack: fold(label),
       });
     }

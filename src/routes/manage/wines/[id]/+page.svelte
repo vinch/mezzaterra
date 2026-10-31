@@ -20,13 +20,12 @@
     IconArchive,
     IconArchiveRestore,
     IconBox,
-    IconGrape,
     IconPencil,
     IconPlus,
     IconTrash,
-    IconWine,
     IconX,
   } from "$lib/ui/icons";
+  import { KIND_ICONS } from "$lib/ui/kindIcons";
   import { formatEUR } from "$lib/format";
   import { errorMessage, latestOnly } from "$lib/async";
   import {
@@ -51,6 +50,7 @@
   let wine = data.wine;
   /** Vocabulaire du produit : millésime ou lot, cépages ou variétés… */
   const kind = kindInfo(wine);
+  const kindIcons = KIND_ICONS[kind.key];
   /* Millésimes déjà chargés par +page.ts ; relus seulement après une modification. */
   let vintages = $state<WineVintage[]>(sortVintages(wine.wine_vintage || []));
   let error = $state("");
@@ -270,7 +270,7 @@
     const gone = isDiscontinued(v);
     return [
       { label: "Gérer le stock", icon: IconBox, href: `/manage/wines/${wine.id}/stock/${v.id}` },
-      { label: kind.ingredients, icon: IconGrape, onSelect: () => openGrapesModal(v) },
+      { label: kind.ingredients, icon: kindIcons.ingredient, onSelect: () => openGrapesModal(v) },
       { label: "Modifier", icon: IconPencil, onSelect: () => openEditModal(v) },
       {
         label: gone ? "Remettre au catalogue" : "Plus jamais disponible",
@@ -385,7 +385,7 @@
   {/if}
 
   {#if vintages.length === 0}
-    <EmptyState icon={IconWine} title="{kind.noBatch} pour {kind.thisLabel}" text="À ajouter pour vendre, stocker et servir en dégustation.">
+    <EmptyState icon={kindIcons.product} title="{kind.noBatch} pour {kind.thisLabel}" text="À ajouter pour vendre, stocker et servir en dégustation.">
       <Button onclick={openCreateModal}><IconPlus size={16} strokeWidth={1.75} /> {kind.newBatch}</Button>
     </EmptyState>
   {:else}
@@ -596,7 +596,7 @@
   {#if error}<div class="error-message" role="alert">{error}</div>{/if}
   {#if selectedVintage}<p class="t-muted grapes-intro">{wineTitle(wine)} · {vintageYearLabel(selectedVintage, kind.key)}</p>{/if}
   {#if vintageGrapes.length === 0}
-    <EmptyState icon={IconGrape} title="{kind.noIngredient} pour {kind.thisBatch}" compact />
+    <EmptyState icon={kindIcons.ingredient} title="{kind.noIngredient} pour {kind.thisBatch}" compact />
   {:else}
     <ul class="grapes">
       {#each vintageGrapes as vintageGrape (vintageGrape.grape_id)}

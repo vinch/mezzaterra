@@ -22,7 +22,7 @@
   import EmptyState from "$lib/ui/EmptyState.svelte";
   import StatusBadge from "$lib/ui/StatusBadge.svelte";
   import WineDot from "$lib/ui/WineDot.svelte";
-  import { IconDownload, IconGlasses, IconPencil, IconPlus, IconReceipt, IconSend, IconSparkle, IconTrash, IconWine } from "$lib/ui/icons";
+  import { IconDownload, IconGlasses, IconPencil, IconPlus, IconReceipt, IconSend, IconSparkle, IconTrash } from "$lib/ui/icons";
   import Spinner from "$lib/ui/Spinner.svelte";
 
   const customerId = $page.params.id ?? "";
@@ -277,7 +277,7 @@
     <div class="grid">
       <Card title="Ses goûts" id="tastes">
         {#if totalBottles === 0}
-          <EmptyState icon={IconWine} title="Pas encore d’achat" compact />
+          <EmptyState icon={IconReceipt} title="Pas encore d’achat" compact />
         {:else}
           <div class="share-bar" role="img" aria-label="Répartition des achats par robe">
             {#each robeOrder as r}
@@ -336,7 +336,7 @@
 
       <Card title="Produits achetés" id="bought">
         {#if bought.length === 0}
-          <EmptyState icon={IconWine} title="Aucun achat" compact />
+          <EmptyState icon={IconReceipt} title="Aucun achat" compact />
         {:else}
           <ul class="list">
             {#each bought as b}

@@ -29,8 +29,9 @@ menus de ligne, chiffres, accessibilité, textes).
   `$lib/ui/icons` (y ajouter celle qui manque).
 - **Types de produit** : vins et huiles d’olive partagent les tables `wine`,
   `wine_vintage`, `grape`… (colonne `kind`). Le vocabulaire propre à chacun
-  (millésime ou lot, cépages ou variétés…) vient de `src/lib/productKinds.ts` ;
-  un nouveau type s’ajoute là et au domaine SQL `product_kind`. Un lot
+  (millésime ou lot, cépages ou variétés…) vient de `src/lib/productKinds.ts`,
+  ses icônes de `KIND_ICONS` (`src/lib/ui/kindIcons.ts`) ; un nouveau type
+  s’ajoute à ces deux endroits et au domaine SQL `product_kind`. Un lot
   (`wine_vintage`) = une année et un contenant (`volume_ml`) : prix et stock
   sont par contenant ; libellés via `vintageLabel`, `vintageVolume`…
 - **Nouveau composant** : seulement si rien d’existant ne convient. Il va dans
