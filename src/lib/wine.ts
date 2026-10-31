@@ -308,6 +308,7 @@ type WineryLike = {
   city?: string | null;
   latitude?: number | null;
   longitude?: number | null;
+  instagram?: string | null;
   region?: { name?: string | null; country?: { flag?: string | null } | null } | null;
   country?: { flag?: string | null } | null;
 } | null | undefined;
@@ -328,7 +329,7 @@ export function wineryMapUrl(w: WineryLike): string | null {
 }
 
 /** Compte Instagram d'un domaine, saisi « @compte », « compte » ou en lien instagram.com/compte. */
-export function wineryInstagram(w: { instagram?: string | null } | null | undefined): { handle: string; url: string } | null {
+export function wineryInstagram(w: WineryLike): { handle: string; url: string } | null {
   const account = w?.instagram
     ?.trim()
     .replace(/^(https?:\/\/)?(www\.)?instagram\.com\//i, "")
