@@ -90,6 +90,19 @@ export function onlineSeatsByCustomer(registrations: RegistrationSeats[]): Map<s
   return m;
 }
 
+/**
+ * Places prises (même règle que tasting_seats_taken en SQL) : celles de chaque participant
+ * (participant_seats), plus les réservations confirmées pas encore rattachées à un client.
+ */
+export function seatsTaken(
+  participants: { customer_id: string; seats: number }[],
+  registrations: RegistrationSeats[],
+): number {
+  const online = onlineSeatsByCustomer(registrations);
+  const unlinked = onlineSeats(registrations.filter((r) => r.customer_id == null));
+  return participants.reduce((n, p) => n + (online.get(p.customer_id) ?? p.seats), unlinked);
+}
+
 export function placesLabel(n: number): string {
   return `${n} place${n > 1 ? "s" : ""}`;
 }

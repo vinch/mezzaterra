@@ -16,14 +16,15 @@
   import { compareCustomersByLabel, customerDisplayLabel } from "$lib/customerDisplay";
   import { fetchCustomers, fetchPickerVintages } from "$lib/manageData";
   import { errorMessage, latestOnly } from "$lib/async";
-  import { fetchTastingWithWines, onlineSeatsByCustomer, participantOrigin, tastingTitle } from "$lib/publicData";
+  import { fetchTastingWithWines, onlineSeatsByCustomer, participantOrigin, placesLabel, seatsTaken, tastingTitle } from "$lib/publicData";
   import { todayIso } from "$lib/dates";
   import { formatDate } from "$lib/format";
   import { isDiscontinued, vintageLabel } from "$lib/wine";
 
   type TastingRow = Tasting & {
     tasting_wine_vintage: { order: number; wine_vintage_id: string }[];
-    tasting_customer: { customer_id: string }[];
+    tasting_customer: { customer_id: string; seats: number }[];
+    tasting_registration: { customer_id: string | null; seats: number; status: string }[];
   };
 
   type ModalWineEntry = {
@@ -129,9 +130,11 @@
         `
         *,
         tasting_wine_vintage ( order, wine_vintage_id ),
-        tasting_customer ( customer_id )
+        tasting_customer ( customer_id, seats ),
+        tasting_registration ( customer_id, seats, status )
       `,
       )
+      .eq("tasting_registration.status", "confirmed")
       .order("date", { ascending: false });
 
     if (fetchError) {
@@ -424,8 +427,9 @@
     return t.tasting_wine_vintage?.length ?? 0;
   }
 
-  function customerCount(t: TastingRow): number {
-    return t.tasting_customer?.length ?? 0;
+  /** Places prises, comme dans Piloter : une réservation en ligne de 2 places compte pour 2. */
+  function participantPlaces(t: TastingRow): number {
+    return seatsTaken(t.tasting_customer ?? [], t.tasting_registration ?? []);
   }
 </script>
 
@@ -468,7 +472,7 @@
         </thead>
         <tbody>
           {#each tastings as tasting (tasting.id)}
-            {@const count = customerCount(tasting)}
+            {@const count = participantPlaces(tasting)}
             <tr>
               <td>{formatDate(tasting.date)}</td>
               <td>
@@ -478,8 +482,8 @@
               <td>{tasting.location || "—"}</td>
               <td class="num">{wineCount(tasting)}</td>
               <td class="num">
-                {#if count}
-                  <Button size="sm" variant="ghost" title="Voir les participants" ariaLabel="Voir les {count} participants" onclick={() => showParticipants(tasting)}>{count}</Button>
+                {#if tasting.tasting_customer?.length}
+                  <Button size="sm" variant="ghost" title="Voir les participants" ariaLabel="Voir les participants ({placesLabel(count)})" onclick={() => showParticipants(tasting)}>{count}</Button>
                 {:else}
                   0
                 {/if}
