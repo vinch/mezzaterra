@@ -2,7 +2,6 @@
   import { preventDefault } from "$lib/ui/events";
 
   import { NEW_ROW, supabase } from "$lib/supabase";
-  import { onMount } from "svelte";
   import { invalidateAll } from "$app/navigation";
   import type { PageData } from "./$types";
   import Modal from "$lib/ui/Modal.svelte";
@@ -10,7 +9,6 @@
   import StatusBadge from "$lib/ui/StatusBadge.svelte";
   import { KIND_META, statusMeta } from "$lib/status";
   import ManagePageShell from "$lib/components/manage/ManagePageShell.svelte";
-  import Spinner from "$lib/ui/Spinner.svelte";
   import { fetchPickerVintages } from "$lib/manageData";
   import { errorMessage, latestOnly } from "$lib/async";
   import { todayIso } from "$lib/dates";
@@ -25,10 +23,10 @@
   let { data }: Props = $props();
 
   let orders: any[] = $derived(data.orders);
-  /* Rechargé par invalidateAll() après une création, une modification ou une suppression. */
-  let suppliers = $state<any[]>([]);
+  /* Rechargés par invalidateAll() après une création, une modification ou une suppression. */
+  let suppliers: any[] = $derived(data.suppliers);
+  /** Catalogue du formulaire, lu à sa première ouverture. */
   let wineVintages = $state.raw<any[]>([]);
-  let loading = $state(true);
   let error = $state("");
   /** Modale unique création / édition (`editingOrder` les distingue). */
   let formOpen = $state(false);
@@ -54,30 +52,22 @@
   let selectedQuantity = $state("");
   let selectedPrice = $state("");
 
-  onMount(async () => {
-    try {
-      await Promise.all([loadSuppliers(), fetchPickerVintages().then((v) => (wineVintages = v))]);
-    } catch (e) {
-      error = errorMessage(e);
-    } finally {
-      loading = false;
-    }
-  });
-
-  async function loadSuppliers() {
-    const { data } = await supabase.from("supplier").select("*").order("name");
-    if (data) suppliers = data;
-  }
-
   /* Chargements des modales : le dernier clic gagne (deux « Modifier » enchaînés…). */
   const formLoad = latestOnly((e) => (error = errorMessage(e)));
 
-  function openCreateModal() {
+  async function openCreateModal() {
     error = "";
-    formLoad.cancel();
+    const vintages = await formLoad.run(pickerVintages);
+    if (!vintages) return;
+    wineVintages = vintages;
     editingOrder = null;
     resetForm();
     formOpen = true;
+  }
+
+  /** Catalogue déjà lu, sinon lu maintenant (première ouverture, ou lecture précédente en échec). */
+  function pickerVintages(): Promise<any[]> {
+    return wineVintages.length ? Promise.resolve(wineVintages) : fetchPickerVintages();
   }
 
   async function openEditModal(order: any) {
@@ -88,10 +78,7 @@
       return;
     }
 
-    /* Catalogue lu au chargement de la page : relu seulement s'il avait échoué. */
-    const loaded = await formLoad.run(() =>
-      Promise.all([wineVintages.length ? wineVintages : fetchPickerVintages(), loadOrderItems(order.id)]),
-    );
+    const loaded = await formLoad.run(() => Promise.all([pickerVintages(), loadOrderItems(order.id)]));
     if (!loaded) return;
     const [vintages, items] = loaded;
 
@@ -361,9 +348,7 @@
       <div class="error-message">{error}</div>
     {/if}
 
-    {#if loading}
-      <Spinner />
-    {:else if orders.length === 0}
+    {#if orders.length === 0}
       <div class="empty-state">
         <p>Aucune commande trouvée</p>
         <button class="btn-primary" onclick={openCreateModal}>

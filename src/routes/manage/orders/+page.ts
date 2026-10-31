@@ -2,7 +2,9 @@ import { supabase } from "$lib/supabase";
 import type { PageLoad } from "./$types";
 
 export const load: PageLoad = async () => {
-  const { data: orders, error: ordersError } = await supabase
+  /* Fournisseurs chargés en même temps que la liste ; le catalogue, lui, à l'ouverture du formulaire. */
+  const [{ data: orders, error: ordersError }, { data: suppliers }] = await Promise.all([
+    supabase
     .from("order")
     .select(
       `
@@ -14,7 +16,9 @@ export const load: PageLoad = async () => {
       )
     `
     )
-    .order("date", { ascending: false });
+    .order("date", { ascending: false }),
+    supabase.from("supplier").select("*").order("name"),
+  ]);
 
   if (ordersError) {
     throw new Error(
@@ -22,5 +26,5 @@ export const load: PageLoad = async () => {
     );
   }
 
-  return { orders: orders || [] };
+  return { orders: orders || [], suppliers: suppliers || [] };
 };

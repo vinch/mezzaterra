@@ -2,7 +2,9 @@ import { supabase } from "$lib/supabase";
 import type { PageLoad } from "./$types";
 
 export const load: PageLoad = async () => {
-  const { data: transports, error: transportsError } = await supabase
+  /* Transporteurs chargés en même temps que la liste : le formulaire n'attend plus après. */
+  const [{ data: transports, error: transportsError }, { data: transporters }] = await Promise.all([
+    supabase
     .from("transport")
     .select(
       `
@@ -11,7 +13,9 @@ export const load: PageLoad = async () => {
       order ( count )
     `
     )
-    .order("departure_date", { ascending: false });
+    .order("departure_date", { ascending: false }),
+    supabase.from("transporter").select("*").order("name"),
+  ]);
 
   if (transportsError) {
     throw new Error(
@@ -20,6 +24,7 @@ export const load: PageLoad = async () => {
   }
 
   return {
+    transporters: transporters || [],
     transports: (transports || []).map(({ order, ...transport }) => ({
       ...transport,
       order_count: order[0]?.count ?? 0,
