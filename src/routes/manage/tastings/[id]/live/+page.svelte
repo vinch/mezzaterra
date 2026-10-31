@@ -176,11 +176,13 @@
         registrations = data || [];
       })(),
       (async () => {
-        const { data } = await supabase
+        const { data, error: e } = await supabase
           .from("tasting_customer")
           .select("seats, customer ( id, first_name, last_name, company_name, email, phone_number )")
           .eq("tasting_id", tastingId);
-        participants = (data || [])
+        /* Un relevé raté garde la liste précédente plutôt que d'afficher « Aucun participant ». */
+        if (e) return;
+        participants = data
           .filter((r) => r.customer)
           .map((r) => ({ ...r.customer!, seats: r.seats }))
           .sort(compareCustomersByLabel);
