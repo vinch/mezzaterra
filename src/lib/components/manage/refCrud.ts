@@ -20,6 +20,9 @@ export type RefField = {
   /** Valeur proposée à la création. */
   default?: string;
   maxlength?: number;
+  /** Nettoie une saisie non vide avant l'enregistrement ; `null` la refuse, avec `invalid` comme message. */
+  normalize?: (value: string) => string | null;
+  invalid?: string;
 };
 
 /** Colonne du tableau (la première est en gras, ou lien vers la fiche). */

@@ -12,6 +12,7 @@
     wineStyle,
     wineTitle,
     wineryFlag,
+    wineryInstagram,
     wineryMapEmbedUrl,
     wineryMapUrl,
     wineryPlace,
@@ -30,6 +31,7 @@
   let place = $derived(wineryPlace(winery));
   let flag = $derived(wineryFlag(winery));
   let mapUrl = $derived(wineryMapUrl(winery));
+  let instagram = $derived(wineryInstagram(winery));
 
   let vintages = $derived([...data.vintages].sort((a, b) => {
     const sa = STYLE_ORDER.indexOf(wineStyle(a.wine?.wine_type).key);
@@ -124,10 +126,13 @@
         </dl>
       {/if}
 
-      {#if winery.url || mapUrl}
+      {#if winery.url || instagram || mapUrl}
         <div class="links">
           {#if winery.url}
             <a class="mz-btn" href={winery.url} target="_blank" rel="noopener noreferrer">Site du domaine ↗</a>
+          {/if}
+          {#if instagram}
+            <a class="mz-btn mz-btn--ghost" href={instagram.url} target="_blank" rel="noopener noreferrer">Instagram {instagram.handle} ↗</a>
           {/if}
           {#if mapUrl}
             <a class="mz-btn mz-btn--ghost" href={mapUrl} target="_blank" rel="noopener noreferrer">Ouvrir la carte</a>
