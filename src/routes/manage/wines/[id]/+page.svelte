@@ -517,15 +517,11 @@
           bind:value={vintageFormData.volume_ml}
           required
           disabled={!!editingVintage}
-          aria-describedby={editingVintage ? "volume-hint" : undefined}
         >
           {#each editingVintage ? [editingVintage.volume_ml] : kind.volumes as ml (ml)}
             <option value={String(ml)}>{formatVolume(ml)}</option>
           {/each}
         </select>
-        {#if editingVintage}
-          <span id="volume-hint" class="t-caption">Un autre contenant = un nouveau lot, avec son prix et son stock.</span>
-        {/if}
       </div>
 
       <div class="form-group">
