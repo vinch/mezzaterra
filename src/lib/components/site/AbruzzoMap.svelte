@@ -201,6 +201,7 @@
         onblur={untrack}
         onclick={(e) => open(e, w.id)}
       >
+        <circle class="pin-hit" cx={w.x} cy={w.y} r="16" />
         <circle class="pin-halo" cx={w.x} cy={w.y} r="12" />
         <circle class="pin-dot" cx={w.x} cy={w.y} r="9" />
       </a>
@@ -334,7 +335,15 @@
     animation: pin-in 0.5s var(--mz-ease) var(--delay) both;
   }
 
+  /* Zone de survol fixe, un peu plus large que le point : le halo animé n'y participe pas, sinon
+     l'infobulle apparaîtrait et disparaîtrait au rythme de la pulsation. */
+  .pin-hit {
+    fill: none;
+    pointer-events: all;
+  }
+
   .pin-halo {
+    pointer-events: none;
     fill: var(--mz-wine-red);
     opacity: 0.18;
     transform-box: fill-box;
@@ -492,6 +501,10 @@
 
     .pin-dot {
       r: 13;
+    }
+
+    .pin-hit {
+      r: 20;
     }
 
     .pin.current .pin-dot {
