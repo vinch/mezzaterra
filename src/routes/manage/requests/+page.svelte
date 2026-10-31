@@ -1,7 +1,7 @@
 <script lang="ts">
   import { getContext, onMount } from "svelte";
   import { errorMessage } from "$lib/async";
-  import { supabase } from "$lib/supabase";
+  import { fetchAllRows, supabase } from "$lib/supabase";
   import ManagePageShell from "$lib/components/manage/ManagePageShell.svelte";
   import Button from "$lib/ui/Button.svelte";
   import Card from "$lib/ui/Card.svelte";
@@ -60,13 +60,15 @@
 
   /** Seules les demandes changent après une action : produits et dégustations restent en mémoire. */
   async function loadRequests() {
-    const [wRes, mRes] = await Promise.all([
-      supabase.from("wish_request").select("*").order("created_at", { ascending: false }),
-      supabase.from("contact_message").select("*").order("created_at", { ascending: false }),
+    /* Paginé : au-delà de 1000 lignes, PostgREST tronquerait la liste sans le dire. */
+    [wishes, messages] = await Promise.all([
+      fetchAllRows<WishRequest>((a, b) =>
+        supabase.from("wish_request").select("*").order("created_at", { ascending: false }).order("id").range(a, b),
+      ),
+      fetchAllRows<ContactMessage>((a, b) =>
+        supabase.from("contact_message").select("*").order("created_at", { ascending: false }).order("id").range(a, b),
+      ),
     ]);
-    if (wRes.error || mRes.error) throw new Error((wRes.error || mRes.error)!.message);
-    wishes = (wRes.data || []) as unknown as WishRequest[];
-    messages = (mRes.data || []) as ContactMessage[];
   }
 
   let prices = $derived(new Map([...vintages.values()].map((v) => [v.id, Number(v.price ?? 0)])));
