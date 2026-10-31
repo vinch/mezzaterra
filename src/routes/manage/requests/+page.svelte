@@ -42,15 +42,19 @@
 
   onMount(async () => {
     try {
-      const [, vRes, tRes] = await Promise.all([
+      const [, vRows, tRows] = await Promise.all([
         loadRequests(),
-        supabase
-          .from("wine_vintage")
-          .select("id, year, production_year, volume_ml, price, wine ( kind, name, winery ( name ), appelation ( name, label ( name ) ) )"),
-        supabase.from("tasting").select("id, name, date"),
+        fetchAllRows<any>((a, b) =>
+          supabase
+            .from("wine_vintage")
+            .select("id, year, production_year, volume_ml, price, wine ( kind, name, winery ( name ), appelation ( name, label ( name ) ) )")
+            .order("id")
+            .range(a, b),
+        ),
+        fetchAllRows<any>((a, b) => supabase.from("tasting").select("id, name, date").order("id").range(a, b)),
       ]);
-      vintages = new Map((vRes.data || []).map((v: any) => [v.id, v]));
-      tastings = new Map((tRes.data || []).map((t: any) => [t.id, t]));
+      vintages = new Map(vRows.map((v) => [v.id, v]));
+      tastings = new Map(tRows.map((t) => [t.id, t]));
     } catch (e) {
       error = errorMessage(e);
     } finally {
