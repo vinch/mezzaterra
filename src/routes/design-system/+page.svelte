@@ -47,10 +47,10 @@
   } from "$lib/ui/icons";
   import { preventDefault } from "$lib/ui/events";
   import {
-    CHANGEABLE_STATUSES,
     KIND_META,
     STATUS_META,
-    saleStatusMenuItems,
+    canChangeStatus,
+    statusMenuItems,
     type SaleStatus,
     type StatusKind,
   } from "$lib/status";
@@ -168,7 +168,7 @@
 
   /* Mêmes transitions et libellés que la page Ventes. */
   let statusItems = $derived<MenuItem[]>(
-    saleStatusMenuItems(demoStatus, (next) => (demoStatus = next)),
+    statusMenuItems("sale", demoStatus, (next) => (demoStatus = next as SaleStatus)),
   );
 
   const rows = [
@@ -341,13 +341,13 @@
             <code class="row-label">interactive</code>
             <StatusBadge
               status={demoStatus}
-              interactive={CHANGEABLE_STATUSES.includes(demoStatus)}
+              interactive={canChangeStatus("sale", demoStatus)}
               expanded={statusOpen}
               bind:el={statusAnchor}
               onclick={() => (statusOpen = !statusOpen)}
             />
-            <span class="t-caption">Ouvre un <code>Menu</code> des transitions permises (<code>saleStatusMenuItems</code> de <code>status.ts</code>).</span>
-            {#if !CHANGEABLE_STATUSES.includes(demoStatus)}
+            <span class="t-caption">Ouvre un <code>Menu</code> des transitions permises : <code>statusMenuItems(kind, statut, …)</code> et <code>canChangeStatus</code> de <code>status.ts</code>, pour les ventes, commandes et transports.</span>
+            {#if !canChangeStatus("sale", demoStatus)}
               <Button size="sm" variant="ghost" onclick={() => (demoStatus = "pending")}>Recommencer</Button>
             {/if}
           </div>

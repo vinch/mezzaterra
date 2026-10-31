@@ -9,7 +9,7 @@
   import Button from "$lib/ui/Button.svelte";
   import IconButton from "$lib/ui/IconButton.svelte";
   import StatusBadge from "$lib/ui/StatusBadge.svelte";
-  import { CHANGEABLE_STATUSES, isSaleEditable, saleStatusMenuItems, STATUS_META, type SaleStatus } from "$lib/status";
+  import { canChangeStatus, isSaleEditable, statusMenuItems, STATUS_META, type SaleStatus } from "$lib/status";
   import Menu, { type MenuItem } from "$lib/ui/Menu.svelte";
   import RowMenu from "$lib/ui/RowMenu.svelte";
   import ConfirmDialog from "$lib/ui/ConfirmDialog.svelte";
@@ -635,8 +635,8 @@
   }
 
   /* Changement de statut depuis le badge (mêmes transitions que l'ancien sélecteur). */
-  function statusMenuItems(sale: any): MenuItem[] {
-    return saleStatusMenuItems(sale.status, (next) => changeStatus(sale, next));
+  function saleStatusItems(sale: any): MenuItem[] {
+    return statusMenuItems("sale", sale.status, (next) => changeStatus(sale, next));
   }
   async function changeStatus(sale: any, next: string) {
     error = "";
@@ -666,7 +666,7 @@
     items.push({ label: "Ouvrir", icon: IconEye, onSelect: () => openDetailsModal(sale) });
     /* Payée ou livrée, la vente a sorti son stock : elle est figée (save_sale le refuse aussi). */
     if (isSaleEditable(st)) items.push({ label: "Modifier", icon: IconPencil, onSelect: () => openEditModal(sale) });
-    items.push(...statusMenuItems(sale));
+    items.push(...saleStatusItems(sale));
     if (isSaleEditable(st)) {
       items.push({ label: "Supprimer…", icon: IconTrash, danger: true, separator: true, onSelect: () => askDelete(sale) });
     }
@@ -758,7 +758,7 @@
     }));
   let pendingCount = $derived(sales.filter((s) => s.status === "pending").length);
   let subtitle = $derived(`${periodSales.length} vente${periodSales.length > 1 ? "s" : ""}${period === "all" ? "" : ` en ${period}`} · ${pendingCount} en attente de paiement`);
-  let statusItems = $derived(statusMenuSale ? statusMenuItems(statusMenuSale) : []);
+  let statusItems = $derived(statusMenuSale ? saleStatusItems(statusMenuSale) : []);
   let grossTotal = $derived(Math.round(
     saleItems.reduce((sum, it) => sum + toNumber(it.price) * (parseInt(String(it.quantity ?? 0), 10) || 0), 0) * 100,
   ) / 100);
@@ -853,7 +853,7 @@
                 {#if sale.tasting_id}<span class="tasting-tag" title={tastingLabel(sale.tasting_id)}><IconGlasses size={12} strokeWidth={1.75} aria-hidden="true" />{tastingById.get(sale.tasting_id)?.name || "Dégustation"}</span>{/if}
               </td>
               <td>
-                {#if CHANGEABLE_STATUSES.includes(sale.status)}
+                {#if canChangeStatus("sale", sale.status)}
                   <StatusBadge
                     status={sale.status}
                     interactive
