@@ -61,9 +61,7 @@
                 </span>
                 <h3 class="mz-display mz-h3">{tastingTitle(t)}</h3>
                 <p class="meta">
-                  {formatDateLong(t.date)}{t.start_time ? ` · ${formatTime(t.start_time)}` : ""}{t.location
-                    ? ` · ${t.location}`
-                    : ""}
+                  {formatDateLong(t.date)}{t.start_time ? ` · ${formatTime(t.start_time)}` : ""}
                 </p>
                 <p class="meta">
                   {#if wineCount(t)}{wineCount(t)} vins{/if}{#if t.price}{wineCount(t) ? " · " : ""}{formatEUR(t.price)} / pers.{/if}
@@ -87,7 +85,7 @@
                 <span class="past-date">{d.day} {d.month} {d.year}</span>
                 <span class="past-name">{tastingTitle(t)}</span>
                 <span class="past-meta">
-                  {t.location || ""}{t.location && wineCount(t) ? " · " : ""}{wineCount(t) ? `${wineCount(t)} vins` : ""}
+                  {wineCount(t) ? `${wineCount(t)} vins` : ""}
                 </span>
                 <span class="go" aria-hidden="true">→</span>
               </a>

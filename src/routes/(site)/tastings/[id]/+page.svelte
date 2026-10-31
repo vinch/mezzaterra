@@ -36,7 +36,6 @@
       title: tastingTitle(t),
       date: t.date,
       time: t.start_time,
-      location: t.location,
       description: t.description,
       url: $page.url.href,
     });
@@ -55,7 +54,7 @@
     <meta property="og:title" content="{tastingTitle(t)} — Mezzaterra" />
     <meta
       property="og:description"
-      content="{formatDateLong(t.date)}{t.location ? ` · ${t.location}` : ''} — {wineVintages.length || hiddenCount} vins des Abruzzes à découvrir."
+      content="{formatDateLong(t.date)} — {wineVintages.length || hiddenCount} vins des Abruzzes à découvrir."
     />
   {/if}
 </svelte:head>
@@ -78,7 +77,6 @@
       <ul class="facts">
         <li>{formatDateLong(t.date)}{t.start_time ? ` · ${formatTime(t.start_time)}` : ""}</li>
         {#if isPrivate}<li>Dégustation privée</li>{/if}
-        {#if t.location}<li>{t.location}</li>{/if}
         {#if t.price}<li>{formatEUR(t.price)} / personne</li>{/if}
         {#if wineVintages.length || hiddenCount}<li>{wineVintages.length || hiddenCount} vins</li>{/if}
       </ul>
