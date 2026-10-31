@@ -10,7 +10,7 @@ const MOVED: [from: string, to: string][] = [
 export const handle: Handle = ({ event, resolve }) => {
   const { pathname, search } = event.url;
   for (const [from, to] of MOVED) {
-    if (pathname === from || pathname.startsWith(`${from}/`)) redirect(308, to + pathname.slice(from.length) + search);
+    if (pathname === from || pathname.startsWith(`${from}/`)) redirect(307, to + pathname.slice(from.length) + search);
   }
   return resolve(event);
 };
