@@ -2,7 +2,7 @@ import { error, redirect } from "@sveltejs/kit";
 import { isUuid } from "$lib/publicData";
 import { kindBySlug, kindOf, productHref } from "$lib/productKinds";
 import { supabase } from "$lib/supabase";
-import { groupFormats, VINTAGE_PUBLIC_SELECT, VINTAGE_PUBLIC_SELECT_BY_WINE } from "$lib/wine";
+import { compareProducts, groupFormats, VINTAGE_PUBLIC_SELECT, VINTAGE_PUBLIC_SELECT_BY_WINE } from "$lib/wine";
 import type { PageLoad } from "./$types";
 
 export const load: PageLoad = async ({ params, url }) => {
@@ -15,9 +15,9 @@ export const load: PageLoad = async ({ params, url }) => {
     .maybeSingle();
 
   if (fetchError) throw error(500, "Impossible de charger ce produit");
-  if (!vintage) throw error(404, "Produit introuvable");
-
   const v = vintage as any;
+  /* Sans son produit (illisible ou absent), le lot n'a rien à montrer. */
+  if (!v?.wine) throw error(404, "Produit introuvable");
   /* Une huile ouverte sous /vins (ou l'inverse) : vers la bonne adresse. */
   if (kindOf(v.wine) !== kindBySlug(params.kind)) throw redirect(301, productHref(v) + url.search);
   const wineryId = v.wine?.winery_id ?? v.wine?.winery?.id;
@@ -56,6 +56,6 @@ export const load: PageLoad = async ({ params, url }) => {
     vintage: v,
     formats: current.formats,
     siblings: otherYears.map((g) => g.vintage),
-    fromWinery: [...byWine.values()].slice(0, 6),
+    fromWinery: [...byWine.values()].sort(compareProducts).slice(0, 6),
   };
 };
