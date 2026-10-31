@@ -85,7 +85,8 @@ réservation en ligne confirmée devient aussitôt un participant (client retrou
 sinon créé) ; les réservations confirmées des dégustations à venir sont rattachées par la migration. Les
 places d'une dégustation comptent tous les participants, ceux ajoutés à la main compris
 (`tasting_seats_taken`) : le site passe en liste d'attente une fois la capacité atteinte. Les messages
-du formulaire de contact sont enregistrés (`contact_message`, via `submit_contact_message`) et
+du formulaire de contact sont enregistrés (`contact_message`) par `/api/contact` avec la clé
+`SUPABASE_SERVICE_ROLE_KEY` (variable serveur à définir sur Vercel ; sans elle, email seulement) et
 s'affichent dans Demandes. À appliquer avant de déployer le code, qui lit `contact_message`.
 
 ```sh

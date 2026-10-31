@@ -3,12 +3,14 @@ import { env } from "$env/dynamic/private";
 import type { RequestHandler } from "./$types";
 import { CONTACT_EMAIL, CONTACT_MIN_FILL_MS, contactReason } from "$lib/contact";
 import { escapeHtml, isValidEmail, resendPost } from "$lib/server/email";
-import { supabase } from "$lib/supabase";
+import { supabaseAdmin } from "$lib/server/supabaseAdmin";
 
 /**
  * Formulaire de contact public → message enregistré (gestion, page Demandes) et email via Resend
  * (https://resend.com). L'un des deux suffit : le message n'est perdu que si les deux échouent.
  * Variables d'environnement serveur :
+ *  - SUPABASE_SERVICE_ROLE_KEY : enregistrement dans contact_message (seul le serveur y écrit,
+ *    après les pièges à robots et Turnstile) ;
  *  - RESEND_API_KEY et CONTACT_FROM (ou, à défaut, CAMPAIGN_FROM) : expéditeur sur un domaine vérifié ;
  *  - CONTACT_TO (facultatif) : destinataire, gianni@mezzaterra.be par défaut ;
  *  - TURNSTILE_SECRET_KEY (facultatif) : CAPTCHA Cloudflare Turnstile, exigé dès qu'il est défini.
@@ -16,6 +18,8 @@ import { supabase } from "$lib/supabase";
  */
 
 const MAX_MESSAGE = 5000;
+/** Au-delà, on n'attend plus la base : l'email suffit. */
+const SAVE_TIMEOUT_MS = 5000;
 
 function from(): string | undefined {
   return env.CONTACT_FROM || env.CAMPAIGN_FROM;
@@ -92,22 +96,30 @@ export const POST: RequestHandler = async ({ request, getClientAddress }) => {
   }
 
   /* Enregistrement et email en parallèle : l'un des deux suffit. */
-  const save = supabase.rpc("submit_contact_message", {
-    p_reason: reason.id,
-    p_subject: subject,
-    p_first_name: firstName,
-    p_last_name: lastName,
-    p_email: email,
-    p_phone: phone,
-    p_page: page,
-    p_message: message,
-  }).then(
-    ({ error: e }) => {
-      if (e) console.error("Message de contact non enregistré :", e.message);
-      return !e;
-    },
-    () => false,
-  );
+  const db = supabaseAdmin();
+  const save: Promise<boolean> = db
+    ? Promise.resolve(
+        db
+          .from("contact_message")
+          .insert({
+            reason: reason.id,
+            subject: subject || null,
+            first_name: firstName,
+            last_name: lastName || null,
+            email,
+            phone: phone || null,
+            page: page || null,
+            message,
+          })
+          .abortSignal(AbortSignal.timeout(SAVE_TIMEOUT_MS)),
+      ).then(
+        ({ error: e }) => {
+          if (e) console.error("Message de contact non enregistré :", e.message);
+          return !e;
+        },
+        () => false,
+      )
+    : Promise.resolve(false);
 
   if (!enabled()) {
     if (await save) return json({ ok: true });

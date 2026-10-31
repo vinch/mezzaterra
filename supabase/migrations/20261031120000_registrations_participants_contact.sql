@@ -6,8 +6,9 @@
 -- 2. Les places comptent tout le monde : chaque participant occupe une place, ou les places de sa
 --    réservation en ligne s'il en a une ; une réservation confirmée pas encore rattachée compte aussi.
 --    Le site ne propose donc plus des places déjà données à des participants ajoutés à la main.
--- 3. Les messages du formulaire de contact sont enregistrés (contact_message) et apparaissent dans
---    Demandes ; l'email part toujours en plus quand Resend est configuré.
+-- 3. Les messages du formulaire de contact sont enregistrés (contact_message, par le serveur avec la
+--    clé service_role) et apparaissent dans Demandes ; l'email part toujours en plus quand Resend est
+--    configuré.
 
 -- ——— Places prises ———
 CREATE OR REPLACE FUNCTION public.tasting_seats_taken(p_tasting_id uuid)
@@ -254,58 +255,14 @@ CREATE TABLE IF NOT EXISTS public.contact_message (
   created_at timestamptz NOT NULL DEFAULT now()
 );
 
-COMMENT ON TABLE public.contact_message IS 'Messages du formulaire de contact du site (via submit_contact_message)';
+-- Écrite seulement par le serveur (/api/contact, clé service_role) après Turnstile : aucune écriture publique.
+COMMENT ON TABLE public.contact_message IS 'Messages du formulaire de contact du site (écrits par /api/contact)';
 
 ALTER TABLE public.contact_message ENABLE ROW LEVEL SECURITY;
 
 CREATE POLICY "admins can read" ON public.contact_message FOR SELECT USING (is_admin());
 CREATE POLICY "admins can update" ON public.contact_message FOR UPDATE USING (is_admin());
 CREATE POLICY "admins can delete" ON public.contact_message FOR DELETE USING (is_admin());
-
-CREATE OR REPLACE FUNCTION public.submit_contact_message(
-  p_reason text,
-  p_subject text,
-  p_first_name text,
-  p_last_name text,
-  p_email text,
-  p_phone text,
-  p_page text,
-  p_message text
-)
-RETURNS uuid
-LANGUAGE plpgsql
-SECURITY DEFINER
-SET search_path = public
-AS $$
-DECLARE
-  v_id uuid;
-  v_email text := lower(trim(coalesce(p_email, '')));
-BEGIN
-  IF v_email !~ '^[^@\s]+@[^@\s]+\.[^@\s]+$' OR char_length(v_email) > 200 THEN
-    RAISE EXCEPTION 'invalid_email';
-  END IF;
-  IF coalesce(trim(p_first_name), '') = '' THEN
-    RAISE EXCEPTION 'invalid_name';
-  END IF;
-  IF coalesce(trim(p_message), '') = '' THEN
-    RAISE EXCEPTION 'invalid_message';
-  END IF;
-
-  INSERT INTO contact_message (reason, subject, first_name, last_name, email, phone, page, message)
-  VALUES (
-    left(coalesce(nullif(trim(p_reason), ''), 'autre'), 40),
-    nullif(left(trim(coalesce(p_subject, '')), 200), ''),
-    left(trim(p_first_name), 80),
-    nullif(left(trim(coalesce(p_last_name, '')), 80), ''),
-    v_email,
-    nullif(left(trim(coalesce(p_phone, '')), 40), ''),
-    nullif(left(trim(coalesce(p_page, '')), 300), ''),
-    left(trim(p_message), 5000)
-  )
-  RETURNING id INTO v_id;
-  RETURN v_id;
-END;
-$$;
 
 -- ——— Droits ———
 -- Les fonctions internes ne sont appelées que par les fonctions SECURITY DEFINER ci-dessus (Supabase
@@ -314,8 +271,6 @@ REVOKE ALL ON FUNCTION public.tasting_seats_taken(uuid) FROM PUBLIC, anon, authe
 REVOKE ALL ON FUNCTION public.find_or_create_customer(text, text, text, text) FROM PUBLIC, anon, authenticated;
 REVOKE ALL ON FUNCTION public.link_registration_to_customer(uuid) FROM PUBLIC, anon, authenticated;
 REVOKE ALL ON FUNCTION public.confirm_tasting_registration(uuid) FROM PUBLIC, anon;
-REVOKE ALL ON FUNCTION public.submit_contact_message(text, text, text, text, text, text, text, text) FROM PUBLIC;
 GRANT EXECUTE ON FUNCTION public.confirm_tasting_registration(uuid) TO authenticated;
 REVOKE ALL ON FUNCTION public.admin_find_or_create_customer(text, text, text, text) FROM PUBLIC, anon;
 GRANT EXECUTE ON FUNCTION public.admin_find_or_create_customer(text, text, text, text) TO authenticated;
-GRANT EXECUTE ON FUNCTION public.submit_contact_message(text, text, text, text, text, text, text, text) TO anon, authenticated;

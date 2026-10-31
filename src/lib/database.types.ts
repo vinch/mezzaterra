@@ -1452,19 +1452,6 @@ export type Database = {
         Args: { p_status: string; p_transport_id: string }
         Returns: undefined
       }
-      submit_contact_message: {
-        Args: {
-          p_email: string
-          p_first_name: string
-          p_last_name: string
-          p_message: string
-          p_page: string
-          p_phone: string
-          p_reason: string
-          p_subject: string
-        }
-        Returns: string
-      }
       tasting_availability: {
         Args: { p_tasting_id: string }
         Returns: {
