@@ -119,6 +119,9 @@ export async function fetchTastingWithWines(tastingId: string, opts: { reveal?: 
   return { tasting, wineVintages, hiddenCount: 0, error: null };
 }
 
+/** Adresse des dégustations publiques. Le champ « Lieu » d'une dégustation est un repère interne (« Grange »). */
+export const TASTING_ADDRESS = "16 Rue Belle Tête, 7190 Ecaussinnes";
+
 /** Nom public d'une dégustation. */
 export function tastingTitle(t: { name?: string | null } | null | undefined): string {
   return t?.name?.trim() || "Dégustation Mezzaterra";

@@ -1,5 +1,6 @@
 import { base } from "$app/paths";
 import { formatTime } from "./dates";
+import { TASTING_ADDRESS } from "./publicData";
 
 /** Visuel « Prochaine dégustation » (format portrait réseaux sociaux / WhatsApp). */
 export const FLYER_WIDTH = 960;
@@ -151,5 +152,5 @@ export function drawTastingFlyer(
   ctx.font = `700 35.8px ${FONT}`;
   ctx.fillStyle = TEAL;
   ctx.textAlign = "left";
-  ctx.fillText("16 Rue Belle Tête, 7190 Ecaussinnes", 189, 1229);
+  ctx.fillText(TASTING_ADDRESS, 189, 1229);
 }
