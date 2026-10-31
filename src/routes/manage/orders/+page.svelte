@@ -57,11 +57,11 @@
   /* Chargements des modales : le dernier clic gagne (deux « Modifier » enchaînés…). */
   const formLoad = latestOnly((e) => (error = errorMessage(e)));
 
-  async function openCreateModal() {
+  /** Ouverte tout de suite : le sélecteur de produit se remplit quand le catalogue arrive. */
+  function openCreateModal() {
     error = "";
-    const vintages = await formLoad.run(pickerVintages);
-    if (!vintages) return;
-    wineVintages = vintages;
+    formLoad.cancel();
+    pickerVintages().catch((e) => (error = errorMessage(e)));
     editingOrder = null;
     resetForm();
     formOpen = true;
@@ -69,18 +69,18 @@
 
   /** Une seule lecture du catalogue, partagée par les ouvertures du formulaire ; relue si elle a échoué. */
   function pickerVintages(): Promise<any[]> {
-    catalog ??= fetchPickerVintages().catch((e) => {
-      catalog = null;
-      throw e;
-    });
+    catalog ??= fetchPickerVintages().then(
+      (v) => (wineVintages = v),
+      (e) => {
+        catalog = null;
+        throw e;
+      },
+    );
     return catalog;
   }
 
   onMount(() => {
-    pickerVintages().then(
-      (v) => (wineVintages = v),
-      () => {},
-    );
+    pickerVintages().catch((e) => (error = errorMessage(e)));
   });
 
   async function openEditModal(order: any) {
@@ -93,7 +93,7 @@
 
     const loaded = await formLoad.run(() => Promise.all([pickerVintages(), loadOrderItems(order.id)]));
     if (!loaded) return;
-    const [vintages, items] = loaded;
+    const [, items] = loaded;
 
     editingOrder = order;
     formData = {
@@ -102,7 +102,6 @@
       status: order.status || "pending",
       note: order.note || "",
     };
-    wineVintages = vintages;
     orderItems = items.map((item: any) => ({
       wine_vintage: item.wine_vintage,
       wine_vintage_id: item.wine_vintage_id,
