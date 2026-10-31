@@ -92,12 +92,7 @@
 
   async function openEditModal(order: any) {
     error = "";
-    if (order.status === "confirmed") {
-      error = "Impossible de modifier une commande confirmée";
-      formLoad.cancel();
-      return;
-    }
-
+    /* Commande figée : le menu de ligne ne propose pas « Modifier » et save_order refuse. */
     const loaded = await formLoad.run(() => Promise.all([pickerVintages(), loadOrderItems(order.id)]));
     if (!loaded) return;
     const [, items] = loaded;
@@ -235,16 +230,7 @@
     await invalidateAll();
   }
 
-  async function updateOrderStatus(
-    orderId: string,
-    newStatus: string,
-    currentStatus: string
-  ): Promise<boolean> {
-    if (currentStatus === "confirmed") {
-      error = "Impossible de modifier le statut d'une commande confirmée";
-      return false;
-    }
-
+  async function updateOrderStatus(orderId: string, newStatus: string) {
     /* Filtré sur « non confirmée » : une commande confirmée entre-temps ailleurs ne bouge plus. */
     const { data: updated, error: updateError } = await supabase
       .from("order")
@@ -255,23 +241,15 @@
 
     if (updateError || !updated?.length) {
       error = updateError?.message ?? "Impossible de modifier le statut d'une commande confirmée";
-      return false;
+      return;
     }
 
     /* Objet neuf pour la ligne : la liste ($derived, sans proxy) ne suit pas les mutations. */
     orders = orders.map((o) => (o.id === orderId ? { ...o, status: newStatus } : o));
-
-    return true;
   }
 
   /** Appelée après confirmation via le ConfirmDialog. */
   async function deleteOrder(id: string) {
-    const order = orders.find((o) => o.id === id);
-    if (order && order.status === "confirmed") {
-      error = "Impossible de supprimer une commande confirmée";
-      return;
-    }
-
     const { data: deleted, error: deleteError } = await supabase
       .from("order")
       .delete()
@@ -386,7 +364,7 @@
               {:else}—{/if}
             </td>
             <td>
-              <StatusMenuBadge kind="order" status={order.status} onselect={(next) => updateOrderStatus(order.id, next, order.status)} />
+              <StatusMenuBadge kind="order" status={order.status} onselect={(next) => updateOrderStatus(order.id, next)} />
             </td>
             <td class="num"><strong>{formatEUR(order.total_price ?? 0)}</strong></td>
             <td class="col-actions">
