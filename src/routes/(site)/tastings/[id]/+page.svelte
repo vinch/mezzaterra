@@ -4,7 +4,7 @@
   import WineModal from "$lib/components/WineModal.svelte";
   import WineCard from "$lib/components/site/WineCard.svelte";
   import RegistrationForm from "$lib/components/site/RegistrationForm.svelte";
-  import { fetchAvailability, isPrivateTasting, tastingTitle, type AvailabilityOf } from "$lib/publicData";
+  import { fetchAvailability, isPrivateTasting, TASTING_ADDRESS, tastingTitle, type AvailabilityOf } from "$lib/publicData";
   import { buildIcs, daysUntil, downloadTextFile, formatDateLong, formatTime, isLiveNow } from "$lib/dates";
   import { wineStyle, wineTitle } from "$lib/wine";
   import { formatEUR } from "$lib/format";
@@ -20,6 +20,8 @@
   let isLive = $derived(t ? isLiveNow(t.date) : false);
   /* Privée : accessible par lien (mode live, fiches de table) mais sans inscription en ligne. */
   let isPrivate = $derived(isPrivateTasting(t));
+  /* Adresse seulement quand elle sert à venir ; une dégustation privée a lieu ailleurs. */
+  let address = $derived((isUpcoming || isLive) && !isPrivate ? TASTING_ADDRESS : null);
   let styles = $derived(wineVintages.map((v: any) => wineStyle(v.wine?.wine_type)));
 
   let selected = $state<WineVintage | null>(null);
@@ -36,6 +38,7 @@
       title: tastingTitle(t),
       date: t.date,
       time: t.start_time,
+      location: address,
       description: t.description,
       url: $page.url.href,
     });
@@ -77,6 +80,7 @@
       <ul class="facts">
         <li>{formatDateLong(t.date)}{t.start_time ? ` · ${formatTime(t.start_time)}` : ""}</li>
         {#if isPrivate}<li>Dégustation privée</li>{/if}
+        {#if address}<li>{address}</li>{/if}
         {#if t.price}<li>{formatEUR(t.price)} / personne</li>{/if}
         {#if wineVintages.length || hiddenCount}<li>{wineVintages.length || hiddenCount} vins</li>{/if}
       </ul>
