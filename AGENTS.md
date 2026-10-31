@@ -31,7 +31,9 @@ menus de ligne, chiffres, accessibilité, textes).
   `wine_vintage`, `grape`… (colonne `kind`). Le vocabulaire propre à chacun
   (millésime ou lot, cépages ou variétés…) vient de `src/lib/productKinds.ts`,
   ses icônes de `KIND_ICONS` (`src/lib/ui/kindIcons.ts`) ; un nouveau type
-  s’ajoute à ces deux endroits et au domaine SQL `product_kind`. Un lot
+  s’ajoute à ces deux endroits, au domaine SQL `product_kind` et à sa TVA
+  (`product_kind_vat_rate`, sinon 21 % par défaut), avec sa couleur dans
+  `STYLES` (`src/lib/wine.ts`) s’il en a une propre. Un lot
   (`wine_vintage`) = une année et un contenant (`volume_ml`) : prix et stock
   sont par contenant ; libellés via `vintageLabel`, `vintageVolume`…
 - **Nouveau composant** : seulement si rien d’existant ne convient. Il va dans

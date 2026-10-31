@@ -273,7 +273,7 @@ export function findNote(
 /** Notes renseignées d'un millésime, dans l'ordre et avec les libellés de son type de produit. */
 export function vintageNotes(
   notes: { type: string; content: string }[] | null | undefined,
-  kind: ProductKind = "wine",
+  kind: ProductKind,
 ): { key: string; label: string; content: string }[] {
   return kindInfo(kind)
     .noteTypes.map((t) => ({ ...t, content: findNote(notes, t.key) }))
