@@ -7,17 +7,37 @@
   import type { Customer, Tasting } from "$lib/types";
   import Modal from "$lib/ui/Modal.svelte";
   import Button from "$lib/ui/Button.svelte";
+  import IconButton from "$lib/ui/IconButton.svelte";
+  import type { MenuItem } from "$lib/ui/Menu.svelte";
+  import RowMenu from "$lib/ui/RowMenu.svelte";
+  import ConfirmDialog from "$lib/ui/ConfirmDialog.svelte";
+  import DataTable from "$lib/ui/DataTable.svelte";
+  import Card from "$lib/ui/Card.svelte";
+  import Field from "$lib/ui/Field.svelte";
   import ManagePageShell from "$lib/components/manage/ManagePageShell.svelte";
   import ProductVintageAutocomplete from "$lib/components/manage/ProductVintageAutocomplete.svelte";
   import CustomerAutocomplete from "$lib/components/manage/CustomerAutocomplete.svelte";
   import Spinner from "$lib/ui/Spinner.svelte";
   import EmptyState from "$lib/ui/EmptyState.svelte";
-  import { IconUsers } from "$lib/ui/icons";
+  import {
+    IconArrowDown,
+    IconArrowUp,
+    IconDownload,
+    IconExternal,
+    IconGlasses,
+    IconPencil,
+    IconPlay,
+    IconPlus,
+    IconTrash,
+    IconUsers,
+    IconX,
+  } from "$lib/ui/icons";
+  import { moveItem } from "$lib/list";
   import { compareCustomersByLabel, customerDisplayLabel, namesakeIds } from "$lib/customerDisplay";
   import { fetchCustomers, fetchPickerVintages } from "$lib/manageData";
   import { errorMessage, latestOnly } from "$lib/async";
   import { fetchTastingWithWines, onlineSeatsByCustomer, participantOrigin, placesLabel, seatsTaken, tastingTitle } from "$lib/publicData";
-  import { todayIso } from "$lib/dates";
+  import { isoDateOnly, todayIso } from "$lib/dates";
   import { formatDate } from "$lib/format";
   import { isDiscontinued, vintageLabel } from "$lib/wine";
 
@@ -101,7 +121,7 @@
       const { downloadTableCardsPdf } = await import("$lib/pdf/tableCardsPdf");
       await downloadTableCardsPdf(res.tasting, res.wineVintages, window.location.origin);
     } catch (e) {
-      error = e instanceof Error ? e.message : "Génération des fiches impossible";
+      error = errorMessage(e);
     } finally {
       cardsBusyId = "";
     }
@@ -114,11 +134,6 @@
 
   function isCustomerInModal(customerId: string): boolean {
     return modalCustomers.some((e) => e.customer_id === customerId);
-  }
-
-  function isoDateOnly(value: string): string {
-    if (!value) return "";
-    return value.includes("T") ? value.split("T")[0] : value;
   }
 
   function isVintageInModal(vintageId: string): boolean {
@@ -344,14 +359,6 @@
     modalWines = modalWines.filter((_, i) => i !== index);
   }
 
-  function moveWine(index: number, delta: number) {
-    const j = index + delta;
-    if (j < 0 || j >= modalWines.length) return;
-    const next = [...modalWines];
-    [next[index], next[j]] = [next[j], next[index]];
-    modalWines = next;
-  }
-
   async function handleSubmit() {
     if (!formData.date) {
       error = "La date est obligatoire.";
@@ -388,22 +395,14 @@
       closeModal();
       await loadTastings();
     } catch (e) {
-      error = e instanceof Error ? e.message : "Erreur lors de l’enregistrement";
+      error = errorMessage(e);
     } finally {
       saving = false;
     }
   }
 
+  /** Appelée après confirmation via le ConfirmDialog. */
   async function deleteTasting(tasting: TastingRow) {
-    const label = tasting.name || formatDate(tasting.date);
-    if (
-      !confirm(
-        `Supprimer la dégustation « ${label} » et toutes les données associées ?`,
-      )
-    ) {
-      return;
-    }
-
     /* Les participants partent avec la dégustation (cascade) : les supprimer avant annulerait leurs
        réservations en ligne même si la suppression de la dégustation échouait. */
     const { error: linkErr } = await supabase.from("tasting_wine_vintage").delete().eq("tasting_id", tasting.id);
@@ -433,6 +432,24 @@
   function participantPlaces(t: TastingRow): number {
     return seatsTaken(t.tasting_customer ?? [], t.tasting_registration ?? []);
   }
+
+  function rowItems(tasting: TastingRow): MenuItem[] {
+    const busy = cardsBusyId === tasting.id;
+    return [
+      { label: "Modifier", icon: IconPencil, onSelect: () => openEditModal(tasting) },
+      /* Page publique dans un nouvel onglet, comme l'ancien lien « Voir ». */
+      { label: "Voir sur le site", icon: IconExternal, onSelect: () => window.open(`/tastings/${tasting.id}`, "_blank", "noopener,noreferrer") },
+      { label: busy ? "Fiches de table…" : "Fiches de table", icon: IconDownload, disabled: busy, onSelect: () => downloadCards(tasting) },
+      { label: "Supprimer…", icon: IconTrash, danger: true, separator: true, onSelect: () => askDelete(tasting) },
+    ];
+  }
+
+  let deleteTarget = $state<TastingRow | null>(null);
+  let confirmOpen = $state(false);
+  function askDelete(tasting: TastingRow) {
+    deleteTarget = tasting;
+    confirmOpen = true;
+  }
 </script>
 
 <svelte:head>
@@ -441,201 +458,147 @@
 
 <ManagePageShell title="Dégustations">
   {#snippet actions()}
-      <button type="button" class="btn-primary" onclick={openCreateModal}>
-        + Nouvelle dégustation
-      </button>
+    <Button variant="primary" onclick={openCreateModal}><IconPlus size={18} strokeWidth={1.75} /> Nouvelle dégustation</Button>
   {/snippet}
 
   {#if error && !showModal}
-    <div class="error-message">{error}</div>
+    <div class="error-message" role="alert">{error}</div>
   {/if}
 
   {#if loading}
     <Spinner />
   {:else if tastings.length === 0}
-    <div class="empty-state">
-      <p>Aucune dégustation enregistrée.</p>
-      <button type="button" class="btn-primary" onclick={openCreateModal}>
-        Créer la première dégustation
-      </button>
-    </div>
+    <Card padded={false}>
+      <EmptyState icon={IconGlasses} title="Aucune dégustation pour l’instant" text="Créez la première dégustation, puis ajoutez-y ses produits et ses participants.">
+        <Button onclick={openCreateModal}>Créer la première dégustation</Button>
+      </EmptyState>
+    </Card>
   {:else}
-    <div class="table-container">
-      <table>
-        <thead>
+    <DataTable caption="Liste des dégustations">
+      <thead>
+        <tr>
+          <th scope="col">Date</th>
+          <th scope="col">Nom</th>
+          <th scope="col">Lieu</th>
+          <th scope="col" class="num">Produits</th>
+          <th scope="col" class="num">Participants</th>
+          <th scope="col" class="col-actions"><span class="sr-only">Actions</span></th>
+        </tr>
+      </thead>
+      <tbody>
+        {#each tastings as tasting (tasting.id)}
+          {@const count = participantPlaces(tasting)}
           <tr>
-            <th>Date</th>
-            <th>Nom</th>
-            <th>Lieu</th>
-            <th class="num">Produits</th>
-            <th class="num">Participants</th>
-            <th>Actions</th>
+            <td>{formatDate(tasting.date)}</td>
+            <td>
+              <strong>{tasting.name || "—"}</strong>
+              {#if tasting.is_private}<span class="private-badge" title="Non listée sur le site public">Privée</span>{/if}
+            </td>
+            <td>{tasting.location || "—"}</td>
+            <td class="num">{wineCount(tasting)}</td>
+            <td class="num">
+              {#if tasting.tasting_customer?.length}
+                <Button size="sm" variant="ghost" title="Voir les participants" ariaLabel="Voir les participants ({placesLabel(count)})" onclick={() => showParticipants(tasting)}>{count}</Button>
+              {:else}
+                0
+              {/if}
+            </td>
+            <td class="col-actions">
+              <div class="row-actions">
+                <IconButton href="/manage/tastings/{tasting.id}/live" label="Piloter {tastingTitle(tasting)}">
+                  <IconPlay size={18} strokeWidth={1.75} />
+                </IconButton>
+                <RowMenu items={rowItems(tasting)} label="Actions pour {tastingTitle(tasting)}" />
+              </div>
+            </td>
           </tr>
-        </thead>
-        <tbody>
-          {#each tastings as tasting (tasting.id)}
-            {@const count = participantPlaces(tasting)}
-            <tr>
-              <td>{formatDate(tasting.date)}</td>
-              <td>
-                <strong>{tasting.name || "—"}</strong>
-                {#if tasting.is_private}<span class="private-badge" title="Non listée sur le site public">Privée</span>{/if}
-              </td>
-              <td>{tasting.location || "—"}</td>
-              <td class="num">{wineCount(tasting)}</td>
-              <td class="num">
-                {#if tasting.tasting_customer?.length}
-                  <Button size="sm" variant="ghost" title="Voir les participants" ariaLabel="Voir les participants ({placesLabel(count)})" onclick={() => showParticipants(tasting)}>{count}</Button>
-                {:else}
-                  0
-                {/if}
-              </td>
-              <td>
-                <div class="actions">
-                  <a
-                    href="/tastings/{tasting.id}"
-                    class="ui-btn ui-btn--secondary ui-btn--sm"
-                    target="_blank"
-                    rel="noopener noreferrer"
-                  >
-                    Voir
-                  </a>
-                  <a href="/manage/tastings/{tasting.id}/live" class="ui-btn ui-btn--secondary ui-btn--sm">
-                    Piloter
-                  </a>
-                  <button
-                    type="button"
-                    class="ui-btn ui-btn--secondary ui-btn--sm"
-                    disabled={cardsBusyId === tasting.id}
-                    onclick={() => downloadCards(tasting)}
-                  >
-                    {cardsBusyId === tasting.id ? "…" : "Fiches de table"}
-                  </button>
-                  <button
-                    type="button"
-                    class="ui-btn ui-btn--secondary ui-btn--sm"
-                    onclick={() => openEditModal(tasting)}
-                  >
-                    Modifier
-                  </button>
-                  <button
-                    type="button"
-                    class="ui-btn ui-btn--danger ui-btn--sm"
-                    onclick={() => deleteTasting(tasting)}
-                  >
-                    Supprimer
-                  </button>
-                </div>
-              </td>
-            </tr>
-          {/each}
-        </tbody>
-      </table>
-    </div>
+        {/each}
+      </tbody>
+    </DataTable>
   {/if}
 </ManagePageShell>
 
-<Modal open={showModal} title={editingTasting ? "Modifier la dégustation" : "Nouvelle dégustation"} onclose={closeModal}>
-  <form id="tasting-form" onsubmit={preventDefault(handleSubmit)}>
+<ConfirmDialog
+  bind:open={confirmOpen}
+  title="Supprimer cette dégustation ?"
+  message={deleteTarget
+    ? `La dégustation « ${deleteTarget.name || formatDate(deleteTarget.date)} » sera supprimée avec toutes les données associées.`
+    : ""}
+  action={() => deleteTasting(deleteTarget!)}
+/>
+
+<Modal open={showModal} title={editingTasting ? "Modifier la dégustation" : "Nouvelle dégustation"} maxWidth={720} onclose={closeModal}>
+  <form id="tasting-form" class="tasting-form" onsubmit={preventDefault(handleSubmit)}>
     {#if error && showModal}
-      <div class="error-message">{error}</div>
+      <div class="error-message" role="alert">{error}</div>
     {/if}
 
-    <div class="form-grid">
-      <div class="form-group">
-        <label for="tasting-date">Date *</label>
-        <input type="date" id="tasting-date" bind:value={formData.date} required />
-      </div>
-      <div class="form-group">
-        <label for="tasting-name">Nom</label>
-        <input type="text" id="tasting-name" bind:value={formData.name} />
-      </div>
-      <div class="form-group">
-        <label for="tasting-location">Lieu</label>
-        <input type="text" id="tasting-location" bind:value={formData.location} />
-      </div>
-      <div class="form-group full-width">
-        <label class="checkbox-label">
-          <input type="checkbox" bind:checked={formData.is_private} />
-          Dégustation privée (chez un client, en externe)
-        </label>
-        <small class="field-hint">
-          Non listée sur le site et sans inscription en ligne. La page et le mode live restent accessibles par lien.
-        </small>
-      </div>
-      <div class="form-group">
-        <label for="tasting-time">Heure</label>
-        <input type="time" id="tasting-time" bind:value={formData.start_time} />
-      </div>
-      <div class="form-group">
-        <label for="tasting-price">Prix / personne (€)</label>
-        <input type="text" inputmode="decimal" id="tasting-price" bind:value={formData.price} />
-      </div>
-      <div class="form-group">
-        <label for="tasting-capacity">Places au total</label>
-        <input type="number" min="0" id="tasting-capacity" bind:value={formData.capacity} placeholder="Illimité" />
-        <small class="field-hint">Participants ajoutés ici compris : une fois plein, le site met les réservations en liste d’attente.</small>
-      </div>
-      <div class="form-group full-width">
-        <label for="tasting-description">Description publique</label>
-        <textarea id="tasting-description" rows="3" bind:value={formData.description} placeholder="Affichée sur le site (thème, vigneron invité, menu…)"></textarea>
-      </div>
-      <div class="form-group full-width">
-        <label for="tasting-notes">Notes internes</label>
-        <textarea id="tasting-notes" rows="3" bind:value={formData.notes}></textarea>
-        <small class="field-hint">Jamais affichées sur le site public.</small>
-      </div>
+    <div class="grid-2">
+      <Field id="tasting-date" label="Date" required>
+        <input id="tasting-date" class="ui-control" type="date" bind:value={formData.date} required />
+      </Field>
+      <Field id="tasting-time" label="Heure">
+        <input id="tasting-time" class="ui-control" type="time" bind:value={formData.start_time} />
+      </Field>
+      <Field id="tasting-name" label="Nom">
+        <input id="tasting-name" class="ui-control" type="text" bind:value={formData.name} />
+      </Field>
+      <Field id="tasting-location" label="Lieu">
+        <input id="tasting-location" class="ui-control" type="text" bind:value={formData.location} />
+      </Field>
+      <Field id="tasting-price" label="Prix / personne (€)">
+        <input id="tasting-price" class="ui-control" type="text" inputmode="decimal" bind:value={formData.price} />
+      </Field>
+      <Field id="tasting-capacity" label="Places au total" help="Participants ajoutés ici compris : une fois plein, le site met les réservations en liste d’attente.">
+        {#snippet children({ describedby })}
+          <input id="tasting-capacity" class="ui-control" type="number" min="0" placeholder="Illimité" bind:value={formData.capacity} aria-describedby={describedby} />
+        {/snippet}
+      </Field>
+    </div>
 
-      <div class="form-group full-width tasting-wines-block">
-        <span class="section-title" id="tasting-wines-label">Produits (ordre de passage)</span>
+    <div class="checkbox-field">
+      <label class="checkbox-label">
+        <input type="checkbox" bind:checked={formData.is_private} aria-describedby="tasting-private-help" />
+        Dégustation privée (chez un client, en externe)
+      </label>
+      <small id="tasting-private-help" class="t-caption">Non listée sur le site et sans inscription en ligne. La page et le mode live restent accessibles par lien.</small>
+    </div>
 
+    <Field id="tasting-description" label="Description publique">
+      <textarea id="tasting-description" class="ui-control" rows="3" bind:value={formData.description} placeholder="Affichée sur le site (thème, vigneron invité, menu…)"></textarea>
+    </Field>
+    <Field id="tasting-notes" label="Notes internes" help="Jamais affichées sur le site public.">
+      {#snippet children({ describedby })}
+        <textarea id="tasting-notes" class="ui-control" rows="3" bind:value={formData.notes} aria-describedby={describedby}></textarea>
+      {/snippet}
+    </Field>
+
+    <section class="block" aria-labelledby="tasting-wines-label">
+      <h3 id="tasting-wines-label" class="t-label">Produits (ordre de passage)</h3>
       {#if modalWines.length === 0}
-        <p class="empty-text">Aucun produit ajouté.</p>
+        <EmptyState title="Aucun produit ajouté" compact />
       {:else}
-        <ol class="wine-order-list">
+        <ol class="entries">
           {#each modalWines as entry, i (entry.wine_vintage_id)}
-            <li class="wine-order-item">
-              <span class="wine-order-num" aria-hidden="true">{i + 1}</span>
-              <span class="wine-order-label"
-                >{vintageLabel(entry.vintage)}</span
-              >
-              <div class="wine-order-actions">
-                <button
-                  type="button"
-                  class="btn-icon"
-                  title="Monter"
-                  disabled={i === 0}
-                  onclick={() => moveWine(i, -1)}
-                  aria-label="Monter"
-                >
-                  ↑
-                </button>
-                <button
-                  type="button"
-                  class="btn-icon"
-                  title="Descendre"
-                  disabled={i === modalWines.length - 1}
-                  onclick={() => moveWine(i, 1)}
-                  aria-label="Descendre"
-                >
-                  ↓
-                </button>
-                <button
-                  type="button"
-                  class="ui-remove"
-                  title="Retirer"
-                  onclick={() => removeWineFromList(i)}
-                  aria-label="Retirer"
-                >
-                  ×
-                </button>
-              </div>
+            {@const label = vintageLabel(entry.vintage)}
+            <li class="entry">
+              <span class="entry-num" aria-hidden="true">{i + 1}</span>
+              <span class="entry-label">{label}</span>
+              <IconButton label="Monter {label}" disabled={i === 0} onclick={() => (modalWines = moveItem(modalWines, i, -1))}>
+                <IconArrowUp size={18} strokeWidth={1.75} />
+              </IconButton>
+              <IconButton label="Descendre {label}" disabled={i === modalWines.length - 1} onclick={() => (modalWines = moveItem(modalWines, i, 1))}>
+                <IconArrowDown size={18} strokeWidth={1.75} />
+              </IconButton>
+              <IconButton label="Retirer {label}" onclick={() => removeWineFromList(i)}>
+                <IconX size={18} strokeWidth={1.75} />
+              </IconButton>
             </li>
           {/each}
         </ol>
       {/if}
 
-      <div class="add-wine-row">
+      <div class="add-row">
         <ProductVintageAutocomplete
           bind:value={selectedVintageId}
           wineVintages={wineVintages.filter((v) => !isDiscontinued(v))}
@@ -646,69 +609,48 @@
           getAvailableStock={() => 0}
           placeholder="Rechercher un produit…"
         />
-        <button
-          type="button"
-          class="ui-btn ui-btn--secondary ui-btn--sm"
-          disabled={!selectedVintageId}
-          onclick={addWineToTasting}
-        >
-          Ajouter
-        </button>
+        <Button disabled={!selectedVintageId} onclick={addWineToTasting}><IconPlus size={16} strokeWidth={1.75} /> Ajouter</Button>
       </div>
-      </div>
+    </section>
 
-      <div class="form-group full-width tasting-customers-block">
-        <span class="section-title" id="tasting-customers-label">Participants</span>
-
-        {#if modalCustomers.length === 0}
-          <p class="empty-text">Aucun participant. Les réservations faites sur le site s’ajoutent ici toutes seules.</p>
-        {:else}
-          <ul class="customer-list">
-            {#each modalCustomers as entry, i (entry.customer_id)}
-              <li class="customer-list-item">
-                <span>
-                  {customerDisplayLabel(entry.customer)}
-                  <span class="t-caption origin">{participantOrigin(entry.onlineSeats, entry.seats)}</span>
-                </span>
-                <button
-                  type="button"
-                  class="ui-remove"
-                  title={entry.onlineSeats ? "Retirer et annuler sa réservation en ligne" : "Retirer"}
-                  onclick={() => removeCustomerFromList(i)}
-                  aria-label={entry.onlineSeats ? "Retirer et annuler sa réservation en ligne" : "Retirer"}
-                >
-                  ×
-                </button>
-              </li>
-            {/each}
-          </ul>
-          {#if modalCustomers.some((e) => e.onlineSeats)}
-            <small class="field-hint">Retirer un inscrit du site annule sa réservation en ligne (elle peut être rétablie depuis Piloter).</small>
-          {/if}
+    <section class="block" aria-labelledby="tasting-customers-label">
+      <h3 id="tasting-customers-label" class="t-label">Participants</h3>
+      {#if modalCustomers.length === 0}
+        <EmptyState title="Aucun participant" text="Les réservations faites sur le site s’ajoutent ici toutes seules." compact />
+      {:else}
+        <ul class="entries">
+          {#each modalCustomers as entry, i (entry.customer_id)}
+            {@const label = customerDisplayLabel(entry.customer)}
+            <li class="entry">
+              <span class="entry-label">
+                {label}
+                <span class="t-caption origin">{participantOrigin(entry.onlineSeats, entry.seats)}</span>
+              </span>
+              <IconButton label={entry.onlineSeats ? `Retirer ${label} et annuler sa réservation en ligne` : `Retirer ${label}`} onclick={() => removeCustomerFromList(i)}>
+                <IconX size={18} strokeWidth={1.75} />
+              </IconButton>
+            </li>
+          {/each}
+        </ul>
+        {#if modalCustomers.some((e) => e.onlineSeats)}
+          <small class="t-caption">Retirer un inscrit du site annule sa réservation en ligne (elle peut être rétablie depuis Piloter).</small>
         {/if}
+      {/if}
 
-        <div class="add-customer-row">
-          <CustomerAutocomplete
-            bind:value={selectedCustomerId}
-            {customers}
-            isCustomerAlreadyAdded={isCustomerInModal}
-            placeholder="Rechercher un client…"
-          />
-          <button
-            type="button"
-            class="ui-btn ui-btn--secondary ui-btn--sm"
-            disabled={!selectedCustomerId}
-            onclick={addCustomerToTasting}
-          >
-            Ajouter
-          </button>
-        </div>
+      <div class="add-row">
+        <CustomerAutocomplete
+          bind:value={selectedCustomerId}
+          {customers}
+          isCustomerAlreadyAdded={isCustomerInModal}
+          placeholder="Rechercher un client…"
+        />
+        <Button disabled={!selectedCustomerId} onclick={addCustomerToTasting}><IconPlus size={16} strokeWidth={1.75} /> Ajouter</Button>
       </div>
-    </div>
+    </section>
   </form>
   {#snippet footer()}
-      <Button variant="ghost" onclick={closeModal} disabled={saving}>Annuler</Button>
-      <Button variant="primary" type="submit" form="tasting-form" disabled={saving}>{saving ? "Enregistrement…" : editingTasting ? "Mettre à jour" : "Créer"}</Button>
+    <Button variant="ghost" onclick={closeModal} disabled={saving}>Annuler</Button>
+    <Button variant="primary" type="submit" form="tasting-form" disabled={saving}>{saving ? "Enregistrement…" : editingTasting ? "Mettre à jour" : "Créer"}</Button>
   {/snippet}
 </Modal>
 
@@ -733,8 +675,10 @@
 </Modal>
 
 <style>
-  .actions {
-    flex-wrap: wrap;
+  .row-actions {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
   }
 
   .private-badge {
@@ -751,13 +695,76 @@
     vertical-align: middle;
   }
 
-  .field-hint {
+  .tasting-form {
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+  }
+
+  .grid-2 {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+  }
+
+  .checkbox-field {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+
+  .block {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .block h3 {
+    margin: 0;
+  }
+
+  .entries {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    border: 1px solid var(--border-soft);
+    border-radius: var(--r-sm);
+    overflow: hidden;
+  }
+
+  .entry {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 4px 4px 4px 12px;
+    border-bottom: 1px solid var(--border-soft);
+    background: var(--table-head);
+  }
+
+  .entry:last-child {
+    border-bottom: none;
+  }
+
+  .entry-num {
+    flex: 0 0 1.5rem;
+    font-weight: 700;
     color: var(--ink-2);
-    font-size: 0.8rem;
+    text-align: center;
+  }
+
+  .entry-label {
+    flex: 1;
+    min-width: 0;
   }
 
   .origin {
     display: block;
+  }
+
+  .add-row {
+    display: flex;
+    gap: 8px;
+    align-items: center;
   }
 
   .participants {
@@ -777,128 +784,9 @@
     border-bottom: none;
   }
 
-  .tasting-wines-block .section-title {
-    display: block;
-    margin-bottom: 0.75rem;
+  @media (max-width: 767px) {
+    .grid-2 {
+      grid-template-columns: 1fr;
+    }
   }
-
-  .tasting-wines-block .add-wine-row {
-    margin-bottom: 0.25rem;
-  }
-
-  .tasting-customers-block .section-title {
-    display: block;
-    margin-bottom: 0.75rem;
-  }
-
-  .customer-list {
-    list-style: none;
-    margin: 0 0 1rem;
-    padding: 0;
-    border: 1px solid var(--border-soft);
-    border-radius: 6px;
-    overflow: hidden;
-  }
-
-  .customer-list-item {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 0.75rem;
-    padding: 0.6rem 0.75rem;
-    border-bottom: 1px solid var(--border-soft);
-    background: #fafbfc;
-    font-size: 0.9rem;
-  }
-
-  .customer-list-item:last-child {
-    border-bottom: none;
-  }
-
-  .add-customer-row {
-    display: flex;
-    gap: 0.5rem;
-    align-items: center;
-    flex-wrap: wrap;
-    margin-bottom: 0.25rem;
-  }
-
-  .add-customer-row :global(.customer-autocomplete) {
-    flex: 1;
-    min-width: 220px;
-  }
-
-  .empty-text {
-    color: var(--ink-2);
-    margin: 0 0 1rem;
-    font-size: 0.9rem;
-  }
-
-  .wine-order-list {
-    list-style: none;
-    margin: 0 0 1rem;
-    padding: 0;
-    border: 1px solid var(--border-soft);
-    border-radius: 6px;
-    overflow: hidden;
-  }
-
-  .wine-order-item {
-    display: flex;
-    align-items: center;
-    gap: 0.75rem;
-    padding: 0.6rem 0.75rem;
-    border-bottom: 1px solid var(--border-soft);
-    background: #fafbfc;
-  }
-
-  .wine-order-item:last-child {
-    border-bottom: none;
-  }
-
-  .wine-order-num {
-    flex: 0 0 1.5rem;
-    font-weight: 700;
-    color: var(--ink-2);
-    text-align: center;
-  }
-
-  .wine-order-label {
-    flex: 1;
-    font-size: 0.9rem;
-  }
-
-  .wine-order-actions {
-    display: flex;
-    gap: 0.25rem;
-    align-items: center;
-  }
-
-  .btn-icon {
-    padding: 0.25rem 0.5rem;
-    border: 1px solid var(--input-border);
-    background: white;
-    border-radius: 4px;
-    cursor: pointer;
-    font-size: 0.85rem;
-    line-height: 1;
-  }
-
-  .btn-icon:disabled {
-    opacity: 0.4;
-    cursor: not-allowed;
-  }
-
-  .add-wine-row {
-    display: flex;
-    gap: 0.5rem;
-    align-items: center;
-    flex-wrap: wrap;
-  }
-
-  .add-wine-row :global(.product-autocomplete) {
-    flex: 1;
-    min-width: 220px;
-  }
-
 </style>
