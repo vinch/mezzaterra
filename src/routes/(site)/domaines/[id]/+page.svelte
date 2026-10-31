@@ -138,7 +138,7 @@
               href={instagram.url}
               target="_blank"
               rel="noopener noreferrer"
-              aria-label="Instagram {instagram.handle}"
+              aria-label="Instagram {instagram.handle} (nouvel onglet)"
               title="Instagram {instagram.handle}"
             >
               <IconInstagram aria-hidden="true" />
@@ -150,7 +150,7 @@
               href={mapUrl}
               target="_blank"
               rel="noopener noreferrer"
-              aria-label="Ouvrir la carte"
+              aria-label="Ouvrir la carte (nouvel onglet)"
               title="Ouvrir la carte"
             >
               <IconMapPin strokeWidth={1.8} aria-hidden="true" />
