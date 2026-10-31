@@ -5,7 +5,10 @@
   import ManagePageShell from "$lib/components/manage/ManagePageShell.svelte";
   import Modal from "$lib/ui/Modal.svelte";
   import Button from "$lib/ui/Button.svelte";
+  import IconButton from "$lib/ui/IconButton.svelte";
   import Spinner from "$lib/ui/Spinner.svelte";
+  import { IconArrowDown, IconArrowUp } from "$lib/ui/icons";
+  import { moveItem } from "$lib/list";
   import {
     fetchStockDocVintages,
     sortedStockForDocuments,
@@ -140,14 +143,6 @@
   function closeNotesModal() {
     showNotesModal = false;
     notesPdfGenerating = false;
-  }
-
-  function moveNoteWine(index: number, delta: number) {
-    const j = index + delta;
-    if (j < 0 || j >= notesModalRows.length) return;
-    const next = [...notesModalRows];
-    [next[index], next[j]] = [next[j], next[index]];
-    notesModalRows = next;
   }
 
   async function confirmNotesPdf() {
@@ -329,26 +324,12 @@
             >
           </div>
           <div class="notes-order-actions">
-            <button
-              type="button"
-              class="btn-icon"
-              title="Monter"
-              disabled={i === 0}
-              onclick={() => moveNoteWine(i, -1)}
-              aria-label="Monter {row.wineName}"
-            >
-              ↑
-            </button>
-            <button
-              type="button"
-              class="btn-icon"
-              title="Descendre"
-              disabled={i === notesModalRows.length - 1}
-              onclick={() => moveNoteWine(i, 1)}
-              aria-label="Descendre {row.wineName}"
-            >
-              ↓
-            </button>
+            <IconButton label="Monter {row.wineName}" disabled={i === 0} onclick={() => (notesModalRows = moveItem(notesModalRows, i, -1))}>
+              <IconArrowUp size={18} strokeWidth={1.75} />
+            </IconButton>
+            <IconButton label="Descendre {row.wineName}" disabled={i === notesModalRows.length - 1} onclick={() => (notesModalRows = moveItem(notesModalRows, i, 1))}>
+              <IconArrowDown size={18} strokeWidth={1.75} />
+            </IconButton>
           </div>
         </li>
       {/each}
@@ -521,28 +502,5 @@
     flex-direction: column;
     gap: 0.25rem;
     flex-shrink: 0;
-  }
-
-  .btn-icon {
-    width: 2rem;
-    height: 2rem;
-    padding: 0;
-    border: 1px solid var(--input-border);
-    border-radius: 4px;
-    background: white;
-    cursor: pointer;
-    font-size: 1rem;
-    line-height: 1;
-    color: var(--ink);
-  }
-
-  .btn-icon:hover:not(:disabled) {
-    background: var(--border-soft);
-    border-color: #adb5bd;
-  }
-
-  .btn-icon:disabled {
-    opacity: 0.35;
-    cursor: not-allowed;
   }
 </style>

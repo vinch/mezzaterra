@@ -1,8 +1,10 @@
 /** Icônes Lucide utilisées par l'outil (import par icône : bundle léger). Épaisseur 1.75, 18 px. */
 export { default as IconArchive } from "@lucide/svelte/icons/archive";
 export { default as IconArchiveRestore } from "@lucide/svelte/icons/archive-restore";
+export { default as IconArrowDown } from "@lucide/svelte/icons/arrow-down";
 export { default as IconArrowLeft } from "@lucide/svelte/icons/arrow-left";
 export { default as IconArrowRight } from "@lucide/svelte/icons/arrow-right";
+export { default as IconArrowUp } from "@lucide/svelte/icons/arrow-up";
 export { default as IconBox } from "@lucide/svelte/icons/package";
 export { default as IconCalendar } from "@lucide/svelte/icons/calendar";
 export { default as IconChart } from "@lucide/svelte/icons/chart-column";
