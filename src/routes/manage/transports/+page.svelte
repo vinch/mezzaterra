@@ -7,8 +7,19 @@
   import Modal from "$lib/ui/Modal.svelte";
   import Button from "$lib/ui/Button.svelte";
   import StatusBadge from "$lib/ui/StatusBadge.svelte";
-  import { KIND_META, statusMeta } from "$lib/status";
+  import Menu, { type MenuItem } from "$lib/ui/Menu.svelte";
+  import RowMenu from "$lib/ui/RowMenu.svelte";
+  import ConfirmDialog from "$lib/ui/ConfirmDialog.svelte";
+  import DataTable from "$lib/ui/DataTable.svelte";
+  import EmptyState from "$lib/ui/EmptyState.svelte";
+  import Card from "$lib/ui/Card.svelte";
+  import Field from "$lib/ui/Field.svelte";
+  import Select from "$lib/ui/Select.svelte";
+  import { IconClipboard, IconEye, IconPencil, IconPlus, IconRoute, IconTrash } from "$lib/ui/icons";
+  import { canChangeStatus, statusMenuItems } from "$lib/status";
   import ManagePageShell from "$lib/components/manage/ManagePageShell.svelte";
+  import { LINE_ITEMS_SELECT } from "$lib/manageData";
+  import { isoDateOnly } from "$lib/dates";
   import { formatDate, formatEUR } from "$lib/format";
   import { vintageProductLabel } from "$lib/wine";
 
@@ -55,16 +66,10 @@
     editingTransport = transport;
     formData = {
       transporter_id: transport.transporter_id || "",
-      departure_date: transport.departure_date
-        ? transport.departure_date.split("T")[0]
-        : "",
-      arrival_date: transport.arrival_date
-        ? transport.arrival_date.split("T")[0]
-        : "",
+      departure_date: isoDateOnly(transport.departure_date),
+      arrival_date: isoDateOnly(transport.arrival_date),
       status: transport.status || "pending",
-      pallets_number: transport.pallets_number
-        ? String(transport.pallets_number)
-        : "",
+      pallets_number: transport.pallets_number ? String(transport.pallets_number) : "",
       price: transport.price ? String(transport.price) : "",
       note: transport.note || "",
     };
@@ -110,9 +115,7 @@
       transporter_id: formData.transporter_id,
       departure_date: formData.departure_date || null,
       arrival_date: formData.arrival_date || null,
-      pallets_number: formData.pallets_number
-        ? parseInt(formData.pallets_number)
-        : null,
+      pallets_number: formData.pallets_number ? parseInt(formData.pallets_number) : null,
       price: formData.price ? parseFloat(formData.price) : null,
       note: formData.note || null,
     };
@@ -128,19 +131,12 @@
 
     error = "";
     closeForm();
-    error = "";
     await invalidateAll();
   }
 
+  /** Appelée après confirmation via le ConfirmDialog. */
   async function deleteTransport(id: string) {
-    if (!confirm("Êtes-vous sûr de vouloir supprimer ce transport ?")) {
-      return;
-    }
-
-    const { error: deleteError } = await supabase
-      .from("transport")
-      .delete()
-      .eq("id", id);
+    const { error: deleteError } = await supabase.from("transport").delete().eq("id", id);
 
     if (deleteError) {
       error = deleteError.message;
@@ -151,23 +147,8 @@
     await invalidateAll();
   }
 
-  async function updateTransportStatus(
-    transportId: string,
-    newStatus: string,
-    currentStatus: string
-  ): Promise<boolean> {
-    // Confirmation for status change to "delivered"
-    if (newStatus === "delivered" && currentStatus !== "delivered") {
-      if (
-        !confirm(
-          "Êtes-vous sûr de vouloir marquer ce transport comme livré ?\n\nCette action va créer des mouvements de stock pour tous les produits des commandes associées."
-        )
-      ) {
-        return false;
-      }
-    }
-
-    /* Statut et entrée en stock à la livraison en une transaction (fonction SQL set_transport_status). */
+  /* Statut et entrée en stock à la livraison en une transaction (fonction SQL set_transport_status). */
+  async function setTransportStatus(transportId: string, newStatus: string) {
     const { error: statusError } = await supabase.rpc("set_transport_status", {
       p_transport_id: transportId,
       p_status: newStatus,
@@ -175,13 +156,23 @@
 
     if (statusError) {
       error = statusError.message;
-      return false;
+      return;
     }
 
     /* Objet neuf pour la ligne : la liste ($derived, sans proxy) ne suit pas les mutations. */
     transports = transports.map((t) => (t.id === transportId ? { ...t, status: newStatus } : t));
+  }
 
-    return true;
+  /* Le passage à « Livré » crée les mouvements de stock des commandes associées : il est confirmé d'abord. */
+  let deliverTarget = $state<any>(null);
+  let deliverOpen = $state(false);
+  function changeStatus(transport: any, next: string) {
+    if (next === "delivered" && transport.status !== "delivered") {
+      deliverTarget = transport;
+      deliverOpen = true;
+      return;
+    }
+    void setTransportStatus(transport.id, next);
   }
 
   async function openOrdersModal(transport: any) {
@@ -214,23 +205,7 @@
   async function loadDetailsOrders(transportId: string) {
     const { data: orders, error: ordersError } = await supabase
       .from("order")
-      .select(
-        `
-        *,
-        supplier (*),
-        order_item (
-          *,
-          wine_vintage (
-            *,
-            wine (
-              *,
-              winery (*),
-              appelation (*)
-            )
-          )
-        )
-      `
-      )
+      .select(`*, supplier (*), order_item ( ${LINE_ITEMS_SELECT} )`)
       .eq("transport_id", transportId)
       .order("date", { ascending: false });
 
@@ -245,12 +220,7 @@
   async function loadAvailableOrders() {
     const { data, error: fetchError } = await supabase
       .from("order")
-      .select(
-        `
-        *,
-        supplier (*)
-      `
-      )
+      .select("*, supplier (*)")
       .is("transport_id", null)
       .eq("status", "confirmed")
       .order("date", { ascending: false });
@@ -266,12 +236,7 @@
   async function loadAssociatedOrders(transportId: string) {
     const { data, error: fetchError } = await supabase
       .from("order")
-      .select(
-        `
-        *,
-        supplier (*)
-      `
-      )
+      .select("*, supplier (*)")
       .eq("transport_id", transportId)
       .order("date", { ascending: false });
 
@@ -281,14 +246,6 @@
     }
 
     associatedOrders = data || [];
-  }
-
-  function toggleOrderSelection(orderId: string) {
-    if (selectedOrderIds.includes(orderId)) {
-      selectedOrderIds = selectedOrderIds.filter((id) => id !== orderId);
-    } else {
-      selectedOrderIds = [...selectedOrderIds, orderId];
-    }
   }
 
   async function associateOrders() {
@@ -312,6 +269,40 @@
     closeOrdersModal();
     await invalidateAll();
   }
+
+  /* Changement de statut depuis le badge (mêmes choix que l'ancien sélecteur). */
+  let statusMenuTransport = $state<any>(null);
+  let statusMenuOpen = $state(false);
+  let statusAnchor = $state<HTMLElement | null>(null);
+  const statusAnchors: Record<string, HTMLElement | null> = $state({});
+  function openStatusMenu(transport: any) {
+    statusMenuTransport = transport;
+    statusAnchor = statusAnchors[transport.id] ?? null;
+    statusMenuOpen = true;
+  }
+  let statusItems = $derived.by(() => {
+    const transport = statusMenuTransport;
+    return transport ? statusMenuItems("transport", transport.status, (next) => changeStatus(transport, next)) : [];
+  });
+
+  /** Livré ou annulé : seul le détail reste. */
+  function rowItems(transport: any): MenuItem[] {
+    if (transport.status === "delivered" || transport.status === "cancelled") {
+      return [{ label: "Voir le détail", icon: IconEye, onSelect: () => openDetailsModal(transport) }];
+    }
+    return [
+      { label: "Associer des commandes", icon: IconClipboard, onSelect: () => openOrdersModal(transport) },
+      { label: "Modifier", icon: IconPencil, onSelect: () => openEditModal(transport) },
+      { label: "Supprimer…", icon: IconTrash, danger: true, separator: true, onSelect: () => askDelete(transport) },
+    ];
+  }
+
+  let deleteTarget = $state<any>(null);
+  let confirmOpen = $state(false);
+  function askDelete(transport: any) {
+    deleteTarget = transport;
+    confirmOpen = true;
+  }
 </script>
 
 <svelte:head>
@@ -320,644 +311,348 @@
 
 <ManagePageShell title="Transports">
   {#snippet actions()}
-      <button class="btn-primary" onclick={openCreateModal}>+ Nouveau transport</button>
+    <Button variant="primary" onclick={openCreateModal}><IconPlus size={18} strokeWidth={1.75} /> Nouveau transport</Button>
   {/snippet}
 
   {#if error}
-      <div class="error-message">{error}</div>
-    {/if}
+    <div class="error-message" role="alert">{error}</div>
+  {/if}
 
-    {#if transports.length === 0}
-      <div class="empty-state">
-        <p>Aucun transport trouvé</p>
-        <button class="btn-primary" onclick={openCreateModal}>
-          Créer le premier transport
-        </button>
-      </div>
-    {:else}
-      <div class="table-container">
-        <table>
-          <thead>
-            <tr>
-              <th>Transporteur</th>
-              <th>Date de départ</th>
-              <th>Date d'arrivée</th>
-              <th>Statut</th>
-              <th>Nb commandes</th>
-              <th>Nb palettes</th>
-              <th>Prix</th>
-              <th>Actions</th>
-            </tr>
-          </thead>
-          <tbody>
-            {#each transports as transport}
-              <tr>
-                <td><strong>{transport.transporter.name}</strong></td>
-                <td>
-                  {#if transport.departure_date}
-                    {formatDate(transport.departure_date)}
-                  {:else}
-                    -
-                  {/if}
-                </td>
-                <td>
-                  {#if transport.arrival_date}
-                    {formatDate(transport.arrival_date)}
-                  {:else}
-                    -
-                  {/if}
-                </td>
-                <td>
-                  <select
-                    class="status-select tone-{statusMeta("transport", transport.status).tone}"
-                    value={transport.status}
-                    disabled={transport.status === "delivered"}
-                    title={transport.status === "delivered" ? "Livré : le stock est entré, le statut est définitif" : undefined}
-                    onchange={async (e) => {
-                      const target = e.target as HTMLSelectElement;
-                      const previousStatus = transport.status;
-                      const newStatus = target.value;
-
-                      // Try to update, if cancelled, restore previous value
-                      const success = await updateTransportStatus(
-                        transport.id,
-                        newStatus,
-                        previousStatus
-                      );
-
-                      // If update failed (user cancelled or error), restore select value
-                      if (!success) {
-                        target.value = previousStatus;
-                      }
-                    }}
-                  >
-                    {#each Object.entries(KIND_META.transport) as [value, meta]}<option {value}>{meta.label}</option>{/each}
-                  </select>
-                </td>
-                <td>
-                  <strong>{transport.order_count || 0}</strong>
-                </td>
-                <td>{transport.pallets_number || "-"}</td>
-                <td>
-                  {#if transport.price}
-                    {formatEUR(transport.price)}
-                  {:else}
-                    -
-                  {/if}
-                </td>
-                <td>
-                  <div class="actions">
-                    {#if transport.status === "delivered" || transport.status === "cancelled"}
-                      <button
-                        class="ui-btn ui-btn--secondary ui-btn--sm"
-                        onclick={() => openDetailsModal(transport)}
-                      >
-                        Détails
-                      </button>
-                    {:else}
-                      <button
-                        class="ui-btn ui-btn--secondary ui-btn--sm"
-                        onclick={() => openOrdersModal(transport)}
-                      >
-                        Associer des commandes
-                      </button>
-                      <button
-                        class="ui-btn ui-btn--secondary ui-btn--sm"
-                        onclick={() => openEditModal(transport)}
-                      >
-                        Modifier
-                      </button>
-                      <button
-                        class="ui-btn ui-btn--danger ui-btn--sm"
-                        onclick={() => deleteTransport(transport.id)}
-                      >
-                        Supprimer
-                      </button>
-                    {/if}
-                  </div>
-                </td>
-              </tr>
-            {/each}
-          </tbody>
-        </table>
-      </div>
-    {/if}
+  {#if transports.length === 0}
+    <Card padded={false}>
+      <EmptyState icon={IconRoute} title="Aucun transport pour l’instant" text="Créez le premier transport, puis associez-lui des commandes confirmées.">
+        <Button onclick={openCreateModal}>Créer le premier transport</Button>
+      </EmptyState>
+    </Card>
+  {:else}
+    <DataTable caption="Liste des transports">
+      <thead>
+        <tr>
+          <th scope="col">Transporteur</th>
+          <th scope="col">Départ</th>
+          <th scope="col">Arrivée</th>
+          <th scope="col">Statut</th>
+          <th scope="col" class="num">Commandes</th>
+          <th scope="col" class="num">Palettes</th>
+          <th scope="col" class="num">Prix</th>
+          <th scope="col" class="col-actions"><span class="sr-only">Actions</span></th>
+        </tr>
+      </thead>
+      <tbody>
+        {#each transports as transport (transport.id)}
+          <tr>
+            <td><strong>{transport.transporter.name}</strong></td>
+            <td>{formatDate(transport.departure_date)}</td>
+            <td>{formatDate(transport.arrival_date)}</td>
+            <td>
+              {#if canChangeStatus("transport", transport.status)}
+                <StatusBadge
+                  kind="transport"
+                  status={transport.status}
+                  interactive
+                  bind:el={statusAnchors[transport.id]}
+                  expanded={statusMenuOpen && statusMenuTransport?.id === transport.id}
+                  onclick={() => openStatusMenu(transport)}
+                />
+              {:else}
+                <span title="Livré : le stock est entré, le statut est définitif"><StatusBadge kind="transport" status={transport.status} /></span>
+              {/if}
+            </td>
+            <td class="num">{transport.order_count || 0}</td>
+            <td class="num">{transport.pallets_number || "—"}</td>
+            <td class="num">{formatEUR(transport.price)}</td>
+            <td class="col-actions">
+              <RowMenu items={rowItems(transport)} label="Actions pour le transport {transport.transporter.name}" />
+            </td>
+          </tr>
+        {/each}
+      </tbody>
+    </DataTable>
+  {/if}
 </ManagePageShell>
 
-<!-- Modal de création / édition -->
+<Menu bind:open={statusMenuOpen} anchor={statusAnchor} items={statusItems} label="Changer le statut" align="start" />
+
+<ConfirmDialog
+  bind:open={deliverOpen}
+  title="Marquer ce transport comme livré ?"
+  message="Cette action va créer des mouvements de stock pour tous les produits des commandes associées."
+  confirmLabel="Oui, marquer comme livré"
+  action={() => setTransportStatus(deliverTarget.id, "delivered")}
+/>
+
+<ConfirmDialog
+  bind:open={confirmOpen}
+  title="Supprimer ce transport ?"
+  message={deleteTarget ? `Le transport ${deleteTarget.transporter.name} sera définitivement supprimé.` : ""}
+  action={() => deleteTransport(deleteTarget.id)}
+/>
+
+<!-- Création / modification -->
 <Modal open={formOpen} title={editingTransport ? "Modifier le transport" : "Nouveau transport"} onclose={closeForm}>
-  <form id="transport-form" onsubmit={preventDefault(submitForm)}>
-    <div class="form-grid">
-      <div class="form-group">
-        <label for="transporter_id">Transporteur *</label>
-        <select
-          id="transporter_id"
-          bind:value={formData.transporter_id}
-          required
-        >
-          <option value="">Sélectionner un transporteur</option>
-          {#each transporters as transporter}
-            <option value={transporter.id}>{transporter.name}</option>
-          {/each}
-        </select>
-      </div>
-
-      <div class="form-group">
-        <label for="departure_date">Date de départ</label>
-        <input
-          type="date"
-          id="departure_date"
-          bind:value={formData.departure_date}
-        />
-      </div>
-
-      <div class="form-group">
-        <label for="arrival_date">Date d'arrivée</label>
-        <input
-          type="date"
-          id="arrival_date"
-          bind:value={formData.arrival_date}
-        />
-      </div>
-
-      <div class="form-group">
-        <label for="pallets_number">Nombre de palettes</label>
-        <input
-          type="number"
-          id="pallets_number"
-          bind:value={formData.pallets_number}
-        />
-      </div>
-
-      <div class="form-group">
-        <label for="price">Prix</label>
-        <input
-          type="number"
-          step="0.01"
-          id="price"
-          bind:value={formData.price}
-        />
-      </div>
-
-      <div class="form-group full-width">
-        <label for="note">Note</label>
-        <textarea id="note" bind:value={formData.note} rows="3"></textarea>
-      </div>
+  <form id="transport-form" class="transport-form" onsubmit={preventDefault(submitForm)}>
+    {#if error && formOpen}
+      <div class="error-message" role="alert">{error}</div>
+    {/if}
+    <Field id="transport-transporter" label="Transporteur" required>
+      <Select id="transport-transporter" bind:value={formData.transporter_id} required>
+        <option value="">Sélectionner un transporteur</option>
+        {#each transporters as transporter}
+          <option value={transporter.id}>{transporter.name}</option>
+        {/each}
+      </Select>
+    </Field>
+    <div class="grid-2">
+      <Field id="transport-departure" label="Date de départ">
+        <input id="transport-departure" class="ui-control" type="date" bind:value={formData.departure_date} />
+      </Field>
+      <Field id="transport-arrival" label="Date d’arrivée">
+        <input id="transport-arrival" class="ui-control" type="date" bind:value={formData.arrival_date} />
+      </Field>
+      <Field id="transport-pallets" label="Nombre de palettes">
+        <input id="transport-pallets" class="ui-control" type="number" inputmode="numeric" bind:value={formData.pallets_number} />
+      </Field>
+      <Field id="transport-price" label="Prix">
+        <input id="transport-price" class="ui-control" type="number" step="0.01" inputmode="decimal" bind:value={formData.price} />
+      </Field>
     </div>
+    <Field id="transport-note" label="Note">
+      <textarea id="transport-note" class="ui-control" rows="3" bind:value={formData.note}></textarea>
+    </Field>
   </form>
   {#snippet footer()}
-      <Button variant="ghost" onclick={closeForm}>Annuler</Button>
-      <Button variant="primary" type="submit" form="transport-form" disabled={saving}>{editingTransport ? "Enregistrer" : "Créer le transport"}</Button>
+    <Button variant="ghost" onclick={closeForm}>Annuler</Button>
+    <Button variant="primary" type="submit" form="transport-form" disabled={saving}>{editingTransport ? "Enregistrer" : "Créer le transport"}</Button>
   {/snippet}
 </Modal>
 
-<!-- Modal d'association de commandes -->
+{#snippet orderSummary(order: any)}
+  <span class="order-info">
+    <span class="order-head">
+      <strong>{formatDate(order.date)} — {order.supplier.name}</strong>
+      <span class="num">{formatEUR(order.total_price ?? 0)}</span>
+    </span>
+    <StatusBadge kind="order" status={order.status} />
+    {#if order.note}<span class="t-caption">{order.note}</span>{/if}
+  </span>
+{/snippet}
+
+<!-- Association de commandes -->
 <Modal open={showOrdersModal} title="Associer des commandes au transport" onclose={closeOrdersModal}>
   {#if selectedTransport}
-    <div class="orders-modal-content">
-      <p class="modal-description">
-        Sélectionnez les commandes à associer au transport
-        <strong>{selectedTransport.transporter.name}</strong>
-      </p>
+    <p class="intro t-muted">
+      Sélectionnez les commandes à associer au transport <strong>{selectedTransport.transporter.name}</strong>.
+    </p>
 
-      {#if associatedOrders.length > 0}
-        <div class="section-title">Commandes déjà associées</div>
-        <div class="orders-list orders-list-readonly">
-          {#each associatedOrders as order}
-            <div class="order-item-readonly">
-              <div class="order-info">
-                <div class="order-header">
-                  <div>
-                    <strong>
-                      {formatDate(order.date)} - {order
-                        .supplier.name}
-                    </strong>
-                    <StatusBadge kind="order" status={order.status} />
-                  </div>
-                  <span class="order-total">
-                    {formatEUR(order.total_price ?? 0)}
-                  </span>
-                </div>
-                {#if order.note}
-                  <div class="order-note">{order.note}</div>
-                {/if}
-              </div>
-            </div>
-          {/each}
-        </div>
+    {#if associatedOrders.length > 0}
+      <h3 class="t-label section">Commandes déjà associées</h3>
+      <ul class="order-list">
+        {#each associatedOrders as order (order.id)}
+          <li class="order-row is-readonly">{@render orderSummary(order)}</li>
+        {/each}
+      </ul>
+      {#if availableOrders.length > 0}
+        <h3 class="t-label section">Commandes disponibles</h3>
       {/if}
+    {/if}
 
-      {#if associatedOrders.length > 0 && availableOrders.length > 0}
-        <div class="section-title" style="margin-top: 1.5rem;">
-          Commandes disponibles
-        </div>
-      {/if}
-
-      {#if availableOrders.length === 0}
-        {#if associatedOrders.length === 0}
-          <p class="empty-text">
-            Aucune commande confirmée disponible (seules les commandes
-            confirmées peuvent être associées à un transport)
-          </p>
-        {:else}
-          <p class="empty-text">Aucune autre commande confirmée disponible</p>
-        {/if}
+    {#if availableOrders.length === 0}
+      {#if associatedOrders.length === 0}
+        <EmptyState title="Aucune commande confirmée disponible" text="Seules les commandes confirmées peuvent être associées à un transport." compact />
       {:else}
-        <div class="orders-list">
-          {#each availableOrders as order}
-            <label class="order-checkbox">
-              <input
-                type="checkbox"
-                checked={selectedOrderIds.includes(order.id)}
-                onchange={() => toggleOrderSelection(order.id)}
-              />
-              <div class="order-info">
-                <div class="order-header">
-                  <div>
-                    <strong>
-                      {formatDate(order.date)} - {order
-                        .supplier.name}
-                    </strong>
-                    <StatusBadge kind="order" status={order.status} />
-                  </div>
-                  <span class="order-total">
-                    {formatEUR(order.total_price ?? 0)}
-                  </span>
-                </div>
-                {#if order.note}
-                  <div class="order-note">{order.note}</div>
-                {/if}
-              </div>
-            </label>
-          {/each}
-        </div>
+        <EmptyState title="Aucune autre commande confirmée disponible" compact />
       {/if}
-    </div>
+    {:else}
+      <ul class="order-list">
+        {#each availableOrders as order (order.id)}
+          <li>
+            <label class="order-row is-selectable">
+              <input type="checkbox" bind:group={selectedOrderIds} value={order.id} />
+              {@render orderSummary(order)}
+            </label>
+          </li>
+        {/each}
+      </ul>
+    {/if}
   {/if}
   {#snippet footer()}
-      <Button variant="ghost" onclick={closeOrdersModal}>Annuler</Button>
-      <Button variant="primary" onclick={associateOrders} disabled={selectedOrderIds.length === 0}>Associer {selectedOrderIds.length > 0 ? `(${selectedOrderIds.length})` : ""}</Button>
+    <Button variant="ghost" onclick={closeOrdersModal}>Annuler</Button>
+    <Button variant="primary" onclick={associateOrders} disabled={selectedOrderIds.length === 0}>Associer {selectedOrderIds.length > 0 ? `(${selectedOrderIds.length})` : ""}</Button>
   {/snippet}
 </Modal>
 
-<!-- Modal de détails -->
-<Modal open={showDetailsModal} title="Détails du transport" onclose={closeDetailsModal}>
+<!-- Détail -->
+<Modal open={showDetailsModal} title="Détail du transport" maxWidth={720} onclose={closeDetailsModal}>
+  {#snippet titleExtra()}
+    {#if detailsTransport}<StatusBadge kind="transport" status={detailsTransport.status} />{/if}
+  {/snippet}
   {#if detailsTransport}
-    <div class="details-content">
-      <div class="details-grid">
-        <div class="details-group">
-          <div class="details-label">Transporteur</div>
-          <div><strong>{detailsTransport.transporter.name}</strong></div>
-        </div>
+    <dl class="facts">
+      <div><dt>Transporteur</dt><dd><strong>{detailsTransport.transporter.name}</strong></dd></div>
+      <div><dt>Prix</dt><dd>{formatEUR(detailsTransport.price)}</dd></div>
+      <div><dt>Date de départ</dt><dd>{formatDate(detailsTransport.departure_date)}</dd></div>
+      <div><dt>Date d’arrivée</dt><dd>{formatDate(detailsTransport.arrival_date)}</dd></div>
+      <div><dt>Nombre de palettes</dt><dd>{detailsTransport.pallets_number || "—"}</dd></div>
+      {#if detailsTransport.note}
+        <div class="wide"><dt>Note</dt><dd>{detailsTransport.note}</dd></div>
+      {/if}
+    </dl>
 
-        <div class="details-group">
-          <div class="details-label">Statut</div>
-          <div>
-            <StatusBadge kind="transport" status={detailsTransport.status} />
-          </div>
-        </div>
-
-        <div class="details-group">
-          <div class="details-label">Date de départ</div>
-          <div>
-            {#if detailsTransport.departure_date}
-              {formatDate(detailsTransport.departure_date)}
-            {:else}
-              -
-            {/if}
-          </div>
-        </div>
-
-        <div class="details-group">
-          <div class="details-label">Date d'arrivée</div>
-          <div>
-            {#if detailsTransport.arrival_date}
-              {formatDate(detailsTransport.arrival_date)}
-            {:else}
-              -
-            {/if}
-          </div>
-        </div>
-
-        <div class="details-group">
-          <div class="details-label">Nombre de palettes</div>
-          <div>{detailsTransport.pallets_number || "-"}</div>
-        </div>
-
-        <div class="details-group">
-          <div class="details-label">Prix</div>
-          <div>
-            {#if detailsTransport.price}
-              <strong>{formatEUR(detailsTransport.price)}</strong>
-            {:else}
-              -
-            {/if}
-          </div>
-        </div>
-
-        {#if detailsTransport.note}
-          <div class="details-group full-width">
-            <div class="details-label">Note</div>
-            <div>{detailsTransport.note}</div>
-          </div>
-        {/if}
-      </div>
-
-      <div class="details-section">
-        <h3>Commandes associées</h3>
-        {#if detailsOrders.length === 0}
-          <p class="empty-text">Aucune commande associée</p>
-        {:else}
-          <div class="details-orders-list">
-            {#each detailsOrders as order}
-              <div class="details-order">
-                <div class="details-order-header">
-                  <div class="details-order-info">
-                    <strong>
-                      {formatDate(order.date)} - {order
-                        .supplier.name}
-                    </strong>
-                    <span class="details-order-total">
-                      Total : {formatEUR(order.total_price ?? 0)}
-                    </span>
-                  </div>
-                </div>
-                {#if order.note}
-                  <div class="details-order-note">{order.note}</div>
-                {/if}
-                {#if order.order_item && order.order_item.length > 0}
-                  <div class="details-order-items">
-                    {#each order.order_item as item}
-                      <div class="details-order-item">
-                        <div class="details-order-item-name">
-                          {vintageProductLabel(item.wine_vintage)}
-                        </div>
-                        <div class="details-order-item-details">
-                          <span>x{item.quantity}</span>
-                          {#if item.price}
-                            <span>@ {formatEUR(item.price)}</span>
-                            <strong>= {formatEUR(item.price * item.quantity)}</strong>
-                          {/if}
-                        </div>
-                      </div>
-                    {/each}
-                  </div>
-                {/if}
-              </div>
-            {/each}
-          </div>
-        {/if}
-      </div>
-    </div>
+    <h3 class="t-label section">Commandes associées</h3>
+    {#if detailsOrders.length === 0}
+      <EmptyState title="Aucune commande associée" compact />
+    {:else}
+      {#each detailsOrders as order (order.id)}
+        <section class="detail-order">
+          <p class="order-head">
+            <strong>{formatDate(order.date)} — {order.supplier.name}</strong>
+            <span>Total : {formatEUR(order.total_price ?? 0)}</span>
+          </p>
+          {#if order.note}<p class="t-caption">{order.note}</p>{/if}
+          {#if order.order_item?.length}
+            <DataTable caption="Articles de la commande du {formatDate(order.date)}">
+              <thead>
+                <tr>
+                  <th scope="col">Article</th>
+                  <th scope="col" class="num">Qté</th>
+                  <th scope="col" class="num">Prix unit.</th>
+                  <th scope="col" class="num">Total</th>
+                </tr>
+              </thead>
+              <tbody>
+                {#each order.order_item as item}
+                  <tr>
+                    <td>{vintageProductLabel(item.wine_vintage)}</td>
+                    <td class="num">{item.quantity}</td>
+                    <td class="num">{formatEUR(item.price)}</td>
+                    <td class="num"><strong>{formatEUR(item.price ? item.price * item.quantity : null)}</strong></td>
+                  </tr>
+                {/each}
+              </tbody>
+            </DataTable>
+          {/if}
+        </section>
+      {/each}
+    {/if}
   {/if}
+  {#snippet footer()}
+    <Button variant="primary" onclick={closeDetailsModal}>Fermer</Button>
+  {/snippet}
 </Modal>
 
 <style>
-
-  /* Orders modal styles */
-
-  .modal-description {
-    margin-bottom: 1.5rem;
-    color: var(--ink-2);
-    font-size: 0.95rem;
+  .transport-form {
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
   }
 
-  .modal-description strong {
+  .grid-2 {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+  }
+
+  .intro {
+    margin: 0 0 16px;
+  }
+
+  .intro strong {
     color: var(--ink);
   }
 
-  .orders-list {
+  .section {
+    margin: 16px 0 8px;
+  }
+
+  .order-list {
+    list-style: none;
+    margin: 0;
+    padding: 0;
     display: flex;
     flex-direction: column;
-    gap: 0.75rem;
-    max-height: 400px;
-    overflow-y: auto;
-    margin-bottom: 1.5rem;
-    padding: 0.5rem;
-    border: 1px solid var(--border-soft);
-    border-radius: 4px;
+    gap: 8px;
   }
 
-  .order-checkbox {
+  .order-row {
     display: flex;
     align-items: flex-start;
-    gap: 0.75rem;
-    padding: 0.75rem;
+    gap: 12px;
+    padding: 12px;
+    border: 1px solid var(--border-soft);
+    border-radius: var(--r-sm);
+    background: var(--card);
+  }
+
+  .order-row.is-readonly {
     background: var(--table-head);
-    border-radius: 4px;
-    cursor: pointer;
-    transition: background 0.2s;
+    color: var(--ink-2);
   }
 
-  .order-checkbox:hover {
-    background: var(--border-soft);
+  .order-row.is-selectable {
+    cursor: pointer;
   }
 
-  .order-checkbox input[type="checkbox"] {
-    margin-top: 0.25rem;
-    cursor: pointer;
+  .order-row.is-selectable:hover {
+    background: var(--row-hover);
+  }
+
+  .order-row input {
+    margin-top: 3px;
+    accent-color: var(--teal-600);
   }
 
   .order-info {
     flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 4px;
   }
 
-  .order-header {
+  .order-head {
+    align-self: stretch;
     display: flex;
     justify-content: space-between;
-    align-items: center;
-    margin-bottom: 0.25rem;
+    gap: 12px;
+    margin: 0;
   }
 
-  .order-header > div {
-    display: flex;
-    flex-direction: column;
-    gap: 0.25rem;
-  }
-
-  .order-header strong {
-    color: var(--ink);
-    font-size: 0.95rem;
-  }
-
-  .order-total {
-    color: var(--teal-600);
-    font-weight: 600;
-    font-size: 0.95rem;
-  }
-
-  .order-note {
-    color: var(--ink-2);
-    font-size: 0.85rem;
-    font-style: italic;
-    margin-top: 0.25rem;
-  }
-
-  .empty-text {
-    text-align: center;
-    color: var(--ink-2);
-    padding: 2rem;
-    font-style: italic;
-  }
-
-  .section-title {
-    margin-bottom: 0.75rem;
-    color: var(--ink);
-    font-weight: 600;
-    font-size: 1rem;
-  }
-
-  .orders-list-readonly {
-    background: var(--table-head);
-    opacity: 0.8;
-  }
-
-  .order-item-readonly {
-    display: flex;
-    align-items: flex-start;
-    gap: 0.75rem;
-    padding: 0.75rem;
-    background: var(--border-soft);
-    border-radius: 4px;
-    cursor: default;
-  }
-
-  .order-item-readonly .order-info {
-    flex: 1;
-  }
-
-  .order-item-readonly .order-header strong {
-    color: var(--ink-2);
-  }
-
-  .order-item-readonly .order-total {
-    color: var(--ink-2);
-  }
-
-  .btn-primary:disabled:hover {
-    background: #ccc;
-  }
-
-  /* Details modal styles */
-
-  .details-grid {
+  .facts {
     display: grid;
     grid-template-columns: 1fr 1fr;
-    gap: 1rem;
-    margin-bottom: 1.5rem;
+    gap: 12px 24px;
+    margin: 0 0 20px;
   }
 
-  .details-group {
-    display: flex;
-    flex-direction: column;
-  }
-
-  .details-group.full-width {
+  .facts .wide {
     grid-column: 1 / -1;
   }
 
-  .details-label {
-    margin-bottom: 0.5rem;
+  .facts dt {
+    font-size: 12px;
     color: var(--ink-2);
-    font-weight: 600;
-    font-size: 0.9rem;
   }
 
-  .details-group div {
-    color: var(--ink);
+  .facts dd {
+    margin: 2px 0 0;
   }
 
-  .details-section {
-    margin-top: 1.5rem;
-    padding-top: 1.5rem;
-    border-top: 1px solid var(--border-soft);
-  }
-
-  .details-section h3 {
-    margin-top: 0;
-    margin-bottom: 1rem;
-    color: var(--ink);
-    font-size: 1.1rem;
-  }
-
-  .details-orders-list {
+  .detail-order {
     display: flex;
     flex-direction: column;
-    gap: 1rem;
-    margin-bottom: 1rem;
+    gap: 8px;
+    margin-bottom: 20px;
   }
 
-  .details-order {
-    padding: 1rem;
-    background: var(--table-head);
-    border-radius: 4px;
-    border: 1px solid var(--border-soft);
+  .detail-order p {
+    margin: 0;
   }
 
-  .details-order-header {
-    margin-bottom: 0.5rem;
-  }
-
-  .details-order-info {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-  }
-
-  .details-order-info strong {
-    color: var(--ink);
-    font-size: 1rem;
-  }
-
-  .details-order-total {
-    color: var(--teal-600);
-    font-weight: 600;
-    font-size: 1rem;
-  }
-
-  .details-order-note {
-    color: var(--ink-2);
-    font-size: 0.85rem;
-    font-style: italic;
-    margin-bottom: 0.75rem;
-    margin-top: 0.5rem;
-  }
-
-  .details-order-items {
-    display: flex;
-    flex-direction: column;
-    gap: 0.5rem;
-    margin-top: 0.75rem;
-    padding-top: 0.75rem;
-    border-top: 1px solid var(--border);
-  }
-
-  .details-order-item {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    padding: 0.5rem;
-    background: white;
-    border-radius: 4px;
-  }
-
-  .details-order-item-name {
-    flex: 1;
-    color: var(--ink);
-    font-weight: 500;
-    font-size: 0.9rem;
-  }
-
-  .details-order-item-details {
-    display: flex;
-    gap: 1rem;
-    align-items: center;
-    color: var(--ink-2);
-    font-size: 0.9rem;
-  }
-
-  .details-order-item-details strong {
-    color: var(--ink);
-    font-size: 0.95rem;
+  @media (max-width: 767px) {
+    .grid-2,
+    .facts {
+      grid-template-columns: 1fr;
+    }
   }
 </style>
