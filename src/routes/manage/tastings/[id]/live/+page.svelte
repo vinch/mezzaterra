@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { onDestroy, onMount, tick } from "svelte";
+  import { onDestroy, onMount } from "svelte";
   import { errorMessage } from "$lib/async";
   import { fade } from "svelte/transition";
   import { page } from "$app/stores";
@@ -27,7 +27,7 @@
   import { formatTime, isLiveNow } from "$lib/dates";
   import WineBottle from "$lib/components/site/WineBottle.svelte";
   import Spinner from "$lib/ui/Spinner.svelte";
-  import { fetchSeats, fetchTastingWithWines, isParticipantRegistration, onlineSeats, onlineSeatsByCustomer, tastingTitle, type SeatInfo } from "$lib/publicData";
+  import { fetchSeats, fetchTastingWithWines, isParticipantRegistration, onlineSeats, onlineSeatsByCustomer, participantOrigin, placesLabel, tastingTitle, type SeatInfo } from "$lib/publicData";
   import { compareCustomersByLabel, customerDisplayLabel } from "$lib/customerDisplay";
   import { broadcastPosition, joinLiveChannel } from "$lib/live";
   import { qrDataUrl } from "$lib/qr";
@@ -99,11 +99,6 @@
 
     await refresh();
     if (destroyed) return;
-    /* Lien direct vers une carte (#participants depuis la liste) : elle n'existe qu'une fois chargée. */
-    if (location.hash) {
-      await tick();
-      document.getElementById(location.hash.slice(1))?.scrollIntoView();
-    }
     /* Pas de rafraîchissement quand l'onglet est caché. */
     poll = setInterval(() => document.hidden || refresh(), 8000);
   });
@@ -168,12 +163,14 @@
         wishes = (data || []) as unknown as WishRequest[];
       })(),
       (async () => {
-        const { data } = await supabase
+        const { data, error: e } = await supabase
           .from("tasting_registration")
           .select("*")
           .eq("tasting_id", tastingId)
           .order("created_at", { ascending: true });
-        registrations = data || [];
+        /* Un relevé raté ne fait pas passer les inscrits du site pour des ajouts à la main. */
+        if (e) return;
+        registrations = data;
       })(),
       (async () => {
         const { data, error: e } = await supabase
@@ -326,7 +323,7 @@
 
 <!-- Visible aussi sans produit au programme : les réservations arrivent bien avant la soirée. -->
 {#snippet peopleCards()}
-  <Card title="Participants" id="participants">
+  <Card title="Participants">
     {#snippet actions()}
       <a class="edit-link" href="/manage/tastings?id={tastingId}">Modifier</a>
     {/snippet}
@@ -335,16 +332,13 @@
     {:else}
       <ul class="list">
         {#each participants as c (c.id)}
-          {@const online = seatsByCustomer.get(c.id)}
-          <!-- Même règle que participant_seats (SQL) : places réservées en ligne, sinon celles du participant. -->
-          {@const placesTaken = online ?? c.seats}
           {@const contact = [c.email, c.phone_number].filter(Boolean).join(" · ")}
           <li>
             <span class="list-main">
               <strong>{customerDisplayLabel(c)}</strong>
               {#if contact}<span class="t-caption">{contact}</span>{/if}
             </span>
-            {#if placesTaken}<span class="t-caption">{placesTaken} place{placesTaken > 1 ? "s" : ""}{online ? " · en ligne" : ""}</span>{/if}
+            <span class="t-caption">{participantOrigin(seatsByCustomer.get(c.id), c.seats)}</span>
           </li>
         {/each}
       </ul>
@@ -357,7 +351,7 @@
           <li>
             <span class="list-main">
               <strong>{r.first_name} {r.last_name || ""}</strong>
-              <span class="t-caption">{r.seats} place{r.seats > 1 ? "s" : ""}{r.status === "waitlist" ? " · liste d’attente" : r.status === "cancelled" ? " · annulée" : ""}</span>
+              <span class="t-caption">{placesLabel(r.seats)}{r.status === "waitlist" ? " · liste d’attente" : r.status === "cancelled" ? " · annulée" : ""}</span>
             </span>
             <Button size="sm" variant="ghost" disabled={busyId === r.id} onclick={() => confirmRow(r)}>
               {r.status === "waitlist" ? "Confirmer" : r.status === "cancelled" ? "Rétablir" : "Ajouter aux participants"}
@@ -862,11 +856,6 @@
   .order-actions {
     display: inline-flex;
     gap: 4px;
-  }
-
-  /* Lien direct #participants : le titre ne passe pas sous la barre fixe du mobile (56 px). */
-  :global(#participants) {
-    scroll-margin-top: 72px;
   }
 
   .list {
