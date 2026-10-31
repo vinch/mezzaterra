@@ -2,7 +2,7 @@ import { error, redirect } from "@sveltejs/kit";
 import { isUuid } from "$lib/publicData";
 import { kindBySlug, kindOf, productHref } from "$lib/productKinds";
 import { supabase } from "$lib/supabase";
-import { groupFormats, isDiscontinued, VINTAGE_PUBLIC_SELECT, VINTAGE_PUBLIC_SELECT_BY_WINE } from "$lib/wine";
+import { groupFormats, VINTAGE_PUBLIC_SELECT, VINTAGE_PUBLIC_SELECT_BY_WINE } from "$lib/wine";
 import type { PageLoad } from "./$types";
 
 export const load: PageLoad = async ({ params, url }) => {
@@ -11,10 +11,11 @@ export const load: PageLoad = async ({ params, url }) => {
     .from("wine_vintage")
     .select(VINTAGE_PUBLIC_SELECT)
     .eq("id", params.id)
+    .is("discontinued_at", null)
     .maybeSingle();
 
   if (fetchError) throw error(500, "Impossible de charger ce produit");
-  if (!vintage || isDiscontinued(vintage as any)) throw error(404, "Produit introuvable");
+  if (!vintage) throw error(404, "Produit introuvable");
 
   const v = vintage as any;
   /* Une huile ouverte sous /vins (ou l'inverse) : vers la bonne adresse. */

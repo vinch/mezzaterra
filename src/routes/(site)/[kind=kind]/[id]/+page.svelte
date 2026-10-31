@@ -3,7 +3,7 @@
   import { page } from "$app/stores";
   import OrganicLogo from "$lib/components/site/OrganicLogo.svelte";
   import WineBottle from "$lib/components/site/WineBottle.svelte";
-  import ProductAbout, { hasProductAbout } from "$lib/components/site/ProductAbout.svelte";
+  import ProductAbout from "$lib/components/site/ProductAbout.svelte";
   import ProductCard from "$lib/components/site/ProductCard.svelte";
   import { contactHref } from "$lib/contact";
   import { fetchAvailability, type AvailabilityOf } from "$lib/publicData";
@@ -164,11 +164,7 @@
     </div>
   </section>
 
-  {#if hasProductAbout(v)}
-    <section class="mz-container about">
-      <ProductAbout vintage={v} />
-    </section>
-  {/if}
+  <ProductAbout vintage={v} class="mz-container" />
 
   {#if data.fromWinery.length}
     <section class="mz-container mz-section">
@@ -344,11 +340,6 @@
     color: var(--mz-success);
     font-weight: 600;
     font-size: 0.9rem;
-  }
-
-  .about {
-    padding-top: 3rem;
-    padding-bottom: 1rem;
   }
 
   .more-head {

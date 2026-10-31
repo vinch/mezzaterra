@@ -316,8 +316,13 @@ const vintagePublicSelect = (inner: boolean) => `
  * Colonnes d'un lot nécessaires à ses libellés (`vintageLabel`, `vintageProductLabel`…). `kind` en
  * fait partie : sans lui, une huile serait lue comme un vin et perdrait son contenant affiché.
  */
-export const VINTAGE_LABEL_SELECT =
-  "year, production_year, volume_ml, wine ( kind, name, winery ( name ), appelation ( name, label ( name ) ) )" as const;
+const LABEL_WINE_COLUMNS = "kind, name, winery ( name ), appelation ( name, label ( name ) )" as const;
+export const VINTAGE_LABEL_SELECT = `year, production_year, volume_ml, wine ( ${LABEL_WINE_COLUMNS} )` as const;
+
+/** `VINTAGE_LABEL_SELECT` avec des colonnes du produit en plus (« id, wine_type ( name ) »). */
+export function vintageLabelSelect(wineExtra: string): string {
+  return `year, production_year, volume_ml, wine ( ${LABEL_WINE_COLUMNS}, ${wineExtra} )`;
+}
 
 export const VINTAGE_PUBLIC_SELECT = vintagePublicSelect(false);
 export const VINTAGE_PUBLIC_SELECT_BY_WINE = vintagePublicSelect(true);

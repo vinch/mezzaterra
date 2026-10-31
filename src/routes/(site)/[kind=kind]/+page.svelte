@@ -33,7 +33,8 @@
   });
 
   let kind = $derived(PRODUCT_KINDS[data.kind]);
-  let vintages = $derived(data.vintages as any[]);
+  /* Trié une fois : les filtres gardent l'ordre. */
+  let vintages = $derived([...(data.vintages as any[])].sort(compareProducts));
   let styles = $derived(presentStyles(vintages));
 
   let filtered = $derived(vintages
@@ -56,8 +57,7 @@
       return fold(query)
         .split(/\s+/)
         .every((w) => blob.includes(w));
-    })
-    .sort(compareProducts));
+    }));
 
   type WineryGroup = { winery: any; items: FormatGroup<any>[] };
 

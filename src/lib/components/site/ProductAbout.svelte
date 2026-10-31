@@ -1,81 +1,70 @@
-<script lang="ts" module>
+<script lang="ts">
   import { kindInfo } from "$lib/productKinds";
   import { vintageNotes, winePairings } from "$lib/wine";
 
-  /** Description, notes et accords d'un lot chargé avec `VINTAGE_PUBLIC_SELECT`. */
-  export function productAbout(v: any) {
-    const kind = kindInfo(v?.wine);
-    return {
-      kind,
-      description: (v?.wine?.description as string | null | undefined) || "",
-      notes: vintageNotes(v?.note, kind.key),
-      pairings: winePairings(v?.wine),
-    };
-  }
-
-  /** Le lot a-t-il de quoi remplir ce bloc ? */
-  export function hasProductAbout(v: any): boolean {
-    const { description, notes, pairings } = productAbout(v);
-    return Boolean(description || notes.length || pairings.length);
-  }
-</script>
-
-<script lang="ts">
   /**
-   * « Le vin / L'huile », notes de dégustation et accords d'un produit : fiche publique et fiche
-   * rapide (`ProductModal`, `compact` : titres plus petits, notes sur fond).
+   * « Le vin / L'huile », notes de dégustation et accords d'un lot chargé avec `VINTAGE_PUBLIC_SELECT` :
+   * fiche publique et fiche rapide (`ProductModal`, `compact` : notes sur fond). Rien s'il n'y a rien à dire.
    * La couleur du liseré des notes vient de `--robe`, posée par le parent.
    */
   interface Props {
     vintage: any;
     compact?: boolean;
+    class?: string;
   }
 
-  let { vintage, compact = false }: Props = $props();
+  let { vintage, compact = false, class: className = "" }: Props = $props();
 
-  let about = $derived(productAbout(vintage));
+  let kind = $derived(kindInfo(vintage?.wine));
+  let description = $derived((vintage?.wine?.description as string | null | undefined) || "");
+  let notes = $derived(vintageNotes(vintage?.note, kind.key));
+  let pairings = $derived(winePairings(vintage?.wine));
   let heading = $derived(compact ? "h3" : "h2");
 </script>
 
-<div class="about" class:compact>
-  {#if about.description}
-    <div class="block">
-      <svelte:element this={heading} class="block-title">{about.kind.aboutTitle}</svelte:element>
-      <p class="prose">{about.description}</p>
-    </div>
-  {/if}
-
-  {#if about.notes.length}
-    <div class="block">
-      <svelte:element this={heading} class="block-title">Notes de dégustation</svelte:element>
-      <div class="notes">
-        {#each about.notes as note}
-          <div class="note">
-            <span class="note-label">{note.label}</span>
-            <p>{note.content}</p>
-          </div>
-        {/each}
+{#if description || notes.length || pairings.length}
+  <section class="about {className}" class:compact>
+    {#if description}
+      <div class="block">
+        <svelte:element this={heading} class="block-title">{kind.aboutTitle}</svelte:element>
+        <p class="prose">{description}</p>
       </div>
-    </div>
-  {/if}
+    {/if}
 
-  {#if about.pairings.length}
-    <div class="block">
-      <svelte:element this={heading} class="block-title">À table avec</svelte:element>
-      <div class="pairings">
-        {#each about.pairings as p}
-          <span class="mz-chip">{p}</span>
-        {/each}
+    {#if notes.length}
+      <div class="block">
+        <svelte:element this={heading} class="block-title">Notes de dégustation</svelte:element>
+        <div class="notes">
+          {#each notes as note}
+            <div class="note">
+              <span class="note-label">{note.label}</span>
+              <p>{note.content}</p>
+            </div>
+          {/each}
+        </div>
       </div>
-    </div>
-  {/if}
-</div>
+    {/if}
+
+    {#if pairings.length}
+      <div class="block">
+        <svelte:element this={heading} class="block-title">À table avec</svelte:element>
+        <div class="pairings">
+          {#each pairings as p}
+            <span class="mz-chip">{p}</span>
+          {/each}
+        </div>
+      </div>
+    {/if}
+  </section>
+{/if}
 
 <style>
   .about {
     display: flex;
     flex-direction: column;
     gap: 2.5rem;
+    padding-top: 3rem;
+    padding-bottom: 1rem;
   }
 
   .block-title {
@@ -124,15 +113,7 @@
   /* Fiche rapide : plus serrée, notes sur fond. */
   .compact {
     gap: 1.5rem;
-  }
-
-  .compact .block-title {
-    margin-bottom: 0.5rem;
-    font-size: 0.75rem;
-  }
-
-  .compact .block p {
-    line-height: 1.6;
+    padding: 0;
   }
 
   .compact .prose {
@@ -141,7 +122,6 @@
   }
 
   .compact .notes {
-    grid-template-columns: repeat(auto-fit, minmax(14rem, 1fr));
     gap: 0.75rem;
   }
 
@@ -154,7 +134,6 @@
   .compact .note-label {
     display: block;
     font-size: 1.05rem;
-    margin-bottom: 0.2rem;
   }
 
   .compact .note p {
