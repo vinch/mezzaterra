@@ -474,9 +474,10 @@
 {/if}
 
 {#if showCart}
-  <div class="sheet-backdrop" transition:fade={{ duration: 150 }} onclick={self(() => (showCart = false))} role="presentation">
+  <!-- Pas de fermeture pendant la confirmation : un ajout fait entre-temps serait effacé avec le panier. -->
+  <div class="sheet-backdrop" transition:fade={{ duration: 150 }} onclick={self(() => (showCart = sending))} role="presentation">
     <div class="sheet" transition:fly={{ y: 40, duration: 250 }} role="dialog" aria-modal="true" aria-labelledby="cart-title">
-      <button type="button" class="sheet-close" onclick={() => (showCart = false)} aria-label="Fermer">×</button>
+      <button type="button" class="sheet-close" onclick={() => (showCart = false)} disabled={sending} aria-label="Fermer">×</button>
       {#if sendResult === "ok"}
         <h2 id="cart-title">Merci {profile.firstName} !</h2>
         <p class="sheet-lead">Votre commande est confirmée. On prépare vos bouteilles et on revient vers vous très vite.</p>
