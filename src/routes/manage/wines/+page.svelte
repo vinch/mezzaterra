@@ -4,7 +4,8 @@
   import { supabase } from "$lib/supabase";
   import { onMount } from "svelte";
   import type { Wine, Winery, Appelation, WineType } from "$lib/types";
-  import { goto } from "$app/navigation";
+  import { goto, replaceState } from "$app/navigation";
+  import { page } from "$app/stores";
   import ManagePageShell from "$lib/components/manage/ManagePageShell.svelte";
   import Modal from "$lib/ui/Modal.svelte";
   import Button from "$lib/ui/Button.svelte";
@@ -37,7 +38,7 @@
   import { fold, formatEUR } from "$lib/format";
   import { promptReorder } from "$lib/reorder";
   import { isDiscontinued } from "$lib/wine";
-  import { DEFAULT_KIND, kindCount, kindInfo, kindOf, kindTabItems, PRODUCT_KIND_OPTIONS, type ProductKind } from "$lib/productKinds";
+  import { DEFAULT_KIND, kindCount, kindFromUrl, kindInfo, kindListHref, kindOf, kindTabItems, PRODUCT_KIND_OPTIONS, type ProductKind } from "$lib/productKinds";
   import { fetchStockMap } from "$lib/manageData";
   import { errorMessage } from "$lib/async";
 
@@ -348,17 +349,19 @@
   const ROBES: WineStyleKey[] = ["red", "white", "rose"];
 
   /** Un onglet par type de produit : vins et huiles ne se mélangent pas dans la liste. */
-  let tab = $state<ProductKind>(DEFAULT_KIND);
+  let tab = $state<ProductKind>(kindFromUrl($page.url));
   let tabKind = $derived(kindInfo(tab));
   let tabWines = $derived(wines.filter((w) => kindOf(w) === tab));
-  let tabItems = $derived(kindTabItems(wines, undefined, loading));
+  let tabItems = $derived(kindTabItems(wines, loading));
   let tabAppellations = $derived(appellations.filter((a) => kindOf(a) === tab));
-  /** Les filtres propres à un type (robe, appellation) ne valent pas pour l'autre. */
+  /** Les filtres propres à un type (robe, appellation, domaine) ne valent pas pour l'autre. */
   function setTab(kind: ProductKind) {
     if (kind === tab) return;
     tab = kind;
     robeFilter = "";
     filterAppelationId = "";
+    filterWineryId = "";
+    replaceState(kindListHref($page.url.pathname, kind), {});
   }
 
   /** Millésimes du plus ancien au plus récent (triés au chargement). */

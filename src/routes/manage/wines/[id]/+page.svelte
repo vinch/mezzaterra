@@ -40,7 +40,7 @@
     wineTitle,
     wineTypeLabel,
   } from "$lib/wine";
-  import { formatVolume, kindInfo } from "$lib/productKinds";
+  import { formatVolume, kindInfo, kindListHref, kindOf } from "$lib/productKinds";
 
   interface Props {
     data: PageData;
@@ -371,7 +371,7 @@
   <title>{wineTitle(wine)} - Gestion</title>
 </svelte:head>
 
-<ManagePageShell title={wineTitle(wine)} {subtitle} back={{ href: "/manage/wines", label: "Produits" }}>
+<ManagePageShell title={wineTitle(wine)} {subtitle} back={{ href: kindListHref("/manage/wines", kindOf(wine)), label: "Produits" }}>
   {#snippet actions()}
       <Button variant="primary" onclick={openCreateModal}><IconPlus size={16} strokeWidth={1.75} /> {kind.newBatch}</Button>
   {/snippet}

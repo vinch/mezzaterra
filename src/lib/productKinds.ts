@@ -219,12 +219,25 @@ export function kindCount(kind: ProductKindInfo, n: number): string {
 /** Onglets « un par type de produit » (composant `Tabs`) : libellé et nombre de lignes de chaque type, sans compte pendant le chargement. */
 export function kindTabItems(
   rows: KindRow[],
+  loading: boolean,
   label: (kind: ProductKindInfo) => string = (k) => k.plural,
-  loading = false,
 ): { key: ProductKind; label: string; count?: number }[] {
   const counts = new Map<ProductKind, number>();
-  for (const row of rows) counts.set(kindOf(row), (counts.get(kindOf(row)) ?? 0) + 1);
+  for (const row of rows) {
+    const kind = kindOf(row);
+    counts.set(kind, (counts.get(kind) ?? 0) + 1);
+  }
   return PRODUCT_KIND_LIST.map((k) => ({ key: k.key, label: label(k), count: loading ? undefined : (counts.get(k.key) ?? 0) }));
+}
+
+/** Onglet de type ouvert d'une liste de la gestion, gardé dans l'URL (`?type=huiles`) : retour depuis une fiche, rechargement. */
+export function kindFromUrl(url: URL): ProductKind {
+  return kindBySlug(url.searchParams.get("type") ?? "") ?? DEFAULT_KIND;
+}
+
+/** Lien vers une liste de la gestion ouverte sur l'onglet d'un type ; sans paramètre pour le type par défaut. */
+export function kindListHref(path: string, kind: ProductKind): string {
+  return kind === DEFAULT_KIND ? path : `${path}?type=${PRODUCT_KINDS[kind].slug}`;
 }
 
 /** Type de produit d'après son segment d'URL public (`vins`, `huiles`). */

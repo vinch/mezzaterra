@@ -1,6 +1,8 @@
 <script lang="ts">
   import { preventDefault } from "$lib/ui/events";
   import { onMount } from "svelte";
+  import { replaceState } from "$app/navigation";
+  import { page } from "$app/stores";
   import { supabase } from "$lib/supabase";
   import ManagePageShell from "./ManagePageShell.svelte";
   import { KIND_FIELD, type RefColumn, type RefField } from "./refCrud";
@@ -16,7 +18,7 @@
   import { IconEye, IconPencil, IconPlus, IconTrash } from "$lib/ui/icons";
   import Spinner from "$lib/ui/Spinner.svelte";
   import Tabs from "$lib/ui/Tabs.svelte";
-  import { DEFAULT_KIND, kindInfo, kindOf, kindTabItems, type ProductKind, type ProductKindInfo } from "$lib/productKinds";
+  import { kindFromUrl, kindInfo, kindListHref, kindOf, kindTabItems, type ProductKind, type ProductKindInfo } from "$lib/productKinds";
 
   /**
    * Page de référentiel (pays, régions, cépages, clients, fournisseurs…) : liste, création, édition et
@@ -83,13 +85,13 @@
   let deleteTarget = $state<any>(null);
 
   /** Type de l'onglet ouvert (avec `kindTabs`). */
-  let kind = $state<ProductKind>(DEFAULT_KIND);
+  let kind = $state<ProductKind>(kindFromUrl($page.url));
   let newText = $derived(typeof newLabel === "function" ? newLabel(kindInfo(kind)) : newLabel);
   let formFields = $derived(
     kindTabs ? [fields[0], { ...KIND_FIELD, default: kind }, ...fields.slice(1)] : fields,
   );
   let shownRows = $derived(kindTabs ? rows.filter((r) => kindOf(r) === kind) : rows);
-  let tabItems = $derived(kindTabs ? kindTabItems(rows, kindTabs, loading) : []);
+  let tabItems = $derived(kindTabs ? kindTabItems(rows, loading, kindTabs) : []);
 
   const formId = `ref-form-${table}`;
   const query = () => supabase.from(table as any) as any;
@@ -103,10 +105,17 @@
     loading = false;
     const toEdit = editId ? rows.find((r) => r.id === editId) : null;
     if (toEdit) {
-      kind = kindOf(toEdit);
+      showKind(kindOf(toEdit));
       openForm(toEdit);
     }
   });
+
+  /** Onglet ouvert, gardé dans l'URL (avec `kindTabs`). */
+  function showKind(next: ProductKind) {
+    if (!kindTabs || next === kind) return;
+    kind = next;
+    replaceState(kindListHref($page.url.pathname, next), {});
+  }
 
   function sorted(list: any[]): any[] {
     if (sortRows) return sortRows(list);
@@ -168,7 +177,7 @@
     if (formOpen && editing === target) {
       closeForm();
       /* Montre la ligne, même enregistrée sous un autre type de produit. */
-      kind = kindOf(saved);
+      showKind(kindOf(saved));
     }
   }
 
@@ -199,7 +208,7 @@
 </script>
 
 {#snippet kindTabsBar()}
-  <Tabs label="Type de produit" items={tabItems} bind:value={kind} />
+  <Tabs label="Type de produit" items={tabItems} bind:value={() => kind, showKind} />
 {/snippet}
 
 <ManagePageShell {title} tabs={kindTabs ? kindTabsBar : undefined}>
