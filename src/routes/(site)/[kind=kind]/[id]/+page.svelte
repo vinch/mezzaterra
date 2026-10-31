@@ -225,7 +225,7 @@
               <a class="mz-link" href={winery.url} target="_blank" rel="noopener noreferrer">Site du domaine ↗</a>
             {/if}
             {#if instagram}
-              <a class="mz-link" href={instagram.url} target="_blank" rel="noopener noreferrer">Instagram ↗</a>
+              <a class="mz-link" href={instagram.url} target="_blank" rel="noopener noreferrer">Instagram {instagram.handle} ↗</a>
             {/if}
           </div>
         </div>
