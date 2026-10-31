@@ -85,8 +85,8 @@ export type ProductKindInfo = {
   organicLabel: string;
   /** Titre de la description du produit sur sa fiche : « Le vin ». */
   aboutTitle: string;
-  /** Accords mets (`wine_pairing`) : « Accords mets & vins ». */
-  pairingsLabel: string;
+  /** Accords mets (`wine_pairing`) : « Accords mets & vins » ; `null` : pas d'accords pour ce type (huile). */
+  pairingsLabel: string | null;
   /** Notes de dégustation, dans l'ordre d'affichage (`note.type`). */
   noteTypes: { key: string; label: string }[];
 };
@@ -174,7 +174,7 @@ export const PRODUCT_KINDS: Record<ProductKind, ProductKindInfo> = {
     standardVolume: null,
     organicLabel: "Huile biologique",
     aboutTitle: "L’huile",
-    pairingsLabel: "Accords mets & huile",
+    pairingsLabel: null,
     noteTypes: [
       { key: "color", label: "Couleur" },
       { key: "nose", label: "Nez" },

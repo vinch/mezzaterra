@@ -433,12 +433,13 @@
   }
 
   function rowItems(wine: any): MenuItem[] {
+    const kind = kindInfo(wine);
     const items: MenuItem[] = [
       { label: "Ouvrir la fiche", icon: IconEye, href: `/manage/wines/${wine.id}` },
       { label: "Modifier", icon: IconPencil, onSelect: () => openEditModal(wine) },
-      { label: kindInfo(wine).addBatch, icon: IconPlus, href: `/manage/wines/${wine.id}?nouveau=1` },
-      { label: kindInfo(wine).pairingsLabel, icon: IconPlate, onSelect: () => openPairingsModal(wine) },
+      { label: kind.addBatch, icon: IconPlus, href: `/manage/wines/${wine.id}?nouveau=1` },
     ];
+    if (kind.pairingsLabel) items.push({ label: kind.pairingsLabel, icon: IconPlate, onSelect: () => openPairingsModal(wine) });
     if (latestVintage(wine)) items.push({ label: "Commander (réassort)", icon: IconClipboard, onSelect: () => reorder(wine) });
     if (isRetired(wine)) {
       items.push({ label: "Remettre au catalogue", icon: IconArchiveRestore, onSelect: () => setRetired(wine, false) });
@@ -757,7 +758,7 @@
   {/snippet}
 </Modal>
 
-<Modal open={showPairingsModal} title={kindInfo(selectedWine).pairingsLabel} maxWidth={520} onclose={closePairingsModal}>
+<Modal open={showPairingsModal} title={kindInfo(selectedWine).pairingsLabel ?? ""} maxWidth={520} onclose={closePairingsModal}>
   {#if selectedWine}<p class="t-muted pairing-intro">{wineTitle(selectedWine)} · {selectedWine.winery?.name ?? ""}</p>{/if}
   {#if pairingError}<div class="error-message" role="alert">{pairingError}</div>{/if}
   {#if winePairings.length === 0}
