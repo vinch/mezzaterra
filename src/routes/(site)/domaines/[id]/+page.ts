@@ -1,7 +1,7 @@
 import { error } from "@sveltejs/kit";
 import { isUuid } from "$lib/publicData";
 import { supabase } from "$lib/supabase";
-import { publicVintages, VINTAGE_PUBLIC_SELECT } from "$lib/wine";
+import { VINTAGE_PUBLIC_SELECT_BY_WINE } from "$lib/wine";
 import type { PageLoad } from "./$types";
 
 type OtherWinery = { id: string; name: string; city: string | null; latitude: number | null; longitude: number | null };
@@ -17,9 +17,9 @@ export const load: PageLoad = async ({ params }) => {
       .maybeSingle(),
     supabase
       .from("wine_vintage")
-      .select(VINTAGE_PUBLIC_SELECT)
+      .select(VINTAGE_PUBLIC_SELECT_BY_WINE)
       .eq("wine.winery_id", params.id)
-      .not("wine", "is", null)
+      .is("discontinued_at", null)
       .order("year", { ascending: false, nullsFirst: false }),
     supabase
       .from("winery")
@@ -34,7 +34,7 @@ export const load: PageLoad = async ({ params }) => {
 
   return {
     winery: wineryRes.data as any,
-    vintages: publicVintages((vintagesRes.data || []) as any[]).filter((v) => v.wine),
+    vintages: (vintagesRes.data || []) as any[],
     others: (othersRes.data || []) as OtherWinery[],
   };
 };

@@ -291,17 +291,11 @@ export const VINTAGE_PUBLIC_SELECT = vintagePublicSelect(false);
 export const VINTAGE_PUBLIC_SELECT_BY_WINE = vintagePublicSelect(true);
 
 /**
- * Millésime « plus jamais disponible » : absent du site public, grisé dans la gestion.
- * Filtré côté client (les requêtes publiques lisent `*`) pour ne rien casser tant que
- * la colonne n'existe pas encore en base.
+ * Lot « plus jamais disponible » : grisé dans la gestion, absent du site public (ses requêtes
+ * filtrent `.is("discontinued_at", null)`, sa fiche répond 404).
  */
 export function isDiscontinued(v: { discontinued_at?: string | null } | null | undefined): boolean {
   return !!v?.discontinued_at;
-}
-
-/** Retire les millésimes « plus jamais disponibles » d'une liste publique. */
-export function publicVintages<T extends { discontinued_at?: string | null }>(list: T[]): T[] {
-  return list.filter((v) => !isDiscontinued(v));
 }
 
 type WineryLike = {

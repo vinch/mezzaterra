@@ -1,6 +1,6 @@
 import { supabase } from "$lib/supabase";
 import { kindBySlug, PRODUCT_KINDS } from "$lib/productKinds";
-import { publicVintages, VINTAGE_PUBLIC_SELECT_BY_WINE } from "$lib/wine";
+import { VINTAGE_PUBLIC_SELECT_BY_WINE } from "$lib/wine";
 import type { PageLoad } from "./$types";
 
 export const load: PageLoad = async ({ params }) => {
@@ -12,11 +12,12 @@ export const load: PageLoad = async ({ params }) => {
     .eq("wine.kind", kind)
     /* Domaine masqué : ni lui ni ses produits au catalogue (pages accessibles par lien). */
     .eq("wine.winery.hidden", false)
+    .is("discontinued_at", null)
     .order("year", { ascending: false, nullsFirst: false });
 
   return {
     kind,
-    vintages: publicVintages((data || []) as any[]),
+    vintages: (data || []) as any[],
     error: error ? `Impossible de charger les ${PRODUCT_KINDS[kind].plural.toLowerCase()} pour le moment.` : null,
   };
 };
