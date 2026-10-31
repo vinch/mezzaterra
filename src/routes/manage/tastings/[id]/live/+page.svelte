@@ -21,20 +21,19 @@
     IconInbox,
     IconMonitor,
     IconPlay,
-    IconUserCheck,
     IconUsers,
   } from "$lib/ui/icons";
   import { formatDate, formatEUR } from "$lib/format";
   import { formatTime, isLiveNow } from "$lib/dates";
   import WineBottle from "$lib/components/site/WineBottle.svelte";
   import Spinner from "$lib/ui/Spinner.svelte";
-  import { fetchTastingWithWines, tastingTitle } from "$lib/publicData";
+  import { fetchSeats, fetchTastingWithWines, onlineSeats, tastingTitle, type SeatInfo } from "$lib/publicData";
   import { broadcastPosition, joinLiveChannel } from "$lib/live";
   import { qrDataUrl } from "$lib/qr";
   import { swatchStyle, vintageShortLabel, wineRobe, wineStyle, wineSubtitle, wineTitle, wineTypeLabel } from "$lib/wine";
   import { kindInfo } from "$lib/productKinds";
   import {
-    confirmRegistrationAsGuest,
+    confirmRegistration,
     createSaleFromWish,
     setWishStatus,
     wishItems,
@@ -120,7 +119,8 @@
     if (e) console.warn("live_position non enregistrée :", e.message);
   }
 
-  let participants = $state<any[]>([]);
+  /** Places prises (participants et réservations en ligne, comptés par la base). */
+  let seats = $state<SeatInfo | null>(null);
   /** null : stock illisible (affiché « indisponible » plutôt qu'en rupture). */
   let stockMap = $state.raw<Map<string, number> | null>(new Map());
   /** Ventes rattachées à cette dégustation (sale.tasting_id). */
@@ -136,11 +136,7 @@
         eveningSales = ((data || []) as any[]).filter((x) => x.status !== "cancelled");
       })(),
       (async () => {
-        const { data } = await supabase
-          .from("tasting_customer")
-          .select("customer_id, customer ( id, first_name, last_name, company_name, email )")
-          .eq("tasting_id", tastingId);
-        participants = ((data || []) as any[]).map((r) => r.customer).filter(Boolean);
+        seats = await fetchSeats(tastingId);
       })(),
       (async () => {
         const ids = wines.map((w) => w.id);
@@ -206,7 +202,7 @@
 
   let prices = $derived(new Map(wines.map((w) => [w.id, Number(w.price ?? 0)])));
   let wineById = $derived(new Map(wines.map((w) => [w.id, w])));
-  let confirmedSeats = $derived(registrations.filter((r) => r.status === "confirmed").reduce((s, r) => s + r.seats, 0));
+  let seatsOnline = $derived(onlineSeats(registrations));
 
   let current = $derived(wines[position]);
   let style = $derived(wineStyle(current?.wine?.wine_type));
@@ -238,31 +234,17 @@
     }
   }
 
-  async function addAsGuest(r: any) {
+  async function confirm(r: any) {
     actionError = "";
     busyId = r.id;
     try {
-      await confirmRegistrationAsGuest(r);
+      await confirmRegistration(r.id);
       await refresh();
     } catch (e) {
       actionError = errorMessage(e);
     } finally {
       busyId = "";
     }
-  }
-
-  async function addAllRegistrations() {
-    actionError = "";
-    for (const r of registrations.filter((r) => r.status === "confirmed" && !r.customer_id)) {
-      busyId = r.id;
-      try {
-        await confirmRegistrationAsGuest(r);
-      } catch (e) {
-        actionError = errorMessage(e);
-      }
-    }
-    busyId = "";
-    await refresh();
   }
 
   async function copyLink() {
@@ -302,16 +284,6 @@
   let headerSubtitle = $derived(tasting
     ? [formatDate(tasting.date), tasting.location, tasting.start_time ? `depuis ${formatTime(tasting.start_time)}` : ""].filter(Boolean).join(" · ")
     : "");
-  /* Participants connus = participants enregistrés + inscrits en ligne (sans doublon d'email). */
-  let participantCount = $derived((() => {
-    const emails = new Set(participants.map((p) => (p.email || p.id).toLowerCase()));
-    let n = participants.length;
-    for (const r of registrations.filter((r) => r.status === "confirmed" && !r.customer_id)) {
-      if (!emails.has((r.email || "").toLowerCase())) n += r.seats;
-    }
-    return n;
-  })());
-
   function wishFor(w: WishRequest, vintageId: string): number {
     return wishItems(w.items).filter((i) => i.wine_vintage_id === vintageId).reduce((n, i) => n + i.quantity, 0);
   }
@@ -325,6 +297,31 @@
 <svelte:head>
   <title>Piloter la dégustation - Gestion</title>
 </svelte:head>
+
+<!-- Visible aussi sans produit au programme : les réservations arrivent bien avant la soirée. -->
+{#snippet registrationsCard()}
+  {#if registrations.length}
+    <Card title="Réservations en ligne" id="registrations">
+      <ul class="list">
+        {#each registrations as r (r.id)}
+          <li>
+            <span class="list-main">
+              <strong>{r.first_name} {r.last_name || ""}</strong>
+              <span class="t-caption">{r.seats} place{r.seats > 1 ? "s" : ""}{r.status === "waitlist" ? " · liste d’attente" : r.status === "cancelled" ? " · annulée" : ""}</span>
+            </span>
+            {#if r.status === "confirmed" && r.customer_id}
+              <span class="t-caption ok"><IconCheck size={13} strokeWidth={2} aria-hidden="true" /> Participant</span>
+            {:else if r.status !== "cancelled"}
+              <Button size="sm" variant="ghost" disabled={busyId === r.id} onclick={() => confirm(r)}>
+                {r.status === "waitlist" ? "Confirmer" : "Ajouter aux participants"}
+              </Button>
+            {/if}
+          </li>
+        {/each}
+      </ul>
+    </Card>
+  {/if}
+{/snippet}
 
 <div class="pilot" class:has-wines={wines.length > 0}>
   <ManagePageShell
@@ -350,23 +347,26 @@
         {/if}
       {/snippet}
 
+    {#if actionError}<div class="error-message" role="alert">{actionError}</div>{/if}
     {#if loading}
       <Spinner />
     {:else if error}
       <div class="error-message" role="alert">{error}</div>
     {:else if wines.length === 0}
-      <Card>
-        <EmptyState icon={IconPlay} title="Rien au déroulé" text="Ajoutez des produits à cette dégustation pour la piloter.">
-          <Button href="/manage/tastings">Modifier la dégustation</Button>
-        </EmptyState>
-      </Card>
+      <div class="empty-stack">
+        <Card>
+          <EmptyState icon={IconPlay} title="Rien au déroulé" text="Ajoutez des produits à cette dégustation pour la piloter.">
+            <Button href="/manage/tastings?id={tastingId}">Modifier la dégustation</Button>
+          </EmptyState>
+        </Card>
+        {@render registrationsCard()}
+      </div>
     {:else}
-      {#if actionError}<div class="error-message" role="alert">{actionError}</div>{/if}
 
       <section class="band" aria-label="La soirée en chiffres">
         <div class="band-item">
-          <span class="t-caption">Participants</span>
-          <span class="band-v">{participantCount}{#if confirmedSeats}<small> · {confirmedSeats} places réservées</small>{/if}</span>
+          <span class="t-caption">Places prises</span>
+          <span class="band-v">{seats?.seats_taken ?? "—"}{#if seats?.capacity}<small> / {seats.capacity}</small>{/if}{#if seatsOnline}<small> · {seatsOnline} en ligne</small>{/if}</span>
         </div>
         <div class="band-item">
           <span class="t-caption">Bouteilles vendues</span>
@@ -386,7 +386,7 @@
         <div class="side">
           <Card title="Déroulé" id="deroule">
             {#snippet actions()}
-                                <a class="edit-link" href="/manage/tastings">Modifier</a>
+                                <a class="edit-link" href="/manage/tastings?id={tastingId}">Modifier</a>
                               {/snippet}
             <ol class="steps">
               {#each wines as w, i (w.id)}
@@ -496,30 +496,7 @@
             {/if}
           </Card>
 
-          {#if registrations.length}
-            <Card title="Inscrits en ligne" id="registrations">
-              {#snippet actions()}
-                  {#if registrations.some((r) => r.status === "confirmed" && !r.customer_id)}
-                    <Button size="sm" onclick={addAllRegistrations}><IconUserCheck size={14} strokeWidth={1.75} /> Tous comme participants</Button>
-                  {/if}
-                                  {/snippet}
-              <ul class="list">
-                {#each registrations as r (r.id)}
-                  <li>
-                    <span class="list-main">
-                      <strong>{r.first_name} {r.last_name || ""}</strong>
-                      <span class="t-caption">{r.seats} place{r.seats > 1 ? "s" : ""}{r.status === "waitlist" ? " · liste d’attente" : r.status === "cancelled" ? " · annulée" : ""}</span>
-                    </span>
-                    {#if r.customer_id}
-                      <span class="t-caption ok"><IconCheck size={13} strokeWidth={2} aria-hidden="true" /> Participant</span>
-                    {:else if r.status === "confirmed"}
-                      <Button size="sm" variant="ghost" disabled={busyId === r.id} onclick={() => addAsGuest(r)}>Ajouter</Button>
-                    {/if}
-                  </li>
-                {/each}
-              </ul>
-            </Card>
-          {/if}
+          {@render registrationsCard()}
 
           {#if comments.length}
             <Card title="Ce qu’ils en disent" id="comments">
@@ -668,6 +645,7 @@
     align-items: start;
   }
 
+  .empty-stack,
   .side,
   .main {
     display: flex;

@@ -3,6 +3,7 @@
 
   import { NEW_ROW, supabase } from "$lib/supabase";
   import { onMount } from "svelte";
+  import { page } from "$app/stores";
   import type { Customer, Tasting } from "$lib/types";
   import Modal from "$lib/ui/Modal.svelte";
   import Button from "$lib/ui/Button.svelte";
@@ -10,7 +11,7 @@
   import ProductVintageAutocomplete from "$lib/components/manage/ProductVintageAutocomplete.svelte";
   import CustomerAutocomplete from "$lib/components/manage/CustomerAutocomplete.svelte";
   import Spinner from "$lib/ui/Spinner.svelte";
-  import { customerDisplayLabel, sortCustomersByLabel } from "$lib/customerDisplay";
+  import { compareCustomersByLabel, customerDisplayLabel } from "$lib/customerDisplay";
   import { fetchCustomers, fetchPickerVintages } from "$lib/manageData";
   import { errorMessage, latestOnly } from "$lib/async";
   import { fetchTastingWithWines } from "$lib/publicData";
@@ -31,6 +32,8 @@
   type ModalCustomerEntry = {
     customer_id: string;
     customer: Customer;
+    /** Places de sa réservation en ligne, s'il vient du site. */
+    onlineSeats?: number;
   };
 
   let tastings = $state<TastingRow[]>([]);
@@ -71,6 +74,9 @@
     const failed = results.find((r) => r.status === "rejected");
     if (failed) error = errorMessage(failed.reason);
     loading = false;
+    /* /manage/tastings?id=… ouvre directement la dégustation (lien du tableau de bord, de Piloter). */
+    const linked = tastings.find((t) => t.id === $page.url.searchParams.get("id"));
+    if (linked) void openEditModal(linked);
   });
 
   async function downloadCards(tasting: TastingRow) {
@@ -130,10 +136,15 @@
     }
   }
 
+  function byCustomerLabel(a: ModalCustomerEntry, b: ModalCustomerEntry): number {
+    return compareCustomersByLabel(a.customer, b.customer);
+  }
+
   /* Les chargeurs de la modale lèvent leurs erreurs : save_tasting remplace vins et inscrits
      par ceux de la modale, qui ne doit donc jamais s'ouvrir sans eux. */
   async function loadModalCustomers(tastingId: string): Promise<{ entries: ModalCustomerEntry[]; ids: string[] }> {
-    const { data, error: fetchError } = await supabase
+    const [{ data, error: fetchError }, { data: regs, error: regError }] = await Promise.all([
+      supabase
       .from("tasting_customer")
       .select(
         `
@@ -147,22 +158,26 @@
         )
       `,
       )
-      .eq("tasting_id", tastingId);
+      .eq("tasting_id", tastingId),
+      supabase
+        .from("tasting_registration")
+        .select("customer_id, seats")
+        .eq("tasting_id", tastingId)
+        .eq("status", "confirmed")
+        .not("customer_id", "is", null),
+    ]);
 
-    if (fetchError) throw new Error(fetchError.message);
+    if (fetchError || regError) throw new Error((fetchError || regError)!.message);
+    const onlineSeats = new Map<string, number>();
+    for (const r of regs || []) onlineSeats.set(r.customer_id!, (onlineSeats.get(r.customer_id!) ?? 0) + r.seats);
     const entries = (data || [])
       .filter((r) => r.customer)
       .map((r) => ({
         customer_id: r.customer_id,
         customer: r.customer as Customer,
+        onlineSeats: onlineSeats.get(r.customer_id),
       }))
-      .sort((a, b) =>
-        customerDisplayLabel(a.customer).localeCompare(
-          customerDisplayLabel(b.customer),
-          "fr",
-          { sensitivity: "base" },
-        ),
-      );
+      .sort(byCustomerLabel);
     return { entries, ids: (data || []).map((r) => r.customer_id) };
   }
 
@@ -270,13 +285,7 @@
     }
     const customer = customers.find((c) => c.id === selectedCustomerId);
     if (!customer) return;
-    modalCustomers = sortCustomersByLabel([
-      ...modalCustomers.map((e) => e.customer),
-      customer,
-    ]).map((c) => ({
-      customer_id: c.id,
-      customer: c,
-    }));
+    modalCustomers = [...modalCustomers, { customer_id: customer.id, customer }].sort(byCustomerLabel);
     selectedCustomerId = "";
     error = "";
   }
@@ -430,7 +439,7 @@
             <th>Nom</th>
             <th>Lieu</th>
             <th class="num">Produits</th>
-            <th class="num">Clients</th>
+            <th class="num">Participants</th>
             <th>Actions</th>
           </tr>
         </thead>
@@ -527,8 +536,9 @@
         <input type="text" inputmode="decimal" id="tasting-price" bind:value={formData.price} />
       </div>
       <div class="form-group">
-        <label for="tasting-capacity">Places (inscriptions en ligne)</label>
+        <label for="tasting-capacity">Places au total</label>
         <input type="number" min="0" id="tasting-capacity" bind:value={formData.capacity} placeholder="Illimité" />
+        <small class="field-hint">Participants ajoutés ici compris : une fois plein, le site met les réservations en liste d’attente.</small>
       </div>
       <div class="form-group full-width">
         <label for="tasting-description">Description publique</label>
@@ -612,15 +622,18 @@
       </div>
 
       <div class="form-group full-width tasting-customers-block">
-        <span class="section-title" id="tasting-customers-label">Clients</span>
+        <span class="section-title" id="tasting-customers-label">Participants</span>
 
         {#if modalCustomers.length === 0}
-          <p class="empty-text">Aucun client associé.</p>
+          <p class="empty-text">Aucun participant. Les réservations faites sur le site s’ajoutent ici toutes seules.</p>
         {:else}
           <ul class="customer-list">
             {#each modalCustomers as entry, i (entry.customer_id)}
               <li class="customer-list-item">
-                <span>{customerDisplayLabel(entry.customer)}</span>
+                <span>
+                  {customerDisplayLabel(entry.customer)}
+                  {#if entry.onlineSeats}<span class="t-caption online">Réservé en ligne · {entry.onlineSeats} place{entry.onlineSeats > 1 ? "s" : ""}</span>{/if}
+                </span>
                 <button
                   type="button"
                   class="ui-remove"
@@ -682,6 +695,10 @@
   .field-hint {
     color: var(--ink-2);
     font-size: 0.8rem;
+  }
+
+  .online {
+    display: block;
   }
 
   .tasting-wines-block .section-title {

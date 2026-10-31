@@ -80,6 +80,14 @@ professionnel la détaille par taux. À appliquer avant de déployer le code, qu
 supérieure au montant de la ligne (`NOT VALID` : nouvelles lignes seulement). La page Ventes le vérifie
 aussi avec un message clair, et le total d'une ligne n'est jamais négatif.
 
+`20261031120000_registrations_participants_contact.sql` simplifie ce qui arrive du site. Une
+réservation en ligne confirmée devient aussitôt un participant (client retrouvé par email ou téléphone,
+sinon créé) ; les réservations confirmées des dégustations à venir sont rattachées par la migration. Les
+places d'une dégustation comptent tous les participants, ceux ajoutés à la main compris
+(`tasting_seats_taken`) : le site passe en liste d'attente une fois la capacité atteinte. Les messages
+du formulaire de contact sont enregistrés (`contact_message`, via `submit_contact_message`) et
+s'affichent dans Demandes. À appliquer avant de déployer le code, qui lit `contact_message`.
+
 ```sh
 supabase link --project-ref wmerreifcpttrhxwmkmn
 supabase db push
@@ -96,14 +104,14 @@ pnpm update-types
 | `/vins`, `/vins/[id]` | Catalogue et fiches vin partageables (Open Graph) |
 | `/huiles`, `/huiles/[id]` | Idem pour les huiles d'olive ; lien « Nos huiles » dès qu'une huile existe |
 | `/domaines/[id]` | Page d'un domaine : présentation, carte, cépages, tous ses vins |
-| `/contact` | Formulaire de contact → email à gianni@mezzaterra.be (Resend), raison préremplie via `?raison=prive\|commande\|degustation\|pro\|autre` (+ `&sujet=…`), CAPTCHA Turnstile |
+| `/contact` | Formulaire de contact → Demandes dans la gestion, et email à gianni@mezzaterra.be (Resend), raison préremplie via `?raison=prive\|commande\|degustation\|pro\|autre` (+ `&sujet=…`), CAPTCHA Turnstile |
 | `/design-system` | Vitrine du design system (composants, tokens, règles) : référence pour tout nouvel écran, non indexée |
 
 | Gestion | |
 |---|---|
 | `/manage` | Tableau de bord : CA 12 mois, top vins, stock bas (réassort), stock dormant |
-| `/manage/tastings/[id]/live` | Pilotage en direct, QR code, mode projection, demandes, inscrits |
-| `/manage/requests` | Demandes « J'en veux » → ventes « En attente » |
+| `/manage/tastings/[id]/live` | Pilotage en direct, QR code, mode projection, demandes, réservations en ligne |
+| `/manage/requests` | Messages du formulaire de contact et demandes « J'en veux » (→ ventes « En attente ») |
 | `/manage/insights` | Marges, rotation du stock, rentabilité des dégustations |
 | `/manage/customers/[id]` | Fiche client : historique, goûts, suggestions |
 | `/manage/campaigns` | Invitations et rappels par email (Resend, ou copier / messagerie) |

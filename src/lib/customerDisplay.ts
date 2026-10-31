@@ -11,17 +11,18 @@ export function customerDisplayLabel(c: {
   return name;
 }
 
+type Labelled = {
+  first_name: string;
+  last_name: string;
+  company_name?: string | null;
+};
+
+/** Ordre alphabétique français sur le libellé affiché. */
+export function compareCustomersByLabel(a: Labelled, b: Labelled): number {
+  return customerDisplayLabel(a).localeCompare(customerDisplayLabel(b), "fr", { sensitivity: "base" });
+}
+
 /** Tri alphabétique français sur le libellé affiché. */
-export function sortCustomersByLabel<
-  T extends {
-    first_name: string;
-    last_name: string;
-    company_name?: string | null;
-  },
->(customers: T[]): T[] {
-  return [...customers].sort((a, b) =>
-    customerDisplayLabel(a).localeCompare(customerDisplayLabel(b), "fr", {
-      sensitivity: "base",
-    }),
-  );
+export function sortCustomersByLabel<T extends Labelled>(customers: T[]): T[] {
+  return [...customers].sort(compareCustomersByLabel);
 }

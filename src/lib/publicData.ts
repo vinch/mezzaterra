@@ -71,6 +71,11 @@ export function firstAvailable<T extends { id: string }>(of: AvailabilityOf | nu
 
 export type SeatInfo = { capacity: number | null; seats_taken: number; seats_left: number | null };
 
+/** Places des réservations en ligne confirmées. */
+export function onlineSeats(registrations: { status: string; seats: number }[]): number {
+  return registrations.filter((r) => r.status === "confirmed").reduce((n, r) => n + r.seats, 0);
+}
+
 export async function fetchSeats(tastingId: string): Promise<SeatInfo | null> {
   try {
     const { data, error } = await supabase.rpc("tasting_availability", { p_tasting_id: tastingId });

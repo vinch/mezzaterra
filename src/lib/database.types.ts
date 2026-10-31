@@ -74,6 +74,48 @@ export type Database = {
           },
         ]
       }
+      contact_message: {
+        Row: {
+          created_at: string
+          email: string
+          first_name: string
+          id: string
+          last_name: string | null
+          message: string
+          page: string | null
+          phone: string | null
+          reason: string
+          status: string
+          subject: string | null
+        }
+        Insert: {
+          created_at?: string
+          email: string
+          first_name: string
+          id?: string
+          last_name?: string | null
+          message: string
+          page?: string | null
+          phone?: string | null
+          reason: string
+          status?: string
+          subject?: string | null
+        }
+        Update: {
+          created_at?: string
+          email?: string
+          first_name?: string
+          id?: string
+          last_name?: string | null
+          message?: string
+          page?: string | null
+          phone?: string | null
+          reason?: string
+          status?: string
+          subject?: string | null
+        }
+        Relationships: []
+      }
       country: {
         Row: {
           created_at: string
@@ -1315,6 +1357,15 @@ export type Database = {
           order_id: string
         }[]
       }
+      admin_find_or_create_customer: {
+        Args: {
+          p_email: string
+          p_first_name: string
+          p_last_name: string
+          p_phone: string
+        }
+        Returns: string
+      }
       assert_admin: { Args: never; Returns: undefined }
       assign_invoice_number: { Args: { p_sale_id: string }; Returns: string }
       attach_orders_to_transport: {
@@ -1322,6 +1373,10 @@ export type Database = {
         Returns: undefined
       }
       brussels_today: { Args: never; Returns: string }
+      confirm_tasting_registration: {
+        Args: { p_registration_id: string }
+        Returns: string
+      }
       create_wine_vintage: {
         Args: {
           p_copy_grapes?: boolean
@@ -1331,7 +1386,20 @@ export type Database = {
         }
         Returns: string
       }
+      find_or_create_customer: {
+        Args: {
+          p_email: string
+          p_first_name: string
+          p_last_name: string
+          p_phone: string
+        }
+        Returns: string
+      }
       is_admin: { Args: never; Returns: boolean }
+      link_registration_to_customer: {
+        Args: { p_registration_id: string }
+        Returns: string
+      }
       my_notebook: { Args: never; Returns: Json }
       product_kind_vat_rate: { Args: { p_kind: unknown }; Returns: number }
       public_wine_availability: {
@@ -1384,6 +1452,19 @@ export type Database = {
         Args: { p_status: string; p_transport_id: string }
         Returns: undefined
       }
+      submit_contact_message: {
+        Args: {
+          p_email: string
+          p_first_name: string
+          p_last_name: string
+          p_message: string
+          p_page: string
+          p_phone: string
+          p_reason: string
+          p_subject: string
+        }
+        Returns: string
+      }
       tasting_availability: {
         Args: { p_tasting_id: string }
         Returns: {
@@ -1392,6 +1473,7 @@ export type Database = {
           seats_taken: number
         }[]
       }
+      tasting_seats_taken: { Args: { p_tasting_id: string }; Returns: number }
       unsubscribe_email: { Args: { p_id: string }; Returns: boolean }
     }
     Enums: {

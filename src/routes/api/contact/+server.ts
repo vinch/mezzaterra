@@ -3,14 +3,16 @@ import { env } from "$env/dynamic/private";
 import type { RequestHandler } from "./$types";
 import { CONTACT_EMAIL, CONTACT_MIN_FILL_MS, contactReason } from "$lib/contact";
 import { escapeHtml, isValidEmail, resendPost } from "$lib/server/email";
+import { supabase } from "$lib/supabase";
 
 /**
- * Formulaire de contact public → email via Resend (https://resend.com).
+ * Formulaire de contact public → message enregistré (gestion, page Demandes) et email via Resend
+ * (https://resend.com). L'un des deux suffit : le message n'est perdu que si les deux échouent.
  * Variables d'environnement serveur :
  *  - RESEND_API_KEY et CONTACT_FROM (ou, à défaut, CAMPAIGN_FROM) : expéditeur sur un domaine vérifié ;
  *  - CONTACT_TO (facultatif) : destinataire, gianni@mezzaterra.be par défaut ;
  *  - TURNSTILE_SECRET_KEY (facultatif) : CAPTCHA Cloudflare Turnstile, exigé dès qu'il est défini.
- * Sans Resend, le formulaire propose d'ouvrir la messagerie (mailto) avec le message prérempli.
+ * Si ni l'enregistrement ni l'email ne passent, le formulaire propose d'ouvrir la messagerie (mailto).
  */
 
 const MAX_MESSAGE = 5000;
@@ -89,7 +91,28 @@ export const POST: RequestHandler = async ({ request, getClientAddress }) => {
     throw error(403, "La vérification anti-robot a échoué. Merci de réessayer.");
   }
 
-  if (!enabled()) throw error(503, "Envoi d'emails non configuré (RESEND_API_KEY / CONTACT_FROM)");
+  /* Enregistrement et email en parallèle : l'un des deux suffit. */
+  const save = supabase.rpc("submit_contact_message", {
+    p_reason: reason.id,
+    p_subject: subject,
+    p_first_name: firstName,
+    p_last_name: lastName,
+    p_email: email,
+    p_phone: phone,
+    p_page: page,
+    p_message: message,
+  }).then(
+    ({ error: e }) => {
+      if (e) console.error("Message de contact non enregistré :", e.message);
+      return !e;
+    },
+    () => false,
+  );
+
+  if (!enabled()) {
+    if (await save) return json({ ok: true });
+    throw error(503, "Envoi d'emails non configuré (RESEND_API_KEY / CONTACT_FROM)");
+  }
 
   const name = [firstName, lastName].filter(Boolean).join(" ");
   const rows: [string, string][] = [
@@ -105,7 +128,7 @@ export const POST: RequestHandler = async ({ request, getClientAddress }) => {
     .map(([k, v]) => `${k} : ${v}`)
     .join("\n")}\n\n${message}`;
 
-  const res = await resendPost("/emails", {
+  const send = resendPost("/emails", {
     from: from(),
     to: [env.CONTACT_TO || CONTACT_EMAIL],
     reply_to: name ? `${name.replace(/[<>"]/g, "")} <${email}>` : email,
@@ -113,7 +136,11 @@ export const POST: RequestHandler = async ({ request, getClientAddress }) => {
     text,
     html: renderHtml(rows, message),
   }).catch(() => null);
+  const [saved, res] = await Promise.all([save, send]);
 
-  if (!res?.ok) throw error(502, "L’envoi a échoué. Merci de réessayer dans un instant.");
+  if (!res?.ok) {
+    if (!saved) throw error(502, "L’envoi a échoué. Merci de réessayer dans un instant.");
+    console.error("Email de contact non envoyé (message enregistré dans Demandes).");
+  }
   return json({ ok: true });
 };
