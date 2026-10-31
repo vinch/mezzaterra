@@ -21,6 +21,7 @@
   } from "$lib/wine";
   import { kindInfo } from "$lib/productKinds";
   import { formatEUR } from "$lib/format";
+  import { isValidEmail } from "$lib/contact";
   import {
     getCart,
     getGuestId,
@@ -225,8 +226,10 @@
     }, 700);
   }
 
+  /** Prénom, et un email valide ou à défaut un téléphone. */
   function hasContact(p: GuestProfile): boolean {
-    return !!p.firstName.trim() && !!(p.email.trim() || p.phone.trim());
+    const email = p.email.trim();
+    return !!p.firstName.trim() && (email ? isValidEmail(email) : !!p.phone.trim());
   }
 
   function openCart() {
@@ -246,6 +249,7 @@
   async function confirmOrder() {
     sendError = "";
     if (!profile.firstName.trim()) sendError = "Merci d’indiquer votre prénom.";
+    else if (profile.email.trim() && !isValidEmail(profile.email.trim())) sendError = "Cette adresse email ne semble pas valide.";
     else if (!hasContact(profile)) sendError = "Laissez-nous un email ou un téléphone pour vous recontacter.";
     if (sendError) {
       editingContact = true;

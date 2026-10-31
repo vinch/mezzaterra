@@ -3,6 +3,13 @@
  * Chaque appel « Contactez-nous » pointe vers /contact?raison=<id> pour préremplir la raison.
  */
 
+const EMAIL_RE = /^[^@\s]+@[^@\s]+\.[^@\s]+$/;
+
+/** Adresse email plausible (même règle côté serveur et dans le navigateur). */
+export function isValidEmail(email: string): boolean {
+  return EMAIL_RE.test(email);
+}
+
 export type ContactReasonId = "prive" | "commande" | "degustation" | "pro" | "autre";
 
 export type ContactReason = {
