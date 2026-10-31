@@ -40,7 +40,7 @@
     wineTitle,
     wineTypeLabel,
   } from "$lib/wine";
-  import { formatVolume, kindInfo } from "$lib/productKinds";
+  import { formatVolume, kindInfo, kindListHref, kindOf } from "$lib/productKinds";
 
   interface Props {
     data: PageData;
@@ -371,7 +371,7 @@
   <title>{wineTitle(wine)} - Gestion</title>
 </svelte:head>
 
-<ManagePageShell title={wineTitle(wine)} {subtitle} back={{ href: "/manage/wines", label: "Produits" }}>
+<ManagePageShell title={wineTitle(wine)} {subtitle} back={{ href: kindListHref("/manage/wines", kindOf(wine)), label: "Produits" }}>
   {#snippet actions()}
       <Button variant="primary" onclick={openCreateModal}><IconPlus size={16} strokeWidth={1.75} /> {kind.newBatch}</Button>
   {/snippet}
@@ -517,15 +517,11 @@
           bind:value={vintageFormData.volume_ml}
           required
           disabled={!!editingVintage}
-          aria-describedby={editingVintage ? "volume-hint" : undefined}
         >
           {#each editingVintage ? [editingVintage.volume_ml] : kind.volumes as ml (ml)}
             <option value={String(ml)}>{formatVolume(ml)}</option>
           {/each}
         </select>
-        {#if editingVintage}
-          <span id="volume-hint" class="t-caption">Un autre contenant = un nouveau lot, avec son prix et son stock.</span>
-        {/if}
       </div>
 
       <div class="form-group">

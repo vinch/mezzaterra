@@ -19,8 +19,8 @@ export const CONTACT_REASONS: ContactReason[] = [
   },
   {
     id: "commande",
-    label: "Commander des vins",
-    placeholder: "Quels vins vous font envie, et combien de bouteilles ?",
+    label: "Passer une commande",
+    placeholder: "Qu’est-ce qui vous fait envie, et en quelle quantité ?",
   },
   {
     id: "degustation",

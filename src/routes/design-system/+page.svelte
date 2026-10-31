@@ -27,6 +27,7 @@
   import StatusBadge from "$lib/ui/StatusBadge.svelte";
   import Stepper from "$lib/ui/Stepper.svelte";
   import StockBadge from "$lib/ui/StockBadge.svelte";
+  import Tabs from "$lib/ui/Tabs.svelte";
   import WineDot from "$lib/ui/WineDot.svelte";
   import * as icons from "$lib/ui/icons";
   import {
@@ -55,6 +56,7 @@
   } from "$lib/status";
   import { allWineStyles } from "$lib/wine";
   import { formatEUR } from "$lib/format";
+  import { DEFAULT_KIND, PRODUCT_KIND_LIST, type ProductKind } from "$lib/productKinds";
 
   const SECTIONS = [
     ["principes", "Principes"],
@@ -150,6 +152,7 @@
   let statusOpen = $state(false);
   let statusAnchor = $state<HTMLElement | null>(null);
   let demoStatus = $state<SaleStatus>("pending");
+  let demoTab = $state<ProductKind>(DEFAULT_KIND);
 
   const customers: ComboOption[] = [
     { id: "1", label: "Giulia Rossi", searchText: "giulia rossi bruxelles" },
@@ -532,6 +535,13 @@
               {/snippet}
             </PageHeader>
           </div>
+          <h3 class="ds-h3"><code>Tabs</code> (snippet <code>tabs</code> de <code>ManagePageShell</code>)</h3>
+          <p class="t-muted">Filtrent la liste de la page, avec un compte par onglet ; puces défilantes sur mobile. Un référentiel propre à un type de produit (appellations, cépages) a un onglet par type : <code>kindTabs</code> de <code>RefCrudPage</code>.</p>
+          <Tabs
+            label="Type de produit"
+            items={PRODUCT_KIND_LIST.map((k, i) => ({ key: k.key, label: k.plural, count: 5 - 2 * i }))}
+            bind:value={demoTab}
+          />
           <h3 class="ds-h3"><code>Sidebar</code> (fournie par le layout de <code>/manage</code>)</h3>
           <div class="sidebar-frame" inert>
             <Sidebar sections={sidebarSections} path="/design-system" email="gianni@mezzaterra.be" id="ds-sidebar" />

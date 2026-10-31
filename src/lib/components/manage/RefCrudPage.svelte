@@ -1,9 +1,11 @@
 <script lang="ts">
   import { preventDefault } from "$lib/ui/events";
   import { onMount } from "svelte";
+  import { replaceState } from "$app/navigation";
+  import { page } from "$app/stores";
   import { supabase } from "$lib/supabase";
   import ManagePageShell from "./ManagePageShell.svelte";
-  import type { RefColumn, RefField } from "./refCrud";
+  import { KIND_FIELD, type RefColumn, type RefField } from "./refCrud";
   import Modal from "$lib/ui/Modal.svelte";
   import Button from "$lib/ui/Button.svelte";
   import ConfirmDialog from "$lib/ui/ConfirmDialog.svelte";
@@ -15,6 +17,8 @@
   import type { MenuItem } from "$lib/ui/Menu.svelte";
   import { IconEye, IconPencil, IconPlus, IconTrash } from "$lib/ui/icons";
   import Spinner from "$lib/ui/Spinner.svelte";
+  import Tabs from "$lib/ui/Tabs.svelte";
+  import { kindFromUrl, kindInfo, kindListHref, kindOf, kindTabItems, type ProductKind, type ProductKindInfo } from "$lib/productKinds";
 
   /**
    * Page de référentiel (pays, régions, cépages, clients, fournisseurs…) : liste, création, édition et
@@ -28,8 +32,8 @@
     /** Colonne de tri (côté client) ; `sortRows` la remplace quand le tri dépend de plusieurs colonnes. */
     orderBy?: string;
     sortRows?: ((rows: any[]) => any[]) | null;
-    /** « Nouveau cépage », « Nouvelle région »… */
-    newLabel: string;
+    /** « Nouveau cépage », « Nouvelle région »… ; avec `kindTabs`, peut dépendre du type de l'onglet. */
+    newLabel: string | ((kind: ProductKindInfo) => string);
     /** Titre de la modale d'édition : « Modifier le cépage ». */
     editLabel: string;
     /** Pour la confirmation de suppression : « ce cépage », « cette région ». */
@@ -45,6 +49,11 @@
     rowHref?: ((row: any) => string) | null;
     /** Ouvre directement l'édition de cette ligne après le chargement (lien « Modifier » d'une autre page). */
     editId?: string | null;
+    /**
+     * Référentiel propre à un type de produit (colonne `kind`) : un onglet par type, avec ce libellé, et
+     * le champ « Produit » ajouté au formulaire après le premier (type de l'onglet à la création).
+     */
+    kindTabs?: ((kind: ProductKindInfo) => string) | null;
   }
 
   let {
@@ -62,7 +71,8 @@
     columns,
     rowLabel = (row) => row.name,
     rowHref = null,
-    editId = null
+    editId = null,
+    kindTabs = null
   }: Props = $props();
 
   let rows = $state<any[]>([]);
@@ -73,6 +83,15 @@
   let form = $state<Record<string, string>>({});
   let saving = $state(false);
   let deleteTarget = $state<any>(null);
+
+  /** Type de l'onglet ouvert (avec `kindTabs`). */
+  let kind = $state<ProductKind>(kindFromUrl($page.url));
+  let newText = $derived(typeof newLabel === "function" ? newLabel(kindInfo(kind)) : newLabel);
+  let formFields = $derived(
+    kindTabs ? [fields[0], { ...KIND_FIELD, default: kind }, ...fields.slice(1)] : fields,
+  );
+  let shownRows = $derived(kindTabs ? rows.filter((r) => kindOf(r) === kind) : rows);
+  let tabItems = $derived(kindTabs ? kindTabItems(rows, loading, kindTabs) : []);
 
   const formId = `ref-form-${table}`;
   const query = () => supabase.from(table as any) as any;
@@ -85,8 +104,18 @@
     else rows = sorted([...(data || []).filter((d: any) => !rows.some((r) => r.id === d.id)), ...rows]);
     loading = false;
     const toEdit = editId ? rows.find((r) => r.id === editId) : null;
-    if (toEdit) openForm(toEdit);
+    if (toEdit) {
+      showKind(kindOf(toEdit));
+      openForm(toEdit);
+    }
   });
+
+  /** Onglet ouvert, gardé dans l'URL (avec `kindTabs`). */
+  function showKind(next: ProductKind) {
+    if (!kindTabs || next === kind) return;
+    kind = next;
+    replaceState(kindListHref($page.url.pathname, next), {});
+  }
 
   function sorted(list: any[]): any[] {
     if (sortRows) return sortRows(list);
@@ -96,7 +125,7 @@
   function openForm(row: any = null) {
     editing = row;
     form = Object.fromEntries(
-      fields.map((f) => [f.key, row?.[f.key] != null ? String(row[f.key]) : row ? "" : (f.default ?? "")]),
+      formFields.map((f) => [f.key, row?.[f.key] != null ? String(row[f.key]) : row ? "" : (f.default ?? "")]),
     );
     error = "";
     formOpen = true;
@@ -110,7 +139,7 @@
 
   function toPayload(): Record<string, unknown> {
     return Object.fromEntries(
-      fields.map((f) => {
+      formFields.map((f) => {
         const raw = (form[f.key] ?? "").trim();
         if (f.type === "number") return [f.key, raw ? Number(raw.replace(",", ".")) : null];
         return [f.key, raw || null];
@@ -120,12 +149,12 @@
 
   async function submit() {
     if (saving) return;
-    const missing = fields.find((f) => f.required && !(form[f.key] ?? "").trim());
+    const missing = formFields.find((f) => f.required && !(form[f.key] ?? "").trim());
     if (missing) {
       error = `« ${missing.label} » est obligatoire.`;
       return;
     }
-    const notNumber = fields.find(
+    const notNumber = formFields.find(
       (f) => f.type === "number" && (form[f.key] ?? "").trim() && !NUMBER.test(form[f.key].trim()),
     );
     if (notNumber) {
@@ -145,7 +174,11 @@
     }
     rows = sorted([...rows.filter((r) => r.id !== saved.id), saved]);
     /* Ne ferme que le formulaire de cet enregistrement (l'utilisateur a pu en ouvrir un autre). */
-    if (formOpen && editing === target) closeForm();
+    if (formOpen && editing === target) {
+      closeForm();
+      /* Montre la ligne, même enregistrée sous un autre type de produit. */
+      showKind(kindOf(saved));
+    }
   }
 
   async function remove(row: any) {
@@ -174,9 +207,13 @@
   }
 </script>
 
-<ManagePageShell {title}>
+{#snippet kindTabsBar()}
+  <Tabs label="Type de produit" items={tabItems} bind:value={() => kind, showKind} />
+{/snippet}
+
+<ManagePageShell {title} tabs={kindTabs ? kindTabsBar : undefined}>
   {#snippet actions()}
-      <Button variant="primary" onclick={() => openForm()}><IconPlus size={16} strokeWidth={1.75} /> {newLabel}</Button>
+      <Button variant="primary" onclick={() => openForm()}><IconPlus size={16} strokeWidth={1.75} /> {newText}</Button>
   {/snippet}
 
   {#if error && !formOpen}
@@ -185,9 +222,9 @@
 
   {#if loading}
     <Spinner />
-  {:else if rows.length === 0}
+  {:else if shownRows.length === 0}
     <EmptyState title="Aucun élément pour l’instant" text={emptyText}>
-      <Button onclick={() => openForm()}><IconPlus size={16} strokeWidth={1.75} /> {newLabel}</Button>
+      <Button onclick={() => openForm()}><IconPlus size={16} strokeWidth={1.75} /> {newText}</Button>
     </EmptyState>
   {:else}
     <DataTable caption={title}>
@@ -200,7 +237,7 @@
         </tr>
       </thead>
       <tbody>
-        {#each rows as row (row.id)}
+        {#each shownRows as row (row.id)}
           <tr>
             {#each columns as col, i}
               {@const text = cell(col, row)}
@@ -225,12 +262,12 @@
   {/if}
 </ManagePageShell>
 
-<Modal open={formOpen} title={editing ? editLabel : newLabel} onclose={closeForm}>
+<Modal open={formOpen} title={editing ? editLabel : newText} onclose={closeForm}>
   {#if error}
     <div class="error-message" role="alert">{error}</div>
   {/if}
   <form id={formId} class="form-grid" onsubmit={preventDefault(submit)}>
-    {#each fields as f (f.key)}
+    {#each formFields as f (f.key)}
       {@const id = `${table}-${f.key}`}
       <div class="form-group" class:full-width={f.full || f.type === "textarea"}>
         <Field {id} label={f.label} required={f.required} help={f.help ?? ""} >

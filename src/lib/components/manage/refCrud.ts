@@ -1,5 +1,5 @@
 import type { Country, Region } from "$lib/types";
-import { kindInfo, PRODUCT_KIND_OPTIONS } from "$lib/productKinds";
+import { DEFAULT_KIND, PRODUCT_KIND_OPTIONS } from "$lib/productKinds";
 
 /** Description des pages de référentiel (RefCrudPage) : champs, colonnes et listes de choix. */
 
@@ -41,18 +41,16 @@ export function countryOptions(countries: Country[]): RefOption[] {
   return countries.map((c) => ({ value: c.id, label: countryLabel(c) }));
 }
 
-/** Type de produit d'un référentiel propre à un produit (appellations, cépages et variétés). */
+/** Type de produit d'un référentiel propre à un produit (appellations, cépages et variétés) : ajouté par `kindTabs`. */
 export const KIND_FIELD: RefField = {
   key: "kind",
   label: "Produit",
   type: "select",
   options: PRODUCT_KIND_OPTIONS,
   required: true,
-  default: "wine",
+  default: DEFAULT_KIND,
   help: "Ne change plus une fois utilisé.",
 };
-
-export const KIND_COLUMN: RefColumn = { label: "Produit", value: (row) => kindInfo(row).label };
 
 /** « Abruzzo · Italie ». */
 export function regionOptions(regions: Region[]): RefOption[] {

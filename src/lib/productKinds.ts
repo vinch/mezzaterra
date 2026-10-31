@@ -36,6 +36,8 @@ export type ProductKindInfo = {
   editLabel: string;
   /** « ce vin », « cette huile » (confirmations, messages). */
   thisLabel: string;
+  /** Onglet vide de la liste des produits : « Aucun vin au catalogue ». */
+  noProduct: string;
   /** Titre d'un produit sans nom ni appellation. */
   untitled: string;
   /** Ce qui distingue les types de ce produit (`wine_type`) : « Robe », « Fruité ». */
@@ -67,6 +69,8 @@ export type ProductKindInfo = {
   noYear: string;
   /** Composition (`grape`) : « Cépages », « Variétés d'olives ». */
   ingredients: string;
+  /** « Nouveau cépage », « Nouvelle variété » (référentiel des cépages et variétés). */
+  newIngredient: string;
   /** « Choisir un cépage… », « Aucun cépage ». */
   chooseIngredient: string;
   noIngredient: string;
@@ -99,6 +103,7 @@ export const PRODUCT_KINDS: Record<ProductKind, ProductKindInfo> = {
     newLabel: "Nouveau vin",
     editLabel: "Modifier le vin",
     thisLabel: "ce vin",
+    noProduct: "Aucun vin au catalogue",
     untitled: "Vin sans nom",
     typeLabel: "Robe",
     style: null,
@@ -115,6 +120,7 @@ export const PRODUCT_KINDS: Record<ProductKind, ProductKindInfo> = {
     otherYears: "Autres millésimes",
     noYear: "Non millésimé",
     ingredients: "Cépages",
+    newIngredient: "Nouveau cépage",
     chooseIngredient: "Choisir un cépage…",
     noIngredient: "Aucun cépage",
     hasAbv: true,
@@ -142,6 +148,7 @@ export const PRODUCT_KINDS: Record<ProductKind, ProductKindInfo> = {
     newLabel: "Nouvelle huile",
     editLabel: "Modifier l’huile",
     thisLabel: "cette huile",
+    noProduct: "Aucune huile au catalogue",
     untitled: "Huile sans nom",
     typeLabel: "Fruité",
     style: "oil",
@@ -158,6 +165,7 @@ export const PRODUCT_KINDS: Record<ProductKind, ProductKindInfo> = {
     otherYears: "Autres récoltes",
     noYear: "Sans récolte indiquée",
     ingredients: "Variétés d’olives",
+    newIngredient: "Nouvelle variété",
     chooseIngredient: "Choisir une variété…",
     noIngredient: "Aucune variété",
     hasAbv: false,
@@ -200,7 +208,7 @@ export function formatVolume(ml: number): string {
   return ml < 1000 ? `${n(ml / 10)} cl` : `${n(ml / 1000)} L`;
 }
 
-/** Couleurs propres à un type de produit (pastilles de filtre après les robes du vin). */
+/** Couleurs propres à un type de produit, après les robes du vin (répartition des achats d'un client). */
 export const KIND_STYLES = PRODUCT_KIND_LIST.flatMap((k) => (k.style ? [k.style] : []));
 
 /** « 1 vin », « 3 huiles d’olive ». */
@@ -208,10 +216,28 @@ export function kindCount(kind: ProductKindInfo, n: number): string {
   return `${n} ${(n > 1 ? kind.plural : kind.label).toLowerCase()}`;
 }
 
-/** Types de produit présents dans une liste, dans l'ordre du registre ; le type par défaut toujours. */
-export function kindsIn(kinds: Iterable<ProductKind>): ProductKindInfo[] {
-  const present = new Set([DEFAULT_KIND, ...kinds]);
-  return PRODUCT_KIND_LIST.filter((k) => present.has(k.key));
+/** Onglets « un par type de produit » (composant `Tabs`) : libellé et nombre de lignes de chaque type, sans compte pendant le chargement. */
+export function kindTabItems(
+  rows: KindRow[],
+  loading: boolean,
+  label: (kind: ProductKindInfo) => string = (k) => k.plural,
+): { key: ProductKind; label: string; count?: number }[] {
+  const counts = new Map<ProductKind, number>();
+  for (const row of rows) {
+    const kind = kindOf(row);
+    counts.set(kind, (counts.get(kind) ?? 0) + 1);
+  }
+  return PRODUCT_KIND_LIST.map((k) => ({ key: k.key, label: label(k), count: loading ? undefined : (counts.get(k.key) ?? 0) }));
+}
+
+/** Onglet de type ouvert d'une liste de la gestion, gardé dans l'URL (`?type=huiles`) : retour depuis une fiche, rechargement. */
+export function kindFromUrl(url: URL): ProductKind {
+  return kindBySlug(url.searchParams.get("type") ?? "") ?? DEFAULT_KIND;
+}
+
+/** Lien vers une liste de la gestion ouverte sur l'onglet d'un type ; sans paramètre pour le type par défaut. */
+export function kindListHref(path: string, kind: ProductKind): string {
+  return kind === DEFAULT_KIND ? path : `${path}?type=${PRODUCT_KINDS[kind].slug}`;
 }
 
 /** Type de produit d'après son segment d'URL public (`vins`, `huiles`). */

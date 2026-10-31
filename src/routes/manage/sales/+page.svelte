@@ -52,6 +52,7 @@
   import ProductVintageAutocomplete from "$lib/components/manage/ProductVintageAutocomplete.svelte";
   import CustomerAutocomplete from "$lib/components/manage/CustomerAutocomplete.svelte";
   import Spinner from "$lib/ui/Spinner.svelte";
+  import Tabs from "$lib/ui/Tabs.svelte";
 
   interface Props {
     data: PageData;
@@ -743,10 +744,10 @@
   let periodSales = $derived(sales
     .filter((s) => period === "all" || String(s.date).startsWith(period))
     .filter((s) => !tastingFilter || (tastingFilter === "none" ? !s.tasting_id : s.tasting_id === tastingFilter)));
-  let counts = $derived(TABS.reduce(
-    (acc, t) => ({ ...acc, [t.key]: t.key === "all" ? periodSales.length : periodSales.filter((s) => s.status === t.key).length }),
-    {} as Record<Tab, number>,
-  ));
+  let tabItems = $derived(TABS.map((t) => ({
+    ...t,
+    count: t.key === "all" ? periodSales.length : periodSales.filter((s) => s.status === t.key).length,
+  })));
   let visibleSales = $derived(periodSales
     .filter((s) => tab === "all" || s.status === tab)
     .filter((s) => {
@@ -785,19 +786,7 @@
   {/snippet}
 
   {#snippet tabs()}
-      <div class="tabs" role="tablist" aria-label="Filtrer par statut">
-        {#each TABS as t}
-          <button
-            type="button"
-            role="tab"
-            class="tab"
-            aria-selected={tab === t.key}
-            onclick={() => (tab = t.key)}
-          >
-            {t.label}<span class="tab-count">{counts[t.key] ?? 0}</span>
-          </button>
-        {/each}
-      </div>
+      <Tabs label="Filtrer par statut" items={tabItems} bind:value={tab} />
   {/snippet}
 
   {#if error}
@@ -1237,56 +1226,6 @@
 </Modal>
 
 <style>
-  .tabs {
-    display: flex;
-    gap: 4px;
-    overflow-x: auto;
-    scrollbar-width: none;
-  }
-
-  .tab {
-    position: relative;
-    display: inline-flex;
-    align-items: center;
-    gap: 8px;
-    height: 44px;
-    padding: 0 12px;
-    border: none;
-    background: none;
-    color: var(--ink-2);
-    font: inherit;
-    font-weight: 500;
-    white-space: nowrap;
-    cursor: pointer;
-  }
-
-  .tab[aria-selected="true"] {
-    color: var(--ink);
-    font-weight: 600;
-  }
-
-  .tab[aria-selected="true"]::after {
-    content: "";
-    position: absolute;
-    left: 8px;
-    right: 8px;
-    bottom: -1px;
-    height: 2px;
-    background: var(--teal-600);
-    border-radius: 2px;
-  }
-
-  .tab-count {
-    min-width: 22px;
-    padding: 1px 6px;
-    border-radius: var(--r-pill);
-    background: var(--table-head);
-    font-size: 12px;
-    font-weight: 500;
-    color: var(--ink-2);
-    text-align: center;
-  }
-
   .toolbar {
     display: flex;
     gap: 12px;
@@ -1617,36 +1556,6 @@
 
     .toolbar {
       flex-direction: column;
-    }
-
-    /* Onglets → puces défilant horizontalement. */
-    .tabs {
-      gap: 8px;
-      padding: 12px 0;
-    }
-
-    .tab {
-      height: 44px;
-      padding: 0 14px;
-      border: 1px solid var(--btn-border);
-      border-radius: var(--r-pill);
-      background: #fff;
-      color: var(--ink);
-    }
-
-    .tab[aria-selected="true"] {
-      background: var(--night);
-      border-color: var(--night);
-      color: #fff;
-    }
-
-    .tab[aria-selected="true"]::after {
-      display: none;
-    }
-
-    .tab[aria-selected="true"] .tab-count {
-      background: rgba(255, 255, 255, 0.18);
-      color: #fff;
     }
 
     .search,
