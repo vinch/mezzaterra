@@ -6,11 +6,9 @@
   import { combinedAvailability, fetchAvailability, firstAvailable, type AvailabilityOf } from "$lib/publicData";
   import { MAIN, project } from "$lib/geo/abruzzo";
   import {
-    STYLE_ORDER,
-    allWineStyles,
+    compareProducts,
     groupFormats,
-    wineStyle,
-    wineTitle,
+    presentStyles,
     wineryFlag,
     wineryInstagram,
     wineryMapEmbedUrl,
@@ -34,17 +32,10 @@
   let mapUrl = $derived(wineryMapUrl(winery));
   let instagram = $derived(wineryInstagram(winery));
 
-  let vintages = $derived([...data.vintages].sort((a, b) => {
-    const sa = STYLE_ORDER.indexOf(wineStyle(a.wine?.wine_type).key);
-    const sb = STYLE_ORDER.indexOf(wineStyle(b.wine?.wine_type).key);
-    if (sa !== sb) return sa - sb;
-    const byTitle = wineTitle(a.wine).localeCompare(wineTitle(b.wine), "fr");
-    if (byTitle) return byTitle;
-    return (b.year ?? 0) - (a.year ?? 0);
-  }));
+  let vintages = $derived([...data.vintages].sort(compareProducts));
 
   let cuveeCount = $derived(new Set(vintages.map((v) => v.wine_id)).size);
-  let styles = $derived(allWineStyles().filter((s) => vintages.some((v) => wineStyle(v.wine?.wine_type).key === s.key)));
+  let styles = $derived(presentStyles(vintages));
   /** Types de produit du domaine (vins, huiles…) avec leurs cépages ou variétés. */
   let kinds = $derived((() => {
     const grapesByKind = new Map<string, Set<string>>();

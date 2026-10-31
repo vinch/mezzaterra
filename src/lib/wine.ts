@@ -68,12 +68,37 @@ export function styleLabel(type: TypeLike): string {
  */
 export function byWineType(a: TypeLike, b: TypeLike): number {
   const kind = (t: TypeLike) => PRODUCT_KIND_LIST.indexOf(kindInfo(t));
-  const position = (t: TypeLike) => {
-    const order = kindInfo(t).typeOrder ?? [];
-    const i = order.indexOf(t?.name ?? "");
-    return i < 0 ? order.length : i;
-  };
-  return kind(a) - kind(b) || position(a) - position(b) || (a?.name ?? "").localeCompare(b?.name ?? "", "fr");
+  return kind(a) - kind(b) || typePosition(a) - typePosition(b) || (a?.name ?? "").localeCompare(b?.name ?? "", "fr");
+}
+
+/** Rang d'un type dans le `typeOrder` de son produit ; après les autres s'il n'y figure pas (ou sans ordre). */
+function typePosition(t: TypeLike): number {
+  const order = kindInfo(t).typeOrder ?? [];
+  const i = order.indexOf(t?.name ?? "");
+  return i < 0 ? order.length : i;
+}
+
+/**
+ * Tri des lots du site : couleur du plus léger au plus corsé, ordre des types du produit (fruité
+ * léger à intense pour les huiles), nom, puis année la plus récente.
+ */
+export function compareProducts(
+  a: { year?: number | null; wine?: WineLike },
+  b: { year?: number | null; wine?: WineLike },
+): number {
+  const style = (v: typeof a) => STYLE_ORDER.indexOf(wineStyle(v.wine?.wine_type).key);
+  return (
+    style(a) - style(b) ||
+    typePosition(a.wine?.wine_type) - typePosition(b.wine?.wine_type) ||
+    wineTitle(a.wine).localeCompare(wineTitle(b.wine), "fr") ||
+    (b.year ?? 0) - (a.year ?? 0)
+  );
+}
+
+/** Couleurs présentes dans une liste de lots, dans l'ordre des filtres. */
+export function presentStyles(vintages: { wine?: WineLike }[]): WineStyle[] {
+  const keys = new Set(vintages.map((v) => wineStyle(v.wine?.wine_type).key));
+  return allWineStyles().filter((s) => keys.has(s.key));
 }
 
 /** Style CSS d'une pastille ou d'une silhouette à la couleur de la robe (liseré pour les teintes claires). */
