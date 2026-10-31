@@ -4,7 +4,8 @@
   import { supabase } from "$lib/supabase";
   import { onMount } from "svelte";
   import type { Wine, Winery, Appelation, WineType } from "$lib/types";
-  import { goto } from "$app/navigation";
+  import { goto, replaceState } from "$app/navigation";
+  import { page } from "$app/stores";
   import ManagePageShell from "$lib/components/manage/ManagePageShell.svelte";
   import Modal from "$lib/ui/Modal.svelte";
   import Button from "$lib/ui/Button.svelte";
@@ -18,6 +19,7 @@
   import StockBadge from "$lib/ui/StockBadge.svelte";
   import WineDot from "$lib/ui/WineDot.svelte";
   import Spinner from "$lib/ui/Spinner.svelte";
+  import Tabs from "$lib/ui/Tabs.svelte";
   import Combobox, { type ComboOption } from "$lib/ui/Combobox.svelte";
   import { byVolume, styleByKey, vintageShortLabel, wineRobe, type WineStyleKey, wineTitle, wineTypeLabel, withVolume } from "$lib/wine";
   import {
@@ -36,7 +38,7 @@
   import { fold, formatEUR } from "$lib/format";
   import { promptReorder } from "$lib/reorder";
   import { isDiscontinued } from "$lib/wine";
-  import { kindCount, kindInfo, kindOf, kindsIn, PRODUCT_KIND_OPTIONS, type ProductKind } from "$lib/productKinds";
+  import { DEFAULT_KIND, kindCount, kindFromUrl, kindInfo, kindListHref, kindOf, kindTabItems, PRODUCT_KIND_OPTIONS, type ProductKind } from "$lib/productKinds";
   import { fetchStockMap } from "$lib/manageData";
   import { errorMessage } from "$lib/async";
 
@@ -60,12 +62,11 @@
   // Filter state
   let filterWineryId = $state("");
   let filterAppelationId = $state("");
-  let filterWineTypeId = $state("");
   let searchText = $state("");
 
   // Form fields
   let formData = $state({
-    kind: "wine" as ProductKind,
+    kind: DEFAULT_KIND,
     name: "",
     description: "",
     winery_id: "",
@@ -177,7 +178,7 @@
 
   function resetForm() {
     formData = {
-      kind: "wine",
+      kind: tab,
       name: "",
       description: "",
       winery_id: "",
@@ -232,6 +233,8 @@
       }
     }
 
+    /* Montre le produit, même enregistré sous un autre type que l'onglet ouvert. */
+    setTab(formData.kind);
     closeModal();
     await loadWines();
   }
@@ -325,7 +328,6 @@
   function clearFilters() {
     filterWineryId = "";
     filterAppelationId = "";
-    filterWineTypeId = "";
     searchText = "";
   }
 
@@ -345,10 +347,22 @@
   let robeFilter = $state<WineStyleKey | "">("");
   let inStockOnly = $state(false);
   const ROBES: WineStyleKey[] = ["red", "white", "rose"];
-  /** Types de produit présents au catalogue (vins seuls tant qu'aucune huile n'est saisie). */
-  let kinds = $derived(kindsIn(wines.map(kindOf)));
-  /* Pastilles de filtre : robes des vins, puis une par autre type de produit présent. */
-  let styleChips = $derived<WineStyleKey[]>([...ROBES, ...kinds.flatMap((k) => (k.style ? [k.style] : []))]);
+
+  /** Un onglet par type de produit : vins et huiles ne se mélangent pas dans la liste. */
+  let tab = $state<ProductKind>(kindFromUrl($page.url));
+  let tabKind = $derived(kindInfo(tab));
+  let tabWines = $derived(wines.filter((w) => kindOf(w) === tab));
+  let tabItems = $derived(kindTabItems(wines, loading));
+  let tabAppellations = $derived(appellations.filter((a) => kindOf(a) === tab));
+  /** Les filtres propres à un type (robe, appellation, domaine) ne valent pas pour l'autre. */
+  function setTab(kind: ProductKind) {
+    if (kind === tab) return;
+    tab = kind;
+    robeFilter = "";
+    filterAppelationId = "";
+    filterWineryId = "";
+    replaceState(kindListHref($page.url.pathname, kind), {});
+  }
 
   /** Millésimes du plus ancien au plus récent (triés au chargement). */
   function vintagesOf(wine: any): any[] {
@@ -462,7 +476,7 @@
     };
   }));
   // Filter wines based on selected filters
-  let filteredWines = $derived(wines.filter((wine) => {
+  let filteredWines = $derived(tabWines.filter((wine) => {
     // Filter by winery
     if (filterWineryId && wine.winery_id !== filterWineryId) {
       return false;
@@ -470,11 +484,6 @@
 
     // Filter by appellation
     if (filterAppelationId && wine.appelation_id !== filterAppelationId) {
-      return false;
-    }
-
-    // Filter by wine type
-    if (filterWineTypeId && wine.wine_type_id !== filterWineTypeId) {
       return false;
     }
 
@@ -511,18 +520,16 @@
     .filter((w: any) => !robeFilter || wineRobe(w.wine_type).key === robeFilter)
     .filter((w: any) => !inStockOnly || !stock || (stockById.get(w.id)?.total ?? 0) > 0)
     .sort((a: any, b: any) => Number(isRetired(a)) - Number(isRetired(b))));
-  let bottleCount = $derived(stock ? [...stock.values()].reduce((n, q) => n + Math.max(0, q), 0) : null);
-  /** « 19 vins (35 millésimes) · 2 huiles d’olive (4 lots) · 120 bouteilles en stock ». */
-  let subtitle = $derived([
-    ...kinds.map((k) => {
-      const ofKind = wines.filter((w) => kindOf(w) === k.key);
-      const batches = ofKind.reduce((n, w: any) => n + (w.wine_vintage?.length ?? 0), 0);
-      return `${kindCount(k, ofKind.length)} (${batches} ${(batches > 1 ? k.batchPlural : k.batch).toLowerCase()})`;
-    }),
-    bottleCount == null ? "stock indisponible" : `${bottleCount} bouteille${bottleCount > 1 ? "s" : ""} en stock`,
-  ].join(" · "));
-  let batchesHeader = $derived(kinds.map((k) => k.batchPlural).join(" / "));
-  let filtersActive = $derived(!!(searchText || filterWineryId || filterAppelationId || filterWineTypeId || robeFilter || inStockOnly));
+  /** « 19 vins (35 millésimes) · 120 bouteilles en stock », pour l'onglet ouvert. */
+  let subtitle = $derived.by(() => {
+    const batches = tabWines.reduce((n, w: any) => n + (w.wine_vintage?.length ?? 0), 0);
+    const bottles = tabWines.reduce((n, w) => n + (stockById.get(w.id)?.total ?? 0), 0);
+    return [
+      `${kindCount(tabKind, tabWines.length)} (${batches} ${(batches > 1 ? tabKind.batchPlural : tabKind.batch).toLowerCase()})`,
+      stock ? `${bottles} bouteille${bottles > 1 ? "s" : ""} en stock` : "stock indisponible",
+    ].join(" · ");
+  });
+  let filtersActive = $derived(!!(searchText || filterWineryId || filterAppelationId || robeFilter || inStockOnly));
 </script>
 
 <svelte:head>
@@ -531,7 +538,11 @@
 
 <ManagePageShell title="Produits" subtitle={loading ? "" : subtitle}>
   {#snippet actions()}
-      <Button variant="primary" onclick={openCreateModal}><IconPlus size={18} strokeWidth={1.75} /> Nouveau produit</Button>
+      <Button variant="primary" onclick={openCreateModal}><IconPlus size={18} strokeWidth={1.75} /> {tabKind.newLabel}</Button>
+  {/snippet}
+
+  {#snippet tabs()}
+    <Tabs label="Type de produit" items={tabItems} bind:value={() => tab, setTab} />
   {/snippet}
 
   {#if error}
@@ -546,10 +557,10 @@
 
   {#if loading}
     <Spinner />
-  {:else if wines.length === 0}
+  {:else if tabWines.length === 0}
     <div class="empty-card">
-      <EmptyState icon={IconWine} title="Aucun produit au catalogue" text="Ajoutez un premier vin ou une première huile, puis ses millésimes ou lots (un par contenant).">
-        <Button onclick={openCreateModal}>Créer le premier produit</Button>
+      <EmptyState icon={IconWine} title={tabKind.noProduct} text="Créez le produit, puis ses {tabKind.batchPlural.toLowerCase()} (un par contenant).">
+        <Button onclick={openCreateModal}><IconPlus size={16} strokeWidth={1.75} /> {tabKind.newLabel}</Button>
       </EmptyState>
     </div>
   {:else}
@@ -559,14 +570,17 @@
         <IconSearch size={16} strokeWidth={1.75} aria-hidden="true" />
         <input class="ui-control" type="search" placeholder="Rechercher un produit, un domaine…" bind:value={searchText} />
       </label>
-      <div class="chips" role="group" aria-label="Filtrer par robe ou type de produit">
-        <button type="button" class="ui-chip" aria-pressed={!robeFilter} onclick={() => (robeFilter = "")}>Tous</button>
-        {#each styleChips as r}
-          <button type="button" class="ui-chip" aria-pressed={robeFilter === r} onclick={() => (robeFilter = robeFilter === r ? "" : r)}>
-            <WineDot robe={r} />{styleByKey(r).label}
-          </button>
-        {/each}
-      </div>
+      <!-- Robes : seulement pour un type dont la couleur dépend du type (vin). -->
+      {#if !tabKind.style}
+        <div class="chips" role="group" aria-label="Filtrer par robe">
+          <button type="button" class="ui-chip" aria-pressed={!robeFilter} onclick={() => (robeFilter = "")}>Tous</button>
+          {#each ROBES as r}
+            <button type="button" class="ui-chip" aria-pressed={robeFilter === r} onclick={() => (robeFilter = robeFilter === r ? "" : r)}>
+              <WineDot robe={r} />{styleByKey(r).label}
+            </button>
+          {/each}
+        </div>
+      {/if}
       <select class="ui-control filter-select" bind:value={filterWineryId} aria-label="Domaine">
         <option value="">Tous les domaines</option>
         {#each wineries as winery}
@@ -575,7 +589,7 @@
       </select>
       <select class="ui-control filter-select" bind:value={filterAppelationId} aria-label="Appellation">
         <option value="">Toutes les appellations</option>
-        {#each appellations as appelation}
+        {#each tabAppellations as appelation}
           <option value={appelation.id}>{appelation.name}{appelation.label?.name ? ` ${appelation.label.name}` : ""}</option>
         {/each}
       </select>
@@ -600,8 +614,8 @@
           <thead>
             <tr>
               <th scope="col">Produit</th>
-              <th scope="col">Type</th>
-              <th scope="col">{batchesHeader} · stock</th>
+              <th scope="col">{tabKind.typeLabel}</th>
+              <th scope="col">{tabKind.batchPlural} · stock</th>
               <th scope="col" class="num">Stock</th>
               <th scope="col" class="num">Prix de vente</th>
               <th scope="col" class="col-actions"><span class="sr-only">Actions</span></th>
