@@ -108,6 +108,18 @@
   font-size: 0.85rem;
 }
 
+/* Bouton rond réduit à une icône (lien Instagram, carte…) : toujours un aria-label. */
+.mz-btn--icon {
+  width: 2.75rem;
+  height: 2.75rem;
+  padding: 0;
+}
+
+.mz-btn--icon svg {
+  width: 1.25rem;
+  height: 1.25rem;
+}
+
 .mz-btn--block {
   width: 100%;
 }

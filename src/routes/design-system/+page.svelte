@@ -566,7 +566,7 @@
         <!-- ——— Site public ——— -->
         <section id="site" class="ds-section">
           <h2 class="t-card-title">Site public</h2>
-          <p class="t-muted">Le site public a ses primitives préfixées <code>mz-</code> dans <code>src/lib/styles/site.css</code> (<code>.mz-container</code>, <code>.mz-display</code>, <code>.mz-btn</code>, <code>.mz-field</code>, <code>.mz-card</code>…) et les tokens <code>--mz-*</code> de <code>tokens.css</code>. Ne pas mélanger : les composants de <code>src/lib/ui/</code> sont pour la gestion, les <code>mz-</code> pour le site. Le mode live utilise les tokens <code>--mz-cave-*</code> (thème sombre).</p>
+          <p class="t-muted">Le site public a ses primitives préfixées <code>mz-</code> dans <code>src/lib/styles/site.css</code> (<code>.mz-container</code>, <code>.mz-display</code>, <code>.mz-btn</code> (<code>--ghost</code>, <code>--sm</code>, <code>--icon</code>), <code>.mz-field</code>, <code>.mz-card</code>…) et les tokens <code>--mz-*</code> de <code>tokens.css</code>. Ne pas mélanger : les composants de <code>src/lib/ui/</code> sont pour la gestion, les <code>mz-</code> pour le site. Le mode live utilise les tokens <code>--mz-cave-*</code> (thème sombre).</p>
         </section>
       </div>
     </div>

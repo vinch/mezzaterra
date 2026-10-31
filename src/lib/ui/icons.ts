@@ -25,6 +25,7 @@ export { default as IconHome } from "@lucide/svelte/icons/house";
 export { default as IconHourglass } from "@lucide/svelte/icons/hourglass";
 export { default as IconImage } from "@lucide/svelte/icons/image";
 export { default as IconInbox } from "@lucide/svelte/icons/inbox";
+export { default as IconInstagram } from "./IconInstagram.svelte";
 export { default as IconLayers } from "@lucide/svelte/icons/layers";
 export { default as IconLightbulb } from "@lucide/svelte/icons/lightbulb";
 export { default as IconLock } from "@lucide/svelte/icons/lock";
