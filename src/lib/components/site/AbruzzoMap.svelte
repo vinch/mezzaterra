@@ -87,7 +87,8 @@
 </script>
 
 <figure class="map" class:drawn onpointerdown={press}>
-  <svg viewBox="0 0 {W} {H}" role="img" aria-labelledby="map-title map-desc">
+  <!-- Pas de role="img" : il masquerait les liens des épingles aux lecteurs d'écran. -->
+  <svg viewBox="0 0 {W} {H}" role="group" aria-labelledby="map-title" aria-describedby="map-desc">
     <title id="map-title">Carte des Abruzzes</title>
     <desc id="map-desc">
       Les Abruzzes, entre la mer Adriatique et le massif du Gran Sasso, avec l’emplacement des domaines
@@ -107,7 +108,8 @@
       <clipPath id="mz-frame"><rect width={W} height={H} rx="18" /></clipPath>
     </defs>
 
-    <g clip-path="url(#mz-frame)">
+    <!-- Fond décoratif, résumé par la description. -->
+    <g clip-path="url(#mz-frame)" aria-hidden="true">
       <!-- Mer : le fond ; les terres voisines la recouvrent. -->
       <rect class="sea" width={W} height={H} />
       <rect class="waves" width={W} height={H} fill="url(#mz-waves)" />
@@ -152,27 +154,6 @@
         </g>
       {/each}
 
-      {#each pins as w, i (w.id)}
-        <a
-          href="/domaines/{w.id}"
-          class="pin"
-          class:current={current === w.id}
-          class:dim={current != null && current !== w.id}
-          class:active={tip?.id === w.id}
-          style="--delay: {1400 + i * 180}ms"
-          aria-label="{w.name} — voir le domaine"
-          aria-current={current === w.id ? "page" : undefined}
-          onpointerenter={(e) => e.pointerType === "mouse" && (hovered = w.id)}
-          onpointerleave={untrack}
-          onfocus={() => (hovered = w.id)}
-          onblur={untrack}
-          onclick={(e) => open(e, w.id)}
-        >
-          <circle class="pin-halo" cx={w.x} cy={w.y} r="12" />
-          <circle class="pin-dot" cx={w.x} cy={w.y} r="9" />
-        </a>
-      {/each}
-
       <!-- Médaillon : l'Italie -->
       <g class="inset" transform="translate({insetX},{insetY}) scale({INSET_SCALE})">
         <rect width={INSET.width + 16} height={INSET.height + 16} rx="12" />
@@ -195,6 +176,28 @@
       <!-- Crédits : en haut à droite, sur la mer, en lecture verticale. -->
       <text class="credits" transform="translate({W - 18},18) rotate(90)">openpolis / ISTAT (CC BY 4.0)</text>
     </g>
+
+    <!-- Épingles -->
+    {#each pins as w, i (w.id)}
+      <a
+        href="/domaines/{w.id}"
+        class="pin"
+        class:current={current === w.id}
+        class:dim={current != null && current !== w.id}
+        class:active={tip?.id === w.id}
+        style="--delay: {1400 + i * 180}ms"
+        aria-label="{w.name} — voir le domaine"
+        aria-current={current === w.id ? "page" : undefined}
+        onpointerenter={(e) => e.pointerType === "mouse" && (hovered = w.id)}
+        onpointerleave={untrack}
+        onfocus={() => (hovered = w.id)}
+        onblur={untrack}
+        onclick={(e) => open(e, w.id)}
+      >
+        <circle class="pin-halo" cx={w.x} cy={w.y} r="12" />
+        <circle class="pin-dot" cx={w.x} cy={w.y} r="9" />
+      </a>
+    {/each}
 
     <rect class="frame" width={W} height={H} rx="18" />
   </svg>
