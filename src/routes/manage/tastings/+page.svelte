@@ -81,9 +81,9 @@
   /** Participants d'une dégustation, en lecture seule depuis la liste (`entries` nul pendant le chargement). */
   let participantsView = $state.raw<{ title: string; entries: ModalCustomerEntry[] | null } | null>(null);
 
-  let formData = $state({
+  const emptyForm = () => ({
     name: "",
-    date: "",
+    date: todayIso(),
     location: "",
     notes: "",
     start_time: "",
@@ -92,6 +92,9 @@
     description: "",
     is_private: false,
   });
+  let formData = $state(emptyForm());
+  /* On ne propose pas un lot « plus jamais disponible ». */
+  let pickableVintages = $derived(wineVintages.filter((v) => !isDiscontinued(v)));
 
   onMount(async () => {
     /* Chaque liste est gardée même si une autre échoue. */
@@ -242,17 +245,7 @@
   }
 
   function resetForm() {
-    formData = {
-      name: "",
-      date: todayIso(),
-      location: "",
-      notes: "",
-      start_time: "",
-      price: "",
-      capacity: "",
-      description: "",
-      is_private: false,
-    };
+    formData = emptyForm();
     modalWines = [];
     modalCustomers = [];
     initialCustomerIds = [];
@@ -601,7 +594,7 @@
       <div class="add-row">
         <ProductVintageAutocomplete
           bind:value={selectedVintageId}
-          wineVintages={wineVintages.filter((v) => !isDiscontinued(v))}
+          wineVintages={pickableVintages}
           includeTastingOption={false}
           isVintageAlreadyAdded={isVintageInModal}
           formatLabel={vintageLabel}

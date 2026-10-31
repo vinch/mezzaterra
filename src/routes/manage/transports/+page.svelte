@@ -46,19 +46,19 @@
   let associatedOrders = $state<any[]>([]);
   let selectedOrderIds = $state<string[]>([]);
 
-  let formData = $state({
+  const emptyForm = () => ({
     transporter_id: "",
     departure_date: "",
     arrival_date: "",
-    status: "pending",
     pallets_number: "",
     price: "",
     note: "",
   });
+  let formData = $state(emptyForm());
 
   function openCreateModal() {
     editingTransport = null;
-    resetForm();
+    formData = emptyForm();
     formOpen = true;
   }
 
@@ -68,7 +68,6 @@
       transporter_id: transport.transporter_id || "",
       departure_date: isoDateOnly(transport.departure_date),
       arrival_date: isoDateOnly(transport.arrival_date),
-      status: transport.status || "pending",
       pallets_number: transport.pallets_number ? String(transport.pallets_number) : "",
       price: transport.price ? String(transport.price) : "",
       note: transport.note || "",
@@ -79,19 +78,7 @@
   function closeForm() {
     formOpen = false;
     editingTransport = null;
-    resetForm();
-  }
-
-  function resetForm() {
-    formData = {
-      transporter_id: "",
-      departure_date: "",
-      arrival_date: "",
-      status: "pending",
-      pallets_number: "",
-      price: "",
-      note: "",
-    };
+    formData = emptyForm();
   }
 
   /** Création (toujours « En attente ») ou modification ; le statut se change dans le tableau. */

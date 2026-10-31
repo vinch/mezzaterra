@@ -52,12 +52,9 @@
   let detailsOrderItems = $state<any[]>([]);
   let orderIdForPDF = $state<string | null>(null);
 
-  let formData = $state({
-    date: todayIso(),
-    supplier_id: "",
-    status: "pending",
-    note: "",
-  });
+  /* Pas de statut : save_order crée la commande « En attente » et garde celui d'une commande modifiée. */
+  const emptyForm = () => ({ date: todayIso(), supplier_id: "", note: "" });
+  let formData = $state(emptyForm());
 
   let orderItems = $state<any[]>([]);
   let selectedVintageId = $state("");
@@ -109,7 +106,6 @@
     formData = {
       date: isoDateOnly(order.date),
       supplier_id: order.supplier_id || "",
-      status: order.status || "pending",
       note: order.note || "",
     };
     orderItems = items.map((item: any) => ({
@@ -144,12 +140,7 @@
   }
 
   function resetForm() {
-    formData = {
-      date: todayIso(),
-      supplier_id: "",
-      status: "pending",
-      note: "",
-    };
+    formData = emptyForm();
     orderItems = [];
     selectedVintageId = "";
     selectedQuantity = "";
@@ -163,14 +154,9 @@
   let orderableVintages = $derived(wineVintages.filter((v) => !isDiscontinued(v)));
 
   function handleVintageChange() {
-    if (selectedVintageId) {
-      const vintage = wineVintages.find((v) => v.id === selectedVintageId);
-      if (vintage && vintage.purchase_price) {
-        selectedPrice = vintage.purchase_price.toString();
-      } else {
-        selectedPrice = "";
-      }
-    }
+    if (!selectedVintageId) return;
+    const vintage = wineVintages.find((v) => v.id === selectedVintageId);
+    selectedPrice = vintage?.purchase_price ? String(vintage.purchase_price) : "";
   }
 
   function isVintageAlreadyAdded(vintageId: string): boolean {
@@ -224,7 +210,6 @@
     const orderData = {
       date: formData.date,
       supplier_id: formData.supplier_id,
-      status: formData.status,
       note: formData.note || null,
     };
 
