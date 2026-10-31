@@ -163,12 +163,14 @@
         wishes = (data || []) as unknown as WishRequest[];
       })(),
       (async () => {
-        const { data } = await supabase
+        const { data, error: e } = await supabase
           .from("tasting_registration")
           .select("*")
           .eq("tasting_id", tastingId)
           .order("created_at", { ascending: true });
-        registrations = data || [];
+        /* Un relevé raté ne fait pas passer les inscrits du site pour des ajouts à la main. */
+        if (e) return;
+        registrations = data;
       })(),
       (async () => {
         const { data, error: e } = await supabase
