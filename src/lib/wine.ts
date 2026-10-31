@@ -268,14 +268,14 @@ export function winePairings(
 
 /**
  * Requête Supabase réutilisable : un millésime avec tout ce qu'il faut pour l'afficher.
- * `wine!inner` permet de filtrer sur le produit (`.eq("wine.kind", …)`).
+ * `inner` permet de filtrer sur le produit et son domaine (`.eq("wine.kind", …)`, `.eq("wine.winery.hidden", false)`).
  */
-const vintagePublicSelect = (wine: "wine" | "wine!inner") => `
+const vintagePublicSelect = (inner: boolean) => `
   *,
-  ${wine} (
+  wine${inner ? "!inner" : ""} (
     *,
     wine_type ( name, category, kind ),
-    winery (
+    winery${inner ? "!inner" : ""} (
       *,
       region ( name, country ( iso_code, name, flag ) ),
       country ( iso_code, name, flag )
@@ -287,8 +287,8 @@ const vintagePublicSelect = (wine: "wine" | "wine!inner") => `
   note ( * )
 `;
 
-export const VINTAGE_PUBLIC_SELECT = vintagePublicSelect("wine");
-export const VINTAGE_PUBLIC_SELECT_BY_WINE = vintagePublicSelect("wine!inner");
+export const VINTAGE_PUBLIC_SELECT = vintagePublicSelect(false);
+export const VINTAGE_PUBLIC_SELECT_BY_WINE = vintagePublicSelect(true);
 
 /**
  * Millésime « plus jamais disponible » : absent du site public, grisé dans la gestion.

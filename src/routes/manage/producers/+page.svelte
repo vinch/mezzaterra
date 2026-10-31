@@ -47,6 +47,12 @@
       type: "textarea",
       help: "Affichée sur la page du domaine.",
     },
+    {
+      key: "hidden",
+      label: "Masqué sur le site public",
+      type: "checkbox",
+      help: "Pas encore annoncé : absent de la carte, de l’accueil et du catalogue, avec ses produits. Ses pages restent accessibles par lien (dégustations).",
+    },
   ]}
   columns={[
     { label: "Nom", value: (w) => w.name },
@@ -55,5 +61,6 @@
     { label: "Pays", value: (w) => countryLabel(w.country) },
     { label: "Site web", value: (w) => w.url && "Visiter", href: (w) => w.url },
     { label: "Instagram", value: (w) => wineryInstagram(w)?.handle, href: (w) => wineryInstagram(w)?.url },
+    { label: "Site public", value: (w) => (w.hidden ? "Masqué" : "Visible") },
   ]}
 />

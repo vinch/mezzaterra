@@ -9,6 +9,7 @@ async function fetchWineries(): Promise<WineryPin[]> {
     const { data } = await supabase
       .from("winery")
       .select("id, name, latitude, longitude")
+      .eq("hidden", false)
       .order("name");
     return (data || []) as WineryPin[];
   } catch {

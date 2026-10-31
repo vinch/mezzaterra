@@ -142,6 +142,7 @@
       formFields.map((f) => {
         const raw = (form[f.key] ?? "").trim();
         if (f.type === "number") return [f.key, raw ? Number(raw.replace(",", ".")) : null];
+        if (f.type === "checkbox") return [f.key, raw === "true"];
         return [f.key, raw && f.normalize ? f.normalize(raw) : raw || null];
       }),
     );
@@ -274,6 +275,21 @@
   <form id={formId} class="form-grid" onsubmit={preventDefault(submit)}>
     {#each formFields as f (f.key)}
       {@const id = `${table}-${f.key}`}
+      {#if f.type === "checkbox"}
+        <!-- Valeur gardée en texte comme les autres champs : « true » ou non. -->
+        <div class="form-group full-width">
+          <label class="checkbox-label">
+            <input
+              {id}
+              type="checkbox"
+              bind:checked={() => form[f.key] === "true", (on) => (form[f.key] = on ? "true" : "false")}
+              aria-describedby={f.help ? `${id}-help` : undefined}
+            />
+            {f.label}
+          </label>
+          {#if f.help}<small id="{id}-help" class="t-caption">{f.help}</small>{/if}
+        </div>
+      {:else}
       <div class="form-group" class:full-width={f.full || f.type === "textarea"}>
         <Field {id} label={f.label} required={f.required} help={f.help ?? ""} >
           {#snippet children({ describedby })}
@@ -302,6 +318,7 @@
                             {/snippet}
                 </Field>
       </div>
+      {/if}
     {/each}
   </form>
   {#snippet footer()}

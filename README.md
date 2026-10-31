@@ -103,6 +103,13 @@ publique et, comme son site, dans « Du même domaine » des fiches produits. À
 déployer le code : la page Domaines de la gestion envoie toujours `instagram`, et tout enregistrement
 d'un domaine échouerait sans la colonne.
 
+`20261031190000_winery_hidden.sql` ajoute `winery.hidden` : un domaine masqué (pas encore annoncé)
+n'est plus listé sur le site public, ses produits non plus (carte et liste de l'accueil, autres
+domaines, catalogue, lien « Nos huiles »). Comme une dégustation privée, sa page et celles de ses
+produits restent accessibles par lien (dégustations, QR des fiches de table). Masque
+Donato Di Tommaso Vignaiolo. À appliquer avant de déployer le code, qui lit et enregistre
+`winery.hidden`.
+
 ```sh
 supabase link --project-ref wmerreifcpttrhxwmkmn
 supabase db push
