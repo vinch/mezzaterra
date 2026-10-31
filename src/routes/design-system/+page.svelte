@@ -17,7 +17,7 @@
   import Field from "$lib/ui/Field.svelte";
   import IconButton from "$lib/ui/IconButton.svelte";
   import KpiCard from "$lib/ui/KpiCard.svelte";
-  import Menu, { type MenuItem } from "$lib/ui/Menu.svelte";
+  import type { MenuItem } from "$lib/ui/Menu.svelte";
   import Modal from "$lib/ui/Modal.svelte";
   import PageHeader from "$lib/ui/PageHeader.svelte";
   import RowMenu from "$lib/ui/RowMenu.svelte";
@@ -25,6 +25,7 @@
   import Sidebar, { type NavSection } from "$lib/ui/Sidebar.svelte";
   import Spinner from "$lib/ui/Spinner.svelte";
   import StatusBadge from "$lib/ui/StatusBadge.svelte";
+  import StatusMenuBadge from "$lib/ui/StatusMenuBadge.svelte";
   import Stepper from "$lib/ui/Stepper.svelte";
   import StockBadge from "$lib/ui/StockBadge.svelte";
   import Tabs from "$lib/ui/Tabs.svelte";
@@ -50,7 +51,6 @@
     KIND_META,
     STATUS_META,
     canChangeStatus,
-    statusMenuItems,
     type SaleStatus,
     type StatusKind,
   } from "$lib/status";
@@ -149,8 +149,6 @@
   let robeFilter = $state("");
   let modalOpen = $state(false);
   let confirmOpen = $state(false);
-  let statusOpen = $state(false);
-  let statusAnchor = $state<HTMLElement | null>(null);
   let demoStatus = $state<SaleStatus>("pending");
   let demoTab = $state<ProductKind>(DEFAULT_KIND);
 
@@ -165,11 +163,6 @@
     { label: "Télécharger la facture", icon: IconDownload },
     { label: "Supprimer…", icon: IconTrash, danger: true, separator: true, onSelect: () => (confirmOpen = true) },
   ];
-
-  /* Mêmes transitions et libellés que la page Ventes. */
-  let statusItems = $derived<MenuItem[]>(
-    statusMenuItems("sale", demoStatus, (next) => (demoStatus = next as SaleStatus)),
-  );
 
   const rows = [
     { id: "a", wine: "Montepulciano d’Abruzzo", robe: "red", winery: "Filomusi Guelfi", stock: 0, price: 14.5 },
@@ -339,19 +332,12 @@
           {/each}
           <div class="row labelled">
             <code class="row-label">interactive</code>
-            <StatusBadge
-              status={demoStatus}
-              interactive={canChangeStatus("sale", demoStatus)}
-              expanded={statusOpen}
-              bind:el={statusAnchor}
-              onclick={() => (statusOpen = !statusOpen)}
-            />
-            <span class="t-caption">Ouvre un <code>Menu</code> des transitions permises : <code>statusMenuItems(kind, statut, …)</code> et <code>canChangeStatus</code> de <code>status.ts</code>, pour les ventes, commandes et transports.</span>
+            <StatusMenuBadge status={demoStatus} onselect={(next) => (demoStatus = next as SaleStatus)} />
+            <span class="t-caption"><code>StatusMenuBadge</code> (<code>kind</code>, <code>status</code>, <code>onselect</code>) : ouvre le <code>Menu</code> des transitions permises (<code>statusMenuItems</code> de <code>status.ts</code>), badge simple quand le statut ne peut plus changer. Ventes, commandes, transports ; les confirmations restent à la page.</span>
             {#if !canChangeStatus("sale", demoStatus)}
               <Button size="sm" variant="ghost" onclick={() => (demoStatus = "pending")}>Recommencer</Button>
             {/if}
           </div>
-          <Menu bind:open={statusOpen} anchor={statusAnchor} items={statusItems} label="Changer le statut" align="start" />
 
           <h3 class="ds-h3"><code>StockBadge</code></h3>
           <div class="row">

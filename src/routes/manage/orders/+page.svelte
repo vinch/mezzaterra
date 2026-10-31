@@ -9,7 +9,8 @@
   import Button from "$lib/ui/Button.svelte";
   import IconButton from "$lib/ui/IconButton.svelte";
   import StatusBadge from "$lib/ui/StatusBadge.svelte";
-  import Menu, { type MenuItem } from "$lib/ui/Menu.svelte";
+  import type { MenuItem } from "$lib/ui/Menu.svelte";
+  import StatusMenuBadge from "$lib/ui/StatusMenuBadge.svelte";
   import RowMenu from "$lib/ui/RowMenu.svelte";
   import ConfirmDialog from "$lib/ui/ConfirmDialog.svelte";
   import DataTable from "$lib/ui/DataTable.svelte";
@@ -18,7 +19,7 @@
   import Field from "$lib/ui/Field.svelte";
   import Select from "$lib/ui/Select.svelte";
   import { IconClipboard, IconDownload, IconEye, IconPencil, IconPlus, IconTrash } from "$lib/ui/icons";
-  import { canChangeStatus, isEditable, statusMenuItems } from "$lib/status";
+  import { isEditable } from "$lib/status";
   import ManagePageShell from "$lib/components/manage/ManagePageShell.svelte";
   import ProductVintageAutocomplete from "$lib/components/manage/ProductVintageAutocomplete.svelte";
   import { fetchLineItems, fetchPickerVintages, LINE_ITEMS_SELECT } from "$lib/manageData";
@@ -344,21 +345,6 @@
     return !isEditable("order", order.status) || (!!order.transport && !isEditable("transport", order.transport.status));
   }
 
-  /* Changement de statut depuis le badge (mêmes choix que l'ancien sélecteur). */
-  let statusMenuOrder = $state<any>(null);
-  let statusMenuOpen = $state(false);
-  let statusAnchor = $state<HTMLElement | null>(null);
-  const statusAnchors: Record<string, HTMLElement | null> = $state({});
-  function openStatusMenu(order: any) {
-    statusMenuOrder = order;
-    statusAnchor = statusAnchors[order.id] ?? null;
-    statusMenuOpen = true;
-  }
-  function orderStatusItems(order: any): MenuItem[] {
-    return statusMenuItems("order", order.status, (next) => updateOrderStatus(order.id, next, order.status));
-  }
-  let statusItems = $derived(statusMenuOrder ? orderStatusItems(statusMenuOrder) : []);
-
   function rowItems(order: any): MenuItem[] {
     const pdf: MenuItem = { label: "Exporter en PDF", icon: IconDownload, onSelect: () => openLanguageModal(order.id) };
     if (isLocked(order)) return [{ label: "Voir le détail", icon: IconEye, onSelect: () => openDetailsModal(order) }, pdf];
@@ -424,18 +410,7 @@
               {:else}—{/if}
             </td>
             <td>
-              {#if canChangeStatus("order", order.status)}
-                <StatusBadge
-                  kind="order"
-                  status={order.status}
-                  interactive
-                  bind:el={statusAnchors[order.id]}
-                  expanded={statusMenuOpen && statusMenuOrder?.id === order.id}
-                  onclick={() => openStatusMenu(order)}
-                />
-              {:else}
-                <StatusBadge kind="order" status={order.status} />
-              {/if}
+              <StatusMenuBadge kind="order" status={order.status} onselect={(next) => updateOrderStatus(order.id, next, order.status)} />
             </td>
             <td class="num"><strong>{formatEUR(order.total_price ?? 0)}</strong></td>
             <td class="col-actions">
@@ -452,8 +427,6 @@
     </DataTable>
   {/if}
 </ManagePageShell>
-
-<Menu bind:open={statusMenuOpen} anchor={statusAnchor} items={statusItems} label="Changer le statut" align="start" />
 
 <ConfirmDialog
   bind:open={confirmOpen}

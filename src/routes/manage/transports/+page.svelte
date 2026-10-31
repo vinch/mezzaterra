@@ -7,7 +7,8 @@
   import Modal from "$lib/ui/Modal.svelte";
   import Button from "$lib/ui/Button.svelte";
   import StatusBadge from "$lib/ui/StatusBadge.svelte";
-  import Menu, { type MenuItem } from "$lib/ui/Menu.svelte";
+  import type { MenuItem } from "$lib/ui/Menu.svelte";
+  import StatusMenuBadge from "$lib/ui/StatusMenuBadge.svelte";
   import RowMenu from "$lib/ui/RowMenu.svelte";
   import ConfirmDialog from "$lib/ui/ConfirmDialog.svelte";
   import DataTable from "$lib/ui/DataTable.svelte";
@@ -16,7 +17,7 @@
   import Field from "$lib/ui/Field.svelte";
   import Select from "$lib/ui/Select.svelte";
   import { IconClipboard, IconEye, IconPencil, IconPlus, IconRoute, IconTrash } from "$lib/ui/icons";
-  import { canChangeStatus, isEditable, statusMenuItems } from "$lib/status";
+  import { isEditable } from "$lib/status";
   import ManagePageShell from "$lib/components/manage/ManagePageShell.svelte";
   import { LINE_ITEMS_SELECT } from "$lib/manageData";
   import { isoDateOnly } from "$lib/dates";
@@ -270,21 +271,6 @@
     await invalidateAll();
   }
 
-  /* Changement de statut depuis le badge (mêmes choix que l'ancien sélecteur). */
-  let statusMenuTransport = $state<any>(null);
-  let statusMenuOpen = $state(false);
-  let statusAnchor = $state<HTMLElement | null>(null);
-  const statusAnchors: Record<string, HTMLElement | null> = $state({});
-  function openStatusMenu(transport: any) {
-    statusMenuTransport = transport;
-    statusAnchor = statusAnchors[transport.id] ?? null;
-    statusMenuOpen = true;
-  }
-  let statusItems = $derived.by(() => {
-    const transport = statusMenuTransport;
-    return transport ? statusMenuItems("transport", transport.status, (next) => changeStatus(transport, next)) : [];
-  });
-
   /** Livré ou annulé : seul le détail reste. */
   function rowItems(transport: any): MenuItem[] {
     if (!isEditable("transport", transport.status)) {
@@ -345,18 +331,9 @@
             <td>{formatDate(transport.departure_date)}</td>
             <td>{formatDate(transport.arrival_date)}</td>
             <td>
-              {#if canChangeStatus("transport", transport.status)}
-                <StatusBadge
-                  kind="transport"
-                  status={transport.status}
-                  interactive
-                  bind:el={statusAnchors[transport.id]}
-                  expanded={statusMenuOpen && statusMenuTransport?.id === transport.id}
-                  onclick={() => openStatusMenu(transport)}
-                />
-              {:else}
-                <span title="Livré : le stock est entré, le statut est définitif"><StatusBadge kind="transport" status={transport.status} /></span>
-              {/if}
+              <span title={transport.status === "delivered" ? "Livré : le stock est entré, le statut est définitif" : undefined}>
+                <StatusMenuBadge kind="transport" status={transport.status} onselect={(next) => changeStatus(transport, next)} />
+              </span>
             </td>
             <td class="num">{transport.order_count || 0}</td>
             <td class="num">{transport.pallets_number || "—"}</td>
@@ -370,8 +347,6 @@
     </DataTable>
   {/if}
 </ManagePageShell>
-
-<Menu bind:open={statusMenuOpen} anchor={statusAnchor} items={statusItems} label="Changer le statut" align="start" />
 
 <ConfirmDialog
   bind:open={deliverOpen}

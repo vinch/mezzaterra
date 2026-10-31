@@ -9,8 +9,9 @@
   import Button from "$lib/ui/Button.svelte";
   import IconButton from "$lib/ui/IconButton.svelte";
   import StatusBadge from "$lib/ui/StatusBadge.svelte";
-  import { canChangeStatus, isEditable, statusMenuItems, STATUS_META, type SaleStatus } from "$lib/status";
-  import Menu, { type MenuItem } from "$lib/ui/Menu.svelte";
+  import { isEditable, statusMenuItems, STATUS_META, type SaleStatus } from "$lib/status";
+  import type { MenuItem } from "$lib/ui/Menu.svelte";
+  import StatusMenuBadge from "$lib/ui/StatusMenuBadge.svelte";
   import RowMenu from "$lib/ui/RowMenu.svelte";
   import ConfirmDialog from "$lib/ui/ConfirmDialog.svelte";
   import DataTable from "$lib/ui/DataTable.svelte";
@@ -623,16 +624,6 @@
     if (await updateSaleStatus(sale, next)) refreshCounts();
   }
 
-  let statusMenuSale = $state<any>(null);
-  let statusMenuOpen = $state(false);
-  let statusAnchor = $state<HTMLElement | null>(null);
-  const statusAnchors: Record<string, HTMLElement | null> = $state({});
-  function openStatusMenu(sale: any) {
-    statusMenuSale = sale;
-    statusAnchor = statusAnchors[sale.id] ?? null;
-    statusMenuOpen = true;
-  }
-
   function rowItems(sale: any): MenuItem[] {
     const st = sale.status;
     const items: MenuItem[] = [];
@@ -738,7 +729,6 @@
     }));
   let pendingCount = $derived(sales.filter((s) => s.status === "pending").length);
   let subtitle = $derived(`${periodSales.length} vente${periodSales.length > 1 ? "s" : ""}${period === "all" ? "" : ` en ${period}`} · ${pendingCount} en attente de paiement`);
-  let statusItems = $derived(statusMenuSale ? saleStatusItems(statusMenuSale) : []);
   let grossTotal = $derived(Math.round(
     saleItems.reduce((sum, it) => sum + toNumber(it.price) * (parseInt(String(it.quantity ?? 0), 10) || 0), 0) * 100,
   ) / 100);
@@ -833,17 +823,7 @@
                 {#if sale.tasting_id}<span class="tasting-tag" title={tastingLabel(sale.tasting_id)}><IconGlasses size={12} strokeWidth={1.75} aria-hidden="true" />{tastingById.get(sale.tasting_id)?.name || "Dégustation"}</span>{/if}
               </td>
               <td>
-                {#if canChangeStatus("sale", sale.status)}
-                  <StatusBadge
-                    status={sale.status}
-                    interactive
-                    bind:el={statusAnchors[sale.id]}
-                    expanded={statusMenuOpen && statusMenuSale?.id === sale.id}
-                    onclick={() => openStatusMenu(sale)}
-                  />
-                {:else}
-                  <StatusBadge status={sale.status} />
-                {/if}
+                <StatusMenuBadge status={sale.status} onselect={(next) => changeStatus(sale, next)} />
               </td>
               <td class="num">
                 {#if sale.status === "cancelled"}
@@ -892,8 +872,6 @@
     </ul>
   {/if}
 </ManagePageShell>
-
-<Menu bind:open={statusMenuOpen} anchor={statusAnchor} items={statusItems} label="Changer le statut" align="start" />
 
 <ConfirmDialog
   bind:open={confirmOpen}
