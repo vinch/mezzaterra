@@ -3,6 +3,7 @@
 -- 1. Une réservation confirmée rattache aussitôt l'inscrit à la dégustation : client retrouvé (même
 --    email, sinon même téléphone) ou créé, puis ajouté aux participants. La liste des participants
 --    devient la seule liste de « qui vient ».
+--    Retirer un participant annule sa réservation.
 -- 2. Les places comptent tout le monde : chaque participant occupe une place, ou les places de sa
 --    réservation en ligne s'il en a une ; une réservation confirmée pas encore rattachée compte aussi.
 --    Le site ne propose donc plus des places déjà données à des participants ajoutés à la main.
@@ -124,6 +125,26 @@ BEGIN
   RETURN v_customer;
 END;
 $$;
+
+-- Retirer un participant annule sa réservation en ligne : ses places se libèrent, il ne reçoit plus
+-- les rappels des inscrits et peut réserver de nouveau.
+CREATE OR REPLACE FUNCTION public.cancel_registration_of_removed_participant()
+RETURNS trigger
+LANGUAGE plpgsql
+SET search_path = public
+AS $$
+BEGIN
+  UPDATE tasting_registration
+  SET status = 'cancelled'
+  WHERE tasting_id = OLD.tasting_id AND customer_id = OLD.customer_id AND status <> 'cancelled';
+  RETURN OLD;
+END;
+$$;
+
+DROP TRIGGER IF EXISTS tasting_customer_cancel_registration ON public.tasting_customer;
+CREATE TRIGGER tasting_customer_cancel_registration
+  AFTER DELETE ON public.tasting_customer
+  FOR EACH ROW EXECUTE FUNCTION public.cancel_registration_of_removed_participant();
 
 -- Gestion : confirmer une réservation (liste d'attente, ou rattachement qui aurait échoué).
 CREATE OR REPLACE FUNCTION public.confirm_tasting_registration(p_registration_id uuid)
@@ -273,6 +294,7 @@ CREATE POLICY "admins can delete" ON public.contact_message FOR DELETE USING (is
 REVOKE ALL ON FUNCTION public.tasting_seats_taken(uuid) FROM PUBLIC, anon, authenticated;
 REVOKE ALL ON FUNCTION public.find_or_create_customer(text, text, text, text, boolean) FROM PUBLIC, anon, authenticated;
 REVOKE ALL ON FUNCTION public.link_registration_to_customer(uuid) FROM PUBLIC, anon, authenticated;
+REVOKE ALL ON FUNCTION public.cancel_registration_of_removed_participant() FROM PUBLIC, anon, authenticated;
 REVOKE ALL ON FUNCTION public.confirm_tasting_registration(uuid) FROM PUBLIC, anon;
 GRANT EXECUTE ON FUNCTION public.confirm_tasting_registration(uuid) TO authenticated;
 REVOKE ALL ON FUNCTION public.admin_find_or_create_customer(text, text, text, text) FROM PUBLIC, anon;
