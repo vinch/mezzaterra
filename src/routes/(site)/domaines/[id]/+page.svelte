@@ -2,7 +2,7 @@
   import { onMount } from "svelte";
   import { page } from "$app/stores";
   import AbruzzoMap from "$lib/components/site/AbruzzoMap.svelte";
-  import WineCard from "$lib/components/site/WineCard.svelte";
+  import ProductCard from "$lib/components/site/ProductCard.svelte";
   import { combinedAvailability, fetchAvailability, firstAvailable, type AvailabilityOf } from "$lib/publicData";
   import { MAIN, project } from "$lib/geo/abruzzo";
   import {
@@ -178,7 +178,7 @@
     <div class="grid">
       {#each groupFormats(vintages) as { vintage: v, formats } (v.id)}
         <div>
-          <WineCard
+          <ProductCard
             vintage={v}
             {formats}
             href={productHref(firstAvailable(availability, formats))}

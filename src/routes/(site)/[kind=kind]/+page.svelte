@@ -3,7 +3,7 @@
   import { flip } from "svelte/animate";
   import { fade } from "svelte/transition";
   import { page } from "$app/stores";
-  import WineCard from "$lib/components/site/WineCard.svelte";
+  import ProductCard from "$lib/components/site/ProductCard.svelte";
   import { combinedAvailability, fetchAvailability, firstAvailable, type AvailabilityOf } from "$lib/publicData";
   import { fold } from "$lib/format";
   import { kindCount, PRODUCT_KINDS, productHref } from "$lib/productKinds";
@@ -170,7 +170,7 @@
         <div class="grid">
           {#each group.items as { vintage: v, formats } (v.id)}
             <div animate:flip={{ duration: 250 }}>
-              <WineCard
+              <ProductCard
                 vintage={v}
                 {formats}
                 href={productHref(firstAvailable(availability, formats))}

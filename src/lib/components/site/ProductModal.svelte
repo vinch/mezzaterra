@@ -2,13 +2,12 @@
   import { self } from "$lib/ui/events";
   import { fade, fly } from "svelte/transition";
   import type { WineVintage } from "$lib/types";
-  import WineBottle from "$lib/components/site/WineBottle.svelte";
+  import WineBottle from "./WineBottle.svelte";
+  import ProductAbout from "./ProductAbout.svelte";
   import {
     grapesText,
     styleLabel,
     vintageVolume,
-    vintageNotes,
-    winePairings,
     wineryFlag,
     wineStyle,
     wineSubtitle,
@@ -17,16 +16,15 @@
   import { kindInfo, productHref } from "$lib/productKinds";
   import { formatEUR } from "$lib/format";
 
+  /** Fiche rapide d'un lot du site (chargé avec `VINTAGE_PUBLIC_SELECT`) ; fermée quand `vintage` est vide. */
   interface Props {
     onclose?: () => void;
-    wineVintage?: WineVintage | null;
+    vintage?: WineVintage | null;
   }
 
-  let { wineVintage = null,
-    onclose
-  }: Props = $props();
+  let { vintage = null, onclose }: Props = $props();
 
-  let v = $derived(wineVintage as any);
+  let v = $derived(vintage as any);
   let wine = $derived(v?.wine);
   let kind = $derived(kindInfo(wine));
   let volume = $derived(v ? vintageVolume(v) : "");
@@ -34,9 +32,6 @@
   let region = $derived(wine?.winery?.region?.name || wine?.winery?.country?.name || "");
   let flag = $derived(wineryFlag(wine?.winery));
   let grapes = $derived(grapesText(v?.wine_vintage_grape, true));
-  let notes = $derived(vintageNotes(v?.note, kind.key));
-  /* Les millésimes du site sont chargés avec VINTAGE_PUBLIC_SELECT, accords compris. */
-  let pairings = $derived(winePairings(wine));
 
   function closeModal() {
     onclose?.();
@@ -61,7 +56,7 @@
       style="--robe: {style.color}; --robe-light: {style.light};"
       role="dialog"
       aria-modal="true"
-      aria-labelledby="wine-modal-title"
+      aria-labelledby="product-modal-title"
       transition:fly={{ y: 24, duration: 260 }}
     >
       <button class="close" onclick={closeModal} aria-label="Fermer">×</button>
@@ -75,7 +70,7 @@
             <span class="mz-dot" style="background: {style.color}"></span>
             {styleLabel(wine.wine_type)}{v.organic ? " · Bio" : ""}
           </span>
-          <h2 id="wine-modal-title" class="title">{wineTitle(wine)}</h2>
+          <h2 id="product-modal-title" class="title">{wineTitle(wine)}</h2>
           {#if wineSubtitle(wine)}
             <p class="appellation">{wineSubtitle(wine)}</p>
           {/if}
@@ -115,37 +110,7 @@
           </section>
         {/if}
 
-        {#if wine.description}
-          <section>
-            <h3>{kind.aboutTitle}</h3>
-            <p class="prose">{wine.description}</p>
-          </section>
-        {/if}
-
-        {#if notes.length}
-          <section>
-            <h3>Notes de dégustation</h3>
-            <div class="notes">
-              {#each notes as note}
-                <div class="note">
-                  <span class="note-label">{note.label}</span>
-                  <p>{note.content}</p>
-                </div>
-              {/each}
-            </div>
-          </section>
-        {/if}
-
-        {#if pairings.length}
-          <section>
-            <h3>À table avec</h3>
-            <div class="pairings">
-              {#each pairings as p}
-                <span class="mz-chip">{p}</span>
-              {/each}
-            </div>
-          </section>
-        {/if}
+        <ProductAbout vintage={v} compact />
 
         <!-- Millésime retiré : sa fiche publique n'existe plus (404). -->
         {#if !v.discontinued_at}
@@ -299,42 +264,6 @@
   section p {
     margin: 0;
     line-height: 1.6;
-  }
-
-  .prose {
-    white-space: pre-line;
-  }
-
-  .notes {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(14rem, 1fr));
-    gap: 0.75rem;
-  }
-
-  .note {
-    padding: 0.9rem 1rem;
-    border-radius: var(--mz-radius-sm);
-    background: var(--mz-paper);
-    border-left: 3px solid var(--robe);
-  }
-
-  .note-label {
-    display: block;
-    font-family: var(--mz-font-display);
-    font-size: 1.05rem;
-    color: var(--mz-teal);
-    margin-bottom: 0.2rem;
-  }
-
-  .note p {
-    font-size: 0.95rem;
-    color: var(--mz-ink-soft);
-  }
-
-  .pairings {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 0.5rem;
   }
 
   .actions {
