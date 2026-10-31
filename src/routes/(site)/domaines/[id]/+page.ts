@@ -31,6 +31,7 @@ export const load: PageLoad = async ({ params }) => {
 
   if (wineryRes.error) throw error(500, "Impossible de charger ce domaine");
   if (!wineryRes.data) throw error(404, "Domaine introuvable");
+  if (vintagesRes.error) throw error(500, "Impossible de charger les produits de ce domaine");
 
   return {
     winery: wineryRes.data as any,
