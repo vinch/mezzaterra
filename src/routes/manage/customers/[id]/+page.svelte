@@ -7,7 +7,7 @@
   import { goto } from "$app/navigation";
   import ManagePageShell from "$lib/components/manage/ManagePageShell.svelte";
   import StarRating from "$lib/components/site/StarRating.svelte";
-  import { customerDisplayLabel, namesakes } from "$lib/customerDisplay";
+  import { customerDisplayLabel, lastNameLike, namesakes } from "$lib/customerDisplay";
   import type { Customer } from "$lib/types";
   import { REVENUE_STATUSES, lineTotal, type SaleItemRow } from "$lib/analytics";
   import { daysUntil } from "$lib/dates";
@@ -95,23 +95,20 @@
       stock = iRes;
 
       if (customer) {
-        /* Simple signalement : en échec, la fiche s'affiche sans bandeau. */
-        const { data } = await supabase
-          .from("customer")
-          .select("*")
-          .ilike("last_name", escapeLike(customer.last_name.trim()))
-          .neq("id", customerId);
-        sameLastName = data || [];
-      }
-
-      if (customer?.email) {
-        const { data } = await supabase
-          .from("tasting_feedback")
-          .select("*")
-          .ilike("guest_email", escapeLike(customer.email))
-          .order("created_at", { ascending: true });
+        const [namesakeRes, feedbackRes] = await Promise.all([
+          /* Simple signalement : en échec, la fiche s'affiche sans bandeau. */
+          supabase.from("customer").select("*").ilike("last_name", lastNameLike(customer)).neq("id", customerId),
+          customer.email
+            ? supabase
+                .from("tasting_feedback")
+                .select("*")
+                .ilike("guest_email", escapeLike(customer.email))
+                .order("created_at", { ascending: true })
+            : null,
+        ]);
+        sameLastName = namesakeRes.data || [];
         const latest = new Map<string, any>();
-        for (const f of data || []) latest.set(`${f.tasting_id}:${f.wine_vintage_id}`, f);
+        for (const f of feedbackRes?.data || []) latest.set(`${f.tasting_id}:${f.wine_vintage_id}`, f);
         feedback = [...latest.values()].filter((f) => f.rating || f.comment);
       }
     } catch (e) {
@@ -555,7 +552,7 @@
   {:else}
     <Field id="merge-with" label="Autre fiche du même client">
       {#snippet children({ describedby, invalid })}
-        <CustomerAutocomplete id="merge-with" bind:value={mergeWithId} customers={customers ?? []} {describedby} {invalid} />
+        <CustomerAutocomplete id="merge-with" bind:value={mergeWithId} onchange={() => (emailFrom = "drop")} customers={customers ?? []} {describedby} {invalid} />
       {/snippet}
     </Field>
   {/if}

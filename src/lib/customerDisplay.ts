@@ -52,7 +52,17 @@ export function namesakeIds(customers: Named[]): Set<string> {
   const byKey = new Map<string, string[]>();
   for (const c of customers) {
     const key = nameKey(c);
-    byKey.set(key, [...(byKey.get(key) ?? []), c.id]);
+    const ids = byKey.get(key);
+    if (ids) ids.push(c.id);
+    else byKey.set(key, [c.id]);
   }
   return new Set([...byKey.values()].filter((ids) => ids.length > 1).flat());
+}
+
+/**
+ * Motif ilike qui retrouve les noms de famille candidats à namesakes sans charger tous les clients :
+ * chaque lettre qui peut porter un accent devient « _ » (« Décoene » et « Decoene » → « d_c__n_ »).
+ */
+export function lastNameLike(c: { last_name: string }): string {
+  return fold(c.last_name.trim().replace(/\s+/g, " ")).replace(/[\\%_]/g, "\\$&").replace(/[aceinouy]/g, "_");
 }
