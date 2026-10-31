@@ -27,6 +27,8 @@
   import { isoDateOnly, todayIso } from "$lib/dates";
   import type { OrderPdfLanguage } from "$lib/pdf/purchaseOrderPdf";
   import { formatDate, formatEUR } from "$lib/format";
+  import { lineTotal } from "$lib/analytics";
+  import { itemsSubtotal } from "$lib/sales";
   import { isDiscontinued, vintageProductLabel } from "$lib/wine";
 
   interface Props {
@@ -158,13 +160,8 @@
     selectedPrice = "";
   }
 
-  function calculateItemTotal(item: any) {
-    const price = parseFloat(item.price) || 0;
-    const quantity = parseInt(item.quantity) || 0;
-    return price * quantity;
-  }
-
-  let total = $derived(orderItems.reduce((sum, item) => sum + calculateItemTotal(item), 0));
+  /* Lignes sans remise : prix d'achat × quantité, arrondis au centime comme les ventes. */
+  let total = $derived(itemsSubtotal(orderItems));
 
   /* On ne recommande pas un millésime « plus jamais disponible ». */
   let orderableVintages = $derived(wineVintages.filter((v) => !isDiscontinued(v)));
@@ -482,7 +479,7 @@
                 <td>{vintageProductLabel(item.wine_vintage)}</td>
                 <td class="num">{item.quantity}</td>
                 <td class="num">{formatEUR(item.price)}</td>
-                <td class="num"><strong>{formatEUR(calculateItemTotal(item))}</strong></td>
+                <td class="num"><strong>{formatEUR(lineTotal(item))}</strong></td>
                 <td class="col-actions">
                   <IconButton label="Retirer {vintageProductLabel(item.wine_vintage)}" onclick={() => removeOrderItem(index)}>
                     <IconTrash size={18} strokeWidth={1.75} />
@@ -555,7 +552,7 @@
             <td>{vintageProductLabel(item.wine_vintage)}</td>
             <td class="num">{item.quantity}</td>
             <td class="num">{formatEUR(item.price)}</td>
-            <td class="num"><strong>{formatEUR(calculateItemTotal(item))}</strong></td>
+            <td class="num"><strong>{formatEUR(lineTotal(item))}</strong></td>
           </tr>
         {/each}
       </tbody>

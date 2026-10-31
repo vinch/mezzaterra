@@ -22,6 +22,7 @@
   import { LINE_ITEMS_SELECT } from "$lib/manageData";
   import { isoDateOnly } from "$lib/dates";
   import { formatDate, formatEUR } from "$lib/format";
+  import { lineTotal } from "$lib/analytics";
   import { vintageProductLabel } from "$lib/wine";
 
   interface Props {
@@ -500,7 +501,7 @@
                     <td>{vintageProductLabel(item.wine_vintage)}</td>
                     <td class="num">{item.quantity}</td>
                     <td class="num">{formatEUR(item.price)}</td>
-                    <td class="num"><strong>{formatEUR(item.price ? item.price * item.quantity : null)}</strong></td>
+                    <td class="num"><strong>{formatEUR(item.price ? lineTotal(item) : null)}</strong></td>
                   </tr>
                 {/each}
               </tbody>
