@@ -14,7 +14,7 @@
   import { compareCustomersByLabel, customerDisplayLabel } from "$lib/customerDisplay";
   import { fetchCustomers, fetchPickerVintages } from "$lib/manageData";
   import { errorMessage, latestOnly } from "$lib/async";
-  import { fetchTastingWithWines, onlineSeatsByCustomer } from "$lib/publicData";
+  import { fetchTastingWithWines, onlineSeatsByCustomer, participantOrigin, tastingTitle } from "$lib/publicData";
   import { todayIso } from "$lib/dates";
   import { formatDate } from "$lib/format";
   import { isDiscontinued, vintageLabel } from "$lib/wine";
@@ -34,6 +34,8 @@
     customer: Customer;
     /** Places de sa réservation en ligne, s'il vient du site. */
     onlineSeats?: number;
+    /** tasting_customer.seats (1, le défaut de la colonne, pour un ajout pas encore enregistré). */
+    seats: number;
   };
 
   let tastings = $state<TastingRow[]>([]);
@@ -51,6 +53,8 @@
   let selectedCustomerId = $state("");
   let saving = $state(false);
   let cardsBusyId = $state("");
+  /** Participants d'une dégustation, en lecture seule depuis la liste (`entries` nul pendant le chargement). */
+  let participantsView = $state.raw<{ title: string; entries: ModalCustomerEntry[] | null } | null>(null);
 
   let formData = $state({
     name: "",
@@ -149,6 +153,7 @@
       .select(
         `
         customer_id,
+        seats,
         customer (
           id,
           first_name,
@@ -175,6 +180,7 @@
         customer_id: r.customer_id,
         customer: r.customer as Customer,
         onlineSeats: onlineSeats.get(r.customer_id),
+        seats: r.seats,
       }))
       .sort(byCustomerLabel);
     return { entries, ids: (data || []).map((r) => r.customer_id) };
@@ -270,6 +276,24 @@
     showModal = true;
   }
 
+  const participantsLoad = latestOnly((e) => {
+    participantsView = null;
+    error = errorMessage(e);
+  });
+
+  async function showParticipants(tasting: TastingRow) {
+    error = "";
+    const title = `Participants · ${tastingTitle(tasting)}`;
+    participantsView = { title, entries: null };
+    const loaded = await participantsLoad.run(() => loadModalCustomers(tasting.id));
+    if (loaded) participantsView = { title, entries: loaded.entries };
+  }
+
+  function closeParticipants() {
+    participantsLoad.cancel();
+    participantsView = null;
+  }
+
   function closeModal() {
     showModal = false;
     editingTasting = null;
@@ -284,7 +308,7 @@
     }
     const customer = customers.find((c) => c.id === selectedCustomerId);
     if (!customer) return;
-    modalCustomers = [...modalCustomers, { customer_id: customer.id, customer }].sort(byCustomerLabel);
+    modalCustomers = [...modalCustomers, { customer_id: customer.id, customer, seats: 1 }].sort(byCustomerLabel);
     selectedCustomerId = "";
     error = "";
   }
@@ -451,7 +475,11 @@
               <td>{tasting.location || "—"}</td>
               <td class="num">{wineCount(tasting)}</td>
               <td class="num">
-                <a href="/manage/tastings/{tasting.id}/live#participants" title="Voir les participants">{customerCount(tasting)}</a>
+                {#if customerCount(tasting)}
+                  <Button size="sm" variant="ghost" title="Voir les participants" onclick={() => showParticipants(tasting)}>{customerCount(tasting)}</Button>
+                {:else}
+                  0
+                {/if}
               </td>
               <td>
                 <div class="actions">
@@ -631,7 +659,7 @@
               <li class="customer-list-item">
                 <span>
                   {customerDisplayLabel(entry.customer)}
-                  {#if entry.onlineSeats}<span class="t-caption online">Réservé en ligne · {entry.onlineSeats} place{entry.onlineSeats > 1 ? "s" : ""}</span>{/if}
+                  {#if entry.onlineSeats}<span class="t-caption online">{participantOrigin(entry.onlineSeats, entry.seats)}</span>{/if}
                 </span>
                 <button
                   type="button"
@@ -675,6 +703,21 @@
   {/snippet}
 </Modal>
 
+<Modal open={participantsView != null} title={participantsView?.title} maxWidth={480} onclose={closeParticipants}>
+  {#if !participantsView?.entries}
+    <Spinner />
+  {:else}
+    <ul class="participants">
+      {#each participantsView.entries as entry (entry.customer_id)}
+        <li>
+          <strong>{customerDisplayLabel(entry.customer)}</strong>
+          <span class="t-caption">{participantOrigin(entry.onlineSeats, entry.seats)}</span>
+        </li>
+      {/each}
+    </ul>
+  {/if}
+</Modal>
+
 <style>
   .actions {
     flex-wrap: wrap;
@@ -701,6 +744,23 @@
 
   .online {
     display: block;
+  }
+
+  .participants {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+  }
+
+  .participants li {
+    display: flex;
+    flex-direction: column;
+    padding: 10px 0;
+    border-bottom: 1px solid var(--border-soft);
+  }
+
+  .participants li:last-child {
+    border-bottom: none;
   }
 
   .tasting-wines-block .section-title {
