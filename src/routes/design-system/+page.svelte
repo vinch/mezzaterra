@@ -552,7 +552,7 @@
         <!-- ——— Icônes ——— -->
         <section id="icones" class="ds-section">
           <h2 class="t-card-title">Icônes</h2>
-          <p class="t-muted">Lucide, importées depuis <code>$lib/ui/icons</code> (en ajouter une là, jamais directement depuis <code>@lucide/svelte</code>). 18 px, <code>strokeWidth={"{1.75}"}</code> ; 16 px dans les boutons et champs.</p>
+          <p class="t-muted">Lucide, importées depuis <code>$lib/ui/icons</code> (en ajouter une là, jamais directement depuis <code>@lucide/svelte</code>). Un logo de marque absent de Lucide (<code>IconInstagram</code>) y est ajouté comme composant plein qui reprend les props Lucide. 18 px, <code>strokeWidth={"{1.75}"}</code> ; 16 px dans les boutons et champs.</p>
           <div class="icons">
             {#each ICONS as [iconName, Icon]}
               <div class="icon-cell">
@@ -566,7 +566,7 @@
         <!-- ——— Site public ——— -->
         <section id="site" class="ds-section">
           <h2 class="t-card-title">Site public</h2>
-          <p class="t-muted">Le site public a ses primitives préfixées <code>mz-</code> dans <code>src/lib/styles/site.css</code> (<code>.mz-container</code>, <code>.mz-display</code>, <code>.mz-btn</code>, <code>.mz-field</code>, <code>.mz-card</code>…) et les tokens <code>--mz-*</code> de <code>tokens.css</code>. Ne pas mélanger : les composants de <code>src/lib/ui/</code> sont pour la gestion, les <code>mz-</code> pour le site. Le mode live utilise les tokens <code>--mz-cave-*</code> (thème sombre).</p>
+          <p class="t-muted">Le site public a ses primitives préfixées <code>mz-</code> dans <code>src/lib/styles/site.css</code> (<code>.mz-container</code>, <code>.mz-display</code>, <code>.mz-btn</code> (<code>--ghost</code>, <code>--sm</code>, <code>--icon</code> : bouton rond réduit à une icône, toujours avec un <code>aria-label</code>), <code>.mz-field</code>, <code>.mz-card</code>…) et les tokens <code>--mz-*</code> de <code>tokens.css</code>. Ne pas mélanger : les composants de <code>src/lib/ui/</code> sont pour la gestion, les <code>mz-</code> pour le site. Le mode live utilise les tokens <code>--mz-cave-*</code> (thème sombre).</p>
         </section>
       </div>
     </div>

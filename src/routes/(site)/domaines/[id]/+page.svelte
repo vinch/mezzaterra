@@ -17,6 +17,7 @@
     wineryMapUrl,
     wineryPlace,
   } from "$lib/wine";
+  import { IconInstagram, IconMapPin } from "$lib/ui/icons";
   import { DEFAULT_KIND, kindOf, PRODUCT_KIND_LIST, PRODUCT_KINDS, productHref } from "$lib/productKinds";
 
   let { data } = $props();
@@ -132,10 +133,28 @@
             <a class="mz-btn" href={winery.url} target="_blank" rel="noopener noreferrer">Site du domaine ↗</a>
           {/if}
           {#if instagram}
-            <a class="mz-btn mz-btn--ghost" href={instagram.url} target="_blank" rel="noopener noreferrer">Instagram {instagram.handle} ↗</a>
+            <a
+              class="mz-btn mz-btn--ghost mz-btn--icon"
+              href={instagram.url}
+              target="_blank"
+              rel="noopener noreferrer"
+              aria-label="Instagram {instagram.handle} (nouvel onglet)"
+              title="Instagram {instagram.handle}"
+            >
+              <IconInstagram aria-hidden="true" />
+            </a>
           {/if}
           {#if mapUrl}
-            <a class="mz-btn mz-btn--ghost" href={mapUrl} target="_blank" rel="noopener noreferrer">Ouvrir la carte</a>
+            <a
+              class="mz-btn mz-btn--ghost mz-btn--icon"
+              href={mapUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              aria-label="Ouvrir la carte (nouvel onglet)"
+              title="Ouvrir la carte"
+            >
+              <IconMapPin strokeWidth={1.8} aria-hidden="true" />
+            </a>
           {/if}
         </div>
       {/if}
@@ -297,6 +316,7 @@
   .links {
     display: flex;
     flex-wrap: wrap;
+    align-items: center;
     gap: 0.6rem;
     margin-top: 0.75rem;
   }
