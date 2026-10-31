@@ -190,20 +190,20 @@
                 </footer>
               {:else}
                 {@const w = item.r}
-                <table class="lines">
-                  <tbody>
-                    {#each wishItems(w.items) as it}
-                      <tr>
-                        <td class="qty">{it.quantity} ×</td>
-                        <td>{vintageLabel(vintages.get(it.wine_vintage_id))}</td>
-                        <td class="num">{formatEUR(it.quantity * (prices.get(it.wine_vintage_id) ?? 0))}</td>
-                      </tr>
-                    {/each}
-                  </tbody>
-                  <tfoot>
-                    <tr><td></td><td>Total au prix catalogue</td><td class="num"><strong>{formatEUR(wishTotal(w, prices))}</strong></td></tr>
-                  </tfoot>
-                </table>
+                <ul class="lines">
+                  {#each wishItems(w.items) as it}
+                    <li>
+                      <span class="qty">{it.quantity} ×</span>
+                      <span>{vintageLabel(vintages.get(it.wine_vintage_id))}</span>
+                      <span class="num">{formatEUR(it.quantity * (prices.get(it.wine_vintage_id) ?? 0))}</span>
+                    </li>
+                  {/each}
+                  <li class="total">
+                    <span></span>
+                    <span>Total au prix catalogue</span>
+                    <strong class="num">{formatEUR(wishTotal(w, prices))}</strong>
+                  </li>
+                </ul>
                 {#if w.message}<p class="message">« {w.message} »</p>{/if}
                 <footer>
                   {#if w.status === "new"}
@@ -288,23 +288,26 @@
   }
 
   .lines {
-    width: 100%;
-    border-collapse: collapse;
+    list-style: none;
+    margin: 0;
+    padding: 0;
     font-size: 14px;
   }
 
-  .lines td {
-    padding: 6px 4px;
+  .lines li {
+    display: grid;
+    grid-template-columns: 3rem 1fr auto;
+    gap: 8px;
+    padding: 6px 0;
     border-bottom: 1px solid var(--border-soft);
   }
 
-  .lines tfoot td {
+  .lines .total {
     border-bottom: none;
     color: var(--ink-2);
   }
 
   .qty {
-    width: 3rem;
     color: var(--ink-2);
     white-space: nowrap;
   }
