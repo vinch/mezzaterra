@@ -11,16 +11,15 @@
     wineVintages?: any[];
     tastingValue?: string;
     placeholder?: string;
-    /** null : stock inconnu (option désactivée, « — »). */
+    /**
+     * Stock ajoutable d'un millésime (ventes) : affiché avec le prix de vente, option désactivée
+     * sans stock (null : stock inconnu, « — »). Absent (commandes, dégustations) : ni stock ni prix.
+     */
     getAvailableStock?: (vintageId: string) => number | null;
     isVintageAlreadyAdded?: (vintageId: string) => boolean;
     formatLabel?: (vintage: any, availableStock: number | null) => string;
     /** Option « Dégustation » (lignes de vente sans millésime). */
     includeTastingOption?: boolean;
-    /** Désactiver les millésimes sans stock disponible. */
-    disableWhenNoStock?: boolean;
-    /** Stock et prix de vente à côté de chaque produit (ventes) ; masqués ailleurs (commandes, dégustations). */
-    showStock?: boolean;
   }
 
   let {
@@ -28,12 +27,10 @@
     wineVintages = [],
     tastingValue = "__tasting__",
     placeholder = "Rechercher un produit…",
-    getAvailableStock = () => 0,
+    getAvailableStock,
     isVintageAlreadyAdded = () => false,
     formatLabel = (_v, _s) => "",
     includeTastingOption = true,
-    disableWhenNoStock = true,
-    showStock = true,
     onchange
   }: Props = $props();
 
@@ -51,12 +48,12 @@
 
   function buildOptions(list: any[]): ComboOption[] {
     const wines: ComboOption[] = list.map((v) => {
-      const stock = getAvailableStock(v.id);
+      const stock = getAvailableStock ? getAvailableStock(v.id) : null;
       return {
         id: v.id,
         label: formatLabel(v, stock) || optionName(v),
         searchText: vintageSearchText(v),
-        disabled: (disableWhenNoStock && !stock) || isVintageAlreadyAdded(v.id),
+        disabled: (!!getAvailableStock && !stock) || isVintageAlreadyAdded(v.id),
         kind: "product",
         robe: wineRobe(v.wine?.wine_type).key,
         name: optionName(v),
@@ -85,7 +82,7 @@
           <strong>{option.name}</strong>
           <small>{option.winery}{option.added ? " · déjà ajouté" : ""}</small>
         </span>
-        {#if showStock}
+        {#if getAvailableStock}
           <span class="opt-stock" class:low={option.stock != null && option.stock <= 3}>{option.stock ?? "—"} bt.</span>
           <span class="opt-price">{option.price != null ? formatEUR(option.price) : ""}</span>
         {/if}

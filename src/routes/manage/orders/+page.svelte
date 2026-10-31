@@ -529,10 +529,8 @@
             bind:value={selectedVintageId}
             wineVintages={orderableVintages}
             includeTastingOption={false}
-            disableWhenNoStock={false}
             {isVintageAlreadyAdded}
             formatLabel={vintageProductLabel}
-            showStock={false}
             onchange={handleVintageChange}
           />
         </div>

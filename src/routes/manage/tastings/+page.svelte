@@ -603,10 +603,8 @@
           bind:value={selectedVintageId}
           wineVintages={wineVintages.filter((v) => !isDiscontinued(v))}
           includeTastingOption={false}
-          disableWhenNoStock={false}
           isVintageAlreadyAdded={isVintageInModal}
           formatLabel={vintageLabel}
-          showStock={false}
           placeholder="Rechercher un produit…"
         />
         <Button disabled={!selectedVintageId} onclick={addWineToTasting}><IconPlus size={16} strokeWidth={1.75} /> Ajouter</Button>
