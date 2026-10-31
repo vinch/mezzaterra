@@ -36,6 +36,8 @@ export type ProductKindInfo = {
   editLabel: string;
   /** « ce vin », « cette huile » (confirmations, messages). */
   thisLabel: string;
+  /** Onglet vide de la liste des produits : « Aucun vin au catalogue ». */
+  noProduct: string;
   /** Titre d'un produit sans nom ni appellation. */
   untitled: string;
   /** Ce qui distingue les types de ce produit (`wine_type`) : « Robe », « Fruité ». */
@@ -101,6 +103,7 @@ export const PRODUCT_KINDS: Record<ProductKind, ProductKindInfo> = {
     newLabel: "Nouveau vin",
     editLabel: "Modifier le vin",
     thisLabel: "ce vin",
+    noProduct: "Aucun vin au catalogue",
     untitled: "Vin sans nom",
     typeLabel: "Robe",
     style: null,
@@ -145,6 +148,7 @@ export const PRODUCT_KINDS: Record<ProductKind, ProductKindInfo> = {
     newLabel: "Nouvelle huile",
     editLabel: "Modifier l’huile",
     thisLabel: "cette huile",
+    noProduct: "Aucune huile au catalogue",
     untitled: "Huile sans nom",
     typeLabel: "Fruité",
     style: "oil",
@@ -210,12 +214,6 @@ export const KIND_STYLES = PRODUCT_KIND_LIST.flatMap((k) => (k.style ? [k.style]
 /** « 1 vin », « 3 huiles d’olive ». */
 export function kindCount(kind: ProductKindInfo, n: number): string {
   return `${n} ${(n > 1 ? kind.plural : kind.label).toLowerCase()}`;
-}
-
-/** Types de produit présents dans une liste, dans l'ordre du registre ; le type par défaut toujours. */
-export function kindsIn(kinds: Iterable<ProductKind>): ProductKindInfo[] {
-  const present = new Set([DEFAULT_KIND, ...kinds]);
-  return PRODUCT_KIND_LIST.filter((k) => present.has(k.key));
 }
 
 /** Type de produit d'après son segment d'URL public (`vins`, `huiles`). */
