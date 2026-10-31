@@ -9,7 +9,7 @@
   import Button from "$lib/ui/Button.svelte";
   import IconButton from "$lib/ui/IconButton.svelte";
   import StatusBadge from "$lib/ui/StatusBadge.svelte";
-  import { canChangeStatus, isSaleEditable, statusMenuItems, STATUS_META, type SaleStatus } from "$lib/status";
+  import { canChangeStatus, isEditable, statusMenuItems, STATUS_META, type SaleStatus } from "$lib/status";
   import Menu, { type MenuItem } from "$lib/ui/Menu.svelte";
   import RowMenu from "$lib/ui/RowMenu.svelte";
   import ConfirmDialog from "$lib/ui/ConfirmDialog.svelte";
@@ -553,7 +553,7 @@
   /** Appelée après confirmation via le ConfirmDialog. */
   async function deleteSale(id: string) {
     const sale = sales.find((s) => s.id === id);
-    if (sale && !isSaleEditable(sale.status)) {
+    if (sale && !isEditable("sale", sale.status)) {
       error = "Seules les ventes en attente peuvent être supprimées.";
       return;
     }
@@ -645,9 +645,9 @@
     }
     items.push({ label: "Ouvrir", icon: IconEye, onSelect: () => openDetailsModal(sale) });
     /* Payée ou livrée, la vente a sorti son stock : elle est figée (save_sale le refuse aussi). */
-    if (isSaleEditable(st)) items.push({ label: "Modifier", icon: IconPencil, onSelect: () => openEditModal(sale) });
+    if (isEditable("sale", st)) items.push({ label: "Modifier", icon: IconPencil, onSelect: () => openEditModal(sale) });
     items.push(...saleStatusItems(sale));
-    if (isSaleEditable(st)) {
+    if (isEditable("sale", st)) {
       items.push({ label: "Supprimer…", icon: IconTrash, danger: true, separator: true, onSelect: () => askDelete(sale) });
     }
     return items;
@@ -1192,7 +1192,7 @@
       {#if detailsSale?.status === "closed"}
         <Button onclick={() => downloadInvoice(detailsSale.id)}><IconDownload size={16} strokeWidth={1.75} /> Télécharger la facture</Button>
       {/if}
-      {#if isSaleEditable(detailsSale?.status)}
+      {#if isEditable("sale", detailsSale?.status)}
         <Button
           onclick={() => {
             const s = detailsSale;

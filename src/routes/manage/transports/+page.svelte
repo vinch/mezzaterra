@@ -16,7 +16,7 @@
   import Field from "$lib/ui/Field.svelte";
   import Select from "$lib/ui/Select.svelte";
   import { IconClipboard, IconEye, IconPencil, IconPlus, IconRoute, IconTrash } from "$lib/ui/icons";
-  import { canChangeStatus, statusMenuItems } from "$lib/status";
+  import { canChangeStatus, isEditable, statusMenuItems } from "$lib/status";
   import ManagePageShell from "$lib/components/manage/ManagePageShell.svelte";
   import { LINE_ITEMS_SELECT } from "$lib/manageData";
   import { isoDateOnly } from "$lib/dates";
@@ -287,7 +287,7 @@
 
   /** Livré ou annulé : seul le détail reste. */
   function rowItems(transport: any): MenuItem[] {
-    if (transport.status === "delivered" || transport.status === "cancelled") {
+    if (!isEditable("transport", transport.status)) {
       return [{ label: "Voir le détail", icon: IconEye, onSelect: () => openDetailsModal(transport) }];
     }
     return [

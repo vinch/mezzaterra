@@ -18,7 +18,7 @@
   import Field from "$lib/ui/Field.svelte";
   import Select from "$lib/ui/Select.svelte";
   import { IconClipboard, IconDownload, IconEye, IconPencil, IconPlus, IconTrash } from "$lib/ui/icons";
-  import { canChangeStatus, statusMenuItems } from "$lib/status";
+  import { canChangeStatus, isEditable, statusMenuItems } from "$lib/status";
   import ManagePageShell from "$lib/components/manage/ManagePageShell.svelte";
   import ProductVintageAutocomplete from "$lib/components/manage/ProductVintageAutocomplete.svelte";
   import { fetchLineItems, fetchPickerVintages, LINE_ITEMS_SELECT } from "$lib/manageData";
@@ -341,7 +341,7 @@
 
   /** Commande figée : confirmée, ou partie avec un transport livré ou annulé. Seul le détail reste. */
   function isLocked(order: any): boolean {
-    return order.status === "confirmed" || order.transport?.status === "delivered" || order.transport?.status === "cancelled";
+    return !isEditable("order", order.status) || (!!order.transport && !isEditable("transport", order.transport.status));
   }
 
   /* Changement de statut depuis le badge (mêmes choix que l'ancien sélecteur). */
@@ -355,8 +355,7 @@
     statusMenuOpen = true;
   }
   function orderStatusItems(order: any): MenuItem[] {
-    const current = order.status || "pending";
-    return statusMenuItems("order", current, (next) => updateOrderStatus(order.id, next, current));
+    return statusMenuItems("order", order.status, (next) => updateOrderStatus(order.id, next, order.status));
   }
   let statusItems = $derived(statusMenuOrder ? orderStatusItems(statusMenuOrder) : []);
 
@@ -425,7 +424,7 @@
               {:else}—{/if}
             </td>
             <td>
-              {#if canChangeStatus("order", order.status || "pending")}
+              {#if canChangeStatus("order", order.status)}
                 <StatusBadge
                   kind="order"
                   status={order.status}

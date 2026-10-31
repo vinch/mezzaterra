@@ -55,11 +55,13 @@ const STATUS_TRANSITIONS: Record<StatusKind, Record<string, string[]>> = {
 };
 
 /**
- * Vente encore modifiable ou supprimable : « En attente », son stock n'est pas encore sorti
- * (mêmes règles que save_sale en base).
+ * Encore modifiable ou supprimable : vente « En attente » (son stock n'est pas sorti, mêmes règles
+ * que save_sale en base), commande non confirmée, transport ni livré ni annulé.
  */
-export function isSaleEditable(status: string | null | undefined): boolean {
-  return status === "pending";
+export function isEditable(kind: StatusKind, status: string | null | undefined): boolean {
+  if (kind === "sale") return status === "pending";
+  if (kind === "order") return status !== "confirmed";
+  return status !== "delivered" && status !== "cancelled";
 }
 
 /** Libellé et icône des actions qui font passer à un statut (menu du badge). */
@@ -80,9 +82,9 @@ const STATUS_ACTIONS: Record<StatusKind, Record<string, { label: string; icon: a
   },
 };
 
-/** Éléments de menu (MenuItem) des transitions permises depuis `status`. */
+/** Éléments de menu (MenuItem) des transitions permises depuis `status` (vide : « En attente »). */
 export function statusMenuItems(kind: StatusKind, status: string | null | undefined, onSelect: (next: string) => void) {
-  return (STATUS_TRANSITIONS[kind][status ?? ""] ?? []).map((next) => ({
+  return (STATUS_TRANSITIONS[kind][status || "pending"] ?? []).map((next) => ({
     ...STATUS_ACTIONS[kind][next],
     onSelect: () => onSelect(next),
   }));
@@ -90,5 +92,5 @@ export function statusMenuItems(kind: StatusKind, status: string | null | undefi
 
 /** Le statut peut encore changer : le badge devient un bouton. */
 export function canChangeStatus(kind: StatusKind, status: string | null | undefined): boolean {
-  return !!STATUS_TRANSITIONS[kind][status ?? ""]?.length;
+  return !!STATUS_TRANSITIONS[kind][status || "pending"]?.length;
 }
