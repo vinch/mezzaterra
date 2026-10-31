@@ -4,7 +4,7 @@
   import { countryLabel, countryOptions, regionOptions } from "$lib/components/manage/refCrud";
   import { fetchCountries, fetchRegions } from "$lib/manageData";
   import type { Country, Region } from "$lib/types";
-  import { wineryInstagram } from "$lib/wine";
+  import { instagramAccount, wineryInstagram } from "$lib/wine";
 
   let countries = $state<Country[]>([]);
   let regions = $state<Region[]>([]);
@@ -33,7 +33,14 @@
     { key: "latitude", label: "Latitude", type: "number", placeholder: "42.35" },
     { key: "longitude", label: "Longitude", type: "number", placeholder: "13.99" },
     { key: "url", label: "Site web", type: "url", placeholder: "https://" },
-    { key: "instagram", label: "Instagram", placeholder: "@compte", help: "Le compte ou le lien du profil." },
+    {
+      key: "instagram",
+      label: "Instagram",
+      placeholder: "@compte",
+      help: "Le compte ou le lien du profil.",
+      normalize: instagramAccount,
+      invalid: "Instagram : indiquer le compte (@compte) ou le lien du profil, pas d’une publication.",
+    },
     {
       key: "description",
       label: "Présentation (page publique du domaine)",

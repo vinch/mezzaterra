@@ -328,15 +328,22 @@ export function wineryMapUrl(w: WineryLike): string | null {
   return `https://www.openstreetmap.org/?mlat=${w.latitude}&mlon=${w.longitude}#map=12/${w.latitude}/${w.longitude}`;
 }
 
-/** Compte Instagram d'un domaine, saisi « @compte », « compte » ou en lien instagram.com/compte. */
+/** Premiers segments d'un lien Instagram qui ne sont pas un compte (publication, reel, story…). */
+const INSTAGRAM_PATHS = new Set(["p", "reel", "reels", "stories", "tv", "explore", "accounts", "direct", "_u"]);
+
+/** Compte Instagram (« cantina.x ») d'une saisie « @compte », « compte » ou lien de profil ; `null` sinon. */
+export function instagramAccount(input: string): string | null {
+  const value = input.trim();
+  const link = value.match(/^(?:https?:\/\/)?(?:[\w-]+\.)*(?:instagram\.com|instagr\.am)\/([^/?#]+)/i);
+  const account = (link ? link[1] : value.replace(/^@/, "")).toLowerCase();
+  if (!/^[\w.]{1,30}$/.test(account) || INSTAGRAM_PATHS.has(account) || /instagram\.com|instagr\.am/.test(account)) return null;
+  return account;
+}
+
+/** Compte Instagram d'un domaine : « @compte » et lien du profil. */
 export function wineryInstagram(w: WineryLike): { handle: string; url: string } | null {
-  const account = w?.instagram
-    ?.trim()
-    .replace(/^(https?:\/\/)?(www\.)?instagram\.com\//i, "")
-    .replace(/^@/, "")
-    .split(/[/?#]/)[0];
-  if (!account || !/^[\w.]{1,30}$/.test(account)) return null;
-  return { handle: `@${account}`, url: `https://www.instagram.com/${account}/` };
+  const account = w?.instagram ? instagramAccount(w.instagram) : null;
+  return account ? { handle: `@${account}`, url: `https://www.instagram.com/${account}/` } : null;
 }
 
 /** Carte OpenStreetMap intégrable (iframe) centrée sur le domaine. */
