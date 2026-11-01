@@ -5,6 +5,7 @@
   import ManagePageShell from "$lib/components/manage/ManagePageShell.svelte";
   import Modal from "$lib/ui/Modal.svelte";
   import Button from "$lib/ui/Button.svelte";
+  import MoveButtons from "$lib/ui/MoveButtons.svelte";
   import Spinner from "$lib/ui/Spinner.svelte";
   import {
     fetchStockDocVintages,
@@ -140,14 +141,6 @@
   function closeNotesModal() {
     showNotesModal = false;
     notesPdfGenerating = false;
-  }
-
-  function moveNoteWine(index: number, delta: number) {
-    const j = index + delta;
-    if (j < 0 || j >= notesModalRows.length) return;
-    const next = [...notesModalRows];
-    [next[index], next[j]] = [next[j], next[index]];
-    notesModalRows = next;
   }
 
   async function confirmNotesPdf() {
@@ -329,26 +322,7 @@
             >
           </div>
           <div class="notes-order-actions">
-            <button
-              type="button"
-              class="btn-icon"
-              title="Monter"
-              disabled={i === 0}
-              onclick={() => moveNoteWine(i, -1)}
-              aria-label="Monter {row.wineName}"
-            >
-              ↑
-            </button>
-            <button
-              type="button"
-              class="btn-icon"
-              title="Descendre"
-              disabled={i === notesModalRows.length - 1}
-              onclick={() => moveNoteWine(i, 1)}
-              aria-label="Descendre {row.wineName}"
-            >
-              ↓
-            </button>
+            <MoveButtons bind:list={notesModalRows} index={i} label={row.wineName} />
           </div>
         </li>
       {/each}
@@ -521,28 +495,5 @@
     flex-direction: column;
     gap: 0.25rem;
     flex-shrink: 0;
-  }
-
-  .btn-icon {
-    width: 2rem;
-    height: 2rem;
-    padding: 0;
-    border: 1px solid var(--input-border);
-    border-radius: 4px;
-    background: white;
-    cursor: pointer;
-    font-size: 1rem;
-    line-height: 1;
-    color: var(--ink);
-  }
-
-  .btn-icon:hover:not(:disabled) {
-    background: var(--border-soft);
-    border-color: #adb5bd;
-  }
-
-  .btn-icon:disabled {
-    opacity: 0.35;
-    cursor: not-allowed;
   }
 </style>

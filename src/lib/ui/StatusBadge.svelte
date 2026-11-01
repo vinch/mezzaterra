@@ -10,7 +10,6 @@
     /** Affiche un chevron et rend le badge cliquable (changement de statut). */
     interactive?: boolean;
     expanded?: boolean | undefined;
-    el?: HTMLElement | null;
   }
 
   let {
@@ -18,7 +17,6 @@
     kind = "sale",
     interactive = false,
     expanded = undefined,
-    el = $bindable(),
     onclick,
     onkeydown
   }: Props = $props();
@@ -28,7 +26,6 @@
 
 {#if interactive}
   <button
-    bind:this={el}
     type="button"
     class="badge badge--{meta.tone} badge--button"
     aria-haspopup="menu"

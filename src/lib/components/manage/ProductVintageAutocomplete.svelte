@@ -8,29 +8,32 @@
   interface Props {
     onchange?: () => void;
     value?: string;
+    /** Id du champ, pour un <label for> (sinon généré). */
+    id?: string;
     wineVintages?: any[];
     tastingValue?: string;
     placeholder?: string;
-    /** null : stock inconnu (option désactivée, « — »). */
+    /**
+     * Stock ajoutable d'un millésime (ventes) : affiché avec le prix de vente, option désactivée
+     * sans stock (null : stock inconnu, « — »). Absent (commandes, dégustations) : ni stock ni prix.
+     */
     getAvailableStock?: (vintageId: string) => number | null;
     isVintageAlreadyAdded?: (vintageId: string) => boolean;
     formatLabel?: (vintage: any, availableStock: number | null) => string;
     /** Option « Dégustation » (lignes de vente sans millésime). */
     includeTastingOption?: boolean;
-    /** Désactiver les millésimes sans stock disponible. */
-    disableWhenNoStock?: boolean;
   }
 
   let {
     value = $bindable(""),
+    id = undefined,
     wineVintages = [],
     tastingValue = "__tasting__",
     placeholder = "Rechercher un produit…",
-    getAvailableStock = () => 0,
+    getAvailableStock,
     isVintageAlreadyAdded = () => false,
     formatLabel = (_v, _s) => "",
     includeTastingOption = true,
-    disableWhenNoStock = true,
     onchange
   }: Props = $props();
 
@@ -48,12 +51,12 @@
 
   function buildOptions(list: any[]): ComboOption[] {
     const wines: ComboOption[] = list.map((v) => {
-      const stock = getAvailableStock(v.id);
+      const stock = getAvailableStock ? getAvailableStock(v.id) : null;
       return {
         id: v.id,
         label: formatLabel(v, stock) || optionName(v),
         searchText: vintageSearchText(v),
-        disabled: (disableWhenNoStock && !stock) || isVintageAlreadyAdded(v.id),
+        disabled: (!!getAvailableStock && !stock) || isVintageAlreadyAdded(v.id),
         kind: "product",
         robe: wineRobe(v.wine?.wine_type).key,
         name: optionName(v),
@@ -72,7 +75,7 @@
   let options = $derived(buildOptions(wineVintages));
 </script>
 
-<Combobox bind:value {options} {placeholder} emptyText="Aucun produit trouvé" {onchange}>
+<Combobox bind:value {id} {options} {placeholder} emptyText="Aucun produit trouvé" {onchange}>
   {#snippet option({ option })}
       {#if option.kind === "tasting"}
         <span class="opt-main"><strong>Dégustation</strong><small>Ligne sans produit (entrée, participation…)</small></span>
@@ -82,8 +85,10 @@
           <strong>{option.name}</strong>
           <small>{option.winery}{option.added ? " · déjà ajouté" : ""}</small>
         </span>
-        <span class="opt-stock" class:low={option.stock != null && option.stock <= 3}>{option.stock ?? "—"} bt.</span>
-        <span class="opt-price">{option.price != null ? formatEUR(option.price) : ""}</span>
+        {#if getAvailableStock}
+          <span class="opt-stock" class:low={option.stock != null && option.stock <= 3}>{option.stock ?? "—"} bt.</span>
+          <span class="opt-price">{option.price != null ? formatEUR(option.price) : ""}</span>
+        {/if}
       {/if}
   {/snippet}
 </Combobox>

@@ -9,8 +9,9 @@
   import Button from "$lib/ui/Button.svelte";
   import IconButton from "$lib/ui/IconButton.svelte";
   import StatusBadge from "$lib/ui/StatusBadge.svelte";
-  import { CHANGEABLE_STATUSES, isSaleEditable, saleStatusMenuItems, STATUS_META, type SaleStatus } from "$lib/status";
-  import Menu, { type MenuItem } from "$lib/ui/Menu.svelte";
+  import { isEditable, statusMenuItems, STATUS_META, type SaleStatus } from "$lib/status";
+  import type { MenuItem } from "$lib/ui/Menu.svelte";
+  import StatusMenuBadge from "$lib/ui/StatusMenuBadge.svelte";
   import RowMenu from "$lib/ui/RowMenu.svelte";
   import ConfirmDialog from "$lib/ui/ConfirmDialog.svelte";
   import DataTable from "$lib/ui/DataTable.svelte";
@@ -33,11 +34,12 @@
     IconX,
   } from "$lib/ui/icons";
   import { fold, formatDate, formatEUR, initials, toNumber } from "$lib/format";
-  import { todayIso } from "$lib/dates";
+  import { isoDateOnly, todayIso } from "$lib/dates";
   import { lineTotal } from "$lib/analytics";
   import { styleByKey, vintageProductLabel, vintageShortLabel, wineRobe, type WineStyleKey } from "$lib/wine";
   import {
     PAYMENT_METHOD_OPTIONS,
+    SALE_LINE_ITEMS_SELECT,
     TASTING_LINE_NOTE,
     globalDiscountAmount,
     itemsSubtotal,
@@ -46,7 +48,7 @@
     saleItemDescription,
     saleTotal,
   } from "$lib/sales";
-  import { fetchCustomers, fetchPickerVintages, fetchStockMap } from "$lib/manageData";
+  import { fetchCustomers, fetchLineItems, fetchPickerVintages, fetchStockMap } from "$lib/manageData";
   import { errorMessage, latestOnly } from "$lib/async";
   import { invalidateAll } from "$app/navigation";
   import ProductVintageAutocomplete from "$lib/components/manage/ProductVintageAutocomplete.svelte";
@@ -208,7 +210,7 @@
     wineVintages = vintages;
     editingSale = sale;
     formData = {
-      date: sale.date.split("T")[0],
+      date: isoDateOnly(sale.date),
       customer_id: sale.customer_id || "",
       note: sale.note || "",
       global_discount:
@@ -240,28 +242,7 @@
     formOpen = true;
   }
 
-  /** Lève une erreur : une édition ouverte sans ses lignes les effacerait à l'enregistrement. */
-  async function loadSaleItems(saleId: string): Promise<any[]> {
-    const { data, error: itemsError } = await supabase
-      .from("sale_item")
-      .select(
-        `
-        *,
-        wine_vintage (
-          *,
-          wine (
-            *,
-            winery (*),
-            appelation (*)
-          )
-        )
-      `,
-      )
-      .eq("sale_id", saleId);
-
-    if (itemsError) throw new Error(itemsError.message);
-    return data || [];
-  }
+  const loadSaleItems = (saleId: string) => fetchLineItems("sale", saleId, SALE_LINE_ITEMS_SELECT);
 
   function closeForm() {
     formOpen = false;
@@ -573,7 +554,7 @@
   /** Appelée après confirmation via le ConfirmDialog. */
   async function deleteSale(id: string) {
     const sale = sales.find((s) => s.id === id);
-    if (sale && !isSaleEditable(sale.status)) {
+    if (sale && !isEditable("sale", sale.status)) {
       error = "Seules les ventes en attente peuvent être supprimées.";
       return;
     }
@@ -635,22 +616,12 @@
   }
 
   /* Changement de statut depuis le badge (mêmes transitions que l'ancien sélecteur). */
-  function statusMenuItems(sale: any): MenuItem[] {
-    return saleStatusMenuItems(sale.status, (next) => changeStatus(sale, next));
+  function saleStatusItems(sale: any): MenuItem[] {
+    return statusMenuItems("sale", sale.status, (next) => changeStatus(sale, next));
   }
   async function changeStatus(sale: any, next: string) {
     error = "";
     if (await updateSaleStatus(sale, next)) refreshCounts();
-  }
-
-  let statusMenuSale = $state<any>(null);
-  let statusMenuOpen = $state(false);
-  let statusAnchor = $state<HTMLElement | null>(null);
-  const statusAnchors: Record<string, HTMLElement | null> = $state({});
-  function openStatusMenu(sale: any) {
-    statusMenuSale = sale;
-    statusAnchor = statusAnchors[sale.id] ?? null;
-    statusMenuOpen = true;
   }
 
   function rowItems(sale: any): MenuItem[] {
@@ -665,9 +636,9 @@
     }
     items.push({ label: "Ouvrir", icon: IconEye, onSelect: () => openDetailsModal(sale) });
     /* Payée ou livrée, la vente a sorti son stock : elle est figée (save_sale le refuse aussi). */
-    if (isSaleEditable(st)) items.push({ label: "Modifier", icon: IconPencil, onSelect: () => openEditModal(sale) });
-    items.push(...statusMenuItems(sale));
-    if (isSaleEditable(st)) {
+    if (isEditable("sale", st)) items.push({ label: "Modifier", icon: IconPencil, onSelect: () => openEditModal(sale) });
+    items.push(...saleStatusItems(sale));
+    if (isEditable("sale", st)) {
       items.push({ label: "Supprimer…", icon: IconTrash, danger: true, separator: true, onSelect: () => askDelete(sale) });
     }
     return items;
@@ -758,7 +729,6 @@
     }));
   let pendingCount = $derived(sales.filter((s) => s.status === "pending").length);
   let subtitle = $derived(`${periodSales.length} vente${periodSales.length > 1 ? "s" : ""}${period === "all" ? "" : ` en ${period}`} · ${pendingCount} en attente de paiement`);
-  let statusItems = $derived(statusMenuSale ? statusMenuItems(statusMenuSale) : []);
   let grossTotal = $derived(Math.round(
     saleItems.reduce((sum, it) => sum + toNumber(it.price) * (parseInt(String(it.quantity ?? 0), 10) || 0), 0) * 100,
   ) / 100);
@@ -853,17 +823,7 @@
                 {#if sale.tasting_id}<span class="tasting-tag" title={tastingLabel(sale.tasting_id)}><IconGlasses size={12} strokeWidth={1.75} aria-hidden="true" />{tastingById.get(sale.tasting_id)?.name || "Dégustation"}</span>{/if}
               </td>
               <td>
-                {#if CHANGEABLE_STATUSES.includes(sale.status)}
-                  <StatusBadge
-                    status={sale.status}
-                    interactive
-                    bind:el={statusAnchors[sale.id]}
-                    expanded={statusMenuOpen && statusMenuSale?.id === sale.id}
-                    onclick={() => openStatusMenu(sale)}
-                  />
-                {:else}
-                  <StatusBadge status={sale.status} />
-                {/if}
+                <StatusMenuBadge status={sale.status} onselect={(next) => changeStatus(sale, next)} />
               </td>
               <td class="num">
                 {#if sale.status === "cancelled"}
@@ -912,8 +872,6 @@
     </ul>
   {/if}
 </ManagePageShell>
-
-<Menu bind:open={statusMenuOpen} anchor={statusAnchor} items={statusItems} label="Changer le statut" align="start" />
 
 <ConfirmDialog
   bind:open={confirmOpen}
@@ -1062,8 +1020,9 @@
 
         <div class="add-row">
           <div class="add-wine">
-            <span class="t-label" id="add-wine-label">Ajouter un produit</span>
+            <label class="t-label" for="sale-add-product">Ajouter un produit</label>
             <ProductVintageAutocomplete
+              id="sale-add-product"
               bind:value={selectedVintageId}
               {wineVintages}
               tastingValue={TASTING_SELECT_VALUE}
@@ -1212,7 +1171,7 @@
       {#if detailsSale?.status === "closed"}
         <Button onclick={() => downloadInvoice(detailsSale.id)}><IconDownload size={16} strokeWidth={1.75} /> Télécharger la facture</Button>
       {/if}
-      {#if isSaleEditable(detailsSale?.status)}
+      {#if isEditable("sale", detailsSale?.status)}
         <Button
           onclick={() => {
             const s = detailsSale;

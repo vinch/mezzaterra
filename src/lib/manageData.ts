@@ -70,3 +70,12 @@ export function vintageStock(vintageId: string): Promise<number | null> {
 /** Lignes d'articles (vente ou commande) : de quoi les libeller et les chiffrer. */
 export const LINE_ITEMS_SELECT = `price, quantity, wine_vintage_id, wine_vintage ( ${VINTAGE_LABEL_SELECT} )` as const;
 
+/**
+ * Lignes d'une vente ou d'une commande (`select` : LINE_ITEMS_SELECT, SALE_LINE_ITEMS_SELECT…).
+ * Lève une erreur : une édition ouverte sans ses lignes les effacerait à l'enregistrement.
+ */
+export async function fetchLineItems(parent: "sale" | "order", id: string, select: string): Promise<any[]> {
+  const { data, error } = await supabase.from(`${parent}_item`).select(select).eq(`${parent}_id`, id);
+  if (error) throw new Error(error.message);
+  return data || [];
+}

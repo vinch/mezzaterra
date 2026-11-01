@@ -17,14 +17,16 @@
   import Field from "$lib/ui/Field.svelte";
   import IconButton from "$lib/ui/IconButton.svelte";
   import KpiCard from "$lib/ui/KpiCard.svelte";
-  import Menu, { type MenuItem } from "$lib/ui/Menu.svelte";
+  import type { MenuItem } from "$lib/ui/Menu.svelte";
   import Modal from "$lib/ui/Modal.svelte";
+  import MoveButtons from "$lib/ui/MoveButtons.svelte";
   import PageHeader from "$lib/ui/PageHeader.svelte";
   import RowMenu from "$lib/ui/RowMenu.svelte";
   import Select from "$lib/ui/Select.svelte";
   import Sidebar, { type NavSection } from "$lib/ui/Sidebar.svelte";
   import Spinner from "$lib/ui/Spinner.svelte";
   import StatusBadge from "$lib/ui/StatusBadge.svelte";
+  import StatusMenuBadge from "$lib/ui/StatusMenuBadge.svelte";
   import Stepper from "$lib/ui/Stepper.svelte";
   import StockBadge from "$lib/ui/StockBadge.svelte";
   import Tabs from "$lib/ui/Tabs.svelte";
@@ -47,10 +49,9 @@
   } from "$lib/ui/icons";
   import { preventDefault } from "$lib/ui/events";
   import {
-    CHANGEABLE_STATUSES,
     KIND_META,
     STATUS_META,
-    saleStatusMenuItems,
+    canChangeStatus,
     type SaleStatus,
     type StatusKind,
   } from "$lib/status";
@@ -149,10 +150,9 @@
   let robeFilter = $state("");
   let modalOpen = $state(false);
   let confirmOpen = $state(false);
-  let statusOpen = $state(false);
-  let statusAnchor = $state<HTMLElement | null>(null);
   let demoStatus = $state<SaleStatus>("pending");
   let demoTab = $state<ProductKind>(DEFAULT_KIND);
+  let demoOrder = $state(["Trebbiano d’Abruzzo", "Cerasuolo", "Montepulciano d’Abruzzo"]);
 
   const customers: ComboOption[] = [
     { id: "1", label: "Giulia Rossi", searchText: "giulia rossi bruxelles" },
@@ -165,11 +165,6 @@
     { label: "Télécharger la facture", icon: IconDownload },
     { label: "Supprimer…", icon: IconTrash, danger: true, separator: true, onSelect: () => (confirmOpen = true) },
   ];
-
-  /* Mêmes transitions et libellés que la page Ventes. */
-  let statusItems = $derived<MenuItem[]>(
-    saleStatusMenuItems(demoStatus, (next) => (demoStatus = next)),
-  );
 
   const rows = [
     { id: "a", wine: "Montepulciano d’Abruzzo", robe: "red", winery: "Filomusi Guelfi", stock: 0, price: 14.5 },
@@ -323,6 +318,14 @@
             <IconButton label="Supprimer" disabled><IconTrash size={18} strokeWidth={1.75} /></IconButton>
             <span class="night-box"><IconButton label="Rechercher" variant="dark"><IconSearch size={18} strokeWidth={1.75} /></IconButton></span>
           </div>
+
+          <h3 class="ds-h3"><code>MoveButtons</code> · ordre d’une liste</h3>
+          <p class="t-muted">« Monter » / « Descendre » d’un élément (ordre de passage d’une dégustation, feuille de notes) : <code>bind:list</code>, <code>index</code>, <code>label</code> (nom de l’élément, lu par les lecteurs d’écran).</p>
+          <ol class="move-demo">
+            {#each demoOrder as wine, i (wine)}
+              <li><span>{i + 1}. {wine}</span><MoveButtons bind:list={demoOrder} index={i} label={wine} /></li>
+            {/each}
+          </ol>
         </section>
 
         <!-- ——— Badges ——— -->
@@ -339,19 +342,12 @@
           {/each}
           <div class="row labelled">
             <code class="row-label">interactive</code>
-            <StatusBadge
-              status={demoStatus}
-              interactive={CHANGEABLE_STATUSES.includes(demoStatus)}
-              expanded={statusOpen}
-              bind:el={statusAnchor}
-              onclick={() => (statusOpen = !statusOpen)}
-            />
-            <span class="t-caption">Ouvre un <code>Menu</code> des transitions permises (<code>saleStatusMenuItems</code> de <code>status.ts</code>).</span>
-            {#if !CHANGEABLE_STATUSES.includes(demoStatus)}
+            <StatusMenuBadge status={demoStatus} onselect={(next) => (demoStatus = next as SaleStatus)} />
+            <span class="t-caption"><code>StatusMenuBadge</code> (<code>kind</code>, <code>status</code>, <code>onselect</code>) : ouvre le <code>Menu</code> des transitions permises (<code>statusMenuItems</code> de <code>status.ts</code>), badge simple quand le statut ne peut plus changer. Ventes, commandes, transports ; les confirmations restent à la page.</span>
+            {#if !canChangeStatus("sale", demoStatus)}
               <Button size="sm" variant="ghost" onclick={() => (demoStatus = "pending")}>Recommencer</Button>
             {/if}
           </div>
-          <Menu bind:open={statusOpen} anchor={statusAnchor} items={statusItems} label="Changer le statut" align="start" />
 
           <h3 class="ds-h3"><code>StockBadge</code></h3>
           <div class="row">
@@ -487,7 +483,7 @@
         <!-- ——— États ——— -->
         <section id="etats" class="ds-section">
           <h2 class="t-card-title">États</h2>
-          <p class="t-muted"><code>Spinner</code> pour tout chargement, sans texte visible (« Chargement… » est lu par les lecteurs d’écran), taille réglable avec <code>size</code>. <code>EmptyState</code> quand il n’y a rien, <code>.error-message</code> et <code>.success-message</code> pour le retour d’une action.</p>
+          <p class="t-muted"><code>Spinner</code> pour tout chargement, sans texte visible (« Chargement… » est lu par les lecteurs d’écran), taille réglable avec <code>size</code> ; <code>inline</code> pour une action en cours dans une ligne (fiches de table d’une dégustation). <code>EmptyState</code> quand il n’y a rien, <code>.error-message</code> et <code>.success-message</code> pour le retour d’une action.</p>
           <div class="cards">
             <Card padded={false}>
               <EmptyState icon={IconReceipt} title="Aucune vente pour l’instant" text="Créez la première vente : elle sera enregistrée « En attente ».">
@@ -496,6 +492,7 @@
             </Card>
             <div class="states">
               <Spinner />
+              <div class="t-muted">Fiches en cours <Spinner size={16} inline /></div>
               <div class="error-message" role="alert">Impossible d’enregistrer la vente.</div>
               <div class="success-message"><IconCheck size={16} strokeWidth={1.75} /> Vente enregistrée.</div>
             </div>
@@ -765,6 +762,23 @@
     color: var(--mz-cave-text);
     border-radius: var(--r-md);
     line-height: 18px;
+  }
+
+  .move-demo {
+    margin: 0;
+    padding: 0;
+    list-style: none;
+    max-width: 24rem;
+  }
+
+  .move-demo li {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+  }
+
+  .move-demo span {
+    flex: 1;
   }
 
   .night-box {

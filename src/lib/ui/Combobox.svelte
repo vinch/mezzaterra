@@ -135,9 +135,11 @@
       e.preventDefault();
       move(-1);
     } else if (e.key === "Enter") {
-      if (open && active >= 0 && filtered[active]) {
+      /* Liste ouverte : Entrée choisit (l'option active, sinon la première permise), jamais ne soumet le formulaire. */
+      if (open) {
         e.preventDefault();
-        choose(filtered[active]);
+        const opt = active >= 0 && filtered[active] ? filtered[active] : filtered.find((o) => !o.disabled);
+        if (opt) choose(opt);
       }
     } else if (e.key === "Escape") {
       if (open) {

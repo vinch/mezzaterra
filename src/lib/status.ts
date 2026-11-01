@@ -35,35 +35,62 @@ export function statusMeta(kind: StatusKind, status: string | null | undefined):
   return KIND_META[kind][status ?? "pending"] ?? { label: status ?? "", tone: "closed", icon: IconLock };
 }
 
-/** Statuts qu'une vente peut atteindre depuis un menu : chacun a son action dans SALE_STATUS_ACTIONS. */
-export type SaleTarget = "paid" | "delivered" | "closed";
-
-/** Transitions de statut d'une vente proposées dans les menus (mêmes règles que set_sale_status en base). */
-export const SALE_TRANSITIONS: Record<string, SaleTarget[]> = {
-  pending: ["paid", "delivered"],
-  paid: ["delivered", "closed"],
-  delivered: ["paid", "closed"],
+/**
+ * Transitions de statut proposées dans les menus, par type (mêmes règles que set_sale_status en
+ * base pour une vente). Une commande confirmée est figée ; un transport livré aussi (son stock est
+ * entré, set_transport_status refuse ensuite tout changement). Chaque cible a son action dans STATUS_ACTIONS.
+ */
+const STATUS_TRANSITIONS: Record<StatusKind, Record<string, string[]>> = {
+  sale: {
+    pending: ["paid", "delivered"],
+    paid: ["delivered", "closed"],
+    delivered: ["paid", "closed"],
+  },
+  order: { pending: ["confirmed"] },
+  transport: {
+    pending: ["in_transit", "delivered", "cancelled"],
+    in_transit: ["pending", "delivered", "cancelled"],
+    cancelled: ["pending", "in_transit", "delivered"],
+  },
 };
 
 /**
- * Vente encore modifiable ou supprimable : « En attente », son stock n'est pas encore sorti
- * (mêmes règles que save_sale en base).
+ * Encore modifiable ou supprimable : vente « En attente » (son stock n'est pas sorti, mêmes règles
+ * que save_sale en base), commande non confirmée, transport ni livré ni annulé.
  */
-export function isSaleEditable(status: string | null | undefined): boolean {
-  return status === "pending";
+export function isEditable(kind: StatusKind, status: string | null | undefined): boolean {
+  if (kind === "sale") return status === "pending";
+  if (kind === "order") return status !== "confirmed";
+  return status !== "delivered" && status !== "cancelled";
 }
 
-/** Libellé et icône des actions qui font passer une vente à un statut (menu du badge). */
-const SALE_STATUS_ACTIONS: Record<SaleTarget, { label: string; icon: any }> = {
-  paid: { label: "Marquer comme payée", icon: IconCheck },
-  delivered: { label: "Marquer comme livrée", icon: IconTruck },
-  closed: { label: "Clôturer et facturer", icon: IconLock },
+/** Libellé et icône des actions qui font passer à un statut (menu du badge). */
+const STATUS_ACTIONS: Record<StatusKind, Record<string, { label: string; icon: any }>> = {
+  sale: {
+    paid: { label: "Marquer comme payée", icon: IconCheck },
+    delivered: { label: "Marquer comme livrée", icon: IconTruck },
+    closed: { label: "Clôturer et facturer", icon: IconLock },
+  },
+  order: {
+    confirmed: { label: "Confirmer la commande", icon: IconCheck },
+  },
+  transport: {
+    pending: { label: "Remettre en attente", icon: IconClock },
+    in_transit: { label: "Marquer en transit", icon: IconTruck },
+    delivered: { label: "Marquer comme livré", icon: IconCheck },
+    cancelled: { label: "Annuler le transport", icon: IconX },
+  },
 };
 
-/** Éléments de menu (MenuItem) des transitions permises depuis `status`. */
-export function saleStatusMenuItems(status: string | null | undefined, onSelect: (next: SaleTarget) => void) {
-  return (SALE_TRANSITIONS[status ?? ""] ?? []).map((next) => ({ ...SALE_STATUS_ACTIONS[next], onSelect: () => onSelect(next) }));
+/** Éléments de menu (MenuItem) des transitions permises depuis `status` (vide : « En attente »). */
+export function statusMenuItems(kind: StatusKind, status: string | null | undefined, onSelect: (next: string) => void) {
+  return (STATUS_TRANSITIONS[kind][status || "pending"] ?? []).map((next) => ({
+    ...STATUS_ACTIONS[kind][next],
+    onSelect: () => onSelect(next),
+  }));
 }
 
-/** Ventes dont le statut peut encore changer : leur badge devient un bouton. */
-export const CHANGEABLE_STATUSES = Object.keys(SALE_TRANSITIONS) as SaleStatus[];
+/** Le statut peut encore changer : le badge devient un bouton. */
+export function canChangeStatus(kind: StatusKind, status: string | null | undefined): boolean {
+  return !!STATUS_TRANSITIONS[kind][status || "pending"]?.length;
+}
