@@ -295,13 +295,13 @@
   {#if tasting && upcoming}
     <div class="empty">
       <img src="/flyer/logo-text.svg" alt="Mezzaterra" class="logo" />
-      <p>La dégustation commence le {formatDateLong(tasting.date).toLowerCase()}.<br />Les vins seront dévoilés un à un pendant la soirée.</p>
+      <p>La dégustation commence le {formatDateLong(tasting.date).toLowerCase()}.<br />La sélection sera dévoilée au fil de la soirée.</p>
       <a class="ghost-btn" href="/tastings/{tasting.id}">Retour à la dégustation</a>
     </div>
   {:else if !tasting || total === 0}
     <div class="empty">
       <img src="/flyer/logo-text.svg" alt="Mezzaterra" class="logo" />
-      <p>{!tasting ? "Cette dégustation est introuvable." : "Les vins de la soirée seront bientôt dévoilés…"}</p>
+      <p>{!tasting ? "Cette dégustation est introuvable." : "La sélection de la soirée sera bientôt dévoilée…"}</p>
       <a class="ghost-btn" href="/tastings">Voir les dégustations</a>
     </div>
   {:else}
@@ -442,7 +442,7 @@
 
 <CaveSheet open={showWelcome} title="Bienvenue 🍷" onclose={saveWelcome} closable={false}>
   <p class="sheet-lead">
-    Suivez la soirée vin après vin, notez ce que vous goûtez et mettez de côté vos coups de cœur.
+    Suivez la soirée pas à pas, notez ce que vous goûtez et mettez de côté vos coups de cœur.
   </p>
   <form onsubmit={preventDefault(saveWelcome)} class="sheet-form">
     <label>Prénom<input bind:value={profile.firstName} autocomplete="given-name" /></label>
@@ -512,7 +512,7 @@
 </CaveSheet>
 
 <CaveSheet open={showRecap} title="Votre soirée" onclose={() => (showRecap = false)}>
-  <p class="sheet-lead">{ratedCount} vin{ratedCount > 1 ? "s" : ""} noté{ratedCount > 1 ? "s" : ""} sur {total}.</p>
+  <p class="sheet-lead">Vous avez noté {ratedCount} sur {total}.</p>
   <ol class="recap">
     {#each wines as w, i}
       {@const r = ratings[w.id]}
