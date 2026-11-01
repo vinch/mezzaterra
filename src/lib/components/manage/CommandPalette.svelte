@@ -288,7 +288,7 @@
     flex-direction: column;
     background: var(--card);
     border-radius: var(--r-md);
-    box-shadow: 0 30px 70px -20px rgba(0, 0, 0, 0.45);
+    box-shadow: var(--shadow-pop);
     overflow: hidden;
     font-family: var(--font-sans);
   }
