@@ -113,8 +113,7 @@ async function drawPdfPricesHeader(
   startY: number,
   fontFamily: string,
 ): Promise<number> {
-  const headerTopY = startY;
-  const { logoWmm, logoHmm, qrHmm, qrWmm, qrX } = await drawLogoAndQr(doc, pageW, margin, headerTopY);
+  const { logoWmm, logoHmm, qrHmm, qrWmm, qrX } = await drawLogoAndQr(doc, pageW, margin, startY);
 
   const midLeft = margin + logoWmm + 5;
   const midRight = qrWmm > 0 ? qrX - 4 : pageW - margin;
@@ -128,7 +127,7 @@ async function drawPdfPricesHeader(
   const fieldsBlockHmm = customerFields.length * fieldStepMm;
   const bandHmm = Math.max(logoHmm, qrHmm, fieldsBlockHmm);
   const fieldsStartY =
-    headerTopY + (bandHmm - fieldsBlockHmm) / 2 + 2.8;
+    startY + (bandHmm - fieldsBlockHmm) / 2 + 2.8;
 
   doc.setFont(fontFamily, "normal");
   doc.setFontSize(8.5);
@@ -142,7 +141,7 @@ async function drawPdfPricesHeader(
   }
   doc.setTextColor(0, 0, 0);
 
-  return headerTopY + bandHmm + 6;
+  return startY + bandHmm + 6;
 }
 
 /** Notes de dégustation : logo, date à droite du logo (centrée), QR à droite. */
@@ -154,8 +153,7 @@ async function drawPdfNotesHeader(
   fontFamily: string,
   tastingDate: Date,
 ): Promise<number> {
-  const headerTopY = startY;
-  const { logoWmm, logoHmm, qrHmm } = await drawLogoAndQr(doc, pageW, margin, headerTopY);
+  const { logoWmm, logoHmm, qrHmm } = await drawLogoAndQr(doc, pageW, margin, startY);
 
   const bandHmm = Math.max(logoHmm, qrHmm, 10);
   const dateStr = tastingDate.toLocaleDateString("fr-CH", {
@@ -169,12 +167,12 @@ async function drawPdfNotesHeader(
   doc.setFontSize(dateFontSize);
   doc.setTextColor(80, 80, 80);
   const dateDims = doc.getTextDimensions(dateStr);
-  const dateY = headerTopY + (bandHmm + dateDims.h) / 2;
+  const dateY = startY + (bandHmm + dateDims.h) / 2;
   doc.text(dateStr, dateX, dateY);
   doc.setTextColor(0, 0, 0);
 
   if (bandHmm > 0) {
-    return headerTopY + bandHmm + 6;
+    return startY + bandHmm + 6;
   }
   return startY + 4;
 }
