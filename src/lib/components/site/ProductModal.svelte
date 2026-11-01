@@ -132,7 +132,7 @@
     align-items: center;
     justify-content: center;
     padding: 2rem 1rem;
-    background: rgba(14, 24, 25, 0.55);
+    background: var(--mz-backdrop);
     backdrop-filter: blur(3px);
   }
 
@@ -143,7 +143,7 @@
     overflow-y: auto;
     background: var(--mz-paper-raised);
     border-radius: var(--mz-radius-lg);
-    box-shadow: 0 30px 80px -20px rgba(0, 0, 0, 0.45);
+    box-shadow: var(--mz-shadow-lg);
     font-family: var(--mz-font-body);
     color: var(--mz-ink);
   }
@@ -157,7 +157,7 @@
     height: 2.4rem;
     border-radius: 50%;
     border: none;
-    background: rgba(255, 255, 255, 0.75);
+    background: color-mix(in srgb, var(--mz-white) 75%, transparent);
     font-size: 1.6rem;
     line-height: 1;
     color: var(--mz-ink-soft);
@@ -165,7 +165,7 @@
   }
 
   .close:hover {
-    background: #fff;
+    background: var(--mz-white);
     color: var(--mz-ink);
   }
 

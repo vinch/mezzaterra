@@ -29,8 +29,15 @@
   --mz-danger: #a3352f;
   --mz-warning: #a86b12;
 
+  /* Texte et motifs sur fond de marque, fond des champs. */
+  --mz-white: #fff;
+  /* Retours d'un formulaire posé sur fond teal (newsletter de l'accueil). */
+  --mz-on-brand-success: #cfeedd;
+  --mz-on-brand-danger: #ffd2cc;
+
   /* Rouge de marque (accents du site). Les couleurs de robe vivent dans STYLES (lib/wine.ts). */
   --mz-wine-red: #7a1f2e;
+  --mz-wine-red-deep: #5e1522; /* survol */
   /* Or des étoiles (notes des invités). */
   --mz-gold: #e0b04a;
 
@@ -49,6 +56,14 @@
   --mz-cave-danger: #f19a9a;
   --mz-live: #e4566b; /* pastille « en direct » */
 
+  /* Carte des Abruzzes (AbruzzoMap) */
+  --mz-map-sea: #dfe7e4;
+  --mz-map-land: #ebe8e1; /* régions voisines */
+  --mz-map-line: #cfcabf;
+  --mz-map-label: #a9a497;
+  --mz-map-region: #f6f4ef; /* les Abruzzes, liseré des épingles */
+  --mz-map-inset: #dcd7cc; /* l'Italie du médaillon */
+
   /* Typo */
   --mz-font-display: "Fraunces", "Iowan Old Style", Georgia, serif;
   --mz-font-body: "Inter", system-ui, -apple-system, "Segoe UI", sans-serif;
@@ -60,6 +75,9 @@
   --mz-radius-pill: 999px; /* boutons, puces, barres arrondies (les ronds restent à 50 %) */
   --mz-shadow-sm: 0 1px 2px rgba(29, 42, 44, 0.06), 0 1px 1px rgba(29, 42, 44, 0.04);
   --mz-shadow: 0 10px 30px -12px rgba(29, 42, 44, 0.25), 0 2px 6px rgba(29, 42, 44, 0.06);
+  --mz-shadow-lg: 0 30px 80px -20px rgba(0, 0, 0, 0.45); /* modale */
+  --mz-shadow-float: 0 12px 30px -12px rgba(0, 0, 0, 0.45); /* élément posé sur un fond de marque */
+  --mz-backdrop: rgba(14, 24, 25, 0.55); /* fond derrière une modale du site */
   --mz-ease: cubic-bezier(0.2, 0.8, 0.2, 1);
 }
 

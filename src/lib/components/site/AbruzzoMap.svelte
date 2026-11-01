@@ -94,7 +94,7 @@
         <line x1="0" y1="0" x2="0" y2="6" stroke="currentColor" stroke-width="0.7" opacity="0.13" />
       </pattern>
       <filter id="mz-soft" x="-10%" y="-10%" width="120%" height="120%">
-        <feDropShadow dx="0" dy="6" stdDeviation="8" flood-color="#1d2a2c" flood-opacity="0.18" />
+        <feDropShadow dx="0" dy="6" stdDeviation="8" flood-opacity="0.18" />
       </filter>
       <clipPath id="mz-frame"><rect width={W} height={H} rx="18" /></clipPath>
     </defs>
@@ -214,8 +214,12 @@
     height: auto;
   }
 
+  feDropShadow {
+    flood-color: var(--mz-ink);
+  }
+
   .sea {
-    fill: #dfe7e4;
+    fill: var(--mz-map-sea);
   }
 
   .waves {
@@ -223,8 +227,8 @@
   }
 
   .neighbor {
-    fill: #ebe8e1;
-    stroke: #cfcabf;
+    fill: var(--mz-map-land);
+    stroke: var(--mz-map-line);
     stroke-width: 1;
   }
 
@@ -239,15 +243,15 @@
     font-weight: 600;
     letter-spacing: 0.22em;
     text-transform: uppercase;
-    fill: #a9a497;
+    fill: var(--mz-map-label);
   }
 
   .region-shadow {
-    fill: #f6f4ef;
+    fill: var(--mz-map-region);
   }
 
   .region {
-    fill: #f6f4ef;
+    fill: var(--mz-map-region);
   }
 
   .region-outline {
@@ -287,7 +291,7 @@
 
   .peak .snow {
     fill: none;
-    stroke: #fff;
+    stroke: var(--mz-white);
     stroke-width: 1.2;
     opacity: 0.9;
   }
@@ -327,7 +331,7 @@
 
   .pin-dot {
     fill: var(--mz-wine-red);
-    stroke: #f6f4ef;
+    stroke: var(--mz-map-region);
     stroke-width: 2.5;
     transition: fill 0.15s var(--mz-ease);
   }
@@ -411,12 +415,12 @@
   }
 
   .inset rect {
-    fill: rgba(246, 244, 239, 0.85);
-    stroke: #cfcabf;
+    fill: color-mix(in srgb, var(--mz-map-region) 85%, transparent);
+    stroke: var(--mz-map-line);
   }
 
   .inset-land {
-    fill: #dcd7cc;
+    fill: var(--mz-map-inset);
   }
 
   .inset-region {

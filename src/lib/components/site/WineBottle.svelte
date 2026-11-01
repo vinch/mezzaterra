@@ -50,10 +50,10 @@
       <path d="M9 100h53v85a9 9 0 0 1-9 9H18a9 9 0 0 1-9-9z" fill="url(#{gid}-wine)" opacity="0.88" />
       <rect x="26" y="3" width="19" height="15" rx="3" fill={wine.color} />
       <rect x="26" y="15" width="19" height="3" fill="rgba(0,0,0,0.25)" />
-      <rect x="15" y="112" width="41" height="50" rx="3.5" fill="#f4f2ed" />
-      <rect x="21" y="123" width="29" height="3" rx="1.5" fill="#256169" />
-      <rect x="24" y="131" width="23" height="2" rx="1" fill="#5b7d7f" />
-      <rect x="24" y="137" width="23" height="2" rx="1" fill="#5b7d7f" />
+      <rect class="label" x="15" y="112" width="41" height="50" rx="3.5" />
+      <rect class="label-title" x="21" y="123" width="29" height="3" rx="1.5" />
+      <rect class="label-line" x="24" y="131" width="23" height="2" rx="1" />
+      <rect class="label-line" x="24" y="137" width="23" height="2" rx="1" />
       <circle cx="35.5" cy="150" r="3.6" fill={wine.color} />
       <path d="M19 95c1-11 8-19 13-24" stroke="rgba(255,255,255,0.2)" stroke-width="2.6" stroke-linecap="round" fill="none" />
       <path d="M14 108v70" stroke="rgba(255,255,255,0.12)" stroke-width="2.6" stroke-linecap="round" />
@@ -95,6 +95,19 @@
     width: auto;
     max-width: 260%;
     object-fit: contain;
-    filter: drop-shadow(0 10px 14px rgba(29, 42, 44, 0.22));
+    filter: drop-shadow(0 10px 14px color-mix(in srgb, var(--mz-ink) 22%, transparent));
+  }
+
+  /* Étiquette dessinée, aux couleurs de la marque. */
+  .label {
+    fill: var(--mz-paper-raised);
+  }
+
+  .label-title {
+    fill: var(--mz-teal);
+  }
+
+  .label-line {
+    fill: var(--mz-teal-soft);
   }
 </style>

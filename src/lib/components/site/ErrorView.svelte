@@ -223,7 +223,7 @@
 
   .btn--primary {
     background: var(--mz-teal);
-    color: #fff;
+    color: var(--mz-white);
   }
 
   .btn--primary:hover {

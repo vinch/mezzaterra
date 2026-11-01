@@ -245,7 +245,7 @@
   .filter-chip.on {
     background: var(--mz-teal);
     border-color: var(--mz-teal);
-    color: #fff;
+    color: var(--mz-white);
   }
 
   .toggle input {

@@ -281,7 +281,7 @@
 
   .hero-map :global(svg) {
     border-radius: 18px;
-    box-shadow: 0 24px 50px -28px rgba(29, 42, 44, 0.45);
+    box-shadow: 0 24px 50px -28px color-mix(in srgb, var(--mz-ink) 45%, transparent);
   }
 
   /* ——— Trois points ——— */
@@ -356,10 +356,10 @@
     text-align: center;
     color: var(--mz-paper-raised);
     background:
-      radial-gradient(ellipse 60% 80% at 15% 0%, rgba(255, 255, 255, 0.12), transparent 60%),
-      radial-gradient(ellipse 50% 70% at 100% 100%, rgba(122, 31, 46, 0.35), transparent 70%),
+      radial-gradient(ellipse 60% 80% at 15% 0%, color-mix(in srgb, var(--mz-white) 12%, transparent), transparent 60%),
+      radial-gradient(ellipse 50% 70% at 100% 100%, color-mix(in srgb, var(--mz-wine-red) 35%, transparent), transparent 70%),
       var(--mz-teal);
-    box-shadow: 0 30px 60px -30px rgba(26, 71, 77, 0.65);
+    box-shadow: 0 30px 60px -30px color-mix(in srgb, var(--mz-teal-deep) 65%, transparent);
   }
 
   /* Vagues de l'Adriatique, comme sur la carte. */
@@ -378,13 +378,13 @@
   .cta-eyebrow {
     display: inline-block;
     padding: 0.35rem 0.85rem;
-    border-radius: 999px;
-    border: 1px solid rgba(244, 242, 237, 0.35);
+    border-radius: var(--mz-radius-pill);
+    border: 1px solid color-mix(in srgb, var(--mz-paper-raised) 35%, transparent);
     font-size: 0.75rem;
     font-weight: 600;
     letter-spacing: 0.16em;
     text-transform: uppercase;
-    color: rgba(244, 242, 237, 0.85);
+    color: color-mix(in srgb, var(--mz-paper-raised) 85%, transparent);
   }
 
   .cta h2 {
@@ -394,7 +394,7 @@
     font-size: clamp(2.2rem, 5vw, 3.2rem);
     line-height: 1.05;
     letter-spacing: -0.01em;
-    color: #fff;
+    color: var(--mz-white);
   }
 
   .cta-sub {
@@ -402,7 +402,7 @@
     max-width: 32rem;
     font-size: 1.08rem;
     line-height: 1.6;
-    color: rgba(244, 242, 237, 0.82);
+    color: color-mix(in srgb, var(--mz-paper-raised) 82%, transparent);
   }
 
   .subscribe-form {
@@ -412,16 +412,16 @@
     width: min(100%, 32rem);
     margin: 0 auto;
     padding: 0.4rem;
-    border-radius: 999px;
-    background: #fff;
-    box-shadow: 0 12px 30px -12px rgba(0, 0, 0, 0.45);
+    border-radius: var(--mz-radius-pill);
+    background: var(--mz-white);
+    box-shadow: var(--mz-shadow-float);
   }
 
   .subscribe-form input {
     flex: 1 1 auto;
     min-width: 0;
     border: none;
-    border-radius: 999px;
+    border-radius: var(--mz-radius-pill);
     background: transparent;
     padding: 0.85rem 1.1rem;
     font: inherit;
@@ -439,17 +439,17 @@
 
   .subscribe-form:focus-within {
     box-shadow:
-      0 12px 30px -12px rgba(0, 0, 0, 0.45),
-      0 0 0 4px rgba(244, 242, 237, 0.35);
+      var(--mz-shadow-float),
+      0 0 0 4px color-mix(in srgb, var(--mz-paper-raised) 35%, transparent);
   }
 
   .subscribe-form button {
     flex-shrink: 0;
     border: none;
-    border-radius: 999px;
+    border-radius: var(--mz-radius-pill);
     padding: 0.9rem 1.6rem;
     background: var(--mz-wine-red);
-    color: #fff;
+    color: var(--mz-white);
     font: inherit;
     font-size: 1rem;
     font-weight: 600;
@@ -460,7 +460,7 @@
   }
 
   .subscribe-form button:hover:not(:disabled) {
-    background: #5e1522;
+    background: var(--mz-wine-red-deep);
     transform: translateY(-1px);
   }
 
@@ -473,16 +473,16 @@
   .feedback {
     margin: 1rem 0 0;
     font-size: 0.88rem;
-    color: rgba(244, 242, 237, 0.7);
+    color: color-mix(in srgb, var(--mz-paper-raised) 70%, transparent);
   }
 
   .feedback.success {
-    color: #cfeedd;
+    color: var(--mz-on-brand-success);
     font-weight: 600;
   }
 
   .feedback.error {
-    color: #ffd2cc;
+    color: var(--mz-on-brand-danger);
     font-weight: 600;
   }
 

@@ -175,7 +175,7 @@
   .hero {
     padding: 2.5rem 0 2rem;
     background:
-      radial-gradient(ellipse 60% 80% at 90% 0%, rgba(37, 97, 105, 0.1), transparent 70%),
+      radial-gradient(ellipse 60% 80% at 90% 0%, color-mix(in srgb, var(--mz-teal) 10%, transparent), transparent 70%),
       var(--mz-paper);
     border-bottom: 1px solid var(--mz-line-soft);
   }
@@ -275,7 +275,7 @@
     background: radial-gradient(circle at 35% 35%, var(--l), var(--c));
     box-shadow:
       0 0 0 3px var(--mz-paper),
-      0 2px 6px rgba(0, 0, 0, 0.2);
+      0 2px 6px color-mix(in srgb, var(--mz-ink) 20%, transparent);
   }
 
   .secret {
