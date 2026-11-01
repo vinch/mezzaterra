@@ -1,6 +1,7 @@
 -- Retour en arrière de 20261101120000_rename_products.sql : rend aux tables, colonnes, contraintes,
 -- index, triggers, fonctions et à la vue leurs anciens noms (fonctions reprises du schéma de production
--- du 2026-11-01), remet l'ancienne clé dans le JSON des lignes et retire la migration de l'historique.
+-- du 2026-11-01), remet l'ancienne clé dans le JSON des lignes et retire de l'historique le renommage
+-- (20261101120000) et la fin de sa transition (20261101130000).
 -- À lancer seulement si la bascule échoue, avec le code d'avant la migration :
 --   psql "$DB_URL" -v ON_ERROR_STOP=1 -f supabase/rollback/20261101120000_rename_products_down.sql
 -- (le fichier ouvre et valide sa propre transaction). Les objets de transition sont supprimés « s'ils

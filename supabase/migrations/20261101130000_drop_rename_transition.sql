@@ -1,6 +1,8 @@
--- Fin de la transition de 20261101120000_rename_products.sql : plus aucune page n'envoie l'ancienne clé
--- wine_vintage_id. save_sale, save_order et save_live_preorder ne la traduisent plus ; le trigger et les
--- fonctions de transition disparaissent. Aucune donnée touchée.
+-- Fin de la transition de 20261101120000_rename_products.sql : save_sale, save_order et save_live_preorder
+-- ne traduisent plus l'ancienne clé wine_vintage_id ; le trigger et les fonctions de transition
+-- disparaissent. À la place, chaque ligne envoyée doit porter la clé lot_id (le code l'envoie toujours,
+-- à null pour une ligne sans lot) : une page d'une ancienne version obtient une erreur claire au lieu
+-- d'enregistrer des lignes sans lot. Aucune donnée touchée.
 
 CREATE OR REPLACE FUNCTION "public"."save_live_preorder"("p_tasting_id" "uuid", "p_guest_id" "uuid", "p_items" "jsonb", "p_first_name" "text" DEFAULT NULL::"text", "p_last_name" "text" DEFAULT NULL::"text", "p_email" "text" DEFAULT NULL::"text", "p_phone" "text" DEFAULT NULL::"text", "p_confirm" boolean DEFAULT false) RETURNS "uuid"
     LANGUAGE "plpgsql" SECURITY DEFINER
@@ -13,6 +15,9 @@ DECLARE
   v_draft live_preorder;
   v_id uuid;
 BEGIN
+  IF jsonb_path_exists(coalesce(p_items, '[]'::jsonb), '$[*] ? (!(exists(@.lot_id)))') THEN
+    RAISE EXCEPTION 'Cette page date d''une ancienne version : rechargez-la.';
+  END IF;
   IF p_tasting_id IS NULL OR p_guest_id IS NULL THEN
     RAISE EXCEPTION 'Dégustation ou invité manquant.';
   END IF;
@@ -27,7 +32,7 @@ BEGIN
     RETURN NULL;
   END IF;
 
-  -- Une ligne par vin de la dégustation, quantités entières de 1 à 60 ; le reste est ignoré.
+  -- Une ligne par produit de la dégustation, quantités entières de 1 à 60 ; le reste est ignoré.
   SELECT coalesce(jsonb_agg(jsonb_build_object('lot_id', l.vid, 'quantity', l.qty) ORDER BY l.vid), '[]'::jsonb)
   INTO v_items
   FROM (
@@ -39,7 +44,7 @@ BEGIN
     GROUP BY 1
   ) l
   WHERE EXISTS (
-    SELECT 1 FROM tasting_lot twv WHERE twv.tasting_id = p_tasting_id AND twv.lot_id = l.vid
+    SELECT 1 FROM tasting_lot tl WHERE tl.tasting_id = p_tasting_id AND tl.lot_id = l.vid
   );
 
   IF jsonb_array_length(v_items) = 0 THEN
@@ -94,6 +99,9 @@ DECLARE
   v_status text;
   v_transport_status text;
 BEGIN
+  IF jsonb_path_exists(coalesce(p_items, '[]'::jsonb), '$[*] ? (!(exists(@.lot_id)))') THEN
+    RAISE EXCEPTION 'Cette page date d''une ancienne version : rechargez-la.';
+  END IF;
   PERFORM assert_admin();
 
   IF p_order_id IS NULL THEN
@@ -141,6 +149,9 @@ DECLARE
   v_id uuid;
   v_status text;
 BEGIN
+  IF jsonb_path_exists(coalesce(p_items, '[]'::jsonb), '$[*] ? (!(exists(@.lot_id)))') THEN
+    RAISE EXCEPTION 'Cette page date d''une ancienne version : rechargez-la.';
+  END IF;
   PERFORM assert_admin();
 
   IF p_sale_id IS NULL THEN
@@ -184,6 +195,15 @@ BEGIN
   RETURN v_id;
 END;
 $$;
+
+-- Garde-fou : aucune ligne déjà enregistrée ne doit encore porter l'ancienne clé.
+DO $$
+BEGIN
+  IF EXISTS (SELECT 1 FROM public.wish_request WHERE items @? '$[*].wine_vintage_id')
+     OR EXISTS (SELECT 1 FROM public.live_preorder WHERE items @? '$[*].wine_vintage_id') THEN
+    RAISE EXCEPTION 'Des lignes portent encore wine_vintage_id : transition à garder';
+  END IF;
+END $$;
 
 DROP TRIGGER "wish_request_legacy_lot_items" ON public."wish_request";
 DROP FUNCTION public."legacy_lot_items_row"();

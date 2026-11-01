@@ -130,10 +130,13 @@ pré-commandes déjà enregistrées passe de `wine_vintage_id` à `lot_id`. À a
 déploiement du code : l'ancien code ne marche pas sur le nouveau schéma, ni l'inverse. Script
 inverse : `supabase/rollback/20261101120000_rename_products_down.sql`.
 
-Transition : pendant la bascule (2026-11-01), une fonction `legacy_lot_items` lisait l'ancienne clé
-`wine_vintage_id` envoyée par un onglet resté ouvert. Retirée le même jour par
-`20261101130000_drop_rename_transition.sql`, une fois aucun onglet de l'ancienne version ouvert : le
-script inverse retire aussi cette ligne de l'historique.
+Transition : pendant la bascule, une fonction `legacy_lot_items` lisait l'ancienne clé `wine_vintage_id`
+envoyée par un onglet resté ouvert. `20261101130000_drop_rename_transition.sql` la retire (aucun
+déploiement de code nécessaire) : `save_sale`, `save_order` et `save_live_preorder` exigent désormais la
+clé `lot_id` sur chaque ligne, et une page d'une ancienne version reçoit « rechargez-la » au lieu
+d'enregistrer des lignes sans lot. Le script inverse retire les deux versions de l'historique ; pour
+rebasculer ensuite, appliquer 20261101120000 seule (`supabase migration up`), puis 20261101130000 une fois
+les onglets rechargés.
 
 ```sh
 supabase link --project-ref wmerreifcpttrhxwmkmn
