@@ -93,7 +93,7 @@
   <section class="hero">
     <div class="mz-container hero-grid">
       <div class="bottle-stage mz-rise">
-        <ProductBottle src={v.image_url} alt={title} wine={style} height="min(28rem, 60vh)" />
+        <ProductBottle src={v.image_url} alt={title} {style} height="min(28rem, 60vh)" />
       </div>
       <div class="hero-text mz-rise" style="animation-delay: 80ms">
         <a href="/{kind.slug}" class="mz-back">← {kind.catalogTitle}</a>

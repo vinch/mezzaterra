@@ -445,7 +445,7 @@
             <div class="reuse-items">
               <!-- Aperçu de la bouteille à côté des cases (silhouette du site sans image) : lignes de même hauteur. -->
               <div class="reuse-preview" class:off={!imageReused} aria-hidden="true">
-                <ProductBottle src={source.image_url} wine={productStyle(wine.wine_type)} height="80px" />
+                <ProductBottle src={source.image_url} style={productStyle(wine.wine_type)} height="80px" />
               </div>
               <div class="reuse-checks">
                 <label class="checkbox-label">

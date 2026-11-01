@@ -21,7 +21,7 @@
   import Spinner from "$lib/ui/Spinner.svelte";
   import Tabs from "$lib/ui/Tabs.svelte";
   import Combobox, { type ComboOption } from "$lib/ui/Combobox.svelte";
-  import { byVolume, compareWines, MAIN_ROBES, styleByKey, vintageShortLabel, wineRobe, type ProductStyleKey, productTitle, productTypeLabel, withVolume } from "$lib/wine";
+  import { byVolume, compareProductsByProducer, MAIN_ROBES, styleByKey, vintageShortLabel, wineRobe, type ProductStyleKey, productTitle, productTypeLabel, withVolume } from "$lib/wine";
   import {
     IconArchive,
     IconArchiveRestore,
@@ -54,7 +54,7 @@
   // Pairings modal state
   let showPairingsModal = $state(false);
   let selectedWine = $state<Wine | null>(null);
-  let productPairings = $state<any[]>([]);
+  let linkedPairings = $state<any[]>([]);
   let allPairings = $state<any[]>([]);
   let selectedPairingId = $state("");
   let pairingError = $state("");
@@ -118,7 +118,7 @@
           (a, b) => (a.year ?? a.production_year ?? 0) - (b.year ?? b.production_year ?? 0) || byVolume(a, b),
         );
       }
-      wines = (data || []).sort(compareWines);
+      wines = (data || []).sort(compareProductsByProducer);
     }
   }
 
@@ -237,7 +237,7 @@
       )
       .eq("wine_id", selectedWine.id);
 
-    productPairings = data || [];
+    linkedPairings = data || [];
   }
 
   async function addPairing() {
@@ -246,7 +246,7 @@
     if (!pairingId || !selectedWine || linkedPairingIds.has(pairingId)) return;
 
     /* Affiché tout de suite : l'option est grisée avant la fin de l'insertion, pas de doublon. */
-    productPairings = [...productPairings, { pairing_id: pairingId, pairing: allPairings.find((p) => p.id === pairingId) }];
+    linkedPairings = [...linkedPairings, { pairing_id: pairingId, pairing: allPairings.find((p) => p.id === pairingId) }];
     pairingError = "";
 
     const { error: insertError } = await supabase.from("wine_pairing").insert({
@@ -283,7 +283,7 @@
   function closePairingsModal() {
     showPairingsModal = false;
     selectedWine = null;
-    productPairings = [];
+    linkedPairings = [];
     selectedPairingId = "";
     pairingError = "";
   }
@@ -428,7 +428,7 @@
     await deleteWine(deleteTarget.id);
     confirmOpen = false;
   }
-  let linkedPairingIds = $derived(new Set(productPairings.map((wp) => wp.pairing_id)));
+  let linkedPairingIds = $derived(new Set(linkedPairings.map((wp) => wp.pairing_id)));
   let pairingOptions = $derived(allPairings.map<ComboOption>((p) => {
     const linked = linkedPairingIds.has(p.id);
     return {
@@ -721,11 +721,11 @@
 <Modal open={showPairingsModal} title={kindInfo(selectedWine).pairingsLabel ?? ""} maxWidth={520} onclose={closePairingsModal}>
   {#if selectedWine}<p class="t-muted pairing-intro">{productTitle(selectedWine)} · {selectedWine.winery?.name ?? ""}</p>{/if}
   {#if pairingError}<div class="error-message" role="alert">{pairingError}</div>{/if}
-  {#if productPairings.length === 0}
+  {#if linkedPairings.length === 0}
     <EmptyState icon={IconPlate} title="Aucun accord pour {kindInfo(selectedWine).thisLabel}" compact />
   {:else}
     <ul class="pairings">
-      {#each productPairings as wp}
+      {#each linkedPairings as wp}
         <li>
           <span>{wp.pairing.description}</span>
           <IconButton label="Retirer {wp.pairing.description}" onclick={() => (pairingToRemove = wp)}>

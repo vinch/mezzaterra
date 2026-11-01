@@ -58,7 +58,7 @@
     {#if position != null}
       <span class="position" aria-label="{kindInfo(wine).label} numéro {position}">{position}</span>
     {/if}
-    <ProductBottle src={vintage?.image_url} alt={title} wine={style} height="10.5rem" />
+    <ProductBottle src={vintage?.image_url} alt={title} {style} height="10.5rem" />
   </div>
 
   <div class="body">

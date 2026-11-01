@@ -5,7 +5,7 @@
     /** Photo détourée de la bouteille (sinon silhouette teintée à la couleur de la robe). */
     src?: string | null | undefined;
     alt?: string;
-    wine: ProductStyle;
+    style: ProductStyle;
     /** Hauteur CSS de la bouteille. */
     height?: string;
   }
@@ -13,7 +13,7 @@
   let {
     src = null,
     alt = "",
-    wine,
+    style,
     height = "12rem"
   }: Props = $props();
 
@@ -21,14 +21,14 @@
   let failedSrc = $state<string | null>(null);
   let failed = $derived(failedSrc === src);
   /* Id déterministe (SSR/hydratation) : deux bouteilles de même robe partagent des dégradés identiques. */
-  let gid = $derived(`mz-bottle-${wine.key}`);
+  let gid = $derived(`mz-bottle-${style.key}`);
 </script>
 
-<div class="bottle" style="--bottle-h-default: {height}; --robe: {wine.color}; --robe-light: {wine.light};">
+<div class="bottle" style="--bottle-h-default: {height}; --robe: {style.color}; --robe-light: {style.light};">
   {#if src && !failed}
     <img {src} {alt} loading="lazy" onerror={() => (failedSrc = src ?? null)} />
   {:else}
-    <svg viewBox="0 0 71 200" role="img" aria-label={alt || wine.label}>
+    <svg viewBox="0 0 71 200" role="img" aria-label={alt || style.label}>
       <defs>
         <linearGradient id="{gid}-glass" x1="0" x2="1" y1="0" y2="0">
           <stop offset="0" stop-color="#132527" />
@@ -37,9 +37,9 @@
           <stop offset="1" stop-color="#0e1c1e" />
         </linearGradient>
         <linearGradient id="{gid}-wine" x1="0" x2="1" y1="0" y2="0">
-          <stop offset="0" stop-color={wine.color} stop-opacity="0.96" />
-          <stop offset="0.38" stop-color={wine.light} stop-opacity="0.92" />
-          <stop offset="1" stop-color={wine.color} stop-opacity="0.96" />
+          <stop offset="0" stop-color={style.color} stop-opacity="0.96" />
+          <stop offset="0.38" stop-color={style.light} stop-opacity="0.92" />
+          <stop offset="1" stop-color={style.color} stop-opacity="0.96" />
         </linearGradient>
       </defs>
       <!-- Bouteille bordelaise : col court, épaules marquées -->
@@ -48,13 +48,13 @@
         fill="url(#{gid}-glass)"
       />
       <path d="M9 100h53v85a9 9 0 0 1-9 9H18a9 9 0 0 1-9-9z" fill="url(#{gid}-wine)" opacity="0.88" />
-      <rect x="26" y="3" width="19" height="15" rx="3" fill={wine.color} />
+      <rect x="26" y="3" width="19" height="15" rx="3" fill={style.color} />
       <rect x="26" y="15" width="19" height="3" fill="rgba(0,0,0,0.25)" />
       <rect class="label" x="15" y="112" width="41" height="50" rx="3.5" />
       <rect class="label-title" x="21" y="123" width="29" height="3" rx="1.5" />
       <rect class="label-line" x="24" y="131" width="23" height="2" rx="1" />
       <rect class="label-line" x="24" y="137" width="23" height="2" rx="1" />
-      <circle cx="35.5" cy="150" r="3.6" fill={wine.color} />
+      <circle cx="35.5" cy="150" r="3.6" fill={style.color} />
       <path d="M19 95c1-11 8-19 13-24" stroke="rgba(255,255,255,0.2)" stroke-width="2.6" stroke-linecap="round" fill="none" />
       <path d="M14 108v70" stroke="rgba(255,255,255,0.12)" stroke-width="2.6" stroke-linecap="round" />
     </svg>

@@ -63,7 +63,7 @@
 
       <header class="hero">
         <div class="hero-bottle">
-          <ProductBottle src={v.image_url} alt={productTitle(wine)} wine={style} height="15rem" />
+          <ProductBottle src={v.image_url} alt={productTitle(wine)} {style} height="15rem" />
         </div>
         <div class="hero-text">
           <span class="mz-eyebrow">

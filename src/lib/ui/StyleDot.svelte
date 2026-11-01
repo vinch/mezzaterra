@@ -3,7 +3,7 @@
 
   /**
    * Pastille de 10 px à la couleur de la robe : d'après le type (`wine_type`, avec `kind` pour une huile), ou une clé (filtres, légendes).
-   * Toujours accompagnée du nom du vin à côté : elle est décorative (aria-hidden).
+   * Toujours accompagnée du nom du produit à côté : elle est décorative (aria-hidden).
    */
   interface Props {
     type?: { name?: string | null; kind?: string | null } | null | undefined;

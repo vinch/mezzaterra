@@ -66,7 +66,7 @@ export function styleLabel(type: TypeLike): string {
  * Tri des types (`wine_type`) pour les listes : par type de produit (vins puis huiles), selon son
  * `typeOrder` (fruité léger, moyen, intense ; un type absent de cet ordre vient après), puis par nom.
  */
-export function byWineType(a: TypeLike, b: TypeLike): number {
+export function byProductType(a: TypeLike, b: TypeLike): number {
   const kind = (t: TypeLike) => PRODUCT_KIND_LIST.indexOf(kindInfo(t));
   return kind(a) - kind(b) || typePosition(a) - typePosition(b) || (a?.name ?? "").localeCompare(b?.name ?? "", "fr");
 }
@@ -234,7 +234,7 @@ export function vintageProductLabel(v: VintageLike): string {
 }
 
 /** Tri des produits de l'admin : domaine, puis cuvée (ou appellation). */
-export function compareWines(a: ProductLike, b: ProductLike): number {
+export function compareProductsByProducer(a: ProductLike, b: ProductLike): number {
   const wineryA = a?.winery?.name?.toLowerCase() || "";
   const wineryB = b?.winery?.name?.toLowerCase() || "";
   if (wineryA !== wineryB) return wineryA.localeCompare(wineryB);
@@ -245,7 +245,7 @@ export function compareWines(a: ProductLike, b: ProductLike): number {
 
 /** Tri des sélecteurs de l'admin : domaine, cuvée (ou appellation), année décroissante, puis contenant. */
 export function compareVintages(a: VintageLike, b: VintageLike): number {
-  const byWine = compareWines(a.wine, b.wine);
+  const byWine = compareProductsByProducer(a.wine, b.wine);
   if (byWine) return byWine;
   const byYear = (b.year || b.production_year || 0) - (a.year || a.production_year || 0);
   return byYear || byVolume(a, b);

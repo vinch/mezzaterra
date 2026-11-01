@@ -339,7 +339,7 @@
         >
           <div class="bottle-wrap">
             <div class="halo" aria-hidden="true"></div>
-            <ProductBottle src={current.image_url} alt={productTitle(current.wine)} wine={style} height="min(19rem, 38vh)" />
+            <ProductBottle src={current.image_url} alt={productTitle(current.wine)} {style} height="min(19rem, 38vh)" />
           </div>
 
           <div class="identity">

@@ -126,7 +126,7 @@
     },
   ];
   const STATUS_TONES = Object.keys(STATUS_META);
-  const WINE_STYLES = allProductStyles();
+  const PRODUCT_STYLES = allProductStyles();
   const SHAPES: Token[] = [
     { name: "--r-sm", note: "Champs, boutons (6 px)" },
     { name: "--r-md", note: "Cartes, modales (10 px)" },
@@ -265,7 +265,7 @@
           <h3 class="ds-h3">Robes et produits</h3>
           <p class="t-muted">Dans <code>STYLES</code> (<code>src/lib/wine.ts</code>) : passer par <code>StyleDot</code>, <code>wineRobe()</code> ou <code>swatchStyle()</code>. Une huile d’olive prend le vert olive, d’après le <code>kind</code> de son type.</p>
           <div class="row">
-            {#each WINE_STYLES as s}
+            {#each PRODUCT_STYLES as s}
               <span class="inline"><StyleDot robe={s.key} size={14} />{s.label}</span>
             {/each}
           </div>
@@ -372,7 +372,7 @@
           <h3 class="ds-h3"><code>.ui-chip</code> · puces de filtre (<code>aria-pressed</code>) ou de choix (<code>&lt;label&gt;</code> autour d’un radio masqué)</h3>
           <div class="row">
             <button type="button" class="ui-chip" aria-pressed={!robeFilter} onclick={() => (robeFilter = "")}>Toutes</button>
-            {#each WINE_STYLES.slice(0, 4) as s}
+            {#each PRODUCT_STYLES.slice(0, 4) as s}
               <button type="button" class="ui-chip" aria-pressed={robeFilter === s.key} onclick={() => (robeFilter = robeFilter === s.key ? "" : s.key)}>
                 <StyleDot robe={s.key} />{s.label}<span class="count">12</span>
               </button>
@@ -405,7 +405,7 @@
                 {#snippet children({ describedby, invalid })}
                   <Select id="ds-robe" bind:value={robe} required {describedby} {invalid}>
                     <option value="">Sélectionner une robe</option>
-                    {#each WINE_STYLES as s}<option value={s.key}>{s.label}</option>{/each}
+                    {#each PRODUCT_STYLES as s}<option value={s.key}>{s.label}</option>{/each}
                   </Select>
                 {/snippet}
               </Field>

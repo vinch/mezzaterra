@@ -561,7 +561,7 @@
           <p class="proj-winery">{current.wine?.winery?.name}{current.year ? ` · ${current.year}` : ""}</p>
         </div>
       {/key}
-      <ProductBottle src={current.image_url} alt="" wine={style} height="58vh" />
+      <ProductBottle src={current.image_url} alt="" {style} height="58vh" />
     </div>
     <div class="proj-dots">
       {#each wines as w, i}
