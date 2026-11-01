@@ -21,7 +21,7 @@
     display: inline-flex;
     align-items: center;
     border-radius: 999px;
-    background: rgba(0, 0, 0, 0.25);
+    background: var(--mz-cave-sunk);
     border: 1px solid var(--mz-cave-line);
   }
 

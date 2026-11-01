@@ -41,7 +41,7 @@
     display: flex;
     align-items: flex-end;
     justify-content: center;
-    background: rgba(0, 0, 0, 0.55);
+    background: var(--mz-cave-backdrop);
   }
 
   .sheet {
