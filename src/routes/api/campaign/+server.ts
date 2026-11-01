@@ -5,7 +5,7 @@ import { env as publicEnv } from "$env/dynamic/public";
 import { env } from "$env/dynamic/private";
 import type { RequestHandler } from "./$types";
 import type { Database } from "$lib/database.types";
-import { escapeHtml, isValidEmail, resendPost } from "$lib/server/email";
+import { EMAIL_COLORS as C, emailLayout, escapeHtml, isValidEmail, resendPost } from "$lib/server/email";
 
 /**
  * Envoi de campagnes email via Resend (https://resend.com).
@@ -30,23 +30,23 @@ function renderHtml(text: string, origin: string, unsubscribeUrl: string | null,
     .split(/\n{2,}/)
     .map((p) =>
       p
-        .replace(/(https?:\/\/[^\s<]+)/g, '<a href="$1" style="color:#256169">$1</a>')
+        .replace(/(https?:\/\/[^\s<]+)/g, `<a href="$1" style="color:${C.teal}">$1</a>`)
         .replace(/\n/g, "<br>"),
     )
     .map((p) => `<p style="margin:0 0 16px;line-height:1.6">${p}</p>`)
     .join("");
 
-  return `<!doctype html><html lang="fr"><body style="margin:0;background:#e8e5de;padding:24px 12px;font-family:Helvetica,Arial,sans-serif;color:#1d2a2c">
-<table role="presentation" width="100%" cellspacing="0" cellpadding="0"><tr><td align="center">
-<table role="presentation" width="100%" style="max-width:560px;background:#f4f2ed;border-radius:14px;padding:32px 28px" cellspacing="0" cellpadding="0"><tr><td>
-<img src="${origin}/logo-simplified.png" alt="Mezzaterra" width="160" style="display:block;margin:0 auto 20px">
+  return emailLayout(
+    `<img src="${origin}/logo-simplified.png" alt="Mezzaterra" width="160" style="display:block;margin:0 auto 20px">
 ${paragraphs}
-${hasImage ? '<p style="margin:0 0 16px;color:#66787a;font-size:14px">Le visuel de la soirée est en pièce jointe.</p>' : ""}
-</td></tr></table>
-<p style="font-size:12px;color:#66787a;margin:16px 0 0">Mezzaterra — vins des Abruzzes${
-    unsubscribeUrl ? ` · <a href="${unsubscribeUrl}" style="color:#66787a">Se désinscrire</a>` : ""
-  }</p>
-</td></tr></table></body></html>`;
+${hasImage ? `<p style="margin:0 0 16px;color:${C.muted};font-size:14px">Le visuel de la soirée est en pièce jointe.</p>` : ""}`,
+    {
+      padding: "32px 28px",
+      footer: `<p style="font-size:12px;color:${C.muted};margin:16px 0 0">Mezzaterra — vins des Abruzzes${
+        unsubscribeUrl ? ` · <a href="${unsubscribeUrl}" style="color:${C.muted}">Se désinscrire</a>` : ""
+      }</p>`,
+    },
+  );
 }
 
 /**

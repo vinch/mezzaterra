@@ -29,8 +29,16 @@
   --mz-danger: #a3352f;
   --mz-warning: #a86b12;
 
+  /* Blanc pur : fond des champs, reflets. */
+  --mz-white: #fff;
+  /* Sur un aplat de marque (teal, rouge) : texte, retours d'un formulaire (newsletter de l'accueil). */
+  --mz-on-brand: var(--mz-white);
+  --mz-on-brand-success: #cfeedd;
+  --mz-on-brand-danger: #ffd2cc;
+
   /* Rouge de marque (accents du site). Les couleurs de robe vivent dans STYLES (lib/wine.ts). */
   --mz-wine-red: #7a1f2e;
+  --mz-wine-red-deep: #5e1522; /* survol */
   /* Or des étoiles (notes des invités). */
   --mz-gold: #e0b04a;
 
@@ -43,11 +51,14 @@
   --mz-cave-muted: rgba(236, 230, 218, 0.62);
   --mz-cave-faint: rgba(236, 230, 218, 0.25); /* vin à venir, anneau du vin affiché */
   --mz-cave-sunk: rgba(0, 0, 0, 0.25); /* creux (compteur de bouteilles) */
-  --mz-cave-backdrop: rgba(0, 0, 0, 0.55); /* fond derrière une feuille */
   --mz-cave-success: #8fd1a5;
   --mz-cave-warning: #f0d08a;
   --mz-cave-danger: #f19a9a;
   --mz-live: #e4566b; /* pastille « en direct » */
+
+  /* Carte des Abruzzes (AbruzzoMap) ; terres et frontières reprennent les surfaces. */
+  --mz-map-sea: #dfe7e4;
+  --mz-map-label: #a9a497; /* noms des régions voisines */
 
   /* Typo */
   --mz-font-display: "Fraunces", "Iowan Old Style", Georgia, serif;
@@ -60,6 +71,8 @@
   --mz-radius-pill: 999px; /* boutons, puces, barres arrondies (les ronds restent à 50 %) */
   --mz-shadow-sm: 0 1px 2px rgba(29, 42, 44, 0.06), 0 1px 1px rgba(29, 42, 44, 0.04);
   --mz-shadow: 0 10px 30px -12px rgba(29, 42, 44, 0.25), 0 2px 6px rgba(29, 42, 44, 0.06);
+  --mz-shadow-lg: 0 30px 80px -20px rgba(29, 42, 44, 0.45); /* modale */
+  --mz-backdrop: color-mix(in srgb, var(--mz-cave-bg) 55%, transparent); /* fond derrière une modale (site) ou une feuille (mode live) */
   --mz-ease: cubic-bezier(0.2, 0.8, 0.2, 1);
 }
 

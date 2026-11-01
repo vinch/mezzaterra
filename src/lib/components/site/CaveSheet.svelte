@@ -80,7 +80,7 @@
     display: flex;
     align-items: flex-end;
     justify-content: center;
-    background: var(--mz-cave-backdrop);
+    background: var(--mz-backdrop);
   }
 
   .sheet {

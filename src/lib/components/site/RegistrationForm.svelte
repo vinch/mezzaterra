@@ -178,7 +178,7 @@
     align-items: center;
     border: 1px solid var(--mz-line);
     border-radius: var(--mz-radius-pill);
-    background: #fff;
+    background: var(--mz-white);
     width: fit-content;
   }
 

@@ -2,7 +2,7 @@ import { json, error } from "@sveltejs/kit";
 import { env } from "$env/dynamic/private";
 import type { RequestHandler } from "./$types";
 import { CONTACT_EMAIL, CONTACT_MIN_FILL_MS, contactReason } from "$lib/contact";
-import { escapeHtml, isValidEmail, resendPost } from "$lib/server/email";
+import { EMAIL_COLORS as C, emailLayout, escapeHtml, isValidEmail, resendPost } from "$lib/server/email";
 import { supabaseAdmin } from "$lib/server/supabaseAdmin";
 
 /**
@@ -49,17 +49,14 @@ function renderHtml(rows: [string, string][], message: string): string {
     .filter(([, v]) => v)
     .map(
       ([k, v]) =>
-        `<tr><td style="padding:4px 16px 4px 0;color:#66787a;white-space:nowrap;vertical-align:top">${k}</td><td style="padding:4px 0">${escapeHtml(v)}</td></tr>`,
+        `<tr><td style="padding:4px 16px 4px 0;color:${C.muted};white-space:nowrap;vertical-align:top">${k}</td><td style="padding:4px 0">${escapeHtml(v)}</td></tr>`,
     )
     .join("");
   const body = escapeHtml(message).replace(/\n/g, "<br>");
-  return `<!doctype html><html lang="fr"><body style="margin:0;background:#e8e5de;padding:24px 12px;font-family:Helvetica,Arial,sans-serif;color:#1d2a2c">
-<table role="presentation" width="100%" style="max-width:560px;margin:0 auto;background:#f4f2ed;border-radius:14px;padding:28px" cellspacing="0" cellpadding="0"><tr><td>
-<p style="margin:0 0 16px;font-size:12px;letter-spacing:0.14em;text-transform:uppercase;color:#5b7d7f">Nouveau message — mezzaterra.be</p>
+  return emailLayout(`<p style="margin:0 0 16px;font-size:12px;letter-spacing:0.14em;text-transform:uppercase;color:${C.tealSoft}">Nouveau message — mezzaterra.be</p>
 <table role="presentation" cellspacing="0" cellpadding="0" style="font-size:15px;margin-bottom:20px">${table}</table>
 <p style="margin:0;line-height:1.6;font-size:15px">${body}</p>
-<p style="margin:24px 0 0;font-size:13px;color:#66787a">Répondez directement à cet email pour écrire à l'expéditeur.</p>
-</td></tr></table></body></html>`;
+<p style="margin:24px 0 0;font-size:13px;color:${C.muted}">Répondez directement à cet email pour écrire à l'expéditeur.</p>`);
 }
 
 export const POST: RequestHandler = async ({ request, getClientAddress }) => {

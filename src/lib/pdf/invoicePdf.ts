@@ -11,6 +11,7 @@ import {
   saleItemDescription,
   vatBreakdown,
 } from "$lib/sales";
+import { pdfFileSlug } from "./assets";
 import { downloadLineItemsPdf, pdfEur, type LineItemsPdf } from "./lineItemsPdf";
 
 /** Facture PDF d'une vente ; attribue son numéro si elle n'en a pas encore. Lève une erreur lisible. */
@@ -106,6 +107,6 @@ export async function downloadInvoicePdf(saleId: string): Promise<void> {
     summary,
     totals,
     blocks,
-    fileName: `Facture_${invoiceNumber.replace(/[^a-zA-Z0-9]/g, "_")}.pdf`,
+    fileName: `Facture_${pdfFileSlug(invoiceNumber)}.pdf`,
   });
 }

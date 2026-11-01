@@ -38,10 +38,11 @@ menus de ligne, chiffres, accessibilité, textes).
   `STYLES` (`src/lib/wine.ts`) s’il en a une propre. Un lot
   (`wine_vintage`) = une année et un contenant (`volume_ml`) : prix et stock
   sont par contenant ; libellés via `vintageLabel`, `vintageVolume`…
-- **Nouveau composant** : seulement si rien d’existant ne convient. Il va dans
-  `src/lib/ui/`, utilise les tokens, et est ajouté à la page `/design-system`
-  dans la même pull request (idem pour une nouvelle variante, un nouveau token
-  ou une nouvelle règle).
+- **Nouveau composant** : seulement si rien d’existant ne convient. Il utilise
+  les tokens et est ajouté à la page `/design-system` dans la même pull request
+  (idem pour une nouvelle variante, un nouveau token ou une nouvelle règle).
+  Gestion : dans `src/lib/ui/`. Site public : dans `src/lib/components/site/`,
+  cité sur `/design-system` avec les primitives `mz-`.
 
 ## Avant de pousser du code
 

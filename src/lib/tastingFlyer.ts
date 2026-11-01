@@ -1,6 +1,7 @@
 import { base } from "$app/paths";
 import { formatTime } from "./dates";
 import { TASTING_ADDRESS } from "./publicData";
+import { loadImage } from "./images";
 
 /** Visuel « Prochaine dégustation » (format portrait réseaux sociaux / WhatsApp). */
 export const FLYER_WIDTH = 960;
@@ -60,15 +61,6 @@ export function formatFlyerPrice(price: number): string {
     ? String(price)
     : price.toFixed(2).replace(".", ",");
   return `${amount}€ par personne`;
-}
-
-function loadImage(src: string): Promise<HTMLImageElement> {
-  return new Promise((resolve, reject) => {
-    const img = new Image();
-    img.onload = () => resolve(img);
-    img.onerror = () => reject(new Error(`Image introuvable : ${src}`));
-    img.src = src;
-  });
 }
 
 async function loadFonts(): Promise<void> {

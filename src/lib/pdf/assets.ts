@@ -1,5 +1,6 @@
 import { base } from "$app/paths";
 import type jsPDF from "jspdf";
+import { loadImage } from "$lib/images";
 
 /** Polices et images partagées par les générateurs PDF (documents, fiches de table). */
 
@@ -42,46 +43,53 @@ function loadRobotoBase64(): Promise<[string, string] | null> {
   return robotoBase64;
 }
 
-/** Roboto (Identity-H) : €, accents, etc. — Helvetica WinAnsi corrompt l’Unicode. */
-export async function attachRobotoPdf(doc: jsPDF): Promise<boolean> {
-  if (typeof fetch === "undefined") return false;
+/**
+ * Roboto (Identity-H) : €, accents, etc. — Helvetica WinAnsi corrompt l’Unicode.
+ * Renvoie la police à utiliser : Roboto si elle a pu être chargée, sinon Helvetica.
+ */
+export async function attachRobotoPdf(doc: jsPDF): Promise<"Roboto" | "helvetica"> {
+  if (typeof fetch === "undefined") return "helvetica";
   const fonts = await loadRobotoBase64();
-  if (!fonts) return false;
+  if (!fonts) return "helvetica";
   const regName = "Roboto-Regular.ttf";
   const boldName = "Roboto-Bold.ttf";
   doc.addFileToVFS(regName, fonts[0]);
   doc.addFont(regName, "Roboto", "normal");
   doc.addFileToVFS(boldName, fonts[1]);
   doc.addFont(boldName, "Roboto", "bold");
-  return true;
+  return "Roboto";
 }
 
-/** jsPDF n’accepte pas le SVG : rasterisation côté navigateur, assez large pour rester net une fois réduit en mm. */
-export async function svgToPng(
-  url: string,
-  widthPx = 1600,
-): Promise<{ dataUrl: string; aspect: number } | null> {
+/** Image prête pour `doc.addImage`, avec son ratio hauteur / largeur. */
+export type PdfImage = { dataUrl: string; aspect: number };
+
+/** Ratio hauteur / largeur ; null si l’image n’a pas de dimensions. */
+function aspectOf(img: HTMLImageElement): number | null {
+  const width = img.naturalWidth || img.width;
+  const height = img.naturalHeight || img.height;
+  return width && height ? height / width : null;
+}
+
+/**
+ * SVG de `static/` (ex. « /logo-black.svg ») rasterisé : jsPDF n’accepte pas le SVG. Assez large pour
+ * rester net une fois réduit en mm.
+ */
+export async function svgToPng(path: string, widthPx = 1600): Promise<PdfImage | null> {
   if (typeof fetch === "undefined" || typeof document === "undefined") {
     return null;
   }
   try {
-    const res = await fetch(url);
+    const res = await fetch(`${base}${path}`);
     if (!res.ok) return null;
     const blob = new Blob([await res.text()], {
       type: "image/svg+xml;charset=utf-8",
     });
     const objectUrl = URL.createObjectURL(blob);
     try {
-      const img = new Image();
-      await new Promise<void>((resolve, reject) => {
-        img.onload = () => resolve();
-        img.onerror = () => reject(new Error("svg"));
-        img.src = objectUrl;
-      });
-      const iw = img.naturalWidth || img.width;
-      const ih = img.naturalHeight || img.height;
-      if (!iw || !ih) return null;
-      const heightPx = Math.max(1, Math.round(widthPx * (ih / iw)));
+      const img = await loadImage(objectUrl);
+      const aspect = aspectOf(img);
+      if (!aspect) return null;
+      const heightPx = Math.max(1, Math.round(widthPx * aspect));
       const canvas = document.createElement("canvas");
       canvas.width = widthPx;
       canvas.height = heightPx;
@@ -97,4 +105,32 @@ export async function svgToPng(
   } catch {
     return null;
   }
+}
+
+/** PNG de `static/` (ex. « /qr.png ») tel quel, en data URL. */
+export async function staticPng(path: string): Promise<PdfImage | null> {
+  if (typeof fetch === "undefined") return null;
+  try {
+    const res = await fetch(`${base}${path}`);
+    if (!res.ok) return null;
+    const blob = await res.blob();
+    const dataUrl = await new Promise<string>((resolve, reject) => {
+      const fr = new FileReader();
+      fr.onload = () => resolve(String(fr.result));
+      fr.onerror = () => reject(new Error("read"));
+      fr.readAsDataURL(blob);
+    });
+    const aspect = aspectOf(await loadImage(dataUrl));
+    return aspect ? { dataUrl, aspect } : null;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Morceau de nom de fichier sûr : chaque caractère qui n’est ni lettre ni chiffre devient « _ »
+ * (un par caractère, sans fusion : les noms des factures et bons de commande archivés ne bougent pas).
+ */
+export function pdfFileSlug(s: string): string {
+  return s.replace(/[^a-zA-Z0-9]/g, "_");
 }

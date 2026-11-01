@@ -2,6 +2,7 @@ import { supabase } from "$lib/supabase";
 import { parseIsoDate } from "$lib/dates";
 import { vintageProductLabel } from "$lib/wine";
 import { LINE_ITEMS_SELECT } from "$lib/manageData";
+import { pdfFileSlug } from "./assets";
 import { downloadLineItemsPdf, pdfEur, type LineItemsPdf } from "./lineItemsPdf";
 
 /** Libellés du document selon la langue du fournisseur. */
@@ -114,6 +115,6 @@ export async function downloadOrderPdf(orderId: string, lang: OrderPdfLanguage):
     })),
     totals: [{ text: `${t.totalLabel}: ${pdfEur(order.total_price)}` }],
     blocks,
-    fileName: `${title}_${order.supplier.name.replace(/[^a-zA-Z0-9]/g, "_")}_${order.date.slice(0, 10)}.pdf`,
+    fileName: `${title}_${pdfFileSlug(order.supplier.name)}_${order.date.slice(0, 10)}.pdf`,
   });
 }

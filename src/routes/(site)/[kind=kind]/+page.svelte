@@ -4,6 +4,7 @@
   import { fade } from "svelte/transition";
   import { page } from "$app/stores";
   import ProductCard from "$lib/components/site/ProductCard.svelte";
+  import WineryLinkCard from "$lib/components/site/WineryLinkCard.svelte";
   import { combinedAvailability, fetchAvailability, firstAvailable, type AvailabilityOf } from "$lib/publicData";
   import { fold } from "$lib/format";
   import { kindCount, PRODUCT_KINDS, productHref } from "$lib/productKinds";
@@ -94,13 +95,11 @@
     {#if wineries.length}
       <nav class="wineries" aria-label="Les domaines">
         {#each wineries as g (g.winery.id)}
-          <a class="mz-card winery-card" href="/domaines/{g.winery.id}">
-            <span class="winery-card-name">{g.winery.name}</span>
-            <span class="mz-muted">
-              {[g.winery.city, kindCount(kind, g.items.length)].filter(Boolean).join(" · ")}
-            </span>
-            <span class="arrow" aria-hidden="true">→</span>
-          </a>
+          <WineryLinkCard
+            id={g.winery.id}
+            name={g.winery.name}
+            detail={[g.winery.city, kindCount(kind, g.items.length)].filter(Boolean).join(" · ")}
+          />
         {/each}
       </nav>
     {/if}
@@ -160,7 +159,7 @@
             <a class="mz-btn mz-btn--ghost mz-btn--sm" href="/domaines/{group.winery.id}">Découvrir le domaine →</a>
           {/if}
         </header>
-        <div class="grid">
+        <div class="mz-product-grid">
           {#each group.items as { vintage: v, formats } (v.id)}
             <div animate:flip={{ duration: 250 }}>
               <ProductCard
@@ -246,7 +245,7 @@
   .filter-chip.on {
     background: var(--mz-teal);
     border-color: var(--mz-teal);
-    color: #fff;
+    color: var(--mz-on-brand);
   }
 
   .toggle input {
@@ -296,52 +295,6 @@
     grid-template-columns: repeat(auto-fill, minmax(min(100%, 260px), 1fr));
     gap: 1rem;
     margin-top: 1.75rem;
-  }
-
-  .winery-card {
-    display: grid;
-    grid-template-columns: 1fr auto;
-    gap: 0.15rem 1rem;
-    align-items: center;
-    padding: 1rem 1.25rem;
-    text-decoration: none;
-    color: inherit;
-    transition:
-      border-color 0.15s ease,
-      transform 0.15s ease;
-  }
-
-  .winery-card:hover {
-    border-color: var(--mz-teal);
-    transform: translateY(-2px);
-  }
-
-  .winery-card-name {
-    font-family: var(--mz-font-display);
-    font-size: 1.3rem;
-    color: var(--mz-teal);
-  }
-
-  .winery-card .mz-muted {
-    grid-column: 1;
-    font-size: 0.88rem;
-  }
-
-  .arrow {
-    grid-column: 2;
-    grid-row: 1 / span 2;
-    color: var(--mz-teal);
-    font-size: 1.2rem;
-  }
-
-  .grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(min(100%, 340px), 1fr));
-    gap: 1.25rem;
-  }
-
-  .grid > div {
-    display: grid;
   }
 
   @media (max-width: 720px) {

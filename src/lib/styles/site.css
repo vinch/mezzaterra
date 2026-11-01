@@ -26,6 +26,12 @@
   color: var(--mz-teal-soft);
 }
 
+/* En titre de rubrique (h2, h3 : « Notes de dégustation », « Cépages »…) : sur sa propre ligne. */
+.mz-eyebrow--heading {
+  display: flex;
+  margin: 0 0 0.5rem;
+}
+
 .mz-display {
   font-family: var(--mz-font-display);
   font-weight: 500;
@@ -59,6 +65,61 @@
   color: var(--mz-muted);
 }
 
+/* Lien de retour discret en tête de fiche (« ← Toute la cave »). */
+.mz-back {
+  width: fit-content;
+  color: var(--mz-muted);
+  font-size: 0.9rem;
+  text-decoration: none;
+}
+
+.mz-back:hover {
+  color: var(--mz-teal);
+}
+
+/* Fiche technique (dl) : intitulés en petites capitales, valeurs en police d'affichage. */
+.mz-facts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1.25rem 2rem;
+  margin: 0;
+}
+
+.mz-facts > div {
+  display: flex;
+  flex-direction: column;
+}
+
+.mz-facts dt {
+  font-size: 0.72rem;
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--mz-muted);
+}
+
+.mz-facts dd {
+  margin: 0;
+  font-family: var(--mz-font-display);
+  font-size: 1.5rem;
+  color: var(--mz-ink);
+}
+
+/* Valeur textuelle (cépages, disponibilité) : plus petite que les chiffres. */
+.mz-facts .mz-facts-text {
+  font-size: 1.15rem;
+  line-height: 1.6;
+}
+
+/* Entre deux filets, sous le titre d'une fiche. */
+.mz-facts--ruled {
+  margin: 1rem 0 0.5rem;
+  padding: 1rem 0;
+  border-top: 1px solid var(--mz-line-soft);
+  border-bottom: 1px solid var(--mz-line-soft);
+}
+
+
 /* ——— Boutons ——— */
 .mz-btn {
   display: inline-flex;
@@ -69,7 +130,7 @@
   border-radius: var(--mz-radius-pill);
   border: 1px solid var(--mz-teal);
   background: var(--mz-teal);
-  color: #fff;
+  color: var(--mz-on-brand);
   font-family: var(--mz-font-body);
   font-size: 0.95rem;
   font-weight: 600;
@@ -85,7 +146,7 @@
 .mz-btn:hover:not(:disabled) {
   background: var(--mz-teal-deep);
   transform: translateY(-1px);
-  box-shadow: 0 6px 16px -8px rgba(37, 97, 105, 0.7);
+  box-shadow: 0 6px 16px -8px color-mix(in srgb, var(--mz-teal) 70%, transparent);
 }
 
 .mz-btn:disabled {
@@ -144,6 +205,17 @@
   box-shadow: var(--mz-shadow-sm);
 }
 
+/* Grille de cartes produit : chaque cellule s'étire à la hauteur de sa rangée. */
+.mz-product-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 340px), 1fr));
+  gap: 1.25rem;
+}
+
+.mz-product-grid > * {
+  display: grid;
+}
+
 .mz-chip {
   display: inline-flex;
   align-items: center;
@@ -163,7 +235,7 @@
   border-radius: 50%;
   display: inline-block;
   flex-shrink: 0;
-  box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.08);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--mz-ink) 8%, transparent);
 }
 
 /* ——— Formulaires ——— */
@@ -189,7 +261,7 @@
   padding: 0.7rem 0.85rem;
   border-radius: 10px;
   border: 1px solid var(--mz-line);
-  background-color: #fff;
+  background-color: var(--mz-white);
   color: var(--mz-ink);
   transition:
     border-color 0.15s ease,

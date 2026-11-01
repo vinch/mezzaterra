@@ -1,6 +1,6 @@
-import { base } from "$app/paths";
 import jsPDF from "jspdf";
-import { attachRobotoPdf, svgToPng } from "./assets";
+import { attachRobotoPdf, staticPng, svgToPng, type PdfImage } from "./assets";
+import { parseIsoDate } from "$lib/dates";
 import { wineRobe, wineTypeLabel, withVolume } from "$lib/wine";
 import { kindInfo, PRODUCT_KIND_LIST, PRODUCT_KINDS, type ProductKind } from "$lib/productKinds";
 import {
@@ -37,11 +37,6 @@ function formatEur(n: number | null): string {
   return `${n.toFixed(2).replace(".", ",")} €`;
 }
 
-/** Numérotation lisible en PDF (① etc. → $ / lettres avec Helvetica). */
-function noteEntryNumber(n: number): string {
-  return `${n}.`;
-}
-
 function newPageIfNeeded(
   doc: jsPDF,
   y: number,
@@ -67,37 +62,6 @@ function fitLine(
   return Array.isArray(lines) ? lines : [lines];
 }
 
-/** PNG statique (ex. QR) pour en-tête PDF. */
-async function loadStaticPngDataUrl(
-  relativePath: string,
-): Promise<{ dataUrl: string; aspect: number } | null> {
-  if (typeof fetch === "undefined") return null;
-  try {
-    const path = relativePath.startsWith("/") ? relativePath : `/${relativePath}`;
-    const res = await fetch(`${base}${path}`);
-    if (!res.ok) return null;
-    const blob = await res.blob();
-    const dataUrl = await new Promise<string>((resolve, reject) => {
-      const fr = new FileReader();
-      fr.onload = () => resolve(String(fr.result));
-      fr.onerror = () => reject(new Error("read"));
-      fr.readAsDataURL(blob);
-    });
-    const img = new Image();
-    await new Promise<void>((resolve, reject) => {
-      img.onload = () => resolve();
-      img.onerror = () => reject(new Error("img"));
-      img.src = dataUrl;
-    });
-    const iw = img.naturalWidth || img.width;
-    const ih = img.naturalHeight || img.height;
-    if (!iw || !ih) return null;
-    return { dataUrl, aspect: ih / iw };
-  } catch {
-    return null;
-  }
-}
-
 function drawFillInLine(
   doc: jsPDF,
   xLeft: number,
@@ -117,20 +81,22 @@ function drawFillInLine(
   doc.setDrawColor(0, 0, 0);
 }
 
-/** Liste de prix : logo, champs client au centre, QR à droite. */
-async function drawPdfPricesHeader(
-  doc: jsPDF,
-  pageW: number,
-  margin: number,
-  startY: number,
-  fontFamily: string,
-): Promise<number> {
-  const headerTopY = startY;
-  const [logo, qr] = await Promise.all([
-    svgToPng(`${base}/logo-black.svg`, 3000),
-    loadStaticPngDataUrl("/qr.png"),
-  ]);
-  const logoWmm = 48;
+type HeaderImages = [logo: PdfImage | null, qr: PdfImage | null];
+
+/** Logo et QR des en-têtes, rasterisés une fois par session (nouvel essai si l'un a échoué). */
+let headerImages: Promise<HeaderImages> | null = null;
+
+function loadHeaderImages(): Promise<HeaderImages> {
+  headerImages ??= Promise.all([svgToPng("/logo-black.svg", 3000), staticPng("/qr.png")]).then((images) => {
+    if (!images[0] || !images[1]) headerImages = null;
+    return images;
+  });
+  return headerImages;
+}
+
+/** En-tête commun : logo à gauche, QR à droite (moitié de la hauteur du logo, centré sur lui). Logo absent : largeur 0. */
+function drawLogoAndQr(doc: jsPDF, [logo, qr]: HeaderImages, pageW: number, margin: number, top: number) {
+  const logoWmm = logo ? 48 : 0;
   let logoHmm = 0;
   let qrHmm = 0;
   let qrWmm = 0;
@@ -138,16 +104,28 @@ async function drawPdfPricesHeader(
 
   if (logo) {
     logoHmm = logoWmm * logo.aspect;
-    doc.addImage(logo.dataUrl, "PNG", margin, headerTopY, logoWmm, logoHmm);
+    doc.addImage(logo.dataUrl, "PNG", margin, top, logoWmm, logoHmm);
   }
   if (qr) {
     qrHmm = logoHmm > 0 ? logoHmm / 2 : 12;
     qrWmm = qrHmm / qr.aspect;
     qrX = pageW - margin - qrWmm;
-    const qrY =
-      logoHmm > 0 ? headerTopY + (logoHmm - qrHmm) / 2 : headerTopY;
+    const qrY = logoHmm > 0 ? top + (logoHmm - qrHmm) / 2 : top;
     doc.addImage(qr.dataUrl, "PNG", qrX, qrY, qrWmm, qrHmm);
   }
+  return { logoWmm, logoHmm, qrHmm, qrWmm, qrX };
+}
+
+/** Liste de prix : logo, champs client au centre, QR à droite. */
+function drawPdfPricesHeader(
+  doc: jsPDF,
+  images: HeaderImages,
+  pageW: number,
+  margin: number,
+  startY: number,
+  fontFamily: string,
+): number {
+  const { logoWmm, logoHmm, qrHmm, qrWmm, qrX } = drawLogoAndQr(doc, images, pageW, margin, startY);
 
   const midLeft = margin + logoWmm + 5;
   const midRight = qrWmm > 0 ? qrX - 4 : pageW - margin;
@@ -161,7 +139,7 @@ async function drawPdfPricesHeader(
   const fieldsBlockHmm = customerFields.length * fieldStepMm;
   const bandHmm = Math.max(logoHmm, qrHmm, fieldsBlockHmm);
   const fieldsStartY =
-    headerTopY + (bandHmm - fieldsBlockHmm) / 2 + 2.8;
+    startY + (bandHmm - fieldsBlockHmm) / 2 + 2.8;
 
   doc.setFont(fontFamily, "normal");
   doc.setFontSize(8.5);
@@ -175,41 +153,20 @@ async function drawPdfPricesHeader(
   }
   doc.setTextColor(0, 0, 0);
 
-  return headerTopY + bandHmm + 6;
+  return startY + bandHmm + 6;
 }
 
 /** Notes de dégustation : logo, date à droite du logo (centrée), QR à droite. */
-async function drawPdfNotesHeader(
+function drawPdfNotesHeader(
   doc: jsPDF,
+  images: HeaderImages,
   pageW: number,
   margin: number,
   startY: number,
   fontFamily: string,
   tastingDate: Date,
-): Promise<number> {
-  const headerTopY = startY;
-  const [logo, qr] = await Promise.all([
-    svgToPng(`${base}/logo-black.svg`, 3000),
-    loadStaticPngDataUrl("/qr.png"),
-  ]);
-  const logoWmm = 48;
-  let logoHmm = 0;
-  let qrHmm = 0;
-  let qrWmm = 0;
-  let qrX = pageW - margin;
-
-  if (logo) {
-    logoHmm = logoWmm * logo.aspect;
-    doc.addImage(logo.dataUrl, "PNG", margin, headerTopY, logoWmm, logoHmm);
-  }
-  if (qr) {
-    qrHmm = logoHmm > 0 ? logoHmm / 2 : 12;
-    qrWmm = qrHmm / qr.aspect;
-    qrX = pageW - margin - qrWmm;
-    const qrY =
-      logoHmm > 0 ? headerTopY + (logoHmm - qrHmm) / 2 : headerTopY;
-    doc.addImage(qr.dataUrl, "PNG", qrX, qrY, qrWmm, qrHmm);
-  }
+): number {
+  const { logoWmm, logoHmm, qrHmm } = drawLogoAndQr(doc, images, pageW, margin, startY);
 
   const bandHmm = Math.max(logoHmm, qrHmm, 10);
   const dateStr = tastingDate.toLocaleDateString("fr-CH", {
@@ -217,18 +174,18 @@ async function drawPdfNotesHeader(
     month: "long",
     year: "numeric",
   });
-  const dateX = margin + (logoHmm > 0 ? logoWmm : 0) + 5;
+  const dateX = margin + logoWmm + 5;
   const dateFontSize = 10;
   doc.setFont(fontFamily, "normal");
   doc.setFontSize(dateFontSize);
   doc.setTextColor(80, 80, 80);
   const dateDims = doc.getTextDimensions(dateStr);
-  const dateY = headerTopY + (bandHmm + dateDims.h) / 2;
+  const dateY = startY + (bandHmm + dateDims.h) / 2;
   doc.text(dateStr, dateX, dateY);
   doc.setTextColor(0, 0, 0);
 
   if (bandHmm > 0) {
-    return headerTopY + bandHmm + 6;
+    return startY + bandHmm + 6;
   }
   return startY + 4;
 }
@@ -248,11 +205,10 @@ export async function downloadPricesPdf(
   const margin = 14;
   let y = margin;
 
-  const useRoboto = await attachRobotoPdf(doc);
-  const fontFamily = useRoboto ? "Roboto" : "helvetica";
+  const [fontFamily, images] = await Promise.all([attachRobotoPdf(doc), loadHeaderImages()]);
   doc.setFont(fontFamily, "normal");
 
-  y = await drawPdfPricesHeader(doc, pageW, margin, y, fontFamily);
+  y = drawPdfPricesHeader(doc, images, pageW, margin, y, fontFamily);
 
   const colWinery = margin;
   const colWine = margin + 38;
@@ -346,12 +302,6 @@ export async function downloadPricesPdf(
   doc.save(filename);
 }
 
-function parseTastingDate(isoDate: string): Date {
-  const [y, m, d] = isoDate.split("-").map((x) => parseInt(x, 10));
-  if (!y || !m || !d) return new Date();
-  return new Date(y, m - 1, d);
-}
-
 export type NotesPdfOptions = {
   /** Date de la dégustation (YYYY-MM-DD). */
   tastingDate?: string;
@@ -372,15 +322,16 @@ export async function downloadNotesPdf(
   const textW = pageW - 2 * margin;
   let y = margin;
 
-  const useRoboto = await attachRobotoPdf(doc);
-  const fontFamily = useRoboto ? "Roboto" : "helvetica";
+  const [fontFamily, images] = await Promise.all([attachRobotoPdf(doc), loadHeaderImages()]);
   doc.setFont(fontFamily, "normal");
 
-  const tastingDate = options.tastingDate
-    ? parseTastingDate(options.tastingDate)
+  /* Date absente ou incomplète : celle du jour, comme avant. */
+  const tastingDate = /^\d{4}-\d{2}-\d{2}/.test(options.tastingDate ?? "")
+    ? parseIsoDate(options.tastingDate!)
     : new Date();
-  y = await drawPdfNotesHeader(
+  y = drawPdfNotesHeader(
     doc,
+    images,
     pageW,
     margin,
     y,
@@ -390,7 +341,8 @@ export async function downloadNotesPdf(
 
   let idx = 1;
   for (const v of rows) {
-    const title = `${noteEntryNumber(idx)} ${v.wineryName} ${v.wineName}`;
+    /* « 1. », pas « ① » : Helvetica (police de repli) ne l’a pas. */
+    const title = `${idx}. ${v.wineryName} ${v.wineName}`;
     const grapes = v.grapeNames.length ? v.grapeNames.join(", ") : "—";
     const kind = kindInfo(v.kind);
     const abvStr = kind.hasAbv ? ` / ${v.abv != null ? `${v.abv}%` : "—"}` : "";

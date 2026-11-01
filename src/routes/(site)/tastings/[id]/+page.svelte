@@ -5,7 +5,7 @@
   import ProductCard from "$lib/components/site/ProductCard.svelte";
   import RegistrationForm from "$lib/components/site/RegistrationForm.svelte";
   import { fetchAvailability, isPrivateTasting, TASTING_ADDRESS, tastingTitle, type AvailabilityOf } from "$lib/publicData";
-  import { buildIcs, daysUntil, downloadTextFile, formatDateLong, formatTime, isLiveNow } from "$lib/dates";
+  import { buildIcs, daysAwayLabel, daysUntil, downloadTextFile, formatDateLong, formatTime, isLiveNow } from "$lib/dates";
   import { wineStyle, wineTitle } from "$lib/wine";
   import { formatEUR } from "$lib/format";
   import type { WineVintage } from "$lib/types";
@@ -45,7 +45,8 @@
     downloadTextFile("degustation-mezzaterra.ics", ics, "text/calendar;charset=utf-8");
   }
 
-  let statusLabel = $derived(isLive ? (delta === 0 ? "Aujourd’hui" : "En direct") : isUpcoming ? (delta === 1 ? "Demain" : `Dans ${delta} jours`) : "Dégustation passée");
+  /* La veille au soir encore en cours (delta -1) : « En direct ». */
+  let statusLabel = $derived(isLive && delta < 0 ? "En direct" : delta >= 0 ? daysAwayLabel(delta) : "Dégustation passée");
 </script>
 
 <svelte:head>
@@ -71,7 +72,7 @@
 {:else}
   <section class="hero">
     <div class="mz-container hero-inner mz-rise">
-      <a href="/tastings" class="back">← Toutes les dégustations</a>
+      <a href="/tastings" class="mz-back">← Toutes les dégustations</a>
       <span class="mz-eyebrow status" class:live={isLive}>
         {#if isLive}<span class="pulse" aria-hidden="true"></span>{/if}
         {statusLabel}
@@ -100,7 +101,7 @@
 
       {#if wineVintages.length > 1}
         <div class="journey" aria-label="Parcours de la dégustation">
-          <span class="journey-label">Le parcours</span>
+          <span class="mz-eyebrow journey-label">Le parcours</span>
           <div class="journey-track">
             <span
               class="journey-line"
@@ -121,7 +122,7 @@
 
   <section class="mz-container mz-section">
     {#if wineVintages.length > 0}
-      <div class="grid">
+      <div class="mz-product-grid">
         {#each wineVintages as v, i (v.id)}
           <div class="mz-rise" style="animation-delay: {Math.min(i, 8) * 60}ms">
             <ProductCard
@@ -175,7 +176,7 @@
   .hero {
     padding: 2.5rem 0 2rem;
     background:
-      radial-gradient(ellipse 60% 80% at 90% 0%, rgba(37, 97, 105, 0.1), transparent 70%),
+      radial-gradient(ellipse 60% 80% at 90% 0%, color-mix(in srgb, var(--mz-teal) 10%, transparent), transparent 70%),
       var(--mz-paper);
     border-bottom: 1px solid var(--mz-line-soft);
   }
@@ -184,17 +185,6 @@
     display: flex;
     flex-direction: column;
     gap: 0.9rem;
-  }
-
-  .back {
-    color: var(--mz-muted);
-    text-decoration: none;
-    font-size: 0.9rem;
-    width: fit-content;
-  }
-
-  .back:hover {
-    color: var(--mz-teal);
   }
 
   .status.live {
@@ -253,10 +243,6 @@
   }
 
   .journey-label {
-    font-size: 0.75rem;
-    font-weight: 600;
-    letter-spacing: 0.12em;
-    text-transform: uppercase;
     color: var(--mz-muted);
     white-space: nowrap;
   }
@@ -289,7 +275,7 @@
     background: radial-gradient(circle at 35% 35%, var(--l), var(--c));
     box-shadow:
       0 0 0 3px var(--mz-paper),
-      0 2px 6px rgba(0, 0, 0, 0.2);
+      0 2px 6px color-mix(in srgb, var(--mz-ink) 20%, transparent);
   }
 
   .secret {
@@ -324,16 +310,6 @@
 
   .secret .mz-btn {
     margin-top: 0.75rem;
-  }
-
-  .grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(min(100%, 340px), 1fr));
-    gap: 1.25rem;
-  }
-
-  .grid > div {
-    display: grid;
   }
 
   .booking {

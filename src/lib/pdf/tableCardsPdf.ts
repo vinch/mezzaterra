@@ -31,8 +31,7 @@ function hexToRgb(hex: string): [number, number, number] {
 
 export async function downloadTableCardsPdf(tasting: any, wines: any[], origin: string) {
   const doc = new jsPDF({ unit: "mm", format: "a5", orientation: "portrait" });
-  const [hasRoboto, logo] = await Promise.all([attachRobotoPdf(doc), svgToPng("/flyer/logo-text.svg")]);
-  const font = hasRoboto ? "Roboto" : "helvetica";
+  const [font, logo] = await Promise.all([attachRobotoPdf(doc), svgToPng("/flyer/logo-text.svg")]);
   const W = doc.internal.pageSize.getWidth();
   const H = doc.internal.pageSize.getHeight();
   const M = 12;

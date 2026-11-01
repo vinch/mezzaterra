@@ -81,7 +81,7 @@
             <p class="region">{flag} {region}</p>
           {/if}
 
-          <dl class="facts">
+          <dl class="mz-facts facts">
             {#if v.year}
               <div><dt>{kind.yearFact}</dt><dd>{v.year}</dd></div>
             {/if}
@@ -105,7 +105,7 @@
       <div class="content">
         {#if grapes}
           <section>
-            <h3>{kind.ingredients}</h3>
+            <h3 class="mz-eyebrow mz-eyebrow--heading">{kind.ingredients}</h3>
             <p>{grapes}</p>
           </section>
         {/if}
@@ -132,7 +132,7 @@
     align-items: center;
     justify-content: center;
     padding: 2rem 1rem;
-    background: rgba(14, 24, 25, 0.55);
+    background: var(--mz-backdrop);
     backdrop-filter: blur(3px);
   }
 
@@ -143,7 +143,7 @@
     overflow-y: auto;
     background: var(--mz-paper-raised);
     border-radius: var(--mz-radius-lg);
-    box-shadow: 0 30px 80px -20px rgba(0, 0, 0, 0.45);
+    box-shadow: var(--mz-shadow-lg);
     font-family: var(--mz-font-body);
     color: var(--mz-ink);
   }
@@ -157,7 +157,7 @@
     height: 2.4rem;
     border-radius: 50%;
     border: none;
-    background: rgba(255, 255, 255, 0.75);
+    background: color-mix(in srgb, var(--mz-white) 75%, transparent);
     font-size: 1.6rem;
     line-height: 1;
     color: var(--mz-ink-soft);
@@ -165,7 +165,7 @@
   }
 
   .close:hover {
-    background: #fff;
+    background: var(--mz-white);
     color: var(--mz-ink);
   }
 
@@ -213,31 +213,14 @@
     font-weight: 600;
   }
 
+  /* Fiche rapide : plus serrée que la fiche complète. */
   .facts {
-    display: flex;
-    flex-wrap: wrap;
     gap: 1.5rem;
-    margin: 1rem 0 0;
-  }
-
-  .facts div {
-    display: flex;
-    flex-direction: column;
-  }
-
-  .facts dt {
-    font-size: 0.72rem;
-    font-weight: 600;
-    letter-spacing: 0.1em;
-    text-transform: uppercase;
-    color: var(--mz-muted);
+    margin-top: 1rem;
   }
 
   .facts dd {
-    margin: 0;
-    font-family: var(--mz-font-display);
     font-size: 1.35rem;
-    color: var(--mz-ink);
   }
 
   .organic {
@@ -250,15 +233,6 @@
     display: flex;
     flex-direction: column;
     gap: 1.5rem;
-  }
-
-  section h3 {
-    margin: 0 0 0.5rem;
-    font-size: 0.75rem;
-    font-weight: 600;
-    letter-spacing: 0.12em;
-    text-transform: uppercase;
-    color: var(--mz-teal-soft);
   }
 
   section p {

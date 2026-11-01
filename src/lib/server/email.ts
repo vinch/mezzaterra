@@ -10,6 +10,33 @@ export function escapeHtml(s: string): string {
   return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
 }
 
+/** Couleurs des emails, en dur : les messageries ne lisent pas les variables CSS (valeurs des tokens --mz-*). */
+export const EMAIL_COLORS = {
+  paper: "#e8e5de",
+  card: "#f4f2ed",
+  ink: "#1d2a2c",
+  muted: "#66787a",
+  teal: "#256169",
+  tealSoft: "#5b7d7f",
+} as const;
+
+/**
+ * Cadre HTML des emails : fond papier, carte centrée de 560 px qui reçoit `inner`,
+ * puis `footer` (facultatif) sous la carte.
+ */
+export function emailLayout(
+  inner: string,
+  { padding = "28px", footer = "" }: { padding?: string; footer?: string } = {},
+): string {
+  const c = EMAIL_COLORS;
+  return `<!doctype html><html lang="fr"><body style="margin:0;background:${c.paper};padding:24px 12px;font-family:Helvetica,Arial,sans-serif;color:${c.ink}">
+<table role="presentation" width="100%" cellspacing="0" cellpadding="0"><tr><td align="center">
+<table role="presentation" width="100%" style="max-width:560px;background:${c.card};border-radius:14px;padding:${padding}" cellspacing="0" cellpadding="0"><tr><td>
+${inner}
+</td></tr></table>${footer ? `\n${footer}` : ""}
+</td></tr></table></body></html>`;
+}
+
 /** Délai max d'un appel à Resend : au-delà, l'envoi compte comme un échec au lieu de bloquer la route. */
 const RESEND_TIMEOUT_MS = 15_000;
 

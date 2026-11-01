@@ -3,6 +3,7 @@
   import { page } from "$app/stores";
   import AbruzzoMap from "$lib/components/site/AbruzzoMap.svelte";
   import ProductCard from "$lib/components/site/ProductCard.svelte";
+  import WineryLinkCard from "$lib/components/site/WineryLinkCard.svelte";
   import { combinedAvailability, fetchAvailability, firstAvailable, type AvailabilityOf } from "$lib/publicData";
   import { MAIN, project } from "$lib/geo/abruzzo";
   import {
@@ -83,7 +84,7 @@
 <section class="hero">
   <div class="mz-container hero-grid" class:no-map={!onMainMap(winery) && !mapEmbed}>
     <div class="hero-text mz-rise">
-      <a href="/vins" class="back">← Toute la cave</a>
+      <a href="/vins" class="mz-back">← Toute la cave</a>
       <h1 class="mz-display mz-h1">{winery.name}</h1>
       {#if place}
         <p class="place">{flag} {place}</p>
@@ -94,15 +95,15 @@
       {/if}
 
       {#if vintages.length}
-        <dl class="facts">
+        <dl class="mz-facts mz-facts--ruled">
           <div>
             <dt>Cuvées</dt>
-            <dd>{cuveeCount}</dd>
+            <dd class="count">{cuveeCount}</dd>
           </div>
           {#if styles.length}
             <div>
               <dt>Couleurs</dt>
-              <dd class="styles">
+              <dd class="plain styles">
                 {#each styles as s}
                   <span><span class="mz-dot" style="background: {s.color}"></span>{s.label}</span>
                 {/each}
@@ -112,7 +113,7 @@
           {#each kinds.filter((k) => k.grapes.length) as k (k.key)}
             <div class="grapes">
               <dt>{k.ingredients}</dt>
-              <dd>{k.grapes.join(", ")}</dd>
+              <dd class="plain">{k.grapes.join(", ")}</dd>
             </div>
           {/each}
         </dl>
@@ -166,7 +167,7 @@
 <section class="mz-container mz-section">
   <h2 class="section-title mz-display mz-h2">Les {productsLabel} du domaine</h2>
   {#if vintages.length}
-    <div class="grid">
+    <div class="mz-product-grid">
       {#each groupFormats(vintages) as { vintage: v, formats } (v.id)}
         <div>
           <ProductCard
@@ -188,13 +189,7 @@
     <h2 class="section-title mz-display mz-h2">Les autres domaines</h2>
     <ul class="others-list">
       {#each data.others as other (other.id)}
-        <li>
-          <a class="mz-card other" href="/domaines/{other.id}">
-            <span class="other-name">{other.name}</span>
-            {#if other.city}<span class="mz-muted">{other.city}</span>{/if}
-            <span class="arrow" aria-hidden="true">→</span>
-          </a>
-        </li>
+        <li><WineryLinkCard id={other.id} name={other.name} detail={other.city} /></li>
       {/each}
     </ul>
   </section>
@@ -223,16 +218,8 @@
     gap: 0.5rem;
   }
 
-  .back {
-    color: var(--mz-muted);
-    text-decoration: none;
-    font-size: 0.9rem;
-    width: fit-content;
+  .mz-back {
     margin-bottom: 0.5rem;
-  }
-
-  .back:hover {
-    color: var(--mz-teal);
   }
 
   .hero-text h1 {
@@ -252,43 +239,21 @@
     white-space: pre-line;
   }
 
-  .facts {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 1.25rem 2rem;
-    margin: 1rem 0 0.5rem;
-    padding: 1rem 0;
-    border-top: 1px solid var(--mz-line-soft);
-    border-bottom: 1px solid var(--mz-line-soft);
-  }
-
-  .facts div {
-    display: flex;
-    flex-direction: column;
+  .mz-facts > div {
     gap: 0.2rem;
   }
 
-  .facts .grapes {
+  .grapes {
     flex-basis: 100%;
   }
 
-  .facts dt {
-    font-size: 0.72rem;
-    font-weight: 600;
-    letter-spacing: 0.1em;
-    text-transform: uppercase;
-    color: var(--mz-muted);
-  }
-
-  .facts dd {
-    margin: 0;
-    color: var(--mz-ink);
-  }
-
-  .facts div:first-child dd {
-    font-family: var(--mz-font-display);
-    font-size: 1.5rem;
+  .count {
     line-height: 1.2;
+  }
+
+  /* Couleurs et cépages : en texte courant, pas en police d'affichage. */
+  .plain {
+    font: inherit;
   }
 
   .styles {
@@ -324,16 +289,6 @@
     margin: 0 0 1.25rem;
   }
 
-  .grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(min(100%, 340px), 1fr));
-    gap: 1.25rem;
-  }
-
-  .grid > div {
-    display: grid;
-  }
-
   .others {
     padding-bottom: 4rem;
   }
@@ -345,42 +300,6 @@
     margin: 0;
     padding: 0;
     list-style: none;
-  }
-
-  .other {
-    display: grid;
-    grid-template-columns: 1fr auto;
-    gap: 0.15rem 1rem;
-    align-items: center;
-    padding: 1.1rem 1.3rem;
-    text-decoration: none;
-    color: inherit;
-    transition:
-      border-color 0.15s ease,
-      transform 0.15s ease;
-  }
-
-  .other:hover {
-    border-color: var(--mz-teal);
-    transform: translateY(-2px);
-  }
-
-  .other-name {
-    font-family: var(--mz-font-display);
-    font-size: 1.3rem;
-    color: var(--mz-teal);
-  }
-
-  .other .mz-muted {
-    grid-column: 1;
-    font-size: 0.9rem;
-  }
-
-  .arrow {
-    grid-column: 2;
-    grid-row: 1 / span 2;
-    color: var(--mz-teal);
-    font-size: 1.2rem;
   }
 
   @media (max-width: 820px) {

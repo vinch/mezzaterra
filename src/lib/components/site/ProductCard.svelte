@@ -170,7 +170,7 @@
     display: grid;
     place-items: center;
     background: var(--mz-teal);
-    color: #fff;
+    color: var(--mz-on-brand);
     font-family: var(--mz-font-display);
     font-weight: 600;
     font-size: 0.95rem;

@@ -10,7 +10,7 @@
   let {
     value = 0,
     total = 1,
-    color = "#7a1f2e",
+    color = "var(--mz-wine-red)",
     size = "3.5rem"
   }: Props = $props();
 
@@ -33,11 +33,11 @@
     </clipPath>
   </defs>
   <g clip-path="url(#{gid}-bowl)">
-    <rect class="wine" x="0" y={level} width="40" height="60" fill={color} />
+    <rect class="wine" x="0" y={level} width="40" height="60" style:fill={color} />
     <path
       class="wave"
       d="M-20 {level} q5 -2 10 0 t10 0 t10 0 t10 0 t10 0 t10 0 t10 0 v4 h-70z"
-      fill={color}
+      style:fill={color}
     />
   </g>
   <path
