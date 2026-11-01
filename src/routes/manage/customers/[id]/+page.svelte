@@ -12,7 +12,8 @@
   import { REVENUE_STATUSES, lineTotal, type SaleItemRow } from "$lib/analytics";
   import { daysUntil } from "$lib/dates";
   import { fetchLatestFeedback } from "$lib/live";
-  import { MAIN_ROBES, robePreference, styleByKey, lotLabel, lotLabelSelect, lotShortLabel, wineRobe, type ProductStyleKey } from "$lib/products";
+  import { MAIN_ROBES, robePreference, lotLabel, lotLabelSelect, lotShortLabel, wineRobe } from "$lib/products";
+  import { styleByKey, type ProductStyleKey } from "$lib/productStyles";
   import { KIND_STYLES } from "$lib/productKinds";
   import { formatDate, formatEUR } from "$lib/format";
   import Button from "$lib/ui/Button.svelte";

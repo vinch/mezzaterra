@@ -34,7 +34,8 @@
   import { compareCustomersByLabel, customerDisplayLabel } from "$lib/customerDisplay";
   import { broadcastPosition, clampPosition, fetchLatestFeedback, joinLiveChannel, type FeedbackRow } from "$lib/live";
   import { qrDataUrl } from "$lib/qr";
-  import { swatchStyle, lotShortLabel, wineRobe, productStyle, productSubtitle, productTitle, productTypeLabel } from "$lib/products";
+  import { lotShortLabel, wineRobe, productStyle, productSubtitle, productTitle, productTypeLabel } from "$lib/products";
+  import { swatchStyle } from "$lib/productStyles";
   import { kindInfo } from "$lib/productKinds";
   import {
     confirmRegistration,

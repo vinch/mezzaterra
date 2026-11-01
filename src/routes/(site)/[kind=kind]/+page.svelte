@@ -18,8 +18,8 @@
     productTitle,
     producerFlag,
     producerPlace,
-    type ProductStyleKey,
   } from "$lib/products";
+  import type { ProductStyleKey } from "$lib/productStyles";
 
   let { data } = $props();
 

@@ -36,7 +36,8 @@
   import { fold, formatDate, formatEUR, formatPercent, initials, toNumber } from "$lib/format";
   import { isoDateOnly, todayIso } from "$lib/dates";
   import { lineTotal } from "$lib/analytics";
-  import { robePreference, styleByKey, lotProductLabel, lotShortLabel } from "$lib/products";
+  import { robePreference, lotProductLabel, lotShortLabel } from "$lib/products";
+  import { styleByKey } from "$lib/productStyles";
   import {
     PAYMENT_METHOD_OPTIONS,
     SALE_LINE_ITEMS_SELECT,

@@ -57,7 +57,7 @@
     type SaleStatus,
     type StatusKind,
   } from "$lib/status";
-  import { allProductStyles } from "$lib/products";
+  import { allProductStyles } from "$lib/productStyles";
   import { formatEUR } from "$lib/format";
   import { DEFAULT_KIND, PRODUCT_KIND_LIST, type ProductKind } from "$lib/productKinds";
 
@@ -267,7 +267,7 @@
           </div>
 
           <h3 class="ds-h3">Robes et produits</h3>
-          <p class="t-muted">Dans <code>STYLES</code> (<code>src/lib/products.ts</code>) : passer par <code>StyleDot</code>, <code>wineRobe()</code> ou <code>swatchStyle()</code>. Une huile d’olive prend le vert olive, d’après le <code>kind</code> de son type.</p>
+          <p class="t-muted">Dans <code>STYLES</code> (<code>src/lib/productStyles.ts</code>) : passer par <code>StyleDot</code>, <code>wineRobe()</code> ou <code>swatchStyle()</code>. Une huile d’olive prend le vert olive, d’après le <code>kind</code> de son type.</p>
           <div class="row">
             {#each PRODUCT_STYLES as s}
               <span class="inline"><StyleDot robe={s.key} size={14} />{s.label}</span>

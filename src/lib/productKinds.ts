@@ -6,10 +6,10 @@
  *
  * Nouveau type : l'ajouter ici, à `KIND_ICONS` (`src/lib/ui/kindIcons.ts`), au domaine SQL `product_kind`
  * et à sa TVA (`product_kind_vat_rate`, qui donne sinon 21 % sans rien signaler), sa couleur à `STYLES`
- * (`products.ts`) s'il en a une propre, puis créer ses types (`product_type`).
+ * (`productStyles.ts`) s'il en a une propre, puis créer ses types (`product_type`).
  */
 
-import type { ProductStyleKey } from "./products";
+import type { ProductStyleKey } from "./productStyles";
 
 export type ProductKind = "wine" | "olive_oil";
 

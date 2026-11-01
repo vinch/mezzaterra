@@ -1,5 +1,5 @@
 <script lang="ts">
-  import type { ProductStyle } from "$lib/products";
+  import type { ProductStyle } from "$lib/productStyles";
 
   interface Props {
     /** Photo détourée de la bouteille (sinon silhouette teintée à la couleur de la robe). */

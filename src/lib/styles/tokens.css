@@ -36,7 +36,7 @@
   --mz-on-brand-success: #cfeedd;
   --mz-on-brand-danger: #ffd2cc;
 
-  /* Rouge de marque (accents du site). Les couleurs de robe vivent dans STYLES (lib/products.ts). */
+  /* Rouge de marque (accents du site). Les couleurs de robe vivent dans STYLES (lib/productStyles.ts). */
   --mz-wine-red: #7a1f2e;
   --mz-wine-red-deep: #5e1522; /* survol */
   /* Or des étoiles (notes des invités). */

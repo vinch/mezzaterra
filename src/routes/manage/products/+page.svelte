@@ -23,7 +23,8 @@
   import Spinner from "$lib/ui/Spinner.svelte";
   import Tabs from "$lib/ui/Tabs.svelte";
   import Combobox, { type ComboOption } from "$lib/ui/Combobox.svelte";
-  import { byRobe, byVolume, compareProductsByProducer, MAIN_ROBES, styleByKey, lotShortLabel, wineRobe, type ProductStyleKey, productTitle, productTypeLabel, withVolume } from "$lib/products";
+  import { byRobe, byVolume, compareProductsByProducer, MAIN_ROBES, lotShortLabel, wineRobe, productTitle, productTypeLabel, withVolume } from "$lib/products";
+  import { styleByKey, type ProductStyleKey } from "$lib/productStyles";
   import {
     IconArchive,
     IconArchiveRestore,
