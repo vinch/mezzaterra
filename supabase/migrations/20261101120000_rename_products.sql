@@ -84,12 +84,15 @@ ALTER VIEW public."inventory" RENAME COLUMN "wine_vintage_id" TO "lot_id";
 -- 6. Transition : les anciennes clés wine_vintage_id du JSON des lignes sont lues comme lot_id. Un onglet
 -- ouvert avant la bascule (vente, commande, pré-commande d'un invité, demande « J'en veux ») envoie encore
 -- l'ancienne clé : sans cela, ses lignes seraient perdues ou enregistrées sans lot, sans erreur.
+-- Non couvert : la note d'un invité envoyée par un onglet d'avant la bascule (colonne de tasting_feedback
+-- renommée) est refusée ; d'où une bascule hors de toute dégustation.
 -- À retirer par une migration de nettoyage quelques jours après la bascule.
 CREATE FUNCTION public."legacy_lot_items"("p_items" "jsonb") RETURNS "jsonb"
     LANGUAGE "sql" IMMUTABLE
+    SET "search_path" TO 'pg_catalog'
     AS $$
   SELECT CASE WHEN jsonb_typeof(p_items) = 'array' AND p_items @? '$[*].wine_vintage_id' THEN (
-    SELECT jsonb_agg(CASE WHEN e ? 'wine_vintage_id'
+    SELECT jsonb_agg(CASE WHEN jsonb_typeof(e) = 'object' AND e ? 'wine_vintage_id'
       THEN (e - 'wine_vintage_id') || jsonb_build_object('lot_id', e -> 'wine_vintage_id') ELSE e END ORDER BY i)
     FROM jsonb_array_elements(p_items) WITH ORDINALITY AS x(e, i)
   ) ELSE p_items END
@@ -98,6 +101,7 @@ ALTER FUNCTION public."legacy_lot_items"("p_items" "jsonb") OWNER TO "postgres";
 
 CREATE FUNCTION public."legacy_lot_items_row"() RETURNS "trigger"
     LANGUAGE "plpgsql"
+    SET "search_path" TO 'public'
     AS $$
 BEGIN
   NEW.items := public.legacy_lot_items(NEW.items);
@@ -106,8 +110,6 @@ END;
 $$;
 ALTER FUNCTION public."legacy_lot_items_row"() OWNER TO "postgres";
 CREATE TRIGGER "wish_request_legacy_lot_items" BEFORE INSERT OR UPDATE OF "items" ON public."wish_request"
-  FOR EACH ROW EXECUTE FUNCTION public."legacy_lot_items_row"();
-CREATE TRIGGER "live_preorder_legacy_lot_items" BEFORE INSERT OR UPDATE OF "items" ON public."live_preorder"
   FOR EACH ROW EXECUTE FUNCTION public."legacy_lot_items_row"();
 
 -- 7. Fonctions de trigger : renommées (même OID, triggers et droits conservés), puis corps réécrit
@@ -273,13 +275,12 @@ CREATE OR REPLACE FUNCTION "public"."save_live_preorder"("p_tasting_id" "uuid", 
     SET "search_path" TO 'public'
     AS $_$
 DECLARE
-  v_raw jsonb := coalesce(p_items, '[]'::jsonb);
+  v_raw jsonb := coalesce(public.legacy_lot_items(p_items), '[]'::jsonb);  -- transition, voir section 6
   v_confirm boolean := coalesce(p_confirm, false);
   v_items jsonb;
   v_draft live_preorder;
   v_id uuid;
 BEGIN
-  p_items := public.legacy_lot_items(p_items);  -- transition, voir section 6
   IF p_tasting_id IS NULL OR p_guest_id IS NULL THEN
     RAISE EXCEPTION 'Dégustation ou invité manquant.';
   END IF;
@@ -610,7 +611,7 @@ BEGIN
 
   IF p_source_id IS NOT NULL
      AND NOT EXISTS (SELECT 1 FROM lot WHERE id = p_source_id AND product_id = v.product_id) THEN
-    RAISE EXCEPTION 'Le millésime repris doit appartenir au même vin';
+    RAISE EXCEPTION 'Le lot repris doit appartenir au même produit';
   END IF;
 
   INSERT INTO lot (product_id, production_year, year, abv, price, image_url, organic, volume_ml)

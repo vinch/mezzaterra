@@ -2,14 +2,15 @@
 -- index, triggers, fonctions et à la vue leurs anciens noms (fonctions reprises du schéma de production
 -- du 2026-11-01), remet l'ancienne clé dans le JSON des lignes et retire la migration de l'historique.
 -- À lancer seulement si la bascule échoue, avec le code d'avant la migration :
---   psql "$DB_URL" --single-transaction -v ON_ERROR_STOP=1 -f supabase/rollback/20261101120000_rename_products_down.sql
+--   psql "$DB_URL" -v ON_ERROR_STOP=1 -f supabase/rollback/20261101120000_rename_products_down.sql
+-- (le fichier ouvre et valide sa propre transaction). Les objets de transition sont supprimés « s'ils
+-- existent » : la migration de nettoyage a pu les retirer avant.
 
 BEGIN;
 
 -- 1. Transition et fonctions recréées sous un autre nom ou une autre signature
-DROP TRIGGER "wish_request_legacy_lot_items" ON public."wish_request";
-DROP TRIGGER "live_preorder_legacy_lot_items" ON public."live_preorder";
-DROP FUNCTION public."legacy_lot_items_row"();
+DROP TRIGGER IF EXISTS "wish_request_legacy_lot_items" ON public."wish_request";
+DROP FUNCTION IF EXISTS public."legacy_lot_items_row"();
 DROP FUNCTION public."add_to_supplier_order"("p_supplier_id" "uuid", "p_lot_id" "uuid", "p_quantity" integer, "p_price" numeric);
 DROP FUNCTION public."create_lot"("p_lot" "jsonb", "p_source_id" "uuid", "p_copy_varieties" boolean, "p_copy_notes" boolean);
 DROP FUNCTION public."public_lot_availability"();
@@ -697,15 +698,16 @@ $$;
 ALTER FUNCTION "public"."set_transport_status"("p_transport_id" "uuid", "p_status" "text") OWNER TO "postgres";
 
 -- 4. Lignes JSON des demandes et pré-commandes : l'ancienne clé du lot, puis fin de la transition
-UPDATE public."wish_request" SET items = (
-  SELECT jsonb_agg(CASE WHEN e ? 'lot_id' THEN (e - 'lot_id') || jsonb_build_object('wine_vintage_id', e -> 'lot_id') ELSE e END ORDER BY i)
-  FROM jsonb_array_elements(items) WITH ORDINALITY AS x(e, i)
-) WHERE jsonb_typeof(items) = 'array' AND items @? '$[*].lot_id';
-UPDATE public."live_preorder" SET items = (
-  SELECT jsonb_agg(CASE WHEN e ? 'lot_id' THEN (e - 'lot_id') || jsonb_build_object('wine_vintage_id', e -> 'lot_id') ELSE e END ORDER BY i)
-  FROM jsonb_array_elements(items) WITH ORDINALITY AS x(e, i)
-) WHERE jsonb_typeof(items) = 'array' AND items @? '$[*].lot_id';
-DROP FUNCTION public."legacy_lot_items"("p_items" "jsonb");
+CREATE FUNCTION pg_temp.lot_items_back(p_items jsonb) RETURNS jsonb LANGUAGE sql IMMUTABLE AS $$
+  SELECT CASE WHEN jsonb_typeof(p_items) = 'array' AND p_items @? '$[*].lot_id' THEN (
+    SELECT jsonb_agg(CASE WHEN jsonb_typeof(e) = 'object' AND e ? 'lot_id'
+      THEN (e - 'lot_id') || jsonb_build_object('wine_vintage_id', e -> 'lot_id') ELSE e END ORDER BY i)
+    FROM jsonb_array_elements(p_items) WITH ORDINALITY AS x(e, i)
+  ) ELSE p_items END
+$$;
+UPDATE public."wish_request" SET items = pg_temp.lot_items_back(items) WHERE items @? '$[*].lot_id';
+UPDATE public."live_preorder" SET items = pg_temp.lot_items_back(items) WHERE items @? '$[*].lot_id';
+DROP FUNCTION IF EXISTS public."legacy_lot_items"("p_items" "jsonb");
 
 -- 5. Historique des migrations : la prochaine « supabase db push » réappliquera le renommage
 DELETE FROM supabase_migrations.schema_migrations WHERE version = '20261101120000';

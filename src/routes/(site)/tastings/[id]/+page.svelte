@@ -63,7 +63,9 @@
     <meta property="og:title" content="{tastingTitle(t)} — Mezzaterra" />
     <meta
       property="og:description"
-      content="{formatDateLong(t.date)} — {countLabel} des Abruzzes à découvrir."
+      content={lots.length || hiddenCount
+        ? `${formatDateLong(t.date)} — ${countLabel} des Abruzzes à découvrir.`
+        : `${formatDateLong(t.date)} — une dégustation Mezzaterra.`}
     />
   {/if}
 </svelte:head>
