@@ -31,7 +31,7 @@
   import Spinner from "$lib/ui/Spinner.svelte";
   import { fetchSeats, fetchTastingWithWines, isParticipantRegistration, onlineSeats, onlineSeatsByCustomer, participantOrigin, placesLabel, tastingTitle, type SeatInfo } from "$lib/publicData";
   import { compareCustomersByLabel, customerDisplayLabel } from "$lib/customerDisplay";
-  import { broadcastPosition, clampPosition, fetchLatestFeedback, joinLiveChannel } from "$lib/live";
+  import { broadcastPosition, clampPosition, fetchLatestFeedback, joinLiveChannel, type FeedbackRow } from "$lib/live";
   import { qrDataUrl } from "$lib/qr";
   import { swatchStyle, vintageShortLabel, wineRobe, wineStyle, wineSubtitle, wineTitle, wineTypeLabel } from "$lib/wine";
   import { kindInfo } from "$lib/productKinds";
@@ -63,7 +63,7 @@
   let copied = $state(false);
 
   /** Dernière note par (invité, vin). */
-  let feedback = $state.raw<Awaited<ReturnType<typeof fetchLatestFeedback>>>([]);
+  let feedback = $state.raw<FeedbackRow[]>([]);
   let wishes = $state.raw<WishRequest[]>([]);
   /** Pré-commandes des invités, pas encore confirmées : ni comptées ni transformables en vente. */
   let preorders = $state.raw<any[]>([]);
@@ -154,7 +154,8 @@
         stockMap = await fetchStockMap(ids).catch(() => null);
       })(),
       (async () => {
-        feedback = await fetchLatestFeedback({ tastingId });
+        /* Un relevé raté garde les notes précédentes. */
+        feedback = await fetchLatestFeedback({ tastingId }).catch(() => feedback);
       })(),
       (async () => {
         const { data } = await supabase

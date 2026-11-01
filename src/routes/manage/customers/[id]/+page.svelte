@@ -97,7 +97,12 @@
         const [namesakeRes, latestFeedback] = await Promise.all([
           /* Simple signalement : en échec, la fiche s'affiche sans bandeau. */
           supabase.from("customer").select("*").ilike("last_name", lastNameLike(customer)).neq("id", customerId),
-          customer.email ? fetchLatestFeedback({ guestEmail: customer.email }) : [],
+          customer.email
+            ? fetchLatestFeedback({ guestEmail: customer.email }).catch((e) => {
+                warnings = [...warnings, `Notes en dégustation indisponibles : ${errorMessage(e)}`];
+                return [];
+              })
+            : [],
         ]);
         sameLastName = namesakeRes.data || [];
         feedback = latestFeedback.filter((f) => f.rating || f.comment);

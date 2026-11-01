@@ -1,6 +1,6 @@
 import { browser } from "$app/environment";
 import type { RealtimeChannel } from "@supabase/supabase-js";
-import { escapeLike, supabase } from "./supabase";
+import { escapeLike, fetchAllRows, supabase } from "./supabase";
 
 /**
  * Mode dégustation live.
@@ -117,22 +117,36 @@ export async function pushFeedback(opts: {
   }
 }
 
+export type FeedbackRow = {
+  id: string;
+  tasting_id: string;
+  guest_id: string;
+  guest_name: string | null;
+  wine_vintage_id: string;
+  rating: number | null;
+  comment: string | null;
+  created_at: string;
+};
+
 /**
  * Notes à jour d'une dégustation (une par invité et par vin) ou d'un client, d'après son email
  * (une par dégustation et par vin). tasting_feedback ne reçoit que des insertions : la plus
- * récente fait foi. Relevé en échec : aucune note.
+ * récente fait foi. Paginé (au-delà de 1000 lignes, les plus récentes manqueraient) ; lève une
+ * erreur si le relevé échoue.
  */
-export async function fetchLatestFeedback(filter: { tastingId: string } | { guestEmail: string }) {
-  const query = supabase
-    .from("tasting_feedback")
-    .select("id, tasting_id, guest_id, guest_name, wine_vintage_id, rating, comment, created_at");
+export async function fetchLatestFeedback(filter: { tastingId: string } | { guestEmail: string }): Promise<FeedbackRow[]> {
   const byTasting = "tastingId" in filter;
-  const { data } = await (byTasting
-    ? query.eq("tasting_id", filter.tastingId)
-    : query.ilike("guest_email", escapeLike(filter.guestEmail))
-  ).order("created_at", { ascending: true });
-  const latest = new Map<string, NonNullable<typeof data>[number]>();
-  for (const f of data || []) latest.set(`${byTasting ? f.guest_id : f.tasting_id}:${f.wine_vintage_id}`, f);
+  const rows = await fetchAllRows<FeedbackRow>((from, to) => {
+    const query = supabase
+      .from("tasting_feedback")
+      .select("id, tasting_id, guest_id, guest_name, wine_vintage_id, rating, comment, created_at");
+    return (byTasting ? query.eq("tasting_id", filter.tastingId) : query.ilike("guest_email", escapeLike(filter.guestEmail)))
+      .order("created_at", { ascending: true })
+      .order("id")
+      .range(from, to);
+  });
+  const latest = new Map<string, FeedbackRow>();
+  for (const f of rows) latest.set(`${byTasting ? f.guest_id : f.tasting_id}:${f.wine_vintage_id}`, f);
   return [...latest.values()];
 }
 
