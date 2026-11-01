@@ -54,7 +54,7 @@
   const kind = kindInfo(product);
   const kindIcons = KIND_ICONS[kind.key];
   /* Millésimes déjà chargés par +page.ts ; relus seulement après une modification. */
-  let lots = $state<Lot[]>(sortLots(product.lot || []));
+  let lots = $state<Lot[]>(sortLots(product.lots));
   let error = $state("");
   /** Modale unique création / édition (`editingLot` les distingue). */
   let formOpen = $state(false);

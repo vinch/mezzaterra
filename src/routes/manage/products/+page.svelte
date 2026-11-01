@@ -3,7 +3,7 @@
 
   import { supabase } from "$lib/supabase";
   import { onMount } from "svelte";
-  import type { Product, Producer, Appellation, ProductType } from "$lib/types";
+  import type { Lot, Product, Producer, Appellation, ProductType } from "$lib/types";
   import { goto, replaceState } from "$app/navigation";
   import { page } from "$app/stores";
   import ManagePageShell from "$lib/components/manage/ManagePageShell.svelte";
@@ -45,7 +45,10 @@
   import { fetchStockMap, fetchProductTypes } from "$lib/manageData";
   import { errorMessage } from "$lib/async";
 
-  let products = $state.raw<Product[]>([]);
+  /** Produit de la liste, avec ses lots du plus ancien au plus récent (triés au chargement). */
+  type ProductRow = Product & { lots: Lot[] };
+
+  let products = $state.raw<ProductRow[]>([]);
   let producers = $state<Producer[]>([]);
   let appellations = $state<Appellation[]>([]);
   let productTypes = $state<ProductType[]>([]);
@@ -109,7 +112,7 @@
   async function loadProducts() {
     const { data, error: fetchError } = await supabase
       .from("product")
-      .select("*, producer (*), appellation ( *, label (*) ), product_type (*), lot (*)")
+      .select("*, producer (*), appellation ( *, label (*) ), product_type (*), lots:lot (*)")
       .order("created_at", { ascending: false });
 
     if (fetchError) {
@@ -117,7 +120,7 @@
     } else {
       /* Millésimes triés une fois ici (du plus ancien au plus récent) plutôt qu'à chaque rendu. */
       for (const w of data || []) {
-        w.lot.sort(
+        w.lots.sort(
           (a, b) => (a.year ?? a.production_year ?? 0) - (b.year ?? b.production_year ?? 0) || byVolume(a, b),
         );
       }
@@ -329,40 +332,36 @@
     replaceState(kindListHref($page.url.pathname, kind), {});
   }
 
-  /** Millésimes du plus ancien au plus récent (triés au chargement). */
-  function lotsOf(product: any): any[] {
-    return product.lot || [];
-  }
   /** Dernier millésime qu'on peut encore recommander au fournisseur. */
-  function latestLot(product: any): any | null {
-    const list = lotsOf(product).filter((v) => !isDiscontinued(v));
+  function latestLot(product: ProductRow): any | null {
+    const list = product.lots.filter((v) => !isDiscontinued(v));
     const last = list[list.length - 1];
     /* Plusieurs contenants pour la dernière année : le réassort se fait lot par lot (fiche du produit). */
     const sameYear = list.filter((v) => (v.year ?? v.production_year) === (last?.year ?? last?.production_year));
     return sameYear.length === 1 ? last : null;
   }
   /** Tous les millésimes sont « plus jamais disponibles » : le vin est retiré. */
-  function isRetired(product: any): boolean {
-    const list = lotsOf(product);
+  function isRetired(product: ProductRow): boolean {
+    const list = product.lots;
     return list.length > 0 && list.every(isDiscontinued);
   }
   /** Badge de stock d'un vin (aucun si le stock est illisible, sauf pour un vin retiré). */
-  function stockBadge(product: any, total: number, stockKnown: boolean): "gone" | "out" | "low" | null {
+  function stockBadge(product: ProductRow, total: number, stockKnown: boolean): "gone" | "out" | "low" | null {
     if (isRetired(product)) return "gone";
     if (!stockKnown) return null;
-    if (lotsOf(product).length && total <= 0) return "out";
+    if (product.lots.length && total <= 0) return "out";
     return total > 0 && total <= 3 ? "low" : null;
   }
-  function pricesOf(product: any): number[] {
-    return lotsOf(product)
+  function pricesOf(product: ProductRow): number[] {
+    return product.lots
       .map((v) => (v.price != null ? Number(v.price) : null))
       .filter((p): p is number => p != null);
   }
-  function minPrice(product: any): number | null {
+  function minPrice(product: ProductRow): number | null {
     const prices = pricesOf(product);
     return prices.length ? Math.min(...prices) : null;
   }
-  function priceText(product: any): string {
+  function priceText(product: ProductRow): string {
     const prices = pricesOf(product);
     if (!prices.length) return "—";
     const min = Math.min(...prices);
@@ -377,7 +376,7 @@
   }
 
   let notice = $state("");
-  async function reorder(product: any) {
+  async function reorder(product: ProductRow) {
     const v = latestLot(product);
     if (!v) return;
     try {
@@ -387,8 +386,8 @@
     }
   }
 
-  async function setRetired(product: any, retired: boolean) {
-    const ids = lotsOf(product).map((v) => v.id);
+  async function setRetired(product: ProductRow, retired: boolean) {
+    const ids = product.lots.map((v) => v.id);
     if (!ids.length) return;
     const { error: updateError } = await supabase
       .from("lot")
@@ -404,7 +403,7 @@
     await loadProducts();
   }
 
-  function rowItems(product: any): MenuItem[] {
+  function rowItems(product: ProductRow): MenuItem[] {
     const kind = kindInfo(product);
     const items: MenuItem[] = [
       { label: "Ouvrir la fiche", icon: IconEye, href: `/manage/products/${product.id}` },
@@ -415,21 +414,21 @@
     if (latestLot(product)) items.push({ label: "Commander (réassort)", icon: IconClipboard, onSelect: () => reorder(product) });
     if (isRetired(product)) {
       items.push({ label: "Remettre au catalogue", icon: IconArchiveRestore, onSelect: () => setRetired(product, false) });
-    } else if (lotsOf(product).length) {
+    } else if (product.lots.length) {
       items.push({ label: "Plus jamais disponible", icon: IconArchive, onSelect: () => setRetired(product, true) });
     }
     items.push({ label: "Supprimer…", icon: IconTrash, danger: true, separator: true, onSelect: () => askDelete(product) });
     return items;
   }
 
-  function openRow(product: any, e: MouseEvent) {
+  function openRow(product: ProductRow, e: MouseEvent) {
     if ((e.target as HTMLElement).closest("button, a, input, select, [role=menu]")) return;
     void goto(`/manage/products/${product.id}`);
   }
 
   let deleteTarget = $state<any>(null);
   let confirmOpen = $state(false);
-  function askDelete(product: any) {
+  function askDelete(product: ProductRow) {
     deleteTarget = product;
     confirmOpen = true;
   }
@@ -471,8 +470,8 @@
   }));
   /* Bouteilles en stock et badge par vin, recalculés quand les vins ou le stock arrivent. */
   let stockById = $derived(new Map(
-    products.map((w: any) => {
-      const total = lotsOf(w).reduce((n, v) => n + Math.max(0, stock?.get(v.id) ?? 0), 0);
+    products.map((w) => {
+      const total = w.lots.reduce((n, v) => n + Math.max(0, stock?.get(v.id) ?? 0), 0);
       return [w.id, { total, badge: stockBadge(w, total, !!stock) }];
     }),
   ));
@@ -481,7 +480,7 @@
   /** Rang des types : robe du plus léger au plus corsé (blanc, rosé, rouge), puis ordre propre au produit (fruité d'une huile). */
   let typeRank = $derived(new Map([...productTypes].sort(byRobe).map((t, i) => [t.id, i])));
   /** Valeur triée d'un produit ; null (sans prix, stock illisible) en fin de liste. */
-  function sortValue(product: any, key: SortKey): string | number | null {
+  function sortValue(product: ProductRow, key: SortKey): string | number | null {
     switch (key) {
       case "name": return productTitle(product);
       case "producer": return product.producer?.name ?? null;
@@ -499,7 +498,7 @@
       compareValues(sortValue(a, sort.key), sortValue(b, sort.key), sort.dir)));
   /** « 19 vins (35 millésimes) · 120 bouteilles en stock », pour l'onglet ouvert. */
   let subtitle = $derived.by(() => {
-    const lotCount = tabProducts.reduce((n, w: any) => n + (w.lot?.length ?? 0), 0);
+    const lotCount = tabProducts.reduce((n, w: any) => n + w.lots.length, 0);
     const bottles = tabProducts.reduce((n, w) => n + (stockById.get(w.id)?.total ?? 0), 0);
     return [
       `${kindCount(tabKind, tabProducts.length)} (${lotCount} ${(lotCount > 1 ? tabKind.lotPlural : tabKind.lot).toLowerCase()})`,
@@ -616,7 +615,7 @@
                 <td>{productTypeLabel(product.product_type)}</td>
                 <td>
                   <span class="lots">
-                    {#each lotsOf(product) as v (v.id)}
+                    {#each product.lots as v (v.id)}
                       {@const q = stock?.get(v.id) ?? 0}
                       {@const lot = withVolume(String(v.year ?? v.production_year), v, kindOf(product))}
                       {#if isDiscontinued(v)}
@@ -674,7 +673,7 @@
   bind:open={confirmOpen}
   title="Supprimer {deleteTarget ? kindInfo(deleteTarget).thisLabel : 'ce produit'} ?"
   message={deleteTarget
-    ? `« ${productTitle(deleteTarget)} » (${deleteTarget.producer?.name ?? ""}) sera supprimé du catalogue, ainsi que ses ${deleteTarget.lot?.length ?? 0} ${kindInfo(deleteTarget).lotPlural.toLowerCase()} si la base l’autorise. Les ventes passées ne sont pas modifiées.`
+    ? `« ${productTitle(deleteTarget)} » (${deleteTarget.producer?.name ?? ""}) sera supprimé du catalogue, ainsi que ses ${deleteTarget.lots.length} ${kindInfo(deleteTarget).lotPlural.toLowerCase()} si la base l’autorise. Les ventes passées ne sont pas modifiées.`
     : ""}
   onconfirm={confirmDelete}
 />

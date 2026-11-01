@@ -11,7 +11,7 @@ export const load: PageLoad = async ({ params }) => {
       producer (*),
       appellation ( *, label (*) ),
       product_type (*),
-      lot (*)
+      lots:lot (*)
     `
     )
     .eq("id", params.id)
