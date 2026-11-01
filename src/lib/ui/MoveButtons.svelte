@@ -15,8 +15,10 @@
   let { list = $bindable(), index, label }: Props = $props();
 
   function move(delta: -1 | 1) {
+    const j = index + delta;
+    if (index < 0 || j < 0 || j >= list.length) return;
     const next = [...list];
-    [next[index], next[index + delta]] = [next[index + delta], next[index]];
+    [next[index], next[j]] = [next[j], next[index]];
     list = next;
   }
 </script>
