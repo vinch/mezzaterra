@@ -1,7 +1,7 @@
 <script lang="ts">
   import { onMount } from "svelte";
   import RefCrudPage from "$lib/components/manage/RefCrudPage.svelte";
-  import { countryLabel, countryOptions, regionOptions } from "$lib/components/manage/refCrud";
+  import { COUNTRY_COLUMN, countryOptions, regionOptions } from "$lib/components/manage/refCrud";
   import { fetchCountries, fetchRegions } from "$lib/manageData";
   import type { Country, Region } from "$lib/types";
   import { instagramAccount, producerInstagram } from "$lib/products";
@@ -58,7 +58,7 @@
     { label: "Nom", value: (w) => w.name },
     { label: "Ville", value: (w) => w.city },
     { label: "Région", value: (w) => w.region?.name },
-    { label: "Pays", value: (w) => countryLabel(w.country) },
+    COUNTRY_COLUMN,
     { label: "Site web", value: (w) => w.url && "Visiter", href: (w) => w.url },
     { label: "Instagram", value: (w) => producerInstagram(w)?.handle, href: (w) => producerInstagram(w)?.url },
     { label: "Site public", value: (w) => (w.hidden ? "Masqué" : "Visible") },

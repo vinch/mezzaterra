@@ -39,6 +39,11 @@ export function toNumber(value: unknown): number {
   return Number.isFinite(n) ? n : 0;
 }
 
+/** `toNumber`, mais une valeur absente reste absente (null) au lieu de 0 : un prix non renseigné. */
+export function toNumberOrNull(value: unknown): number | null {
+  return value == null || value === "" ? null : toNumber(value);
+}
+
 /** Texte de recherche : sans accents, en minuscules. */
 export function fold(s: string): string {
   return s.normalize("NFD").replace(/\p{Diacritic}/gu, "").toLowerCase();

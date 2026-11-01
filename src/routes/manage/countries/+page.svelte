@@ -21,6 +21,6 @@
   columns={[
     { label: "Nom", value: (c) => c.name },
     { label: "Code ISO", value: (c) => c.iso_code },
-    { label: "Drapeau", value: (c) => c.flag },
+    { label: "Drapeau", value: (c) => c.flag, sort: false },
   ]}
 />

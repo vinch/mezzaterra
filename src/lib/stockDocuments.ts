@@ -203,6 +203,19 @@ export function sortedStockForDocuments(rows: StockDocLot[]): StockDocLot[] {
   return [...rows].sort(sortDocLots);
 }
 
+/** Colonnes triables des tableaux de stock (pages Stock et Documents) ; `typeRank` : rang des types (`robeRanks`). */
+export function stockSortValues(typeRank = new Map<string, number>()) {
+  return {
+    producer: (r: StockDocLot) => r.producerName,
+    name: (r: StockDocLot) => r.productName,
+    type: (r: StockDocLot) => (r.product_type_id ? typeRank.get(r.product_type_id) : null),
+    year: (r: StockDocLot) => r.year ?? r.production_year,
+    price: (r: StockDocLot) => r.price,
+    stock: (r: StockDocLot) => r.quantity_on_hand,
+  };
+}
+export type StockSortKey = keyof ReturnType<typeof stockSortValues>;
+
 /** « 2019 (2021) », « 2025 · 5 L » : année (et mise en bouteille), contenant hors bouteille standard. */
 export function stockLotLabel(v: StockDocLot): string {
   const year = v.year != null && v.year !== v.production_year ? `${v.year} (${v.production_year})` : String(v.production_year);

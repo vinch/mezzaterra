@@ -9,7 +9,6 @@
 <RefCrudPage
   title="Accords"
   table="pairing"
-  orderBy="description"
   newLabel="Nouvel accord"
   editLabel="Modifier l’accord"
   thisLabel="cet accord"

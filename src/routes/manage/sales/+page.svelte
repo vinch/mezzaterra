@@ -15,6 +15,8 @@
   import RowMenu from "$lib/ui/RowMenu.svelte";
   import ConfirmDialog from "$lib/ui/ConfirmDialog.svelte";
   import DataTable from "$lib/ui/DataTable.svelte";
+  import SortHeader from "$lib/ui/SortHeader.svelte";
+  import { sortedBy, type SortState } from "$lib/sort";
   import EmptyState from "$lib/ui/EmptyState.svelte";
   import Field from "$lib/ui/Field.svelte";
   import Select from "$lib/ui/Select.svelte";
@@ -41,6 +43,7 @@
   import {
     PAYMENT_METHOD_OPTIONS,
     SALE_LINE_ITEMS_SELECT,
+    SALE_SORT_VALUES,
     TASTING_LINE_NOTE,
     globalDiscountAmount,
     itemsSubtotal,
@@ -714,14 +717,17 @@
     ...t,
     count: t.key === "all" ? periodSales.length : periodSales.filter((s) => s.status === t.key).length,
   })));
-  let visibleSales = $derived(periodSales
+  const SORT_VALUES = { ...SALE_SORT_VALUES, customer: (s: any) => (s.customer ? customerName(s) : null) };
+  /* Par défaut, la plus récente d'abord (ordre du chargement). */
+  let sort = $state<SortState<keyof typeof SORT_VALUES>>({ key: "date", dir: "desc" });
+  let visibleSales = $derived(sortedBy(periodSales
     .filter((s) => tab === "all" || s.status === tab)
     .filter((s) => {
       const q = fold(search.trim());
       if (!q) return true;
       const c = s.customer || {};
       return fold(`${c.first_name ?? ""} ${c.last_name ?? ""} ${c.company_name ?? ""} ${s.invoice_number ?? ""}`).includes(q);
-    }));
+    }), sort, SORT_VALUES));
   let pendingCount = $derived(sales.filter((s) => s.status === "pending").length);
   let subtitle = $derived(`${periodSales.length} vente${periodSales.length > 1 ? "s" : ""}${period === "all" ? "" : ` en ${period}`} · ${pendingCount} en attente de paiement`);
   let grossTotal = $derived(Math.round(
@@ -800,10 +806,10 @@
       <DataTable caption="Liste des ventes">
         <thead>
           <tr>
-            <th scope="col">Date</th>
-            <th scope="col">Client</th>
-            <th scope="col">Statut</th>
-            <th scope="col" class="num">Montant TTC</th>
+            <SortHeader column="date" label="Date" firstDir="desc" bind:sort />
+            <SortHeader column="customer" label="Client" bind:sort />
+            <SortHeader column="status" label="Statut" bind:sort />
+            <SortHeader column="total" label="Montant TTC" num bind:sort />
             <th scope="col" class="col-actions"><span class="sr-only">Actions</span></th>
           </tr>
         </thead>

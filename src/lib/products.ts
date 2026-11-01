@@ -53,6 +53,11 @@ export function byRobe(a: TypeLike, b: TypeLike): number {
   return robe(a) - robe(b) || byProductType(a, b);
 }
 
+/** Rang de chaque type (par id) dans l'ordre `byRobe`, pour trier une colonne de type. */
+export function robeRanks(types: readonly (NonNullable<TypeLike> & { id: string })[]): Map<string, number> {
+  return new Map([...types].sort(byRobe).map((t, i) => [t.id, i]));
+}
+
 /** Rang d'un type dans le `typeOrder` de son produit ; après les autres s'il n'y figure pas (ou sans ordre). */
 function typePosition(t: TypeLike): number {
   const order = kindInfo(t).typeOrder ?? [];

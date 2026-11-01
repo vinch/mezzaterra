@@ -10,6 +10,8 @@
   import Button from "$lib/ui/Button.svelte";
   import ConfirmDialog from "$lib/ui/ConfirmDialog.svelte";
   import DataTable from "$lib/ui/DataTable.svelte";
+  import SortHeader from "$lib/ui/SortHeader.svelte";
+  import { sortedBy, type SortState, type SortValue } from "$lib/sort";
   import EmptyState from "$lib/ui/EmptyState.svelte";
   import Field from "$lib/ui/Field.svelte";
   import RowMenu from "$lib/ui/RowMenu.svelte";
@@ -29,9 +31,6 @@
     table: string;
     /** Sélection PostgREST (jointures pour l'affichage). */
     select?: string;
-    /** Colonne de tri (côté client) ; `sortRows` la remplace quand le tri dépend de plusieurs colonnes. */
-    orderBy?: string;
-    sortRows?: ((rows: any[]) => any[]) | null;
     /** « Nouveau cépage », « Nouvelle région »… ; avec `kindTabs`, peut dépendre du type de l'onglet. */
     newLabel: string | ((kind: ProductKindInfo) => string);
     /** Titre de la modale d'édition : « Modifier le cépage ». */
@@ -60,8 +59,6 @@
     title,
     table,
     select = "*",
-    orderBy = "name",
-    sortRows = null,
     newLabel,
     editLabel,
     thisLabel,
@@ -91,6 +88,13 @@
     kindTabs ? [fields[0], { ...KIND_FIELD, default: kind }, ...fields.slice(1)] : fields,
   );
   let shownRows = $derived(kindTabs ? rows.filter((r) => kindOf(r) === kind) : rows);
+  /** Valeur triée de chaque colonne triable (clé : son rang) ; par défaut la première, le nom. */
+  let sortValues = $derived(Object.fromEntries(columns.flatMap((col, i) => {
+    const sortValue = col.sort ?? (col.href || col.truncate ? false : col.value);
+    return sortValue ? [[String(i), sortValue]] : [];
+  })) as Record<string, (row: any) => SortValue>);
+  let sort = $state<SortState>({ key: "0", dir: "asc" });
+  let sortedRows = $derived(sortedBy(shownRows, sort, sortValues));
   let tabItems = $derived(kindTabs ? kindTabItems(rows, loading, kindTabs) : []);
 
   const formId = `ref-form-${table}`;
@@ -101,7 +105,7 @@
     const { data, error: fetchError } = await query().select(select);
     if (fetchError) error = fetchError.message;
     /* Une ligne créée pendant le chargement est gardée. */
-    else rows = sorted([...(data || []).filter((d: any) => !rows.some((r) => r.id === d.id)), ...rows]);
+    else rows = [...(data || []).filter((d: any) => !rows.some((r) => r.id === d.id)), ...rows];
     loading = false;
     const toEdit = editId ? rows.find((r) => r.id === editId) : null;
     if (toEdit) {
@@ -115,11 +119,6 @@
     if (!kindTabs || next === kind) return;
     kind = next;
     replaceState(kindListHref($page.url.pathname, next), {});
-  }
-
-  function sorted(list: any[]): any[] {
-    if (sortRows) return sortRows(list);
-    return [...list].sort((a, b) => String(a[orderBy] ?? "").localeCompare(String(b[orderBy] ?? ""), "fr"));
   }
 
   function openForm(row: any = null) {
@@ -178,7 +177,7 @@
       error = saveError.message;
       return;
     }
-    rows = sorted([...rows.filter((r) => r.id !== saved.id), saved]);
+    rows = [...rows.filter((r) => r.id !== saved.id), saved];
     /* Ne ferme que le formulaire de cet enregistrement (l'utilisateur a pu en ouvrir un autre). */
     if (formOpen && editing === target) {
       closeForm();
@@ -236,14 +235,18 @@
     <DataTable caption={title}>
       <thead>
         <tr>
-          {#each columns as col}
-            <th scope="col">{col.label}</th>
+          {#each columns as col, i}
+            {#if sortValues[i]}
+              <SortHeader column={String(i)} label={col.label} bind:sort />
+            {:else}
+              <th scope="col">{col.label}</th>
+            {/if}
           {/each}
           <th scope="col" class="col-actions"><span class="sr-only">Actions</span></th>
         </tr>
       </thead>
       <tbody>
-        {#each shownRows as row (row.id)}
+        {#each sortedRows as row (row.id)}
           <tr>
             {#each columns as col, i}
               {@const text = cell(col, row)}

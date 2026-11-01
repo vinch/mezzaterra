@@ -17,11 +17,11 @@
   import Spinner from "$lib/ui/Spinner.svelte";
   import DataTable from "$lib/ui/DataTable.svelte";
   import SortHeader from "$lib/ui/SortHeader.svelte";
-  import { compareValues, type SortState } from "$lib/sort";
+  import { sortedBy, type SortState } from "$lib/sort";
   import KpiCard from "$lib/ui/KpiCard.svelte";
   import Tabs from "$lib/ui/Tabs.svelte";
   import { IconBox, IconChart, IconEuro, IconSignal } from "$lib/ui/icons";
-  import { formatDate, formatEUR } from "$lib/format";
+  import { formatDate, formatEUR, toNumberOrNull } from "$lib/format";
 
   let loading = $state(true);
   let error = $state("");
@@ -34,7 +34,39 @@
     { key: "tastings", label: "Rentabilité des dégustations" },
   ];
   let tab = $state<Tab>("margins");
-  let sort = $state<SortState<"margin" | "unitMarginPct" | "revenue" | "sold" | "stock">>({ key: "margin", dir: "desc" });
+  const MARGIN_SORT = {
+    product: (s: LotStats) => lotLabel(s.lot),
+    purchase: (s: LotStats) => toNumberOrNull(s.lot.purchase_price),
+    price: (s: LotStats) => toNumberOrNull(s.lot.price),
+    unitMarginPct: (s: LotStats) => s.unitMarginPct,
+    sold: (s: LotStats) => s.sold,
+    revenue: (s: LotStats) => s.revenue,
+    margin: (s: LotStats) => s.margin,
+    stock: (s: LotStats) => s.stock,
+  };
+  type RotationRow = LotStats & { value: number; monthsLeft: number | null };
+  const ROTATION_SORT = {
+    product: (r: RotationRow) => lotLabel(r.lot),
+    stock: (r: RotationRow) => r.stock,
+    value: (r: RotationRow) => r.value,
+    /* Jamais vendu : le plus « endormi », avant la plus ancienne vente. */
+    lastSale: (r: RotationRow) => r.lastSale ?? "0000",
+    monthsLeft: (r: RotationRow) => r.monthsLeft,
+  };
+  const ROI_SORT = {
+    date: (r: TastingRoi) => r.tasting.date,
+    participants: (r: TastingRoi) => r.participants,
+    poured: (r: TastingRoi) => r.lotsPoured,
+    fees: (r: TastingRoi) => r.fees,
+    evening: (r: TastingRoi) => r.eveningRevenue,
+    buyers: (r: TastingRoi) => r.buyers,
+    later: (r: TastingRoi) => r.laterRevenue,
+    result: (r: TastingRoi) => r.result,
+  };
+  let marginSort = $state<SortState<keyof typeof MARGIN_SORT>>({ key: "margin", dir: "desc" });
+  /* Du plus « endormi » au plus actif. */
+  let rotationSort = $state<SortState<keyof typeof ROTATION_SORT>>({ key: "lastSale", dir: "asc" });
+  let roiSort = $state<SortState<keyof typeof ROI_SORT>>({ key: "date", dir: "desc" });
 
   onMount(async () => {
     try {
@@ -49,20 +81,20 @@
     }
   });
 
-  let sorted = $derived([...stats].sort((a, b) => compareValues(a[sort.key], b[sort.key], sort.dir)));
+  let sorted = $derived(sortedBy(stats, marginSort, MARGIN_SORT));
   let totals = $derived(stats.reduce(
     (t, s) => ({ revenue: t.revenue + s.revenue, cost: t.cost + s.cost, sold: t.sold + s.sold }),
     { revenue: 0, cost: 0, sold: 0 },
   ));
-  let rotation = $derived(stats
+  let rotation = $derived(sortedBy(stats
     .filter((s) => s.stock > 0)
-    .map((s) => ({
+    .map((s): RotationRow => ({
       ...s,
       value: s.stock * Number(s.lot.purchase_price || 0),
       /* Ventes mensuelles moyennes sur la période observée → mois de stock restants. */
       monthsLeft: s.sold > 0 && s.lastSale ? s.stock / Math.max(0.25, s.sold / 12) : null,
-    }))
-    .sort((a, b) => (b.idleDays ?? 9999) - (a.idleDays ?? 9999)));
+    })), rotationSort, ROTATION_SORT));
+  let sortedRoi = $derived(sortedBy(roi, roiSort, ROI_SORT));
 
   function pct(n: number | null): string {
     return n == null ? "—" : `${Math.round(n)} %`;
@@ -107,14 +139,14 @@
       <DataTable caption="Marges par produit">
           <thead>
             <tr>
-              <th scope="col">Produit</th>
-              <th scope="col" class="num">Achat</th>
-              <th scope="col" class="num">Vente</th>
-              <SortHeader column="unitMarginPct" label="Marge unit." num firstDir="desc" bind:sort />
-              <SortHeader column="sold" label="Vendues" num firstDir="desc" bind:sort />
-              <SortHeader column="revenue" label="CA" num firstDir="desc" bind:sort />
-              <SortHeader column="margin" label="Marge réalisée" num firstDir="desc" bind:sort />
-              <SortHeader column="stock" label="Stock" num firstDir="desc" bind:sort />
+              <SortHeader column="product" label="Produit" bind:sort={marginSort} />
+              <SortHeader column="purchase" label="Achat" num firstDir="asc" bind:sort={marginSort} />
+              <SortHeader column="price" label="Vente" num firstDir="asc" bind:sort={marginSort} />
+              <SortHeader column="unitMarginPct" label="Marge unit." num bind:sort={marginSort} />
+              <SortHeader column="sold" label="Vendues" num bind:sort={marginSort} />
+              <SortHeader column="revenue" label="CA" num bind:sort={marginSort} />
+              <SortHeader column="margin" label="Marge réalisée" num bind:sort={marginSort} />
+              <SortHeader column="stock" label="Stock" num bind:sort={marginSort} />
             </tr>
           </thead>
           <tbody>
@@ -147,11 +179,11 @@
       <DataTable caption="Rotation du stock">
           <thead>
             <tr>
-              <th scope="col">Produit</th>
-              <th scope="col" class="num">Stock</th>
-              <th scope="col" class="num">Valeur (achat)</th>
-              <th scope="col">Dernière vente</th>
-              <th scope="col" class="num">Mois de stock</th>
+              <SortHeader column="product" label="Produit" bind:sort={rotationSort} />
+              <SortHeader column="stock" label="Stock" num bind:sort={rotationSort} />
+              <SortHeader column="value" label="Valeur (achat)" num bind:sort={rotationSort} />
+              <SortHeader column="lastSale" label="Dernière vente" bind:sort={rotationSort} />
+              <SortHeader column="monthsLeft" label="Mois de stock" num bind:sort={rotationSort} />
               <th scope="col">Statut</th>
             </tr>
           </thead>
@@ -185,18 +217,18 @@
       <DataTable caption="Rentabilité des dégustations">
           <thead>
             <tr>
-              <th scope="col">Dégustation</th>
-              <th scope="col" class="num">Participants</th>
-              <th scope="col" class="num">Bouteilles ouvertes</th>
-              <th scope="col" class="num">Entrées</th>
-              <th scope="col" class="num">Ventes de la soirée</th>
-              <th scope="col" class="num">Acheteurs</th>
-              <th scope="col" class="num">Relances 30 j</th>
-              <th scope="col" class="num">Résultat estimé</th>
+              <SortHeader column="date" label="Dégustation" firstDir="desc" bind:sort={roiSort} />
+              <SortHeader column="participants" label="Participants" num bind:sort={roiSort} />
+              <SortHeader column="poured" label="Bouteilles ouvertes" num bind:sort={roiSort} />
+              <SortHeader column="fees" label="Entrées" num bind:sort={roiSort} />
+              <SortHeader column="evening" label="Ventes de la soirée" num bind:sort={roiSort} />
+              <SortHeader column="buyers" label="Acheteurs" num bind:sort={roiSort} />
+              <SortHeader column="later" label="Relances 30 j" num bind:sort={roiSort} />
+              <SortHeader column="result" label="Résultat estimé" num bind:sort={roiSort} />
             </tr>
           </thead>
           <tbody>
-            {#each roi as r (r.tasting.id)}
+            {#each sortedRoi as r (r.tasting.id)}
               <tr>
                 <td>
                   <strong>{r.tasting.name || "Dégustation"}</strong>

@@ -3,6 +3,7 @@ import { LINE_ITEMS_SELECT } from "./manageData";
 import { lineTotal } from "./analytics";
 import { formatEUR, formatPercent, toNumber } from "./format";
 import { lotProductLabel } from "./products";
+import { statusRank } from "./status";
 
 /** Règles des ventes partagées par la page Ventes et la facture PDF. */
 
@@ -19,6 +20,13 @@ export function quantitiesByLot(items: QuantityLine[]): Map<string, number> {
 export function totalQuantity(items: QuantityLine[]): number {
   return items.reduce((n, i) => n + (i.lot_id ? i.quantity || 0 : 0), 0);
 }
+
+/** Colonnes triables communes aux listes de ventes (page Ventes, historique d'un client). */
+export const SALE_SORT_VALUES = {
+  date: (s: any) => s.date,
+  status: (s: any) => statusRank("sale", s.status),
+  total: (s: any) => toNumber(s.total_price),
+};
 
 /** Libellé par défaut d'une ligne « Dégustation » (sans lot). */
 export const TASTING_LINE_NOTE = "Dégustation";

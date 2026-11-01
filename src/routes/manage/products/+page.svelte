@@ -15,7 +15,7 @@
   import ConfirmDialog from "$lib/ui/ConfirmDialog.svelte";
   import DataTable from "$lib/ui/DataTable.svelte";
   import SortHeader from "$lib/ui/SortHeader.svelte";
-  import { compareValues, type SortState } from "$lib/sort";
+  import { sortedBy, type SortState } from "$lib/sort";
   import EmptyState from "$lib/ui/EmptyState.svelte";
   import Field from "$lib/ui/Field.svelte";
   import StockBadge from "$lib/ui/StockBadge.svelte";
@@ -23,7 +23,7 @@
   import Spinner from "$lib/ui/Spinner.svelte";
   import Tabs from "$lib/ui/Tabs.svelte";
   import Combobox, { type ComboOption } from "$lib/ui/Combobox.svelte";
-  import { byRobe, byVolume, compareProductsByProducer, MAIN_ROBES, lotShortLabel, wineRobe, productTitle, productTypeLabel, withVolume } from "$lib/products";
+  import { byVolume, robeRanks, compareProductsByProducer, MAIN_ROBES, lotShortLabel, wineRobe, productTitle, productTypeLabel, withVolume } from "$lib/products";
   import { styleByKey, type ProductStyleKey } from "$lib/productStyles";
   import {
     IconArchive,
@@ -475,27 +475,24 @@
       return [w.id, { total, badge: stockBadge(w, total, !!stock) }];
     }),
   ));
-  type SortKey = "name" | "producer" | "type" | "stock" | "price";
-  let sort = $state<SortState<SortKey>>({ key: "producer", dir: "asc" });
   /** Rang des types : robe du plus léger au plus corsé (blanc, rosé, rouge), puis ordre propre au produit (fruité d'une huile). */
-  let typeRank = $derived(new Map([...productTypes].sort(byRobe).map((t, i) => [t.id, i])));
+  let typeRank = $derived(robeRanks(productTypes));
   /** Valeur triée d'un produit ; null (sans prix, stock illisible) en fin de liste. */
-  function sortValue(product: ProductRow, key: SortKey): string | number | null {
-    switch (key) {
-      case "name": return productTitle(product);
-      case "producer": return product.producer?.name ?? null;
-      case "type": return typeRank.get(product.product_type_id) ?? null;
-      case "stock": return stock ? stockById.get(product.id)?.total ?? 0 : null;
-      case "price": return minPrice(product);
-    }
-  }
+  let sortValues = $derived({
+    name: (product: ProductRow) => productTitle(product),
+    producer: (product: ProductRow) => product.producer?.name,
+    type: (product: ProductRow) => typeRank.get(product.product_type_id),
+    stock: (product: ProductRow) => (stock ? stockById.get(product.id)?.total ?? 0 : null),
+    price: (product: ProductRow) => minPrice(product),
+  });
+  let sort = $state<SortState<keyof typeof sortValues>>({ key: "producer", dir: "asc" });
   /* Produits retirés en fin de liste : visibles, mais hors du chemin. À égalité, l'ordre du chargement (producteur, puis nom). */
-  let shownProducts = $derived(filteredProducts
-    .filter((w: any) => !robeFilter || wineRobe(w.product_type).key === robeFilter)
-    .filter((w: any) => !inStockOnly || !stock || (stockById.get(w.id)?.total ?? 0) > 0)
-    .sort((a: any, b: any) =>
-      Number(isRetired(a)) - Number(isRetired(b)) ||
-      compareValues(sortValue(a, sort.key), sortValue(b, sort.key), sort.dir)));
+  let shownProducts = $derived.by(() => {
+    const list = sortedBy(filteredProducts
+      .filter((w) => !robeFilter || wineRobe(w.product_type).key === robeFilter)
+      .filter((w) => !inStockOnly || !stock || (stockById.get(w.id)?.total ?? 0) > 0), sort, sortValues);
+    return [...list.filter((w) => !isRetired(w)), ...list.filter(isRetired)];
+  });
   /** « 19 vins (35 millésimes) · 120 bouteilles en stock », pour l'onglet ouvert. */
   let subtitle = $derived.by(() => {
     const lotCount = tabProducts.reduce((n, w: any) => n + w.lots.length, 0);
@@ -592,8 +589,8 @@
               <SortHeader column="name" label="Produit" also={{ column: "producer", label: "Domaine" }} bind:sort />
               <SortHeader column="type" label={tabKind.typeLabel} bind:sort />
               <th scope="col">{tabKind.lotPlural} · stock</th>
-              <SortHeader column="stock" label="Stock" num firstDir="desc" bind:sort />
-              <SortHeader column="price" label="Prix de vente" num bind:sort />
+              <SortHeader column="stock" label="Stock" num bind:sort />
+              <SortHeader column="price" label="Prix de vente" num firstDir="asc" bind:sort />
               <th scope="col" class="col-actions"><span class="sr-only">Actions</span></th>
             </tr>
           </thead>
