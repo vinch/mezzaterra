@@ -16,7 +16,7 @@ DECLARE
   v_draft live_preorder;
   v_id uuid;
 BEGIN
-  IF jsonb_path_exists(coalesce(p_items, '[]'::jsonb), '$[*] ? (!(exists(@.lot_id)))') THEN
+  IF jsonb_path_exists(v_raw, '$[*] ? (!(exists(@.lot_id)))') THEN
     RAISE EXCEPTION 'Cette page date d''une ancienne version : rechargez-la.';
   END IF;
   IF p_tasting_id IS NULL OR p_guest_id IS NULL THEN
