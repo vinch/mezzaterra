@@ -311,8 +311,9 @@ export async function downloadNotesPdf(
   const fontFamily = await attachRobotoPdf(doc);
   doc.setFont(fontFamily, "normal");
 
-  const tastingDate = options.tastingDate
-    ? parseIsoDate(options.tastingDate)
+  /* Date absente ou incomplète : celle du jour, comme avant. */
+  const tastingDate = /^\d{4}-\d{2}-\d{2}/.test(options.tastingDate ?? "")
+    ? parseIsoDate(options.tastingDate!)
     : new Date();
   y = await drawPdfNotesHeader(
     doc,
