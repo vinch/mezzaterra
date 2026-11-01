@@ -1110,7 +1110,7 @@
   .offline {
     padding: 0.8rem 1rem;
     border-radius: 10px;
-    background: color-mix(in srgb, var(--mz-gold) 15%, transparent);
+    background: color-mix(in srgb, var(--mz-cave-warning) 15%, transparent);
     color: var(--mz-cave-warning);
     line-height: 1.45;
   }
