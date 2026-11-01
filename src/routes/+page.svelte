@@ -394,7 +394,7 @@
     font-size: clamp(2.2rem, 5vw, 3.2rem);
     line-height: 1.05;
     letter-spacing: -0.01em;
-    color: var(--mz-white);
+    color: var(--mz-on-brand);
   }
 
   .cta-sub {
@@ -413,8 +413,9 @@
     margin: 0 auto;
     padding: 0.4rem;
     border-radius: var(--mz-radius-pill);
+    --form-shadow: 0 12px 30px -12px color-mix(in srgb, var(--mz-ink) 45%, transparent);
     background: var(--mz-white);
-    box-shadow: var(--mz-shadow-float);
+    box-shadow: var(--form-shadow);
   }
 
   .subscribe-form input {
@@ -439,7 +440,7 @@
 
   .subscribe-form:focus-within {
     box-shadow:
-      var(--mz-shadow-float),
+      var(--form-shadow),
       0 0 0 4px color-mix(in srgb, var(--mz-paper-raised) 35%, transparent);
   }
 
@@ -449,7 +450,7 @@
     border-radius: var(--mz-radius-pill);
     padding: 0.9rem 1.6rem;
     background: var(--mz-wine-red);
-    color: var(--mz-white);
+    color: var(--mz-on-brand);
     font: inherit;
     font-size: 1rem;
     font-weight: 600;

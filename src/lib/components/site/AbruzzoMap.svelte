@@ -227,8 +227,8 @@
   }
 
   .neighbor {
-    fill: var(--mz-map-land);
-    stroke: var(--mz-map-line);
+    fill: var(--mz-paper);
+    stroke: var(--mz-line);
     stroke-width: 1;
   }
 
@@ -247,11 +247,11 @@
   }
 
   .region-shadow {
-    fill: var(--mz-map-region);
+    fill: var(--mz-paper-raised);
   }
 
   .region {
-    fill: var(--mz-map-region);
+    fill: var(--mz-paper-raised);
   }
 
   .region-outline {
@@ -331,7 +331,7 @@
 
   .pin-dot {
     fill: var(--mz-wine-red);
-    stroke: var(--mz-map-region);
+    stroke: var(--mz-paper-raised);
     stroke-width: 2.5;
     transition: fill 0.15s var(--mz-ease);
   }
@@ -415,12 +415,12 @@
   }
 
   .inset rect {
-    fill: color-mix(in srgb, var(--mz-map-region) 85%, transparent);
-    stroke: var(--mz-map-line);
+    fill: color-mix(in srgb, var(--mz-paper-raised) 85%, transparent);
+    stroke: var(--mz-line);
   }
 
   .inset-land {
-    fill: var(--mz-map-inset);
+    fill: var(--mz-line-soft);
   }
 
   .inset-region {

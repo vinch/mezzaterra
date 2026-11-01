@@ -194,7 +194,7 @@
     height: 4.8rem;
     border-radius: 12px;
     background: var(--mz-teal);
-    color: var(--mz-white);
+    color: var(--mz-on-brand);
     display: flex;
     flex-direction: column;
     align-items: center;
