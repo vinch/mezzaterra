@@ -132,11 +132,12 @@ inverse : `supabase/rollback/20261101120000_rename_products_down.sql`.
 
 Transition : un onglet ouvert avant la bascule (vente, commande, pré-commande d'un invité, demande
 « J'en veux ») envoie encore ses lignes avec `wine_vintage_id`. La fonction `legacy_lot_items` les lit
-comme `lot_id` : appelée en tête de `save_sale`, `save_order` et `save_live_preorder`
-(`p_items := public.legacy_lot_items(p_items)`), et par les triggers `wish_request_legacy_lot_items` et
-`live_preorder_legacy_lot_items` (fonction `legacy_lot_items_row`) sur `items`. Quelques jours après la
-bascule, une migration de nettoyage la retire : supprimer la ligne `p_items := …` des trois fonctions
-(en les recréant), les deux triggers, puis `legacy_lot_items_row` et `legacy_lot_items`. Elle ne
+comme `lot_id` : appelée en tête de `save_sale` et `save_order` (`p_items := public.legacy_lot_items(p_items)`),
+à la lecture des lignes de `save_live_preorder` (`v_raw`), et par le trigger `wish_request_legacy_lot_items`
+(fonction `legacy_lot_items_row`) pour les demandes insérées directement. Non couverte : la note d'un
+invité envoyée par un onglet d'avant la bascule, d'où une bascule hors de toute dégustation. Quelques
+jours après, une migration de nettoyage retire la transition : recréer les trois fonctions sans l'appel à
+`legacy_lot_items`, supprimer le trigger, puis `legacy_lot_items_row` et `legacy_lot_items`. Elle ne
 demande aucun déploiement de code : l'application n'envoie déjà plus que `lot_id`.
 
 ```sh
