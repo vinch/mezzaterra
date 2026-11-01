@@ -12,10 +12,9 @@
     status: string | null | undefined;
     kind?: StatusKind;
     onselect: (next: string) => void;
-    disabled?: boolean;
   }
 
-  let { status, kind = "sale", onselect, disabled = false }: Props = $props();
+  let { status, kind = "sale", onselect }: Props = $props();
 
   let open = $state(false);
   let anchor = $state<HTMLElement | null>(null);
@@ -27,7 +26,7 @@
   }
 </script>
 
-{#if !disabled && canChangeStatus(kind, status)}
+{#if canChangeStatus(kind, status)}
   <StatusBadge {kind} {status} interactive expanded={open} onclick={toggle} />
   <Menu bind:open {anchor} {items} label="Changer le statut" align="start" />
 {:else}
