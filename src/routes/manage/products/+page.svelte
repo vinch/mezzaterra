@@ -184,38 +184,16 @@
       description: formData.description || null,
       winery_id: formData.winery_id,
       wine_type_id: formData.wine_type_id,
+      /* Vide : aucune appellation (null efface celle d'un produit modifié). */
+      appelation_id: formData.appelation_id || null,
     };
 
-    // Include appelation_id only if it has a value, or set to null to clear it
-    if (editingWine) {
-      // For updates, set to null if empty to allow clearing the appellation
-      wineData.appelation_id = formData.appelation_id || null;
-    } else {
-      // For inserts, only include if it has a value
-      if (formData.appelation_id) {
-        wineData.appelation_id = formData.appelation_id;
-      }
-    }
-
-    if (editingWine) {
-      const { error: updateError } = await supabase
-        .from("wine")
-        .update(wineData)
-        .eq("id", editingWine.id);
-
-      if (updateError) {
-        error = updateError.message;
-        return;
-      }
-    } else {
-      const { error: insertError } = await supabase
-        .from("wine")
-        .insert(wineData);
-
-      if (insertError) {
-        error = insertError.message;
-        return;
-      }
+    const { error: saveError } = editingWine
+      ? await supabase.from("wine").update(wineData).eq("id", editingWine.id)
+      : await supabase.from("wine").insert(wineData);
+    if (saveError) {
+      error = saveError.message;
+      return;
     }
 
     /* Montre le produit, même enregistré sous un autre type que l'onglet ouvert. */
@@ -473,23 +451,11 @@
       return false;
     }
 
-    // Filter by search text (domaine, nom, appellation)
+    /* Recherche sans accents ni casse : domaine, nom, appellation ou son label. */
     if (searchText) {
-      const searchLower = searchText.toLowerCase();
-      const wineryName = wine.winery?.name?.toLowerCase() || "";
-      const wineName = wine.name?.toLowerCase() || "";
-      const appelationName = wine.appelation?.name?.toLowerCase() || "";
-      const appelationLabel = wine.appelation?.label?.name?.toLowerCase() || "";
-
-      const matchesSearch =
-        wineryName.includes(searchLower) ||
-        wineName.includes(searchLower) ||
-        appelationName.includes(searchLower) ||
-        appelationLabel.includes(searchLower);
-
-      if (!matchesSearch) {
-        return false;
-      }
+      const q = fold(searchText);
+      const fields = [wine.winery?.name, wine.name, wine.appelation?.name, wine.appelation?.label?.name];
+      if (!fields.some((f) => fold(f || "").includes(q))) return false;
     }
 
     return true;
