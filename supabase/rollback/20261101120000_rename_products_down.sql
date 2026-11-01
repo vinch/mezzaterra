@@ -709,8 +709,9 @@ UPDATE public."wish_request" SET items = pg_temp.lot_items_back(items) WHERE ite
 UPDATE public."live_preorder" SET items = pg_temp.lot_items_back(items) WHERE items @? '$[*].lot_id';
 DROP FUNCTION IF EXISTS public."legacy_lot_items"("p_items" "jsonb");
 
--- 5. Historique des migrations : la prochaine « supabase db push » réappliquera le renommage
-DELETE FROM supabase_migrations.schema_migrations WHERE version = '20261101120000';
+-- 5. Historique des migrations (renommage et fin de transition) : la prochaine « supabase db push »
+-- réappliquera le renommage
+DELETE FROM supabase_migrations.schema_migrations WHERE version IN ('20261101120000', '20261101130000');
 
 NOTIFY pgrst, 'reload schema';
 
