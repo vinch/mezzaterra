@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { SvelteSet } from "svelte/reactivity";
   import { getContext, onMount } from "svelte";
   import { errorMessage, rowAction } from "$lib/async";
   import { fetchAllRows, supabase } from "$lib/supabase";
@@ -38,7 +39,8 @@
   let vintages = $state.raw(new Map<string, any>());
   let tastings = new Map<string, any>();
   let filter = $state<Filter>("new");
-  let busyId = $state("");
+  /** Lignes dont une action est en cours. */
+  const busy = new SvelteSet<string>();
 
   onMount(async () => {
     try {
@@ -123,7 +125,7 @@
     });
   }
 
-  const run = rowAction({ busy: (id) => (busyId = id), error: (m) => (error = m), after: refreshCounts });
+  const run = rowAction({ busy, error: (m) => (error = m), after: refreshCounts });
 </script>
 
 <svelte:head>
@@ -176,7 +178,7 @@
                 <p class="message">{m.message}</p>
                 <footer>
                   <Button size="sm" href={replyHref(m)}>Répondre par email</Button>
-                  <Button size="sm" variant="ghost" disabled={busyId === m.id} onclick={() => setStatus(item, m.status === "new" ? "done" : "new")}>
+                  <Button size="sm" variant="ghost" disabled={busy.has(m.id)} onclick={() => setStatus(item, m.status === "new" ? "done" : "new")}>
                     {m.status === "new" ? "Marquer comme traité" : "Remettre à traiter"}
                   </Button>
                 </footer>
@@ -199,16 +201,16 @@
                 {#if w.message}<p class="message">« {w.message} »</p>{/if}
                 <footer>
                   {#if w.status === "new"}
-                    <Button size="sm" disabled={busyId === w.id} onclick={() => run(w.id, () => createSaleFromWish(w, prices, tastingName(w.tasting_id)).then(loadRequests))}>
-                      {busyId === w.id ? "…" : "Créer la vente (en attente)"}
+                    <Button size="sm" disabled={busy.has(w.id)} onclick={() => run(w.id, () => createSaleFromWish(w, prices, tastingName(w.tasting_id)).then(loadRequests))}>
+                      {busy.has(w.id) ? "…" : "Créer la vente (en attente)"}
                     </Button>
-                    <Button size="sm" variant="ghost" disabled={busyId === w.id} onclick={() => setStatus(item, "dismissed")}>Ignorer</Button>
+                    <Button size="sm" variant="ghost" disabled={busy.has(w.id)} onclick={() => setStatus(item, "dismissed")}>Ignorer</Button>
                   {:else if w.status === "done"}
                     <Button size="sm" href="/manage/sales">Voir les ventes</Button>
                     <span class="t-caption">Vente créée, client retrouvé ou créé (email, téléphone).</span>
                   {:else}
                     <span class="t-caption">Ignorée</span>
-                    <Button size="sm" variant="ghost" disabled={busyId === w.id} onclick={() => setStatus(item, "new")}>Remettre à traiter</Button>
+                    <Button size="sm" variant="ghost" disabled={busy.has(w.id)} onclick={() => setStatus(item, "new")}>Remettre à traiter</Button>
                   {/if}
                 </footer>
               {/if}

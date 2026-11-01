@@ -4,21 +4,26 @@ export function errorMessage(e: unknown): string {
 }
 
 /**
- * Action sur une ligne de liste (créer la vente, ignorer…) : `busy(id)` pendant l'action pour
- * désactiver ses boutons, erreur précédente effacée puis remplacée par celle de l'action ;
+ * Action sur une ligne de liste (créer la vente, ignorer…) : l'id est dans `busy` pendant
+ * l'action pour désactiver les boutons de sa ligne (un SvelteSet : plusieurs lignes peuvent être
+ * occupées à la fois), erreur précédente effacée puis remplacée par celle de l'action ;
  * `after` (relevé, compteurs) seulement si l'action réussit.
  */
-export function rowAction(opts: { busy: (id: string) => void; error: (message: string) => void; after?: () => unknown }) {
+export function rowAction(opts: {
+  busy: { add(id: string): unknown; delete(id: string): unknown };
+  error: (message: string) => void;
+  after?: () => unknown;
+}) {
   return async (id: string, action: () => Promise<unknown>) => {
     opts.error("");
-    opts.busy(id);
+    opts.busy.add(id);
     try {
       await action();
       await opts.after?.();
     } catch (e) {
       opts.error(errorMessage(e));
     } finally {
-      opts.busy("");
+      opts.busy.delete(id);
     }
   };
 }

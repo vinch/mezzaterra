@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { SvelteSet } from "svelte/reactivity";
   import { onDestroy, onMount } from "svelte";
   import { rowAction } from "$lib/async";
   import { fade } from "svelte/transition";
@@ -70,7 +71,8 @@
   let registrations = $state.raw<any[]>([]);
   /** Participants (tasting_customer), triés par nom, avec leurs places hors réservation en ligne. */
   let participants = $state.raw<any[]>([]);
-  let busyId = $state("");
+  /** Lignes dont une action est en cours. */
+  const busy = new SvelteSet<string>();
   let poll: ReturnType<typeof setInterval> | null = null;
   /* onDestroy peut passer pendant les await d'onMount : on ne crée alors ni canal ni polling. */
   let destroyed = false;
@@ -233,7 +235,7 @@
   let currentLabel = $derived(kindInfo(current?.wine).label);
 
   /** Action sur une ligne (demande, réservation), puis relevé à jour. */
-  const run = rowAction({ busy: (id) => (busyId = id), error: (m) => (actionError = m), after: refresh });
+  const run = rowAction({ busy, error: (m) => (actionError = m), after: refresh });
 
   async function copyLink() {
     await navigator.clipboard.writeText(guestUrl);
@@ -309,7 +311,7 @@
               <strong>{r.first_name} {r.last_name || ""}</strong>
               <span class="t-caption">{placesLabel(r.seats)}{r.status === "waitlist" ? " · liste d’attente" : r.status === "cancelled" ? " · annulée" : ""}</span>
             </span>
-            <Button size="sm" variant="ghost" disabled={busyId === r.id} onclick={() => run(r.id, () => confirmRegistration(r.id))}>
+            <Button size="sm" variant="ghost" disabled={busy.has(r.id)} onclick={() => run(r.id, () => confirmRegistration(r.id))}>
               {r.status === "waitlist" ? "Confirmer" : r.status === "cancelled" ? "Rétablir" : "Ajouter aux participants"}
             </Button>
           </li>
@@ -335,8 +337,8 @@
         <span class="t-caption">Pré-commande, pas encore confirmée</span>
       {:else if o.status === "new"}
         <span class="order-actions">
-          <Button size="sm" disabled={busyId === o.id} onclick={() => run(o.id, () => createSaleFromWish(o, prices, tastingTitle(tasting)))}>{busyId === o.id ? "…" : "Créer la vente"}</Button>
-          <Button size="sm" variant="ghost" disabled={busyId === o.id} onclick={() => run(o.id, () => setWishStatus(o.id, "dismissed"))}>Ignorer</Button>
+          <Button size="sm" disabled={busy.has(o.id)} onclick={() => run(o.id, () => createSaleFromWish(o, prices, tastingTitle(tasting)))}>{busy.has(o.id) ? "…" : "Créer la vente"}</Button>
+          <Button size="sm" variant="ghost" disabled={busy.has(o.id)} onclick={() => run(o.id, () => setWishStatus(o.id, "dismissed"))}>Ignorer</Button>
         </span>
       {:else if o.sale_id}
         <a href="/manage/sales?statut=pending" class="t-caption">Vente créée</a>
