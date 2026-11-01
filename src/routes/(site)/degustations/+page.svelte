@@ -53,7 +53,7 @@
           {#each upcoming as t, i (t.id)}
             {@const d = formatDayMonth(t.date)}
             {@const delta = daysUntil(t.date)}
-            <a href="/tastings/{t.id}" class="upcoming-card mz-rise" style="animation-delay: {i * 80}ms">
+            <a href="/degustations/{t.id}" class="upcoming-card mz-rise" style="animation-delay: {i * 80}ms">
               <div class="date-tile" aria-hidden="true">
                 <span class="day">{d.day}</span>
                 <span class="month">{d.month}</span>
@@ -84,7 +84,7 @@
           {#each past as t (t.id)}
             {@const d = formatDayMonth(t.date)}
             <li>
-              <a href="/tastings/{t.id}" class="past-row">
+              <a href="/degustations/{t.id}" class="past-row">
                 <span class="past-date">{d.day} {d.month} {d.year}</span>
                 <span class="past-name">{tastingTitle(t)}</span>
                 <span class="past-meta">

@@ -12,9 +12,9 @@
         { href: `/${catalog.slug}`, label: catalog.catalogTitle },
         { href: "/", label: "Accueil" },
       ]
-    : path.startsWith("/tastings")
+    : path.startsWith("/degustations")
       ? [
-          { href: "/tastings", label: "Toutes les dégustations" },
+          { href: "/degustations", label: "Toutes les dégustations" },
           { href: "/", label: "Accueil" },
         ]
       : [

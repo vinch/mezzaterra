@@ -296,17 +296,17 @@
     <div class="empty">
       <img src="/flyer/logo-text.svg" alt="Mezzaterra" class="logo" />
       <p>La dégustation commence le {formatDateLong(tasting.date).toLowerCase()}.<br />La sélection sera dévoilée au fil de la soirée.</p>
-      <a class="ghost-btn" href="/tastings/{tasting.id}">Retour à la dégustation</a>
+      <a class="ghost-btn" href="/degustations/{tasting.id}">Retour à la dégustation</a>
     </div>
   {:else if !tasting || total === 0}
     <div class="empty">
       <img src="/flyer/logo-text.svg" alt="Mezzaterra" class="logo" />
       <p>{!tasting ? "Cette dégustation est introuvable." : "La sélection de la soirée sera bientôt dévoilée…"}</p>
-      <a class="ghost-btn" href="/tastings">Voir les dégustations</a>
+      <a class="ghost-btn" href="/degustations">Voir les dégustations</a>
     </div>
   {:else}
     <header class="topbar">
-      <a href="/tastings/{tasting.id}" class="brand" aria-label="Retour à la dégustation">
+      <a href="/degustations/{tasting.id}" class="brand" aria-label="Retour à la dégustation">
         <img src="/flyer/logo-text.svg" alt="Mezzaterra" class="logo" />
       </a>
       <div class="progress">

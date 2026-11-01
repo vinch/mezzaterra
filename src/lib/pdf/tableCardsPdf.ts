@@ -53,7 +53,7 @@ export async function downloadTableCardsPdf(tasting: any, lots: any[], origin: s
     doc.setFontSize(14);
     doc.setTextColor(...INK);
     doc.text("Scannez, notez ce que vous goûtez et mettez vos coups de cœur de côté.", PW / 2, 98, { align: "center" });
-    const liveQr = await qrDataUrl(`${origin}/tastings/${tasting.id}/live`, { size: 900 });
+    const liveQr = await qrDataUrl(`${origin}/degustations/${tasting.id}/live`, { size: 900 });
     doc.addImage(liveQr, "PNG", (PW - 110) / 2, 112, 110, 110);
     doc.setFontSize(12);
     doc.setTextColor(...MUTED);
