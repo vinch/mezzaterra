@@ -14,8 +14,8 @@
   import { fetchLatestFeedback } from "$lib/live";
   import { MAIN_ROBES, robePreference, styleByKey, vintageLabel, vintageLabelSelect, vintageShortLabel, wineRobe, type ProductStyleKey } from "$lib/wine";
   import { KIND_STYLES } from "$lib/productKinds";
-  import { formatDate, formatEUR, toNumber } from "$lib/format";
-  import { statusRank } from "$lib/status";
+  import { formatDate, formatEUR } from "$lib/format";
+  import { SALE_SORT_VALUES } from "$lib/sales";
   import { sortedBy, type SortState } from "$lib/sort";
   import Button from "$lib/ui/Button.svelte";
   import IconButton from "$lib/ui/IconButton.svelte";
@@ -40,14 +40,9 @@
   let error = $state("");
   let customer = $state<any>(null);
   let sales = $state<any[]>([]);
-  const SALE_SORT = {
-    date: (s: any) => s.date,
-    status: (s: any) => statusRank("sale", s.status),
-    total: (s: any) => toNumber(s.total_price),
-  };
   /* Par défaut, la plus récente d'abord (ordre du chargement). */
-  let saleSort = $state<SortState<keyof typeof SALE_SORT>>({ key: "date", dir: "desc" });
-  let sortedSales = $derived(sortedBy(sales, saleSort, SALE_SORT));
+  let saleSort = $state<SortState<keyof typeof SALE_SORT_VALUES>>({ key: "date", dir: "desc" });
+  let sortedSales = $derived(sortedBy(sales, saleSort, SALE_SORT_VALUES));
   let tastings = $state<any[]>([]);
   let feedback = $state<any[]>([]);
   let vintages = $state.raw<any[]>([]);

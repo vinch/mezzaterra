@@ -2,6 +2,7 @@ import { supabase } from "./supabase";
 import { LINE_ITEMS_SELECT } from "./manageData";
 import { lineTotal } from "./analytics";
 import { formatEUR, formatPercent, toNumber } from "./format";
+import { statusRank } from "./status";
 import { vintageProductLabel } from "./wine";
 
 /** Règles des ventes partagées par la page Ventes et la facture PDF. */
@@ -21,6 +22,13 @@ export function totalQuantity(items: QuantityLine[]): number {
 }
 
 /** Libellé par défaut d'une ligne « Dégustation » (sans millésime). */
+/** Colonnes triables communes aux listes de ventes (page Ventes, historique d'un client). */
+export const SALE_SORT_VALUES = {
+  date: (s: any) => s.date,
+  status: (s: any) => statusRank("sale", s.status),
+  total: (s: any) => toNumber(s.total_price),
+};
+
 export const TASTING_LINE_NOTE = "Dégustation";
 
 export const PAYMENT_METHOD_OPTIONS: { value: string; label: string }[] = [

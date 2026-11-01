@@ -9,7 +9,7 @@
   import Button from "$lib/ui/Button.svelte";
   import IconButton from "$lib/ui/IconButton.svelte";
   import StatusBadge from "$lib/ui/StatusBadge.svelte";
-  import { isEditable, statusMenuItems, statusRank, STATUS_META, type SaleStatus } from "$lib/status";
+  import { isEditable, statusMenuItems, STATUS_META, type SaleStatus } from "$lib/status";
   import type { MenuItem } from "$lib/ui/Menu.svelte";
   import StatusMenuBadge from "$lib/ui/StatusMenuBadge.svelte";
   import RowMenu from "$lib/ui/RowMenu.svelte";
@@ -42,6 +42,7 @@
   import {
     PAYMENT_METHOD_OPTIONS,
     SALE_LINE_ITEMS_SELECT,
+    SALE_SORT_VALUES,
     TASTING_LINE_NOTE,
     globalDiscountAmount,
     itemsSubtotal,
@@ -715,12 +716,7 @@
     ...t,
     count: t.key === "all" ? periodSales.length : periodSales.filter((s) => s.status === t.key).length,
   })));
-  const SORT_VALUES = {
-    date: (s: any) => s.date,
-    customer: (s: any) => (s.customer ? customerName(s) : null),
-    status: (s: any) => statusRank("sale", s.status),
-    total: (s: any) => toNumber(s.total_price),
-  };
+  const SORT_VALUES = { ...SALE_SORT_VALUES, customer: (s: any) => (s.customer ? customerName(s) : null) };
   /* Par défaut, la plus récente d'abord (ordre du chargement). */
   let sort = $state<SortState<keyof typeof SORT_VALUES>>({ key: "date", dir: "desc" });
   let visibleSales = $derived(sortedBy(periodSales
