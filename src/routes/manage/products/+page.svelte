@@ -21,7 +21,7 @@
   import Spinner from "$lib/ui/Spinner.svelte";
   import Tabs from "$lib/ui/Tabs.svelte";
   import Combobox, { type ComboOption } from "$lib/ui/Combobox.svelte";
-  import { byVolume, compareWines, styleByKey, vintageShortLabel, wineRobe, type WineStyleKey, wineTitle, wineTypeLabel, withVolume } from "$lib/wine";
+  import { byVolume, compareWines, MAIN_ROBES, styleByKey, vintageShortLabel, wineRobe, type WineStyleKey, wineTitle, wineTypeLabel, withVolume } from "$lib/wine";
   import {
     IconArchive,
     IconArchiveRestore,
@@ -309,7 +309,6 @@
 
   let robeFilter = $state<WineStyleKey | "">("");
   let inStockOnly = $state(false);
-  const ROBES: WineStyleKey[] = ["red", "white", "rose"];
 
   /** Un onglet par type de produit : vins et huiles ne se mélangent pas dans la liste. */
   let tab = $state<ProductKind>(kindFromUrl($page.url));
@@ -526,7 +525,7 @@
       {#if !tabKind.style}
         <div class="chips" role="group" aria-label="Filtrer par robe">
           <button type="button" class="ui-chip" aria-pressed={!robeFilter} onclick={() => (robeFilter = "")}>Tous</button>
-          {#each ROBES as r}
+          {#each MAIN_ROBES as r}
             <button type="button" class="ui-chip" aria-pressed={robeFilter === r} onclick={() => (robeFilter = robeFilter === r ? "" : r)}>
               <WineDot robe={r} />{styleByKey(r).label}
             </button>

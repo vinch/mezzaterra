@@ -36,7 +36,7 @@
   import { fold, formatDate, formatEUR, initials, toNumber } from "$lib/format";
   import { isoDateOnly, todayIso } from "$lib/dates";
   import { lineTotal } from "$lib/analytics";
-  import { styleByKey, vintageProductLabel, vintageShortLabel, wineRobe, type WineStyleKey } from "$lib/wine";
+  import { robePreference, styleByKey, vintageProductLabel, vintageShortLabel } from "$lib/wine";
   import {
     PAYMENT_METHOD_OPTIONS,
     SALE_LINE_ITEMS_SELECT,
@@ -673,12 +673,8 @@
       .from("sale_item")
       .select("quantity, sale_id, wine_vintage ( wine ( wine_type ( name, kind ) ) )")
       .in("sale_id", own.map((s) => s.id).slice(0, 100));
-    const byRobe = new Map<WineStyleKey, number>();
-    for (const it of (data || []) as any[]) {
-      const r = wineRobe(it.wine_vintage?.wine?.wine_type).key;
-      if (r === "red" || r === "white" || r === "rose") byRobe.set(r, (byRobe.get(r) ?? 0) + (it.quantity || 0));
-    }
-    const fav = [...byRobe.entries()].sort((a, b) => b[1] - a[1])[0]?.[0];
+    /* Robes du vin seulement : « Aime les huiles » n'aide pas à conseiller un vin. */
+    const fav = robePreference(((data || []) as any[]).map((it) => ({ type: it.wine_vintage?.wine?.wine_type, qty: it.quantity || 0 }))).favorite;
     if (hintFor !== id) return;
     customerHint = [
       fav ? `Aime les ${styleByKey(fav).label.toLowerCase()}s` : "",

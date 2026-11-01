@@ -116,6 +116,24 @@ export function wineTypeLabel(type: TypeLike): string {
   return style.key === "other" || kindInfo(type).style ? type?.name ?? "" : style.label;
 }
 
+/** Robes principales du vin : filtres de la liste des produits, goûts d'un client. */
+export const MAIN_ROBES: WineStyleKey[] = ["red", "white", "rose"];
+
+/**
+ * Bouteilles achetées par robe (`wineRobe` du type de produit), robes de `among` de la plus à la
+ * moins achetée, et la préférée (null sans achat). Les ventes s'en tiennent aux robes du vin ; la
+ * fiche client y ajoute les couleurs des autres produits (huile).
+ */
+export function robePreference(
+  lines: { type: TypeLike; qty: number }[],
+  among: WineStyleKey[] = MAIN_ROBES,
+): { qty: Record<WineStyleKey, number>; order: WineStyleKey[]; favorite: WineStyleKey | null } {
+  const qty = Object.fromEntries(STYLE_ORDER.map((k) => [k, 0])) as Record<WineStyleKey, number>;
+  for (const l of lines) qty[wineRobe(l.type).key] += l.qty;
+  const order = [...among].sort((a, b) => qty[b] - qty[a]);
+  return { qty, order, favorite: order[0] && qty[order[0]] > 0 ? order[0] : null };
+}
+
 export function allWineStyles(): WineStyle[] {
   return STYLE_ORDER.map((k) => STYLES[k]);
 }
