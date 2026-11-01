@@ -2,7 +2,7 @@ import { error, redirect } from "@sveltejs/kit";
 import { isUuid } from "$lib/publicData";
 import { kindBySlug, kindOf, productHref } from "$lib/productKinds";
 import { supabase } from "$lib/supabase";
-import { groupFormats, isDiscontinued, publicVintages, VINTAGE_PUBLIC_SELECT } from "$lib/wine";
+import { compareProducts, groupFormats, VINTAGE_PUBLIC_SELECT, VINTAGE_PUBLIC_SELECT_BY_WINE } from "$lib/wine";
 import type { PageLoad } from "./$types";
 
 export const load: PageLoad = async ({ params, url }) => {
@@ -11,12 +11,13 @@ export const load: PageLoad = async ({ params, url }) => {
     .from("wine_vintage")
     .select(VINTAGE_PUBLIC_SELECT)
     .eq("id", params.id)
+    .is("discontinued_at", null)
     .maybeSingle();
 
   if (fetchError) throw error(500, "Impossible de charger ce produit");
-  if (!vintage || isDiscontinued(vintage as any)) throw error(404, "Produit introuvable");
-
   const v = vintage as any;
+  /* Sans son produit (illisible ou absent), le lot n'a rien à montrer. */
+  if (!v?.wine) throw error(404, "Produit introuvable");
   /* Une huile ouverte sous /vins (ou l'inverse) : vers la bonne adresse. */
   if (kindOf(v.wine) !== kindBySlug(params.kind)) throw redirect(301, productHref(v) + url.search);
   const wineryId = v.wine?.winery_id ?? v.wine?.winery?.id;
@@ -28,33 +29,33 @@ export const load: PageLoad = async ({ params, url }) => {
       .select("*")
       .eq("wine_id", v.wine_id)
       .neq("id", v.id)
+      .is("discontinued_at", null)
       .order("year", { ascending: false }),
     wineryId
       ? supabase
           .from("wine_vintage")
-          .select(`${VINTAGE_PUBLIC_SELECT}`)
+          .select(VINTAGE_PUBLIC_SELECT_BY_WINE)
           .neq("wine_id", v.wine_id)
           .eq("wine.winery_id", wineryId)
-          .not("wine", "is", null)
+          .is("discontinued_at", null)
       : Promise.resolve({ data: [] }),
   ]);
 
   /* Un seul lot par produit du domaine : le plus récent, dans son plus petit contenant. */
   const byWine = new Map<string, any>();
-  for (const row of publicVintages((wineryRes.data || []) as any[])) {
-    if (!row.wine) continue;
+  for (const row of (wineryRes.data || []) as any[]) {
     const prev = byWine.get(row.wine_id);
     const newer = !prev || (row.year ?? 0) > (prev.year ?? 0);
     if (newer || ((row.year ?? 0) === (prev.year ?? 0) && row.volume_ml < prev.volume_ml)) byWine.set(row.wine_id, row);
   }
 
   /* Contenants de la même année (celui-ci compris), puis une entrée par autre année (son plus petit contenant). */
-  const [current, ...otherYears] = groupFormats([v, ...publicVintages((siblingsRes.data || []) as any[])]);
+  const [current, ...otherYears] = groupFormats([v, ...((siblingsRes.data || []) as any[])]);
 
   return {
     vintage: v,
     formats: current.formats,
     siblings: otherYears.map((g) => g.vintage),
-    fromWinery: [...byWine.values()].slice(0, 6),
+    fromWinery: [...byWine.values()].sort(compareProducts).slice(0, 6),
   };
 };

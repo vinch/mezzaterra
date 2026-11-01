@@ -11,7 +11,7 @@
   import type { Customer } from "$lib/types";
   import { REVENUE_STATUSES, lineTotal, type SaleItemRow } from "$lib/analytics";
   import { daysUntil } from "$lib/dates";
-  import { STYLE_ORDER, styleByKey, vintageLabel, vintageShortLabel, wineRobe, type WineStyleKey } from "$lib/wine";
+  import { STYLE_ORDER, styleByKey, vintageLabel, vintageLabelSelect, vintageShortLabel, wineRobe, type WineStyleKey } from "$lib/wine";
   import { KIND_STYLES } from "$lib/productKinds";
   import { formatDate, formatEUR } from "$lib/format";
   import Button from "$lib/ui/Button.svelte";
@@ -67,9 +67,7 @@
         fetchAllRows<any>((from, to) =>
           supabase
             .from("wine_vintage")
-            .select(
-              "id, wine_id, year, production_year, volume_ml, price, purchase_price, wine ( id, kind, name, winery ( name ), appelation ( name, label ( name ) ), wine_type ( name, category, kind ) )",
-            )
+            .select(`id, wine_id, price, purchase_price, ${vintageLabelSelect("id, wine_type ( name, category, kind )")}`)
             .order("id")
             .range(from, to),
         ).catch((e) => {

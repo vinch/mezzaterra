@@ -3,17 +3,16 @@
   import { page } from "$app/stores";
   import OrganicLogo from "$lib/components/site/OrganicLogo.svelte";
   import WineBottle from "$lib/components/site/WineBottle.svelte";
-  import WineCard from "$lib/components/site/WineCard.svelte";
+  import ProductAbout from "$lib/components/site/ProductAbout.svelte";
+  import ProductCard from "$lib/components/site/ProductCard.svelte";
   import { contactHref } from "$lib/contact";
   import { fetchAvailability, type AvailabilityOf } from "$lib/publicData";
   import {
     findNote,
     grapesText,
     styleLabel,
-    vintageNotes,
     formatsText,
     vintageVolume,
-    winePairings,
     wineryFlag,
     wineryInstagram,
     wineryPlace,
@@ -27,23 +26,21 @@
   let { data } = $props();
 
   let v = $derived(data.vintage);
-  let wine = $derived(v?.wine);
+  let wine = $derived(v.wine);
   let kind = $derived(kindInfo(wine));
-  let style = $derived(wineStyle(wine?.wine_type));
-  let title = $derived(wine ? wineTitle(wine) : "");
-  let grapes = $derived(grapesText(v?.wine_vintage_grape, true));
-  let notes = $derived(vintageNotes(v?.note, kind.key));
-  let pairings = $derived(winePairings(wine));
-  let winery = $derived(wine?.winery);
+  let style = $derived(wineStyle(wine.wine_type));
+  let title = $derived(wineTitle(wine));
+  let grapes = $derived(grapesText(v.wine_vintage_grape, true));
+  let winery = $derived(wine.winery);
   let region = $derived(wineryPlace(winery));
   let flag = $derived(wineryFlag(winery));
   let instagram = $derived(wineryInstagram(winery));
   let ogDescription = $derived([
     wineSubtitle(wine),
     winery?.name,
-    v?.year,
+    v.year,
     grapes,
-    findNote(v?.note, "mouth") || findNote(v?.note, "nose"),
+    findNote(v.note, "mouth") || findNote(v.note, "nose"),
   ]
     .filter(Boolean)
     .join(" · ")
@@ -56,7 +53,7 @@
     availability = await fetchAvailability();
   });
 
-  let stock = $derived(v && availability ? availability(v.id) : null);
+  let stock = $derived(availability ? availability(v.id) : null);
 
   async function share() {
     const url = $page.url.href;
@@ -74,170 +71,125 @@
     setTimeout(() => (shareFeedback = ""), 2500);
   }
 
-  let orderHref = $derived(contactHref("commande", [title, v?.year, v && vintageVolume(v)].filter(Boolean).join(" ")));
-  let hasAbout = $derived(Boolean(wine?.description || notes.length || pairings.length));
+  let orderHref = $derived(contactHref("commande", [title, v.year, vintageVolume(v)].filter(Boolean).join(" ")));
 </script>
 
 <svelte:head>
-  {#if v}
-    <title>{title}{v.year ? ` ${v.year}` : ""} — Mezzaterra</title>
-    <meta name="description" content={ogDescription} />
-    <meta property="og:type" content="product" />
-    <meta property="og:title" content="{title}{v.year ? ` ${v.year}` : ''} — Mezzaterra" />
-    <meta property="og:description" content={ogDescription} />
-    <meta property="og:url" content={$page.url.href} />
-    {#if v.image_url}
-      <meta property="og:image" content={v.image_url} />
-    {:else}
-      <meta property="og:image" content="{$page.url.origin}/logo.png" />
-    {/if}
-    <meta name="twitter:card" content="summary_large_image" />
+  <title>{title}{v.year ? ` ${v.year}` : ""} — Mezzaterra</title>
+  <meta name="description" content={ogDescription} />
+  <meta property="og:type" content="product" />
+  <meta property="og:title" content="{title}{v.year ? ` ${v.year}` : ''} — Mezzaterra" />
+  <meta property="og:description" content={ogDescription} />
+  <meta property="og:url" content={$page.url.href} />
+  {#if v.image_url}
+    <meta property="og:image" content={v.image_url} />
   {:else}
-    <title>Produit introuvable — Mezzaterra</title>
+    <meta property="og:image" content="{$page.url.origin}/logo.png" />
   {/if}
+  <meta name="twitter:card" content="summary_large_image" />
 </svelte:head>
 
-{#if !v}
-  <div class="mz-container mz-section">
-    <p class="mz-empty">Ce produit est introuvable. <a class="mz-link" href="/vins">Voir toute la cave</a></p>
-  </div>
-{:else}
-  <article style="--robe: {style.color}; --robe-light: {style.light};">
-    <section class="hero">
-      <div class="mz-container hero-grid">
-        <div class="bottle-stage mz-rise">
-          <WineBottle src={v.image_url} alt={title} wine={style} height="min(28rem, 60vh)" />
-        </div>
-        <div class="hero-text mz-rise" style="animation-delay: 80ms">
-          <a href="/{kind.slug}" class="back">← {kind.catalogTitle}</a>
-          <span class="mz-eyebrow">
-            <span class="mz-dot" style="background: {style.color}"></span>
-            {styleLabel(wine?.wine_type)}
-            {#if v.organic}<OrganicLogo height="1.3rem" />{/if}
-          </span>
-          <h1 class="mz-display mz-h1">{title}</h1>
-          {#if wineSubtitle(wine)}
-            <p class="appellation">{wineSubtitle(wine)}</p>
-          {/if}
-          {#if winery?.name}
-            <p class="winery">
-              {#if winery.id}<a href="/domaines/{winery.id}">{winery.name}</a>{:else}{winery.name}{/if}{region ? ` — ${flag} ${region}` : ""}
-            </p>
-          {/if}
+<article style="--robe: {style.color}; --robe-light: {style.light};">
+  <section class="hero">
+    <div class="mz-container hero-grid">
+      <div class="bottle-stage mz-rise">
+        <WineBottle src={v.image_url} alt={title} wine={style} height="min(28rem, 60vh)" />
+      </div>
+      <div class="hero-text mz-rise" style="animation-delay: 80ms">
+        <a href="/{kind.slug}" class="back">← {kind.catalogTitle}</a>
+        <span class="mz-eyebrow">
+          <span class="mz-dot" style="background: {style.color}"></span>
+          {styleLabel(wine.wine_type)}
+          {#if v.organic}<OrganicLogo height="1.3rem" />{/if}
+        </span>
+        <h1 class="mz-display mz-h1">{title}</h1>
+        {#if wineSubtitle(wine)}
+          <p class="appellation">{wineSubtitle(wine)}</p>
+        {/if}
+        {#if winery?.name}
+          <p class="winery">
+            {#if winery.id}<a href="/domaines/{winery.id}">{winery.name}</a>{:else}{winery.name}{/if}{region ? ` — ${flag} ${region}` : ""}
+          </p>
+        {/if}
 
-          <dl class="facts">
-            {#if v.year}<div><dt>{kind.yearFact}</dt><dd>{v.year}</dd></div>{/if}
-            {#if v.abv}<div><dt>Alcool</dt><dd>{v.abv} % vol.</dd></div>{/if}
-            {#if formatsText(data.formats)}<div><dt>Contenant</dt><dd>{formatVolume(v.volume_ml)}</dd></div>{/if}
-            {#if v.price}<div><dt>Prix</dt><dd>{formatEUR(v.price)}</dd></div>{/if}
-            {#if grapes}<div><dt>{kind.ingredients}</dt><dd class="small">{grapes}</dd></div>{/if}
-            {#if stock}
-              <div>
-                <dt>Disponibilité</dt>
-                <dd class="small stock" class:out={!stock.in_stock} class:low={stock.low_stock}>
-                  {!stock.in_stock ? "Épuisé" : stock.low_stock ? "Dernières bouteilles" : "En stock"}
-                </dd>
-              </div>
-            {/if}
-          </dl>
-
-          {#if data.formats.length > 1}
-            <nav class="formats" aria-label="Contenants">
-              {#each data.formats as f (f.id)}
-                <a
-                  class="mz-chip format"
-                  class:on={f.id === v.id}
-                  href="/{kind.slug}/{f.id}"
-                  aria-current={f.id === v.id ? "page" : undefined}
-                  data-sveltekit-noscroll
-                >
-                  {formatVolume(f.volume_ml)}{f.price != null ? ` · ${formatEUR(f.price)}` : ""}
-                </a>
-              {/each}
-            </nav>
+        <dl class="facts">
+          {#if v.year}<div><dt>{kind.yearFact}</dt><dd>{v.year}</dd></div>{/if}
+          {#if v.abv}<div><dt>Alcool</dt><dd>{v.abv} % vol.</dd></div>{/if}
+          {#if formatsText(data.formats)}<div><dt>Contenant</dt><dd>{formatVolume(v.volume_ml)}</dd></div>{/if}
+          {#if v.price}<div><dt>Prix</dt><dd>{formatEUR(v.price)}</dd></div>{/if}
+          {#if grapes}<div><dt>{kind.ingredients}</dt><dd class="small">{grapes}</dd></div>{/if}
+          {#if stock}
+            <div>
+              <dt>Disponibilité</dt>
+              <dd class="small stock" class:out={!stock.in_stock} class:low={stock.low_stock}>
+                {!stock.in_stock ? "Épuisé" : stock.low_stock ? "Dernières bouteilles" : "En stock"}
+              </dd>
+            </div>
           {/if}
+        </dl>
 
-          {#if data.siblings.length}
-            <p class="mz-muted siblings">
-              {kind.otherYears} :
-              {#each data.siblings as s, i}
-                <a class="mz-link" href="/{kind.slug}/{s.id}">{s.year ?? s.production_year}</a>{i < data.siblings.length - 1 ? ", " : ""}
-              {/each}
-            </p>
+        {#if data.formats.length > 1}
+          <nav class="formats" aria-label="Contenants">
+            {#each data.formats as f (f.id)}
+              <a
+                class="mz-chip format"
+                class:on={f.id === v.id}
+                href="/{kind.slug}/{f.id}"
+                aria-current={f.id === v.id ? "page" : undefined}
+                data-sveltekit-noscroll
+              >
+                {formatVolume(f.volume_ml)}{f.price != null ? ` · ${formatEUR(f.price)}` : ""}
+              </a>
+            {/each}
+          </nav>
+        {/if}
+
+        {#if data.siblings.length}
+          <p class="mz-muted siblings">
+            {kind.otherYears} :
+            {#each data.siblings as s, i}
+              <a class="mz-link" href="/{kind.slug}/{s.id}">{s.year ?? s.production_year}</a>{i < data.siblings.length - 1 ? ", " : ""}
+            {/each}
+          </p>
+        {/if}
+
+        <div class="actions">
+          {#if !stock || stock.in_stock}
+            <a class="mz-btn" href={orderHref}>Commander {kind.thisLabel}</a>
           {/if}
-
-          <div class="actions">
-            {#if !stock || stock.in_stock}
-              <a class="mz-btn" href={orderHref}>Commander {kind.thisLabel}</a>
-            {/if}
-            <button type="button" class="mz-btn mz-btn--ghost" onclick={share}>Partager</button>
-            {#if shareFeedback}<span class="share-feedback" role="status">{shareFeedback}</span>{/if}
-          </div>
+          <button type="button" class="mz-btn mz-btn--ghost" onclick={share}>Partager</button>
+          {#if shareFeedback}<span class="share-feedback" role="status">{shareFeedback}</span>{/if}
         </div>
       </div>
+    </div>
+  </section>
+
+  <ProductAbout vintage={v} class="mz-container" />
+
+  {#if data.fromWinery.length}
+    <section class="mz-container mz-section">
+      <div class="more-head">
+        <h2 class="mz-display mz-h2">Du même domaine</h2>
+        <div class="more-links">
+          {#if winery?.id}
+            <a class="mz-link" href="/domaines/{winery.id}">Découvrir {winery.name} →</a>
+          {/if}
+          {#if winery?.url}
+            <a class="mz-link" href={winery.url} target="_blank" rel="noopener noreferrer">Site du domaine ↗</a>
+          {/if}
+          {#if instagram}
+            <a class="mz-link" href={instagram.url} target="_blank" rel="noopener noreferrer">Instagram {instagram.handle} ↗</a>
+          {/if}
+        </div>
+      </div>
+      <div class="grid">
+        {#each data.fromWinery as other (other.id)}
+          <div><ProductCard vintage={other} href={productHref(other)} availability={availability?.(other.id) ?? null} /></div>
+        {/each}
+      </div>
     </section>
-
-    {#if hasAbout}
-      <section class="mz-container about">
-        {#if wine.description}
-          <div class="block">
-            <h2>{kind.aboutTitle}</h2>
-            <p class="prose">{wine.description}</p>
-          </div>
-        {/if}
-
-        {#if notes.length}
-          <div class="block">
-            <h2>Notes de dégustation</h2>
-            <div class="notes">
-              {#each notes as note}
-                <div class="note">
-                  <span class="note-label">{note.label}</span>
-                  <p>{note.content}</p>
-                </div>
-              {/each}
-            </div>
-          </div>
-        {/if}
-
-        {#if pairings.length}
-          <div class="block">
-            <h2>À table avec</h2>
-            <div class="pairings">
-              {#each pairings as p}
-                <span class="mz-chip">{p}</span>
-              {/each}
-            </div>
-          </div>
-        {/if}
-      </section>
-    {/if}
-
-    {#if data.fromWinery.length}
-      <section class="mz-container mz-section">
-        <div class="more-head">
-          <h2 class="mz-display mz-h2">Du même domaine</h2>
-          <div class="more-links">
-            {#if winery?.id}
-              <a class="mz-link" href="/domaines/{winery.id}">Découvrir {winery.name} →</a>
-            {/if}
-            {#if winery?.url}
-              <a class="mz-link" href={winery.url} target="_blank" rel="noopener noreferrer">Site du domaine ↗</a>
-            {/if}
-            {#if instagram}
-              <a class="mz-link" href={instagram.url} target="_blank" rel="noopener noreferrer">Instagram {instagram.handle} ↗</a>
-            {/if}
-          </div>
-        </div>
-        <div class="grid">
-          {#each data.fromWinery as other (other.id)}
-            <div><WineCard vintage={other} href={productHref(other)} availability={availability?.(other.id) ?? null} /></div>
-          {/each}
-        </div>
-      </section>
-    {/if}
-  </article>
-{/if}
+  {/if}
+</article>
 
 <style>
   .hero {
@@ -388,57 +340,6 @@
     color: var(--mz-success);
     font-weight: 600;
     font-size: 0.9rem;
-  }
-
-  .about {
-    display: flex;
-    flex-direction: column;
-    gap: 2.5rem;
-    padding-top: 3rem;
-    padding-bottom: 1rem;
-  }
-
-  .block h2 {
-    margin: 0 0 0.75rem;
-    font-size: 0.78rem;
-    font-weight: 600;
-    letter-spacing: 0.12em;
-    text-transform: uppercase;
-    color: var(--mz-teal-soft);
-  }
-
-  .block p {
-    margin: 0;
-    line-height: 1.65;
-  }
-
-  .prose {
-    max-width: 44rem;
-    white-space: pre-line;
-    font-size: 1.05rem;
-  }
-
-  .notes {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(min(100%, 15rem), 1fr));
-    gap: 1.25rem 2rem;
-  }
-
-  .note {
-    padding-left: 1rem;
-    border-left: 3px solid var(--robe);
-  }
-
-  .note-label {
-    font-family: var(--mz-font-display);
-    font-size: 1.25rem;
-    color: var(--mz-teal);
-  }
-
-  .pairings {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 0.5rem;
   }
 
   .more-head {

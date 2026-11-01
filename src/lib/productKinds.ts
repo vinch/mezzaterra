@@ -4,8 +4,9 @@
  * donc les mêmes ventes, stocks, commandes et dégustations ; ce registre donne à chacun son
  * vocabulaire et ses particularités.
  *
- * Nouveau type : l'ajouter ici, à `KIND_ICONS` (`src/lib/ui/kindIcons.ts`) et au domaine SQL `product_kind`,
- * puis créer ses types (`wine_type`).
+ * Nouveau type : l'ajouter ici, à `KIND_ICONS` (`src/lib/ui/kindIcons.ts`), au domaine SQL `product_kind`
+ * et à sa TVA (`product_kind_vat_rate`, qui donne sinon 21 % sans rien signaler), sa couleur à `STYLES`
+ * (`wine.ts`) s'il en a une propre, puis créer ses types (`wine_type`).
  */
 
 import type { WineStyleKey } from "./wine";

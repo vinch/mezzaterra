@@ -1,8 +1,8 @@
 <script lang="ts">
   import { onMount } from "svelte";
   import { page } from "$app/stores";
-  import WineModal from "$lib/components/WineModal.svelte";
-  import WineCard from "$lib/components/site/WineCard.svelte";
+  import ProductModal from "$lib/components/site/ProductModal.svelte";
+  import ProductCard from "$lib/components/site/ProductCard.svelte";
   import RegistrationForm from "$lib/components/site/RegistrationForm.svelte";
   import { fetchAvailability, isPrivateTasting, TASTING_ADDRESS, tastingTitle, type AvailabilityOf } from "$lib/publicData";
   import { buildIcs, daysUntil, downloadTextFile, formatDateLong, formatTime, isLiveNow } from "$lib/dates";
@@ -124,7 +124,7 @@
       <div class="grid">
         {#each wineVintages as v, i (v.id)}
           <div class="mz-rise" style="animation-delay: {Math.min(i, 8) * 60}ms">
-            <WineCard
+            <ProductCard
               vintage={v}
               position={i + 1}
               availability={availability?.(v.id) ?? null}
@@ -168,7 +168,7 @@
 {/if}
 
 {#if selected}
-  <WineModal wineVintage={selected} onclose={() => (selected = null)} />
+  <ProductModal vintage={selected} onclose={() => (selected = null)} />
 {/if}
 
 <style>

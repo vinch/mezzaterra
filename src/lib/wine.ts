@@ -68,12 +68,36 @@ export function styleLabel(type: TypeLike): string {
  */
 export function byWineType(a: TypeLike, b: TypeLike): number {
   const kind = (t: TypeLike) => PRODUCT_KIND_LIST.indexOf(kindInfo(t));
-  const position = (t: TypeLike) => {
-    const order = kindInfo(t).typeOrder ?? [];
-    const i = order.indexOf(t?.name ?? "");
-    return i < 0 ? order.length : i;
-  };
-  return kind(a) - kind(b) || position(a) - position(b) || (a?.name ?? "").localeCompare(b?.name ?? "", "fr");
+  return kind(a) - kind(b) || typePosition(a) - typePosition(b) || (a?.name ?? "").localeCompare(b?.name ?? "", "fr");
+}
+
+/** Rang d'un type dans le `typeOrder` de son produit ; après les autres s'il n'y figure pas (ou sans ordre). */
+function typePosition(t: TypeLike): number {
+  const order = kindInfo(t).typeOrder ?? [];
+  const i = order.indexOf(t?.name ?? "");
+  return i < 0 ? order.length : i;
+}
+
+type CompareProduct = { year?: number | null; production_year?: number | null; wine?: WineLike };
+
+/**
+ * Tri des lots du site : couleur du plus léger au plus corsé, ordre des types du produit (fruité
+ * léger à intense pour les huiles), nom, puis année la plus récente (millésime, sinon mise en bouteille).
+ */
+export function compareProducts(a: CompareProduct, b: CompareProduct): number {
+  const style = (v: typeof a) => STYLE_ORDER.indexOf(wineStyle(v.wine?.wine_type).key);
+  return (
+    style(a) - style(b) ||
+    typePosition(a.wine?.wine_type) - typePosition(b.wine?.wine_type) ||
+    wineTitle(a.wine).localeCompare(wineTitle(b.wine), "fr") ||
+    (b.year ?? b.production_year ?? 0) - (a.year ?? a.production_year ?? 0)
+  );
+}
+
+/** Couleurs présentes dans une liste de lots, dans l'ordre des filtres. */
+export function presentStyles(vintages: { wine?: WineLike }[]): WineStyle[] {
+  const keys = new Set(vintages.map((v) => wineStyle(v.wine?.wine_type).key));
+  return allWineStyles().filter((s) => keys.has(s.key));
 }
 
 /** Style CSS d'une pastille ou d'une silhouette à la couleur de la robe (liseré pour les teintes claires). */
@@ -248,7 +272,7 @@ export function findNote(
 /** Notes renseignées d'un millésime, dans l'ordre et avec les libellés de son type de produit. */
 export function vintageNotes(
   notes: { type: string; content: string }[] | null | undefined,
-  kind: ProductKind = "wine",
+  kind: ProductKind,
 ): { key: string; label: string; content: string }[] {
   return kindInfo(kind)
     .noteTypes.map((t) => ({ ...t, content: findNote(notes, t.key) }))
@@ -287,21 +311,27 @@ const vintagePublicSelect = (inner: boolean) => `
   note ( * )
 `;
 
+/**
+ * Colonnes d'un lot nécessaires à ses libellés (`vintageLabel`, `vintageProductLabel`…). `kind` en
+ * fait partie : sans lui, une huile serait lue comme un vin et perdrait son contenant affiché.
+ */
+const LABEL_WINE_COLUMNS = "kind, name, winery ( name ), appelation ( name, label ( name ) )" as const;
+export const VINTAGE_LABEL_SELECT = `year, production_year, volume_ml, wine ( ${LABEL_WINE_COLUMNS} )` as const;
+
+/** `VINTAGE_LABEL_SELECT` avec des colonnes du produit en plus (« id, wine_type ( name ) »). */
+export function vintageLabelSelect(wineExtra: string): string {
+  return `year, production_year, volume_ml, wine ( ${LABEL_WINE_COLUMNS}, ${wineExtra} )`;
+}
+
 export const VINTAGE_PUBLIC_SELECT = vintagePublicSelect(false);
 export const VINTAGE_PUBLIC_SELECT_BY_WINE = vintagePublicSelect(true);
 
 /**
- * Millésime « plus jamais disponible » : absent du site public, grisé dans la gestion.
- * Filtré côté client (les requêtes publiques lisent `*`) pour ne rien casser tant que
- * la colonne n'existe pas encore en base.
+ * Lot « plus jamais disponible » : grisé dans la gestion, absent du site public (ses requêtes
+ * filtrent `.is("discontinued_at", null)`, sa fiche répond 404).
  */
 export function isDiscontinued(v: { discontinued_at?: string | null } | null | undefined): boolean {
   return !!v?.discontinued_at;
-}
-
-/** Retire les millésimes « plus jamais disponibles » d'une liste publique. */
-export function publicVintages<T extends { discontinued_at?: string | null }>(list: T[]): T[] {
-  return list.filter((v) => !isDiscontinued(v));
 }
 
 type WineryLike = {

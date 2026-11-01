@@ -3,14 +3,14 @@
   import { flip } from "svelte/animate";
   import { fade } from "svelte/transition";
   import { page } from "$app/stores";
-  import WineCard from "$lib/components/site/WineCard.svelte";
+  import ProductCard from "$lib/components/site/ProductCard.svelte";
   import { combinedAvailability, fetchAvailability, firstAvailable, type AvailabilityOf } from "$lib/publicData";
   import { fold } from "$lib/format";
   import { kindCount, PRODUCT_KINDS, productHref } from "$lib/productKinds";
   import {
-    STYLE_ORDER,
-    allWineStyles,
+    compareProducts,
     groupFormats,
+    presentStyles,
     type FormatGroup,
     wineStyle,
     vintageVolume,
@@ -33,10 +33,9 @@
   });
 
   let kind = $derived(PRODUCT_KINDS[data.kind]);
-  let vintages = $derived(data.vintages as any[]);
-  let presentStyles = $derived(allWineStyles().filter((s) =>
-    vintages.some((v) => wineStyle(v.wine?.wine_type).key === s.key),
-  ));
+  /* Trié une fois : les filtres gardent l'ordre. */
+  let vintages = $derived([...(data.vintages as any[])].sort(compareProducts));
+  let styles = $derived(presentStyles(vintages));
 
   let filtered = $derived(vintages
     .filter((v) => !styleFilter || wineStyle(v.wine?.wine_type).key === styleFilter)
@@ -58,12 +57,6 @@
       return fold(query)
         .split(/\s+/)
         .every((w) => blob.includes(w));
-    })
-    .sort((a, b) => {
-      const sa = STYLE_ORDER.indexOf(wineStyle(a.wine?.wine_type).key);
-      const sb = STYLE_ORDER.indexOf(wineStyle(b.wine?.wine_type).key);
-      if (sa !== sb) return sa - sb;
-      return wineTitle(a.wine).localeCompare(wineTitle(b.wine), "fr");
     }));
 
   type WineryGroup = { winery: any; items: FormatGroup<any>[] };
@@ -118,9 +111,9 @@
   <div class="toolbar">
     <div class="chips" role="group" aria-label="Filtrer par couleur">
       <!-- Une seule couleur (les huiles) : rien à filtrer. -->
-      {#if presentStyles.length > 1}
+      {#if styles.length > 1}
         <button type="button" class="filter-chip" class:on={!styleFilter} onclick={() => (styleFilter = "")}>Tous</button>
-        {#each presentStyles as s}
+        {#each styles as s}
           <button
             type="button"
             class="filter-chip"
@@ -170,7 +163,7 @@
         <div class="grid">
           {#each group.items as { vintage: v, formats } (v.id)}
             <div animate:flip={{ duration: 250 }}>
-              <WineCard
+              <ProductCard
                 vintage={v}
                 {formats}
                 href={productHref(firstAvailable(availability, formats))}

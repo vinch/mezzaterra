@@ -8,7 +8,7 @@
   import EmptyState from "$lib/ui/EmptyState.svelte";
   import Spinner from "$lib/ui/Spinner.svelte";
   import { IconInbox } from "$lib/ui/icons";
-  import { vintageLabel } from "$lib/wine";
+  import { VINTAGE_LABEL_SELECT, vintageLabel } from "$lib/wine";
   import { formatDate, formatEUR } from "$lib/format";
   import { contactReason } from "$lib/contact";
   import {
@@ -47,7 +47,7 @@
         fetchAllRows<any>((a, b) =>
           supabase
             .from("wine_vintage")
-            .select("id, year, production_year, volume_ml, price, wine ( kind, name, winery ( name ), appelation ( name, label ( name ) ) )")
+            .select(`id, price, ${VINTAGE_LABEL_SELECT}`)
             .order("id")
             .range(a, b),
         ),

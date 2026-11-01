@@ -5,7 +5,7 @@
   import { goto } from "$app/navigation";
   import { fetchAllRows, supabase } from "$lib/supabase";
   import { customerDisplayLabel } from "$lib/customerDisplay";
-  import { vintageLabel } from "$lib/wine";
+  import { VINTAGE_LABEL_SELECT, vintageLabel } from "$lib/wine";
   import { fold, formatDate, formatEUR } from "$lib/format";
   import { IconClipboard, IconGlasses, IconReceipt, IconSearch, IconUsers } from "$lib/ui/icons";
   import { KIND_ICONS } from "$lib/ui/kindIcons";
@@ -46,7 +46,7 @@
       fetchAllRows<any>((from, to) =>
         supabase
           .from("wine_vintage")
-          .select("id, wine_id, year, production_year, volume_ml, wine ( kind, name, winery ( name ), appelation ( name, label ( name ) ) )")
+          .select(`id, wine_id, ${VINTAGE_LABEL_SELECT}`)
           .order("id")
           .range(from, to),
       ).catch(() => {

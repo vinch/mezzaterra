@@ -207,7 +207,7 @@
           </button>
         </div>
         <div class="selection-toolbar">
-          <span class="selection-count">{selectedVintageIds.length} millésime(s) coché(s)</span>
+          <span class="selection-count">{selectedVintageIds.length} lot(s) coché(s)</span>
         </div>
       </div>
 

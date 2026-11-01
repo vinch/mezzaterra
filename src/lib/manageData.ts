@@ -1,6 +1,6 @@
 import { fetchAllRows, supabase } from "./supabase";
 import { sortCustomersByLabel } from "./customerDisplay";
-import { byWineType, compareVintages } from "./wine";
+import { byWineType, compareVintages, VINTAGE_LABEL_SELECT } from "./wine";
 import type { Country, Customer, Region, WineType } from "./types";
 
 /** Chargements partagés par les pages de l'admin. */
@@ -68,6 +68,5 @@ export function vintageStock(vintageId: string): Promise<number | null> {
 }
 
 /** Lignes d'articles (vente ou commande) : de quoi les libeller et les chiffrer. */
-export const LINE_ITEMS_SELECT =
-  "price, quantity, wine_vintage_id, wine_vintage ( year, production_year, volume_ml, wine ( kind, name, winery ( name ), appelation ( name ) ) )";
+export const LINE_ITEMS_SELECT = `price, quantity, wine_vintage_id, wine_vintage ( ${VINTAGE_LABEL_SELECT} )` as const;
 
