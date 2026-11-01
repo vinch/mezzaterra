@@ -74,12 +74,12 @@
   <div class="mz-container mz-section"><p class="mz-empty">Impossible de charger cette dégustation.</p></div>
 {:else if !t}
   <div class="mz-container mz-section">
-    <p class="mz-empty">Cette dégustation est introuvable. <a class="mz-link" href="/tastings">Voir toutes les dégustations</a></p>
+    <p class="mz-empty">Cette dégustation est introuvable. <a class="mz-link" href="/degustations">Voir toutes les dégustations</a></p>
   </div>
 {:else}
   <section class="hero">
     <div class="mz-container hero-inner mz-rise">
-      <a href="/tastings" class="mz-back">← Toutes les dégustations</a>
+      <a href="/degustations" class="mz-back">← Toutes les dégustations</a>
       <span class="mz-eyebrow status" class:live={isLive}>
         {#if isLive}<span class="pulse" aria-hidden="true"></span>{/if}
         {statusLabel}
@@ -98,7 +98,7 @@
 
       <div class="cta">
         {#if isLive}
-          <a class="mz-btn" href="/tastings/{t.id}/live">Suivre la dégustation en direct →</a>
+          <a class="mz-btn" href="/degustations/{t.id}/live">Suivre la dégustation en direct →</a>
         {/if}
         {#if isUpcoming}
           {#if !isPrivate}<a class="mz-btn" href="#reserver">Réserver ma place</a>{/if}
@@ -151,7 +151,7 @@
           {isLive ? "Ils se dévoilent un à un pendant la soirée." : "La sélection reste une surprise jusqu’au soir de la dégustation."}
         </p>
         {#if isLive}
-          <a class="mz-btn" href="/tastings/{t.id}/live">Suivre la dégustation en direct →</a>
+          <a class="mz-btn" href="/degustations/{t.id}/live">Suivre la dégustation en direct →</a>
         {/if}
       </div>
     {:else}

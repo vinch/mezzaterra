@@ -20,7 +20,7 @@
       links={[
         { href: "/", label: "Retour à l’accueil" },
         { href: "/vins", label: "Nos vins" },
-        { href: "/tastings", label: "Dégustations" },
+        { href: "/degustations", label: "Dégustations" },
       ]}
     />
   </main>
