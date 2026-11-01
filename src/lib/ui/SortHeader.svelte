@@ -5,30 +5,38 @@
   /**
    * En-tête de colonne triable d'un DataTable : clic pour trier sur la colonne, second clic pour
    * inverser le sens. `firstDir` : sens du premier clic (« desc » pour un stock, du plus grand au plus petit).
+   * `also` : second tri dans la même colonne, quand la cellule a deux lignes (« Produit · Domaine »).
    */
   interface Props {
     column: K;
     label: string;
     sort: SortState<K>;
+    also?: { column: K; label: string };
     num?: boolean;
     firstDir?: SortDir;
   }
 
-  let { column, label, sort = $bindable(), num = false, firstDir = "asc" }: Props = $props();
+  let { column, label, sort = $bindable(), also, num = false, firstDir = "asc" }: Props = $props();
 
-  let active = $derived(sort.key === column);
-  let Icon = $derived(!active ? IconArrowUpDown : sort.dir === "asc" ? IconArrowUp : IconArrowDown);
+  let active = $derived(sort.key === column || sort.key === also?.column);
 
-  function toggle() {
-    sort = { key: column, dir: active ? (sort.dir === "asc" ? "desc" : "asc") : firstDir };
+  function toggle(key: K) {
+    sort = { key, dir: sort.key === key ? (sort.dir === "asc" ? "desc" : "asc") : firstDir };
   }
 </script>
 
-<th scope="col" class:num aria-sort={active ? (sort.dir === "asc" ? "ascending" : "descending") : undefined}>
-  <button type="button" class="ui-sort" class:on={active} onclick={toggle}>
-    {label}
+{#snippet sortButton(key: K, text: string)}
+  {@const on = sort.key === key}
+  {@const Icon = !on ? IconArrowUpDown : sort.dir === "asc" ? IconArrowUp : IconArrowDown}
+  <button type="button" class="ui-sort" class:on onclick={() => toggle(key)}>
+    {text}
     <Icon size={14} strokeWidth={1.75} aria-hidden="true" />
   </button>
+{/snippet}
+
+<th scope="col" class:num aria-sort={active ? (sort.dir === "asc" ? "ascending" : "descending") : undefined}>
+  {@render sortButton(column, label)}
+  {#if also}<span class="ui-sort-sep" aria-hidden="true">·</span>{@render sortButton(also.column, also.label)}{/if}
 </th>
 
 <style>
@@ -45,6 +53,11 @@
     text-transform: inherit;
     color: inherit;
     cursor: pointer;
+  }
+
+  .ui-sort-sep {
+    margin: 0 6px;
+    vertical-align: middle;
   }
 
   /* Colonne chiffrée : flèche à gauche, le libellé reste aligné sur les nombres. */
