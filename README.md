@@ -118,6 +118,18 @@ l'ajuste depuis son récap puis la confirme (prénom et email ou téléphone) : 
 la page live appelle `save_live_preorder`. L'insertion publique directe dans `wish_request` (ancien
 code) reste permise jusqu'à une migration de suivi, après le déploiement.
 
+`20261101120000_rename_products.sql` renomme une fois pour toutes le modèle « vin » en modèle
+« produit » : `wine` → `product`, `wine_vintage` → `lot`, `grape` → `variety`, `winery` →
+`producer`, `wine_type` → `product_type`, `wine_pairing` → `product_pairing`, `wine_vintage_grape` →
+`lot_variety`, `appelation` → `appellation`, `tasting_wine_vintage` → `tasting_lot`, avec leurs
+colonnes (`wine_vintage_id` → `lot_id`, `winery_id` → `producer_id`…), la vue `inventory` et les
+fonctions (`create_lot`, `public_lot_availability`, clés `lot_id` des lignes JSON de `save_sale`,
+`save_order`, `save_live_preorder`…). Les migrations plus anciennes ci-dessus gardent les noms de
+leur époque. La valeur `'wine'` de `kind` et le bucket `wines` ne changent pas ; les demandes et
+pré-commandes déjà enregistrées avec `wine_vintage_id` restent lues. À appliquer au moment même du
+déploiement du code : l'ancien code ne marche pas sur le nouveau schéma, ni l'inverse. Script
+inverse : `supabase/rollback/20261101120000_rename_products_down.sql`.
+
 ```sh
 supabase link --project-ref wmerreifcpttrhxwmkmn
 supabase db push
@@ -139,7 +151,7 @@ pnpm update-types
 
 | Gestion | |
 |---|---|
-| `/manage` | Tableau de bord : CA 12 mois, top vins, stock bas (réassort), stock dormant |
+| `/manage` | Tableau de bord : CA 12 mois, top produits, stock bas (réassort), stock dormant |
 | `/manage/tastings/[id]/live` | Pilotage en direct, QR code, mode projection, demandes, réservations en ligne |
 | `/manage/requests` | Messages du formulaire de contact et demandes « J'en veux » (→ ventes « En attente ») |
 | `/manage/insights` | Marges, rotation du stock, rentabilité des dégustations |
