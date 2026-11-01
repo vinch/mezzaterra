@@ -6,6 +6,20 @@ import { vintageProductLabel } from "./wine";
 
 /** Règles des ventes partagées par la page Ventes et la facture PDF. */
 
+type QuantityLine = { wine_vintage_id: string | null; quantity: number | null };
+
+/** Bouteilles par millésime (lignes de vente ou de demande ; une ligne sans millésime est ignorée). */
+export function quantitiesByVintage(items: QuantityLine[]): Map<string, number> {
+  const m = new Map<string, number>();
+  for (const i of items) if (i.wine_vintage_id) m.set(i.wine_vintage_id, (m.get(i.wine_vintage_id) ?? 0) + (i.quantity || 0));
+  return m;
+}
+
+/** Total des bouteilles (lignes sans millésime ignorées, comme dans quantitiesByVintage). */
+export function totalQuantity(items: QuantityLine[]): number {
+  return items.reduce((n, i) => n + (i.wine_vintage_id ? i.quantity || 0 : 0), 0);
+}
+
 /** Libellé par défaut d'une ligne « Dégustation » (sans millésime). */
 export const TASTING_LINE_NOTE = "Dégustation";
 

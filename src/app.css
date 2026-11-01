@@ -32,6 +32,7 @@
   --warn-bg: #f7efd7; /* encadré d'avertissement, « à faire » */
   --warn-border: #ead9a8;
   --gold: #e8c96a; /* compteur de la barre latérale */
+  --live: #7fd1a0; /* pastille « en direct » (sur fond --night) */
 
   /* Statuts (badges) */
   --st-pending-bg: #f5e6bf;

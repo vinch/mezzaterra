@@ -48,7 +48,7 @@
   .nav-link {
     position: relative;
     padding: 0.5rem 0.85rem;
-    border-radius: 999px;
+    border-radius: var(--mz-radius-pill);
     color: var(--mz-ink-soft);
     text-decoration: none;
     font-weight: 500;
@@ -73,7 +73,7 @@
   .nav-cta {
     margin-left: 0.6rem;
     padding: 0.55rem 1.1rem;
-    border-radius: 999px;
+    border-radius: var(--mz-radius-pill);
     background: var(--mz-teal);
     color: var(--mz-paper-raised);
     text-decoration: none;

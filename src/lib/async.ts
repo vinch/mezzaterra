@@ -4,6 +4,31 @@ export function errorMessage(e: unknown): string {
 }
 
 /**
+ * Action sur une ligne de liste (créer la vente, ignorer…) : l'id est dans `busy` pendant
+ * l'action pour désactiver les boutons de sa ligne (un SvelteSet : plusieurs lignes peuvent être
+ * occupées à la fois), erreur précédente effacée puis remplacée par celle de l'action ;
+ * `after` (relevé, compteurs) seulement si l'action réussit.
+ */
+export function rowAction(opts: {
+  busy: { add(id: string): unknown; delete(id: string): unknown };
+  error: (message: string) => void;
+  after?: () => unknown;
+}) {
+  return async (id: string, action: () => Promise<unknown>) => {
+    opts.error("");
+    opts.busy.add(id);
+    try {
+      await action();
+      await opts.after?.();
+    } catch (e) {
+      opts.error(errorMessage(e));
+    } finally {
+      opts.busy.delete(id);
+    }
+  };
+}
+
+/**
  * Garde « la dernière demande gagne » : si l'on ouvre une autre fiche pendant un
  * chargement, la réponse la plus ancienne est ignorée au lieu d'écraser la nouvelle.
  * `onError` reçoit l'erreur de la dernière demande seulement.

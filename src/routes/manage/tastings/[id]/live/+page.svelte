@@ -1,15 +1,18 @@
 <script lang="ts">
+  import { SvelteSet } from "svelte/reactivity";
   import { onDestroy, onMount } from "svelte";
-  import { errorMessage } from "$lib/async";
+  import { rowAction } from "$lib/async";
   import { fade } from "svelte/transition";
   import { page } from "$app/stores";
   import type { RealtimeChannel } from "@supabase/supabase-js";
   import { supabase } from "$lib/supabase";
   import { fetchStockMap } from "$lib/manageData";
+  import { quantitiesByVintage, totalQuantity } from "$lib/sales";
   import ManagePageShell from "$lib/components/manage/ManagePageShell.svelte";
   import Button from "$lib/ui/Button.svelte";
   import IconButton from "$lib/ui/IconButton.svelte";
   import Card from "$lib/ui/Card.svelte";
+  import DataTable from "$lib/ui/DataTable.svelte";
   import EmptyState from "$lib/ui/EmptyState.svelte";
   import WineDot from "$lib/ui/WineDot.svelte";
   import {
@@ -29,7 +32,7 @@
   import Spinner from "$lib/ui/Spinner.svelte";
   import { fetchSeats, fetchTastingWithWines, isParticipantRegistration, onlineSeats, onlineSeatsByCustomer, participantOrigin, placesLabel, tastingTitle, type SeatInfo } from "$lib/publicData";
   import { compareCustomersByLabel, customerDisplayLabel } from "$lib/customerDisplay";
-  import { broadcastPosition, joinLiveChannel } from "$lib/live";
+  import { broadcastPosition, clampPosition, fetchLatestFeedback, joinLiveChannel, type FeedbackRow } from "$lib/live";
   import { qrDataUrl } from "$lib/qr";
   import { swatchStyle, vintageShortLabel, wineRobe, wineStyle, wineSubtitle, wineTitle, wineTypeLabel } from "$lib/wine";
   import { kindInfo } from "$lib/productKinds";
@@ -60,14 +63,16 @@
   let projecting = $state(false);
   let copied = $state(false);
 
-  let feedback = $state.raw<any[]>([]);
+  /** Dernière note par (invité, vin). */
+  let feedback = $state.raw<FeedbackRow[]>([]);
   let wishes = $state.raw<WishRequest[]>([]);
   /** Pré-commandes des invités, pas encore confirmées : ni comptées ni transformables en vente. */
   let preorders = $state.raw<any[]>([]);
   let registrations = $state.raw<any[]>([]);
   /** Participants (tasting_customer), triés par nom, avec leurs places hors réservation en ligne. */
   let participants = $state.raw<any[]>([]);
-  let busyId = $state("");
+  /** Lignes dont une action est en cours. */
+  const busy = new SvelteSet<string>();
   let poll: ReturnType<typeof setInterval> | null = null;
   /* onDestroy peut passer pendant les await d'onMount : on ne crée alors ni canal ni polling. */
   let destroyed = false;
@@ -113,7 +118,7 @@
   });
 
   function clamp(p: number): number {
-    return Math.max(0, Math.min(Math.max(0, wines.length - 1), p));
+    return clampPosition(p, wines.length);
   }
 
   async function setPosition(p: number) {
@@ -151,12 +156,8 @@
         stockMap = await fetchStockMap(ids).catch(() => null);
       })(),
       (async () => {
-        const { data } = await supabase
-          .from("tasting_feedback")
-          .select("*")
-          .eq("tasting_id", tastingId)
-          .order("created_at", { ascending: true });
-        feedback = data || [];
+        /* Un relevé raté garde les notes précédentes. */
+        feedback = await fetchLatestFeedback({ tastingId }).catch(() => feedback);
       })(),
       (async () => {
         const { data } = await supabase
@@ -200,32 +201,20 @@
     ]);
   }
 
-  /* Dernière note par (invité, vin). */
-  let latest = $derived((() => {
-    const map = new Map<string, any>();
-    for (const f of feedback) map.set(`${f.guest_id}:${f.wine_vintage_id}`, f);
-    return [...map.values()];
-  })());
-
+  let activeWishes = $derived(wishes.filter((w) => w.status !== "dismissed"));
+  let wishedLines = $derived(activeWishes.flatMap((w) => wishItems(w.items)));
   /* Bouteilles demandées par vin (demandes non écartées). */
-  let wantedByWine = $derived((() => {
-    const m = new Map<string, number>();
-    for (const w of wishes) {
-      if (w.status === "dismissed") continue;
-      for (const i of wishItems(w.items)) m.set(i.wine_vintage_id, (m.get(i.wine_vintage_id) ?? 0) + i.quantity);
-    }
-    return m;
-  })());
+  let wantedByWine = $derived(quantitiesByVintage(wishedLines));
 
   let stats = $derived(new Map(
     wines.map((w) => {
-      const rated = latest.filter((f) => f.wine_vintage_id === w.id && f.rating);
-      const avg = rated.length ? rated.reduce((s, r) => s + r.rating, 0) / rated.length : null;
+      const rated = feedback.filter((f) => f.wine_vintage_id === w.id && f.rating);
+      const avg = rated.length ? rated.reduce((s, r) => s + (r.rating ?? 0), 0) / rated.length : null;
       return [w.id, { avg, count: rated.length, wanted: wantedByWine.get(w.id) ?? 0 }];
     }),
   ));
 
-  let comments = $derived(latest
+  let comments = $derived(feedback
     .filter((f) => f.comment)
     .sort((a, b) => b.created_at.localeCompare(a.created_at))
     .slice(0, 12));
@@ -245,43 +234,8 @@
   /** « Vin 3 », « Huile d’olive 4 » : le produit servi. */
   let currentLabel = $derived(kindInfo(current?.wine).label);
 
-  async function makeSale(w: WishRequest) {
-    actionError = "";
-    busyId = w.id;
-    try {
-      await createSaleFromWish(w, prices, tastingTitle(tasting));
-      await refresh();
-    } catch (e) {
-      actionError = errorMessage(e);
-    } finally {
-      busyId = "";
-    }
-  }
-
-  async function dismiss(w: WishRequest) {
-    busyId = w.id;
-    try {
-      await setWishStatus(w.id, "dismissed");
-      await refresh();
-    } catch (e) {
-      actionError = errorMessage(e);
-    } finally {
-      busyId = "";
-    }
-  }
-
-  async function confirmRow(r: any) {
-    actionError = "";
-    busyId = r.id;
-    try {
-      await confirmRegistration(r.id);
-      await refresh();
-    } catch (e) {
-      actionError = errorMessage(e);
-    } finally {
-      busyId = "";
-    }
-  }
+  /** Action sur une ligne (demande, réservation), puis relevé à jour. */
+  const run = rowAction({ busy, error: (m) => (actionError = m), after: refresh });
 
   async function copyLink() {
     await navigator.clipboard.writeText(guestUrl);
@@ -303,18 +257,11 @@
   }
 
   /* ——— Interface (refonte) ——— */
-  let activeWishes = $derived(wishes.filter((w) => w.status !== "dismissed"));
-  let soldBottles = $derived(eveningSales.reduce(
-    (n, x) => n + (x.sale_item || []).filter((i: any) => i.wine_vintage_id).reduce((m: number, i: any) => m + (i.quantity || 0), 0),
-    0,
-  ));
+  let soldLines = $derived(eveningSales.flatMap((x) => x.sale_item || []));
+  let soldBottles = $derived(totalQuantity(soldLines));
   let soldAmount = $derived(eveningSales.reduce((n, x) => n + Number(x.total_price || 0), 0));
-  let soldByWine = $derived((() => {
-    const m = new Map<string, number>();
-    for (const x of eveningSales) for (const i of x.sale_item || []) if (i.wine_vintage_id) m.set(i.wine_vintage_id, (m.get(i.wine_vintage_id) ?? 0) + (i.quantity || 0));
-    return m;
-  })());
-  let orderedBottles = $derived(activeWishes.flatMap((w) => wishItems(w.items)).reduce((n, i) => n + i.quantity, 0));
+  let soldByWine = $derived(quantitiesByVintage(soldLines));
+  let orderedBottles = $derived(totalQuantity(wishedLines));
   let currentOrdered = $derived(current ? (stats.get(current.id)?.wanted ?? 0) : 0);
   /* Absent de la vue : aucun mouvement, donc 0 bouteille (et non « inconnu »). */
   let currentStock = $derived(current && stockMap ? (stockMap.get(current.id) ?? 0) : null);
@@ -324,12 +271,6 @@
   let headerSubtitle = $derived(tasting
     ? [formatDate(tasting.date), tasting.location, tasting.start_time ? `${isLiveDay ? "depuis" : "à"} ${formatTime(tasting.start_time)}` : ""].filter(Boolean).join(" · ")
     : "");
-  function wishFor(w: { items: unknown }, vintageId: string): number {
-    return wishItems(w.items).filter((i) => i.wine_vintage_id === vintageId).reduce((n, i) => n + i.quantity, 0);
-  }
-  function wishBottles(w: { items: unknown }): number {
-    return wishItems(w.items).reduce((n, i) => n + i.quantity, 0);
-  }
 </script>
 
 <svelte:window onkeydown={onKey} />
@@ -370,7 +311,7 @@
               <strong>{r.first_name} {r.last_name || ""}</strong>
               <span class="t-caption">{placesLabel(r.seats)}{r.status === "waitlist" ? " · liste d’attente" : r.status === "cancelled" ? " · annulée" : ""}</span>
             </span>
-            <Button size="sm" variant="ghost" disabled={busyId === r.id} onclick={() => confirmRow(r)}>
+            <Button size="sm" variant="ghost" disabled={busy.has(r.id)} onclick={() => run(r.id, () => confirmRegistration(r.id))}>
               {r.status === "waitlist" ? "Confirmer" : r.status === "cancelled" ? "Rétablir" : "Ajouter aux participants"}
             </Button>
           </li>
@@ -378,6 +319,34 @@
       </ul>
     </Card>
   {/if}
+{/snippet}
+
+<!-- Une demande « J’en veux », ou une pré-commande (preorder) pas encore confirmée par l’invité. -->
+{#snippet orderRow(o: WishRequest, preorder: boolean)}
+  {@const items = wishItems(o.items)}
+  <tr class:muted-row={preorder || o.status !== "new"}>
+    <td>
+      <strong>{o.first_name || "Invité"} {o.last_name || ""}</strong>
+      <span class="t-caption block">{[o.email, o.phone].filter(Boolean).join(" · ")}</span>
+      {#if o.message}<span class="t-caption block">« {o.message} »</span>{/if}
+    </td>
+    <td class="num">{items.reduce((n, i) => n + (i.wine_vintage_id === current.id ? i.quantity : 0), 0) || "—"}</td>
+    <td class="num"><span class="t-muted">{totalQuantity(items)} bt.</span> <strong>{formatEUR(wishTotal(o, prices))}</strong></td>
+    <td class="col-actions">
+      {#if preorder}
+        <span class="t-caption">Pré-commande, pas encore confirmée</span>
+      {:else if o.status === "new"}
+        <span class="order-actions">
+          <Button size="sm" disabled={busy.has(o.id)} onclick={() => run(o.id, () => createSaleFromWish(o, prices, tastingTitle(tasting)))}>{busy.has(o.id) ? "…" : "Créer la vente"}</Button>
+          <Button size="sm" variant="ghost" disabled={busy.has(o.id)} onclick={() => run(o.id, () => setWishStatus(o.id, "dismissed"))}>Ignorer</Button>
+        </span>
+      {:else if o.sale_id}
+        <a href="/manage/sales?statut=pending" class="t-caption">Vente créée</a>
+      {:else}
+        <span class="t-caption">Ignorée</span>
+      {/if}
+    </td>
+  </tr>
 {/snippet}
 
 <div class="pilot" class:has-wines={wines.length > 0}>
@@ -522,8 +491,8 @@
             {#if wishes.length === 0 && preorders.length === 0}
               <EmptyState icon={IconInbox} title="Aucune commande pour l’instant" text="Les invités commandent depuis leur téléphone (« J’en veux »)." compact />
             {:else}
-              <div class="orders-wrap">
-                <table class="ui-table">
+              <div class="orders">
+                <DataTable>
                   <thead>
                     <tr>
                       <th scope="col">Participant</th>
@@ -533,42 +502,10 @@
                     </tr>
                   </thead>
                   <tbody>
-                    {#each wishes as w (w.id)}
-                      <tr class:muted-row={w.status !== "new"}>
-                        <td>
-                          <strong>{w.first_name} {w.last_name || ""}</strong>
-                          <span class="t-caption block">{[w.email, w.phone].filter(Boolean).join(" · ")}</span>
-                          {#if w.message}<span class="t-caption block">« {w.message} »</span>{/if}
-                        </td>
-                        <td class="num">{wishFor(w, current.id) || "—"}</td>
-                        <td class="num"><span class="t-muted">{wishBottles(w)} bt.</span> <strong>{formatEUR(wishTotal(w, prices))}</strong></td>
-                        <td class="col-actions">
-                          {#if w.status === "new"}
-                            <span class="order-actions">
-                              <Button size="sm" disabled={busyId === w.id} onclick={() => makeSale(w)}>{busyId === w.id ? "…" : "Créer la vente"}</Button>
-                              <Button size="sm" variant="ghost" disabled={busyId === w.id} onclick={() => dismiss(w)}>Ignorer</Button>
-                            </span>
-                          {:else if w.sale_id}
-                            <a href="/manage/sales?statut=pending" class="t-caption">Vente créée</a>
-                          {:else}
-                            <span class="t-caption">Ignorée</span>
-                          {/if}
-                        </td>
-                      </tr>
-                    {/each}
-                    {#each preorders as p (p.guest_id)}
-                      <tr class="muted-row">
-                        <td>
-                          <strong>{p.first_name || "Invité"} {p.last_name || ""}</strong>
-                          <span class="t-caption block">{[p.email, p.phone].filter(Boolean).join(" · ")}</span>
-                        </td>
-                        <td class="num">{wishFor(p, current.id) || "—"}</td>
-                        <td class="num"><span class="t-muted">{wishBottles(p)} bt.</span> <strong>{formatEUR(wishTotal(p, prices))}</strong></td>
-                        <td class="col-actions"><span class="t-caption">Pré-commande, pas encore confirmée</span></td>
-                      </tr>
-                    {/each}
+                    {#each wishes as w (w.id)}{@render orderRow(w, false)}{/each}
+                    {#each preorders as p (p.guest_id)}{@render orderRow(p, true)}{/each}
                   </tbody>
-                </table>
+                </DataTable>
               </div>
             {/if}
           </Card>
@@ -597,10 +534,12 @@
         <IconButton label="Précédent" variant="outline" disabled={position === 0} onclick={() => setPosition(position - 1)}>
           <IconArrowLeft size={20} strokeWidth={1.75} />
         </IconButton>
-        <button type="button" class="next-btn" disabled={position === wines.length - 1} onclick={() => setPosition(position + 1)}>
-          {position === wines.length - 1 ? "Dernier de la dégustation" : `Suivant : ${vintageShortLabel(wines[position + 1])}`}
-          <IconArrowRight size={18} strokeWidth={1.75} aria-hidden="true" />
-        </button>
+        <div class="next-btn">
+          <Button variant="primary" size="lg" block disabled={position === wines.length - 1} onclick={() => setPosition(position + 1)}>
+            <span class="next-label">{position === wines.length - 1 ? "Dernier de la dégustation" : `Suivant : ${vintageShortLabel(wines[position + 1])}`}</span>
+            <IconArrowRight size={18} strokeWidth={1.75} aria-hidden="true" />
+          </Button>
+        </div>
       </div>
     {/if}
   </ManagePageShell>
@@ -650,8 +589,7 @@
     width: 8px;
     height: 8px;
     border-radius: 50%;
-    background: #7fd1a0;
-    box-shadow: 0 0 0 0 rgba(127, 209, 160, 0.6);
+    background: var(--live);
     animation: live 1.8s ease-out infinite;
   }
 
@@ -661,13 +599,16 @@
   }
 
   .live-badge.off .dot {
-    background: #9aa29e;
+    background: color-mix(in srgb, currentColor 50%, transparent);
     animation: none;
   }
 
   @keyframes live {
+    from {
+      box-shadow: 0 0 0 0 color-mix(in srgb, var(--live) 60%, transparent);
+    }
     to {
-      box-shadow: 0 0 0 8px rgba(127, 209, 160, 0);
+      box-shadow: 0 0 0 8px transparent;
     }
   }
 
@@ -847,7 +788,6 @@
     width: 64px;
     height: 96px;
     border-radius: 32px 32px 8px 8px;
-    background: #9aa29e;
     box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.12);
   }
 
@@ -877,9 +817,11 @@
     gap: 10px;
   }
 
-  .orders-wrap {
-    overflow-x: auto;
+  /* Tableau collé aux bords de la carte. */
+  .orders :global(.ui-table-wrap) {
+    border: none;
     border-top: 1px solid var(--border-soft);
+    border-radius: 0 0 var(--r-md) var(--r-md);
   }
 
   .block {
@@ -1103,28 +1045,15 @@
       border-top: 1px solid var(--border);
     }
 
+    /* Le nom du produit suivant se tronque plutôt que d'élargir la barre. */
     .next-btn {
       flex: 1;
-      display: inline-flex;
-      align-items: center;
-      justify-content: center;
-      gap: 8px;
-      min-height: 52px;
-      padding: 0 16px;
-      border: none;
-      border-radius: var(--r-sm);
-      background: var(--teal-600);
-      color: #fff;
-      font: inherit;
-      font-weight: 600;
-      cursor: pointer;
-      overflow: hidden;
-      white-space: nowrap;
-      text-overflow: ellipsis;
+      min-width: 0;
     }
 
-    .next-btn:disabled {
-      opacity: 0.5;
+    .next-label {
+      overflow: hidden;
+      text-overflow: ellipsis;
     }
   }
 

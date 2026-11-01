@@ -1,7 +1,7 @@
 <script lang="ts">
   import { onMount } from "svelte";
   import { page } from "$app/stores";
-  import { escapeLike, fetchAllRows, supabase } from "$lib/supabase";
+  import { fetchAllRows, supabase } from "$lib/supabase";
   import { errorMessage } from "$lib/async";
   import { fetchCustomers, fetchStockMap } from "$lib/manageData";
   import { goto } from "$app/navigation";
@@ -11,6 +11,7 @@
   import type { Customer } from "$lib/types";
   import { REVENUE_STATUSES, lineTotal, type SaleItemRow } from "$lib/analytics";
   import { daysUntil } from "$lib/dates";
+  import { fetchLatestFeedback } from "$lib/live";
   import { MAIN_ROBES, robePreference, styleByKey, vintageLabel, vintageLabelSelect, vintageShortLabel, wineRobe, type WineStyleKey } from "$lib/wine";
   import { KIND_STYLES } from "$lib/productKinds";
   import { formatDate, formatEUR } from "$lib/format";
@@ -93,21 +94,18 @@
       stock = iRes;
 
       if (customer) {
-        const [namesakeRes, feedbackRes] = await Promise.all([
+        const [namesakeRes, latestFeedback] = await Promise.all([
           /* Simple signalement : en échec, la fiche s'affiche sans bandeau. */
           supabase.from("customer").select("*").ilike("last_name", lastNameLike(customer)).neq("id", customerId),
           customer.email
-            ? supabase
-                .from("tasting_feedback")
-                .select("*")
-                .ilike("guest_email", escapeLike(customer.email))
-                .order("created_at", { ascending: true })
-            : null,
+            ? fetchLatestFeedback({ guestEmail: customer.email }).catch((e) => {
+                warnings = [...warnings, `Notes en dégustation indisponibles : ${errorMessage(e)}`];
+                return [];
+              })
+            : [],
         ]);
         sameLastName = namesakeRes.data || [];
-        const latest = new Map<string, any>();
-        for (const f of feedbackRes?.data || []) latest.set(`${f.tasting_id}:${f.wine_vintage_id}`, f);
-        feedback = [...latest.values()].filter((f) => f.rating || f.comment);
+        feedback = latestFeedback.filter((f) => f.rating || f.comment);
       }
     } catch (e) {
       error = errorMessage(e);

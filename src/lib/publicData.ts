@@ -1,3 +1,4 @@
+import { error as httpError } from "@sveltejs/kit";
 import { fetchAllRows, supabase } from "./supabase";
 import { VINTAGE_PUBLIC_SELECT } from "./wine";
 import { DEFAULT_KIND, PRODUCT_KIND_LIST, type ProductKind } from "./productKinds";
@@ -164,6 +165,19 @@ export async function fetchTastingWithWines(tastingId: string, opts: { reveal?: 
     .filter(Boolean);
 
   return { tasting, wineVintages, hiddenCount: 0, error: null };
+}
+
+/** Chargeur des pages publiques d'une dégustation : 404 pour une adresse fantaisiste ou une dégustation absente. */
+export async function loadTasting(id: string, opts: { reveal?: (date: string) => boolean } = {}) {
+  if (!isUuid(id)) throw httpError(404, "Page introuvable");
+  let res;
+  try {
+    res = await fetchTastingWithWines(id, opts);
+  } catch {
+    return { tasting: null, wineVintages: [] as any[], hiddenCount: 0, error: "Impossible de charger la dégustation" };
+  }
+  if (!res.tasting && !res.error) throw httpError(404, "Dégustation introuvable");
+  return res;
 }
 
 /** Adresse des dégustations publiques. Le champ « Lieu » d'une dégustation est un repère interne (« Grange »). */

@@ -1,6 +1,6 @@
 import { browser } from "$app/environment";
 import type { RealtimeChannel } from "@supabase/supabase-js";
-import { supabase } from "./supabase";
+import { escapeLike, fetchAllRows, supabase } from "./supabase";
 
 /**
  * Mode dégustation live.
@@ -72,38 +72,24 @@ export function saveProfile(p: GuestProfile) {
   write(PROFILE_KEY, p);
 }
 
-export function getRatings(tastingId: string): Record<string, LocalRating> {
-  return read(`mz-ratings:${tastingId}`, {});
+/** Valeur rangée par dégustation dans le localStorage, sous la clé `${prefix}:${tastingId}`. */
+function perTasting<T>(prefix: string, parse: (stored: any) => T) {
+  return {
+    get: (tastingId: string): T => parse(read(`${prefix}:${tastingId}`, null)),
+    save: (tastingId: string, value: T) => write(`${prefix}:${tastingId}`, value),
+  };
 }
 
-export function saveRatings(tastingId: string, ratings: Record<string, LocalRating>) {
-  write(`mz-ratings:${tastingId}`, ratings);
-}
-
+export const localRatings = perTasting<Record<string, LocalRating>>("mz-ratings", (v) => v ?? {});
 /** Dernier vin servi vu sur ce téléphone : un rechargement ne perd pas la progression. */
-export function getServed(tastingId: string): number {
-  return Number(read(`mz-served:${tastingId}`, 0)) || 0;
-}
-
-export function saveServed(tastingId: string, position: number) {
-  write(`mz-served:${tastingId}`, position);
-}
-
-export function getCart(tastingId: string): Record<string, number> {
-  return read(`mz-cart:${tastingId}`, {});
-}
-
-export function saveCart(tastingId: string, cart: Record<string, number>) {
-  write(`mz-cart:${tastingId}`, cart);
-}
-
+export const localServed = perTasting<number>("mz-served", (v) => Number(v) || 0);
+export const localCart = perTasting<Record<string, number>>("mz-cart", (v) => v ?? {});
 /** Panier changé mais pas encore en base (hors ligne, page quittée) : renvoyé à la prochaine occasion. */
-export function isPreorderDirty(tastingId: string): boolean {
-  return read<boolean>(`mz-preorder-dirty:${tastingId}`, false) === true;
-}
+const preorderDirty = perTasting<boolean>("mz-preorder-dirty", (v) => v === true);
 
-export function setPreorderDirty(tastingId: string, dirty: boolean) {
-  write(`mz-preorder-dirty:${tastingId}`, dirty);
+/** Position valide dans un déroulé de `count` vins (0 si vide). */
+export function clampPosition(p: number, count: number): number {
+  return Math.max(0, Math.min(Math.max(0, count - 1), Math.round(p)));
 }
 
 /** Envoie une note en base (insert-only ; la plus récente fait foi). Silencieux en cas d'échec. */
@@ -131,11 +117,44 @@ export async function pushFeedback(opts: {
   }
 }
 
+export type FeedbackRow = {
+  id: string;
+  tasting_id: string;
+  guest_id: string;
+  guest_name: string | null;
+  wine_vintage_id: string;
+  rating: number | null;
+  comment: string | null;
+  created_at: string;
+};
+
+/**
+ * Notes à jour d'une dégustation (une par invité et par vin) ou d'un client, d'après son email
+ * (une par dégustation et par vin). tasting_feedback ne reçoit que des insertions : la plus
+ * récente fait foi. Paginé (au-delà de 1000 lignes, les plus récentes manqueraient) ; lève une
+ * erreur si le relevé échoue.
+ */
+export async function fetchLatestFeedback(filter: { tastingId: string } | { guestEmail: string }): Promise<FeedbackRow[]> {
+  const byTasting = "tastingId" in filter;
+  const rows = await fetchAllRows<FeedbackRow>((from, to) => {
+    const query = supabase
+      .from("tasting_feedback")
+      .select("id, tasting_id, guest_id, guest_name, wine_vintage_id, rating, comment, created_at");
+    return (byTasting ? query.eq("tasting_id", filter.tastingId) : query.ilike("guest_email", escapeLike(filter.guestEmail)))
+      .order("created_at", { ascending: true })
+      .order("id")
+      .range(from, to);
+  });
+  const latest = new Map<string, FeedbackRow>();
+  for (const f of rows) latest.set(`${byTasting ? f.guest_id : f.tasting_id}:${f.wine_vintage_id}`, f);
+  return [...latest.values()];
+}
+
 /**
  * Enregistre la pré-commande du téléphone (panier vide : supprimée), ou la confirme.
  * Faux en cas d'échec : le panier reste sur le téléphone.
  */
-export async function savePreorder(opts: {
+async function savePreorder(opts: {
   tastingId: string;
   cart: Record<string, number>;
   profile: GuestProfile;
@@ -158,13 +177,69 @@ export async function savePreorder(opts: {
   }
 }
 
-export type LiveEvents = {
+/**
+ * Envoi de la pré-commande d'un téléphone : enregistrée 700 ms après le dernier changement,
+ * renvoyée tant qu'elle n'est pas en base (marque « non enregistré » dans le localStorage).
+ * `snapshot` est lu au moment de l'envoi : c'est le panier du moment qui part.
+ */
+export function createPreorderSync(
+  tastingId: string,
+  snapshot: () => { cart: Record<string, number>; profile: GuestProfile },
+) {
+  let timer: ReturnType<typeof setTimeout> | null = null;
+  /* Un envoi à la fois : une pré-commande en retard ne doit pas revenir après la confirmation. */
+  let queue: Promise<unknown> = Promise.resolve();
+  /** Numéro du dernier changement : seul son envoi réussi marque le panier comme enregistré. */
+  let version = 0;
+
+  /** Envoie le panier tel qu'il est au moment de l'envoi, après les envois précédents. */
+  function push(confirm = false): Promise<boolean> {
+    if (timer) clearTimeout(timer);
+    timer = null;
+    const run = queue.then(() => savePreorder({ tastingId, ...snapshot(), confirm }));
+    queue = run;
+    return run;
+  }
+
+  function schedule() {
+    const v = ++version;
+    preorderDirty.save(tastingId, true);
+    if (timer) clearTimeout(timer);
+    timer = setTimeout(async () => {
+      if ((await push()) && v === version) preorderDirty.save(tastingId, false);
+    }, 700);
+  }
+
+  return {
+    schedule,
+    /** Changement pas encore enregistré (hors ligne, page quittée) : on le renvoie. */
+    resume() {
+      if (preorderDirty.get(tastingId)) schedule();
+    },
+    /** Confirme la pré-commande. En échec, elle reste sur le téléphone et sera renvoyée. */
+    async confirm(): Promise<boolean> {
+      if (!(await push(true))) {
+        schedule();
+        return false;
+      }
+      version++;
+      preorderDirty.save(tastingId, false);
+      return true;
+    },
+    /** En quittant la page : un changement de moins de 700 ms est envoyé quand même. */
+    flush() {
+      if (timer) void push();
+    },
+  };
+}
+
+type LiveEvents = {
   onPosition?: (position: number) => void;
   onSyncRequest?: () => void;
   onStatus?: (connected: boolean) => void;
 };
 
-export function liveChannelName(tastingId: string): string {
+function liveChannelName(tastingId: string): string {
   return `tasting-live-${tastingId}`;
 }
 

@@ -272,7 +272,7 @@
   .stock {
     align-self: flex-end;
     padding: 0.1rem 0.55rem;
-    border-radius: 999px;
+    border-radius: var(--mz-radius-pill);
     font-size: 0.75rem;
     font-weight: 600;
     white-space: nowrap;

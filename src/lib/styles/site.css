@@ -66,7 +66,7 @@
   justify-content: center;
   gap: 0.5rem;
   padding: 0.75rem 1.3rem;
-  border-radius: 999px;
+  border-radius: var(--mz-radius-pill);
   border: 1px solid var(--mz-teal);
   background: var(--mz-teal);
   color: #fff;
@@ -149,7 +149,7 @@
   align-items: center;
   gap: 0.4rem;
   padding: 0.3rem 0.7rem;
-  border-radius: 999px;
+  border-radius: var(--mz-radius-pill);
   background: var(--mz-teal-wash);
   color: var(--mz-teal);
   font-size: 0.8rem;
@@ -218,6 +218,16 @@
   padding: 3rem 1.5rem;
   text-align: center;
   color: var(--mz-muted);
+}
+
+/* Pastille « en direct » : un halo de sa couleur (--mz-pulse) s'élargit et s'efface. */
+@keyframes mz-pulse {
+  from {
+    box-shadow: 0 0 0 0 color-mix(in srgb, var(--mz-pulse) 60%, transparent);
+  }
+  to {
+    box-shadow: 0 0 0 8px transparent;
+  }
 }
 
 /* Apparition douce au scroll / au chargement. */
