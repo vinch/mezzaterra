@@ -81,10 +81,10 @@ function drawFillInLine(
   doc.setDrawColor(0, 0, 0);
 }
 
-/** En-tête commun : logo à gauche, QR à droite (moitié de la hauteur du logo, centré sur lui). */
+/** En-tête commun : logo à gauche, QR à droite (moitié de la hauteur du logo, centré sur lui). Logo absent : largeur 0. */
 async function drawLogoAndQr(doc: jsPDF, pageW: number, margin: number, top: number) {
   const [logo, qr] = await Promise.all([svgToPng("/logo-black.svg", 3000), staticPng("/qr.png")]);
-  const logoWmm = 48;
+  const logoWmm = logo ? 48 : 0;
   let logoHmm = 0;
   let qrHmm = 0;
   let qrWmm = 0;
@@ -160,7 +160,7 @@ async function drawPdfNotesHeader(
     month: "long",
     year: "numeric",
   });
-  const dateX = margin + (logoHmm > 0 ? logoWmm : 0) + 5;
+  const dateX = margin + logoWmm + 5;
   const dateFontSize = 10;
   doc.setFont(fontFamily, "normal");
   doc.setFontSize(dateFontSize);
