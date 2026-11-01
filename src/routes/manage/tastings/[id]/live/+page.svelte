@@ -30,7 +30,7 @@
   import Spinner from "$lib/ui/Spinner.svelte";
   import { fetchSeats, fetchTastingWithWines, isParticipantRegistration, onlineSeats, onlineSeatsByCustomer, participantOrigin, placesLabel, tastingTitle, type SeatInfo } from "$lib/publicData";
   import { compareCustomersByLabel, customerDisplayLabel } from "$lib/customerDisplay";
-  import { broadcastPosition, clampPosition, joinLiveChannel, latestFeedback } from "$lib/live";
+  import { broadcastPosition, clampPosition, fetchLatestFeedback, joinLiveChannel } from "$lib/live";
   import { qrDataUrl } from "$lib/qr";
   import { swatchStyle, vintageShortLabel, wineRobe, wineStyle, wineSubtitle, wineTitle, wineTypeLabel } from "$lib/wine";
   import { kindInfo } from "$lib/productKinds";
@@ -63,7 +63,8 @@
   let projecting = $state(false);
   let copied = $state(false);
 
-  let feedback = $state.raw<any[]>([]);
+  /** Dernière note par (invité, vin). */
+  let feedback = $state.raw<Awaited<ReturnType<typeof fetchLatestFeedback>>>([]);
   let wishes = $state.raw<WishRequest[]>([]);
   /** Pré-commandes des invités, pas encore confirmées : ni comptées ni transformables en vente. */
   let preorders = $state.raw<any[]>([]);
@@ -154,12 +155,7 @@
         stockMap = await fetchStockMap(ids).catch(() => null);
       })(),
       (async () => {
-        const { data } = await supabase
-          .from("tasting_feedback")
-          .select("id, guest_id, guest_name, wine_vintage_id, rating, comment, created_at")
-          .eq("tasting_id", tastingId)
-          .order("created_at", { ascending: true });
-        feedback = data || [];
+        feedback = await fetchLatestFeedback({ tastingId });
       })(),
       (async () => {
         const { data } = await supabase
@@ -203,9 +199,6 @@
     ]);
   }
 
-  /* Dernière note par (invité, vin). */
-  let latest = $derived(latestFeedback(feedback, "guest_id"));
-
   let activeWishes = $derived(wishes.filter((w) => w.status !== "dismissed"));
   let wishedLines = $derived(activeWishes.flatMap((w) => wishItems(w.items)));
   /* Bouteilles demandées par vin (demandes non écartées). */
@@ -213,13 +206,13 @@
 
   let stats = $derived(new Map(
     wines.map((w) => {
-      const rated = latest.filter((f) => f.wine_vintage_id === w.id && f.rating);
-      const avg = rated.length ? rated.reduce((s, r) => s + r.rating, 0) / rated.length : null;
+      const rated = feedback.filter((f) => f.wine_vintage_id === w.id && f.rating);
+      const avg = rated.length ? rated.reduce((s, r) => s + (r.rating ?? 0), 0) / rated.length : null;
       return [w.id, { avg, count: rated.length, wanted: wantedByWine.get(w.id) ?? 0 }];
     }),
   ));
 
-  let comments = $derived(latest
+  let comments = $derived(feedback
     .filter((f) => f.comment)
     .sort((a, b) => b.created_at.localeCompare(a.created_at))
     .slice(0, 12));
