@@ -85,7 +85,7 @@ export const localRatings = perTasting<Record<string, LocalRating>>("mz-ratings"
 export const localServed = perTasting<number>("mz-served", (v) => Number(v) || 0);
 export const localCart = perTasting<Record<string, number>>("mz-cart", (v) => v ?? {});
 /** Panier changé mais pas encore en base (hors ligne, page quittée) : renvoyé à la prochaine occasion. */
-export const preorderDirty = perTasting<boolean>("mz-preorder-dirty", (v) => v === true);
+const preorderDirty = perTasting<boolean>("mz-preorder-dirty", (v) => v === true);
 
 /** Position valide dans un déroulé de `count` vins (0 si vide). */
 export function clampPosition(p: number, count: number): number {
@@ -121,7 +121,7 @@ export async function pushFeedback(opts: {
  * Enregistre la pré-commande du téléphone (panier vide : supprimée), ou la confirme.
  * Faux en cas d'échec : le panier reste sur le téléphone.
  */
-export async function savePreorder(opts: {
+async function savePreorder(opts: {
   tastingId: string;
   cart: Record<string, number>;
   profile: GuestProfile;
@@ -142,6 +142,62 @@ export async function savePreorder(opts: {
   } catch {
     return false;
   }
+}
+
+/**
+ * Envoi de la pré-commande d'un téléphone : enregistrée 700 ms après le dernier changement,
+ * renvoyée tant qu'elle n'est pas en base (marque « non enregistré » dans le localStorage).
+ * `snapshot` est lu au moment de l'envoi : c'est le panier du moment qui part.
+ */
+export function createPreorderSync(
+  tastingId: string,
+  snapshot: () => { cart: Record<string, number>; profile: GuestProfile },
+) {
+  let timer: ReturnType<typeof setTimeout> | null = null;
+  /* Un envoi à la fois : une pré-commande en retard ne doit pas revenir après la confirmation. */
+  let queue: Promise<unknown> = Promise.resolve();
+  /** Numéro du dernier changement : seul son envoi réussi marque le panier comme enregistré. */
+  let version = 0;
+
+  /** Envoie le panier tel qu'il est au moment de l'envoi, après les envois précédents. */
+  function push(confirm = false): Promise<boolean> {
+    if (timer) clearTimeout(timer);
+    timer = null;
+    const run = queue.then(() => savePreorder({ tastingId, ...snapshot(), confirm }));
+    queue = run;
+    return run;
+  }
+
+  function schedule() {
+    const v = ++version;
+    preorderDirty.save(tastingId, true);
+    if (timer) clearTimeout(timer);
+    timer = setTimeout(async () => {
+      if ((await push()) && v === version) preorderDirty.save(tastingId, false);
+    }, 700);
+  }
+
+  return {
+    schedule,
+    /** Changement pas encore enregistré (hors ligne, page quittée) : on le renvoie. */
+    resume() {
+      if (preorderDirty.get(tastingId)) schedule();
+    },
+    /** Confirme la pré-commande. En échec, elle reste sur le téléphone et sera renvoyée. */
+    async confirm(): Promise<boolean> {
+      if (!(await push(true))) {
+        schedule();
+        return false;
+      }
+      version++;
+      preorderDirty.save(tastingId, false);
+      return true;
+    },
+    /** En quittant la page : un changement de moins de 700 ms est envoyé quand même. */
+    flush() {
+      if (timer) void push();
+    },
+  };
 }
 
 type LiveEvents = {
