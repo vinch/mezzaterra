@@ -94,9 +94,9 @@
 <svelte:document onpointerdown={press} />
 
 <figure class="map" class:drawn>
-  <!-- Pas de role="img" : il masquerait les liens des épingles aux lecteurs d'écran. -->
-  <svg viewBox="0 0 {W} {H}" role="group" aria-labelledby="map-title" aria-describedby="map-desc">
-    <title id="map-title">Carte des Abruzzes</title>
+  <!-- Pas de role="img" : il masquerait les liens des épingles aux lecteurs d'écran.
+       aria-label plutôt qu'un <title>, que le navigateur afficherait en infobulle au survol. -->
+  <svg viewBox="0 0 {W} {H}" role="group" aria-label="Carte des Abruzzes" aria-describedby="map-desc">
     <desc id="map-desc">
       Les Abruzzes, entre la mer Adriatique et le massif du Gran Sasso, avec l’emplacement des domaines
       Mezzaterra : {pins.map((w) => w.name).join(", ")}.
