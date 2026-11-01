@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { daysAwayLabel, daysUntil, formatDayMonth, formatDateLong, formatTime } from "$lib/dates";
+  import { daysAwayLabel, daysUntil, formatDayMonth, formatDateLong, formatTime, isLiveNow } from "$lib/dates";
   import { tastingTitle } from "$lib/publicData";
   import { formatEUR } from "$lib/format";
   import { contactHref } from "$lib/contact";
@@ -7,9 +7,11 @@
   let { data } = $props();
 
   let { error, tastings } = $derived(data);
-  /* À venir : la plus proche d'abord. Passées : la plus récente d'abord. */
-  let upcoming = $derived(tastings.filter((t: any) => daysUntil(t.date) >= 0).reverse());
-  let past = $derived(tastings.filter((t: any) => daysUntil(t.date) < 0));
+  /* À venir (dont celle d'hier soir encore en direct après minuit, comme sur sa fiche) : la plus
+     proche d'abord. Passées : la plus récente d'abord. */
+  const isCurrent = (t: any) => daysUntil(t.date) >= 0 || isLiveNow(t.date);
+  let upcoming = $derived(tastings.filter(isCurrent).reverse());
+  let past = $derived(tastings.filter((t: any) => !isCurrent(t)));
 
   function wineCount(t: any): number {
     return t.tasting_wine_vintage?.length ?? 0;
@@ -54,8 +56,8 @@
                 <span class="month">{d.month}</span>
               </div>
               <div class="upcoming-body">
-                <span class="mz-eyebrow" class:today={delta === 0}>
-                  {daysAwayLabel(delta)}
+                <span class="mz-eyebrow" class:today={delta <= 0}>
+                  {delta < 0 ? "En direct" : daysAwayLabel(delta)}
                 </span>
                 <h3 class="mz-display mz-h3">{tastingTitle(t)}</h3>
                 <p class="meta">
