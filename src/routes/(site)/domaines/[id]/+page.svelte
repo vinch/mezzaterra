@@ -189,7 +189,7 @@
     <h2 class="section-title mz-display mz-h2">Les autres domaines</h2>
     <ul class="others-list">
       {#each data.others as other (other.id)}
-        <li><WineryLinkCard id={other.id} name={other.name} detail={other.city ?? ""} /></li>
+        <li><WineryLinkCard id={other.id} name={other.name} detail={other.city} /></li>
       {/each}
     </ul>
   </section>
@@ -245,10 +245,6 @@
 
   .grapes {
     flex-basis: 100%;
-  }
-
-  .mz-facts dd:not(.plain) {
-    line-height: 1.2;
   }
 
   /* Couleurs et cépages : en texte courant, pas en police d'affichage. */

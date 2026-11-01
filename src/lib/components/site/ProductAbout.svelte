@@ -26,14 +26,14 @@
   <section class="about {className}" class:compact>
     {#if description}
       <div class="block">
-        <svelte:element this={heading} class="mz-kicker">{kind.aboutTitle}</svelte:element>
+        <svelte:element this={heading} class="mz-eyebrow mz-eyebrow--heading">{kind.aboutTitle}</svelte:element>
         <p class="prose">{description}</p>
       </div>
     {/if}
 
     {#if notes.length}
       <div class="block">
-        <svelte:element this={heading} class="mz-kicker">Notes de dégustation</svelte:element>
+        <svelte:element this={heading} class="mz-eyebrow mz-eyebrow--heading">Notes de dégustation</svelte:element>
         <div class="notes">
           {#each notes as note}
             <div class="note">
@@ -47,7 +47,7 @@
 
     {#if pairings.length}
       <div class="block">
-        <svelte:element this={heading} class="mz-kicker">À table avec</svelte:element>
+        <svelte:element this={heading} class="mz-eyebrow mz-eyebrow--heading">À table avec</svelte:element>
         <div class="pairings">
           {#each pairings as p}
             <span class="mz-chip">{p}</span>
@@ -67,7 +67,7 @@
     padding-bottom: 1rem;
   }
 
-  .mz-kicker {
+  .mz-eyebrow {
     margin-bottom: 0.75rem;
   }
 
@@ -111,7 +111,7 @@
     padding: 0;
   }
 
-  .compact .mz-kicker {
+  .compact .mz-eyebrow {
     margin-bottom: 0.5rem;
   }
 

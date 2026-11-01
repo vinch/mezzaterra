@@ -81,7 +81,7 @@
             <p class="region">{flag} {region}</p>
           {/if}
 
-          <dl class="mz-facts mz-facts--sm facts">
+          <dl class="mz-facts facts">
             {#if v.year}
               <div><dt>{kind.yearFact}</dt><dd>{v.year}</dd></div>
             {/if}
@@ -105,7 +105,7 @@
       <div class="content">
         {#if grapes}
           <section>
-            <h3 class="mz-kicker">{kind.ingredients}</h3>
+            <h3 class="mz-eyebrow mz-eyebrow--heading">{kind.ingredients}</h3>
             <p>{grapes}</p>
           </section>
         {/if}
@@ -213,8 +213,14 @@
     font-weight: 600;
   }
 
+  /* Fiche rapide : plus serrée que la fiche complète. */
   .facts {
+    gap: 1.5rem;
     margin-top: 1rem;
+  }
+
+  .facts dd {
+    font-size: 1.35rem;
   }
 
   .organic {

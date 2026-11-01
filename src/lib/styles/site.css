@@ -26,6 +26,12 @@
   color: var(--mz-teal-soft);
 }
 
+/* En titre de rubrique (h2, h3 : « Notes de dégustation », « Cépages »…) : sur sa propre ligne. */
+.mz-eyebrow--heading {
+  display: flex;
+  margin: 0 0 0.5rem;
+}
+
 .mz-display {
   font-family: var(--mz-font-display);
   font-weight: 500;
@@ -57,17 +63,6 @@
 
 .mz-muted {
   color: var(--mz-muted);
-}
-
-/* Titre de rubrique en petites capitales (« Notes de dégustation », « Cépages »…). */
-.mz-kicker {
-  margin: 0 0 0.5rem;
-  font-family: var(--mz-font-body);
-  font-size: 0.75rem;
-  font-weight: 600;
-  letter-spacing: 0.12em;
-  text-transform: uppercase;
-  color: var(--mz-teal-soft);
 }
 
 /* Lien de retour discret en tête de fiche (« ← Toute la cave »). */
@@ -124,14 +119,6 @@
   border-bottom: 1px solid var(--mz-line-soft);
 }
 
-/* Fiche rapide (modale) : plus serrée. */
-.mz-facts--sm {
-  gap: 1.5rem;
-}
-
-.mz-facts--sm dd {
-  font-size: 1.35rem;
-}
 
 /* ——— Boutons ——— */
 .mz-btn {

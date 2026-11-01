@@ -101,7 +101,7 @@
 
       {#if wineVintages.length > 1}
         <div class="journey" aria-label="Parcours de la dégustation">
-          <span class="mz-kicker journey-label">Le parcours</span>
+          <span class="mz-eyebrow journey-label">Le parcours</span>
           <div class="journey-track">
             <span
               class="journey-line"
@@ -243,7 +243,6 @@
   }
 
   .journey-label {
-    margin: 0;
     color: var(--mz-muted);
     white-space: nowrap;
   }

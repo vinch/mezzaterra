@@ -4,10 +4,10 @@
     id: string;
     name: string;
     /** Ligne secondaire (ville, nombre de produits…). */
-    detail?: string;
+    detail?: string | null;
   }
 
-  let { id, name, detail = "" }: Props = $props();
+  let { id, name, detail }: Props = $props();
 </script>
 
 <a class="mz-card card" href="/domaines/{id}">
