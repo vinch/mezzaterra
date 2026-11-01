@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { daysUntil, formatDayMonth, formatDateLong, formatTime } from "$lib/dates";
+  import { daysAwayLabel, daysUntil, formatDayMonth, formatDateLong, formatTime } from "$lib/dates";
   import { tastingTitle } from "$lib/publicData";
   import { formatEUR } from "$lib/format";
   import { contactHref } from "$lib/contact";
@@ -55,7 +55,7 @@
               </div>
               <div class="upcoming-body">
                 <span class="mz-eyebrow" class:today={delta === 0}>
-                  {delta === 0 ? "Aujourd’hui" : delta === 1 ? "Demain" : `Dans ${delta} jours`}
+                  {daysAwayLabel(delta)}
                 </span>
                 <h3 class="mz-display mz-h3">{tastingTitle(t)}</h3>
                 <p class="meta">

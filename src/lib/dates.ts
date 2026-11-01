@@ -13,15 +13,21 @@ export function isoDateOnly(value: string | null | undefined): string {
   return value ? value.split("T")[0] : "";
 }
 
+const pad2 = (n: number) => String(n).padStart(2, "0");
+
+/** « 2026-10-16 » : jour local de `d` (pas `toISOString`, qui passe en UTC). */
+function toIsoDate(d: Date): string {
+  return `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())}`;
+}
+
 export function todayIso(): string {
-  const d = new Date();
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+  return toIsoDate(new Date());
 }
 
 export function addDaysIso(iso: string, days: number): string {
   const d = parseIsoDate(iso);
   d.setDate(d.getDate() + days);
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+  return toIsoDate(d);
 }
 
 const longDate = new Intl.DateTimeFormat("fr-FR", {
@@ -64,6 +70,11 @@ export function daysUntil(iso: string): number {
   return Math.round((parseIsoDate(iso).getTime() - today) / 86_400_000);
 }
 
+/** « Aujourd’hui », « Demain », « Dans 5 jours » pour un écart `daysUntil` positif ou nul. */
+export function daysAwayLabel(delta: number): string {
+  return delta === 0 ? "Aujourd’hui" : delta === 1 ? "Demain" : `Dans ${delta} jours`;
+}
+
 function icsEscape(s: string): string {
   return s.replace(/\\/g, "\\\\").replace(/\n/g, "\\n").replace(/,/g, "\\,").replace(/;/g, "\\;");
 }
@@ -89,8 +100,7 @@ export function buildIcs(opts: {
   const [h, m] = time.split(":").map(Number);
   start.setHours(h || 19, m || 0, 0, 0);
   const end = new Date(start.getTime() + (opts.durationHours ?? 3) * 3_600_000);
-  const endDate = `${end.getFullYear()}-${String(end.getMonth() + 1).padStart(2, "0")}-${String(end.getDate()).padStart(2, "0")}`;
-  const endTime = `${String(end.getHours()).padStart(2, "0")}:${String(end.getMinutes()).padStart(2, "0")}`;
+  const endTime = `${pad2(end.getHours())}:${pad2(end.getMinutes())}`;
   const stamp = new Date().toISOString().replace(/[-:]/g, "").replace(/\.\d+Z$/, "Z");
 
   const lines = [
@@ -102,7 +112,7 @@ export function buildIcs(opts: {
     `UID:${opts.uid}@mezzaterra`,
     `DTSTAMP:${stamp}`,
     `DTSTART:${icsLocal(opts.date, time)}`,
-    `DTEND:${icsLocal(endDate, endTime)}`,
+    `DTEND:${icsLocal(toIsoDate(end), endTime)}`,
     `SUMMARY:${icsEscape(opts.title)}`,
   ];
   if (opts.location) lines.push(`LOCATION:${icsEscape(opts.location)}`);

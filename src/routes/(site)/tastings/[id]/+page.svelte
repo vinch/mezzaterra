@@ -5,7 +5,7 @@
   import ProductCard from "$lib/components/site/ProductCard.svelte";
   import RegistrationForm from "$lib/components/site/RegistrationForm.svelte";
   import { fetchAvailability, isPrivateTasting, TASTING_ADDRESS, tastingTitle, type AvailabilityOf } from "$lib/publicData";
-  import { buildIcs, daysUntil, downloadTextFile, formatDateLong, formatTime, isLiveNow } from "$lib/dates";
+  import { buildIcs, daysAwayLabel, daysUntil, downloadTextFile, formatDateLong, formatTime, isLiveNow } from "$lib/dates";
   import { wineStyle, wineTitle } from "$lib/wine";
   import { formatEUR } from "$lib/format";
   import type { WineVintage } from "$lib/types";
@@ -45,7 +45,8 @@
     downloadTextFile("degustation-mezzaterra.ics", ics, "text/calendar;charset=utf-8");
   }
 
-  let statusLabel = $derived(isLive ? (delta === 0 ? "Aujourd’hui" : "En direct") : isUpcoming ? (delta === 1 ? "Demain" : `Dans ${delta} jours`) : "Dégustation passée");
+  /* La veille au soir encore en cours (delta -1) : « En direct ». */
+  let statusLabel = $derived(isLive && delta < 0 ? "En direct" : delta >= 0 ? daysAwayLabel(delta) : "Dégustation passée");
 </script>
 
 <svelte:head>
