@@ -456,8 +456,8 @@
       return true;
     }
 
-    const stockHint =
-      currentStatus === "pending" ? "\n\nLe stock sera débité (hors lignes dégustation)." : "";
+    /* En attente, la vente n'a pas encore sorti son stock : le changement le débite. */
+    const stockHint = currentStatus === "pending" ? "Le stock sera débité (hors lignes dégustation)." : "";
 
     /* Mode de paiement manquant : demandé ici, la facture en a besoin (une vente livrée n'est plus modifiable). */
     let paymentMethod: string | null = null;
@@ -481,16 +481,20 @@
       }
     }
 
-    const question =
+    const question: StatusAsk | null =
       newStatus === "closed"
-        ? "Clôturer cette vente ?\n\nElle ne pourra plus être modifiée ni changer de statut."
+        ? { title: "Clôturer cette vente ?", message: "Elle ne pourra plus être modifiée ni changer de statut.", confirmLabel: "Oui, clôturer" }
         : newStatus === "delivered"
-          ? `Marquer cette vente comme livrée ?${stockHint}`
+          ? { title: "Marquer cette vente comme livrée ?", message: stockHint, confirmLabel: "Oui, marquer comme livrée" }
           : newStatus === "paid"
-            ? `Marquer cette vente comme payée ?${stockHint}\n\nUn numéro de facture sera attribué si besoin.`
+            ? {
+                title: "Marquer cette vente comme payée ?",
+                message: [stockHint, "Un numéro de facture sera attribué si besoin."].filter(Boolean).join(" "),
+                confirmLabel: "Oui, marquer comme payée",
+              }
             : null;
     /* La fenêtre du mode de paiement vaut confirmation. */
-    if (question && !paymentMethod && !confirm(question)) {
+    if (question && !paymentMethod && !(await askStatus(question))) {
       return false;
     }
 
@@ -513,6 +517,21 @@
     );
 
     return true;
+  }
+
+  /* Confirmation d'un changement de statut : résolue à true si on confirme, false si on annule. */
+  type StatusAsk = { title: string; message: string; confirmLabel: string };
+  let statusPrompt = $state<(StatusAsk & { resolve: (ok: boolean) => void }) | null>(null);
+  let statusConfirmOpen = $state(false);
+  function askStatus(ask: StatusAsk): Promise<boolean> {
+    statusPrompt?.resolve(false);
+    statusConfirmOpen = true;
+    return new Promise((resolve) => (statusPrompt = { ...ask, resolve }));
+  }
+  /* La demande reste en place après réponse : les textes ne changent pas pendant la fermeture. */
+  function answerStatus(ok: boolean) {
+    statusPrompt?.resolve(ok);
+    statusConfirmOpen = false;
   }
 
   /* Fenêtre « Mode de paiement » : résolue par le choix, ou null si on annule. Elle vaut confirmation. */
@@ -858,6 +877,15 @@
     ? `La vente du ${formatDate(deleteTarget.date)} à ${customerName(deleteTarget)} (${formatEUR(deleteTarget.total_price)}) sera définitivement supprimée, avec ses articles. Le stock n’est pas modifié : une vente en attente ne l’a pas encore débité.`
     : ""}
   onconfirm={confirmDelete}
+/>
+
+<ConfirmDialog
+  bind:open={statusConfirmOpen}
+  title={statusPrompt?.title}
+  message={statusPrompt?.message}
+  confirmLabel={statusPrompt?.confirmLabel}
+  onconfirm={() => answerStatus(true)}
+  oncancel={() => answerStatus(false)}
 />
 
 <Modal open={!!paymentPrompt} title="Mode de paiement" maxWidth={440} onclose={() => answerPayment(null)}>
