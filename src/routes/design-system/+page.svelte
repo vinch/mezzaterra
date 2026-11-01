@@ -182,7 +182,7 @@
     { id: "b", wine: "Trebbiano d’Abruzzo", robe: "white", winery: "Tiberio", stock: 4, price: 18 },
     { id: "c", wine: "Cerasuolo", robe: "rose", winery: "Praesidium", stock: 36, price: 16.9 },
   ] as const;
-  let rowSort = $state<SortState<"wine" | "stock" | "price">>({ key: "wine", dir: "asc" });
+  let rowSort = $state<SortState<"wine" | "winery" | "stock" | "price">>({ key: "wine", dir: "asc" });
   let sortedRows = $derived([...rows].sort((a, b) => compareValues(a[rowSort.key], b[rowSort.key], rowSort.dir)));
 
   const sidebarSections: NavSection[] = [
@@ -482,12 +482,11 @@
         <!-- ——— Tableaux ——— -->
         <section id="tableaux" class="ds-section">
           <h2 class="t-card-title">Tableaux</h2>
-          <p class="t-muted"><code>DataTable</code> avec <code>caption</code> ; en-têtes <code>scope="col"</code>, colonnes chiffrées <code>.num</code>, nom cliquable <code>.row-link</code>, actions dans <code>.col-actions</code> avec un <code>RowMenu</code> (précédé d’un bouton icône fréquent : les deux dans <code>.ui-row-actions</code>). Colonne triable : <code>SortHeader</code> (à la place du <code>&lt;th&gt;</code>, <code>bind:sort</code> partagé par les colonnes, second clic pour inverser, <code>firstDir="desc"</code> pour un stock) et <code>compareValues</code> (<code>$lib/sort</code>) pour trier les lignes, valeurs absentes en fin de liste.</p>
+          <p class="t-muted"><code>DataTable</code> avec <code>caption</code> ; en-têtes <code>scope="col"</code>, colonnes chiffrées <code>.num</code>, nom cliquable <code>.row-link</code>, actions dans <code>.col-actions</code> avec un <code>RowMenu</code> (précédé d’un bouton icône fréquent : les deux dans <code>.ui-row-actions</code>). Colonne triable : <code>SortHeader</code> (à la place du <code>&lt;th&gt;</code>, <code>bind:sort</code> partagé par les colonnes, second clic pour inverser, <code>firstDir="desc"</code> pour un stock, <code>also</code> pour un second tri dans une cellule à deux lignes) et <code>compareValues</code> (<code>$lib/sort</code>) pour trier les lignes, valeurs absentes en fin de liste.</p>
           <DataTable caption="Exemple de tableau">
             <thead>
               <tr>
-                <SortHeader column="wine" label="Vin" bind:sort={rowSort} />
-                <th scope="col">Domaine</th>
+                <SortHeader column="wine" label="Vin" also={{ column: "winery", label: "Domaine" }} bind:sort={rowSort} />
                 <SortHeader column="stock" label="Stock" num firstDir="desc" bind:sort={rowSort} />
                 <SortHeader column="price" label="Prix" num bind:sort={rowSort} />
                 <th scope="col" class="col-actions"><span class="sr-only">Actions</span></th>
@@ -496,8 +495,7 @@
             <tbody>
               {#each sortedRows as row (row.id)}
                 <tr>
-                  <td><span class="inline"><StyleDot robe={row.robe} /><a class="row-link" href="#tableaux">{row.wine}</a></span></td>
-                  <td>{row.winery}</td>
+                  <td><span class="inline"><StyleDot robe={row.robe} /><span class="ds-stack"><a class="row-link" href="#tableaux">{row.wine}</a><span class="t-caption">{row.winery}</span></span></span></td>
                   <td class="num">
                     <span class="inline">
                       {#if row.stock === 0}<StockBadge kind="out" />{:else if row.stock < 6}<StockBadge kind="low" />{/if}
@@ -696,6 +694,13 @@
   .ds-section > p {
     margin: 0;
     max-width: 52rem;
+  }
+
+  /* Cellule à deux lignes (nom, puis domaine), comme le catalogue des produits. */
+  .ds-stack {
+    display: flex;
+    flex-direction: column;
+    line-height: 18px;
   }
 
   .ds-h3 {

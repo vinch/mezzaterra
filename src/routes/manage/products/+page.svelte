@@ -475,14 +475,15 @@
       return [w.id, { total, badge: stockBadge(w, total, !!stock) }];
     }),
   ));
-  type SortKey = "name" | "type" | "stock" | "price";
-  let sort = $state<SortState<SortKey>>({ key: "name", dir: "asc" });
+  type SortKey = "name" | "winery" | "type" | "stock" | "price";
+  let sort = $state<SortState<SortKey>>({ key: "winery", dir: "asc" });
   /** Rang des types : robe du plus léger au plus corsé (blanc, rosé, rouge), puis ordre propre au produit (fruité d'une huile). */
   let typeRank = $derived(new Map([...wineTypes].sort(byRobe).map((t, i) => [t.id, i])));
   /** Valeur triée d'un produit ; null (sans prix, stock illisible) en fin de liste. */
   function sortValue(wine: any, key: SortKey): string | number | null {
     switch (key) {
       case "name": return productTitle(wine);
+      case "winery": return wine.winery?.name ?? null;
       case "type": return typeRank.get(wine.wine_type_id) ?? null;
       case "stock": return stock ? stockById.get(wine.id)?.total ?? 0 : null;
       case "price": return minPrice(wine);
@@ -588,7 +589,7 @@
         <DataTable caption="Catalogue des produits">
           <thead>
             <tr>
-              <SortHeader column="name" label="Produit" bind:sort />
+              <SortHeader column="name" label="Produit" also={{ column: "winery", label: "Domaine" }} bind:sort />
               <SortHeader column="type" label={tabKind.typeLabel} bind:sort />
               <th scope="col">{tabKind.batchPlural} · stock</th>
               <SortHeader column="stock" label="Stock" num firstDir="desc" bind:sort />
