@@ -456,7 +456,7 @@
           </div>
 
           <h3 class="ds-h3"><code>.ui-grid-2</code> · <code>.ui-facts</code> · détail</h3>
-          <p class="t-muted"><code>.ui-grid-2</code> range des champs sur deux colonnes (une sur mobile). <code>.ui-facts</code> sur un <code>&lt;dl&gt;</code> : fiche de détail d’une modale (vente, commande, transport), <code>.wide</code> pour une ligne pleine largeur.</p>
+          <p class="t-muted"><code>.ui-grid-2</code> range des champs sur deux colonnes (une sur mobile), <code>.wide</code> sur un enfant direct pour toute la largeur. <code>.ui-facts</code> sur un <code>&lt;dl&gt;</code> : fiche de détail d’une modale (vente, commande, transport), <code>.wide</code> pour une ligne pleine largeur.</p>
           <Card>
             <dl class="ui-facts">
               <div><dt>Date</dt><dd>17/10/2026</dd></div>

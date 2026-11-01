@@ -430,7 +430,7 @@
   {#if error}<div class="error-message" role="alert">{error}</div>{/if}
   <form id="vintage-form" class="ui-grid-2" onsubmit={preventDefault(submitForm)}>
     {#if !editingVintage && vintages.length}
-      <fieldset class="reuse">
+      <fieldset class="reuse wide">
         <legend class="t-label">Reprendre les données de</legend>
         <Select ariaLabel="{kind.batch} repris" value={sourceId} onchange={(e) => pickSource((e.currentTarget as HTMLSelectElement).value)}>
           <option value="">Ne rien reprendre</option>
@@ -624,7 +624,6 @@
   }
 
   .reuse {
-    grid-column: 1 / -1;
     display: flex;
     flex-direction: column;
     margin: 0;
@@ -632,10 +631,6 @@
     border: 1px solid var(--border-soft);
     border-radius: var(--r-sm);
     gap: 10px;
-  }
-
-  .wide {
-    grid-column: 1 / -1;
   }
 
   .reuse legend {

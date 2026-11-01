@@ -282,10 +282,6 @@
 />
 
 <style>
-  .wide {
-    grid-column: 1 / -1;
-  }
-
   .quantity.in {
     color: var(--st-paid-fg);
   }
