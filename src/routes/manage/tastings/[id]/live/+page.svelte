@@ -10,6 +10,7 @@
   import Button from "$lib/ui/Button.svelte";
   import IconButton from "$lib/ui/IconButton.svelte";
   import Card from "$lib/ui/Card.svelte";
+  import DataTable from "$lib/ui/DataTable.svelte";
   import EmptyState from "$lib/ui/EmptyState.svelte";
   import WineDot from "$lib/ui/WineDot.svelte";
   import {
@@ -238,36 +239,12 @@
   /** « Vin 3 », « Huile d’olive 4 » : le produit servi. */
   let currentLabel = $derived(kindInfo(current?.wine).label);
 
-  async function makeSale(w: WishRequest) {
+  /** Action sur une ligne (demande, réservation) : bouton occupé pendant l'action, puis relevé à jour. */
+  async function run(id: string, action: () => Promise<unknown>) {
     actionError = "";
-    busyId = w.id;
+    busyId = id;
     try {
-      await createSaleFromWish(w, prices, tastingTitle(tasting));
-      await refresh();
-    } catch (e) {
-      actionError = errorMessage(e);
-    } finally {
-      busyId = "";
-    }
-  }
-
-  async function dismiss(w: WishRequest) {
-    busyId = w.id;
-    try {
-      await setWishStatus(w.id, "dismissed");
-      await refresh();
-    } catch (e) {
-      actionError = errorMessage(e);
-    } finally {
-      busyId = "";
-    }
-  }
-
-  async function confirmRow(r: any) {
-    actionError = "";
-    busyId = r.id;
-    try {
-      await confirmRegistration(r.id);
+      await action();
       await refresh();
     } catch (e) {
       actionError = errorMessage(e);
@@ -350,7 +327,7 @@
               <strong>{r.first_name} {r.last_name || ""}</strong>
               <span class="t-caption">{placesLabel(r.seats)}{r.status === "waitlist" ? " · liste d’attente" : r.status === "cancelled" ? " · annulée" : ""}</span>
             </span>
-            <Button size="sm" variant="ghost" disabled={busyId === r.id} onclick={() => confirmRow(r)}>
+            <Button size="sm" variant="ghost" disabled={busyId === r.id} onclick={() => run(r.id, () => confirmRegistration(r.id))}>
               {r.status === "waitlist" ? "Confirmer" : r.status === "cancelled" ? "Rétablir" : "Ajouter aux participants"}
             </Button>
           </li>
@@ -358,6 +335,34 @@
       </ul>
     </Card>
   {/if}
+{/snippet}
+
+<!-- Une demande « J’en veux », ou une pré-commande (preorder) pas encore confirmée par l’invité. -->
+{#snippet orderRow(o: WishRequest, preorder: boolean)}
+  {@const items = wishItems(o.items)}
+  <tr class:muted-row={preorder || o.status !== "new"}>
+    <td>
+      <strong>{o.first_name || "Invité"} {o.last_name || ""}</strong>
+      <span class="t-caption block">{[o.email, o.phone].filter(Boolean).join(" · ")}</span>
+      {#if o.message}<span class="t-caption block">« {o.message} »</span>{/if}
+    </td>
+    <td class="num">{quantitiesByVintage(items).get(current.id) || "—"}</td>
+    <td class="num"><span class="t-muted">{totalQuantity(items)} bt.</span> <strong>{formatEUR(wishTotal(o, prices))}</strong></td>
+    <td class="col-actions">
+      {#if preorder}
+        <span class="t-caption">Pré-commande, pas encore confirmée</span>
+      {:else if o.status === "new"}
+        <span class="order-actions">
+          <Button size="sm" disabled={busyId === o.id} onclick={() => run(o.id, () => createSaleFromWish(o, prices, tastingTitle(tasting)))}>{busyId === o.id ? "…" : "Créer la vente"}</Button>
+          <Button size="sm" variant="ghost" disabled={busyId === o.id} onclick={() => run(o.id, () => setWishStatus(o.id, "dismissed"))}>Ignorer</Button>
+        </span>
+      {:else if o.sale_id}
+        <a href="/manage/sales?statut=pending" class="t-caption">Vente créée</a>
+      {:else}
+        <span class="t-caption">Ignorée</span>
+      {/if}
+    </td>
+  </tr>
 {/snippet}
 
 <div class="pilot" class:has-wines={wines.length > 0}>
@@ -502,8 +507,8 @@
             {#if wishes.length === 0 && preorders.length === 0}
               <EmptyState icon={IconInbox} title="Aucune commande pour l’instant" text="Les invités commandent depuis leur téléphone (« J’en veux »)." compact />
             {:else}
-              <div class="orders-wrap">
-                <table class="ui-table">
+              <div class="orders">
+                <DataTable>
                   <thead>
                     <tr>
                       <th scope="col">Participant</th>
@@ -513,42 +518,10 @@
                     </tr>
                   </thead>
                   <tbody>
-                    {#each wishes as w (w.id)}
-                      <tr class:muted-row={w.status !== "new"}>
-                        <td>
-                          <strong>{w.first_name} {w.last_name || ""}</strong>
-                          <span class="t-caption block">{[w.email, w.phone].filter(Boolean).join(" · ")}</span>
-                          {#if w.message}<span class="t-caption block">« {w.message} »</span>{/if}
-                        </td>
-                        <td class="num">{quantitiesByVintage(wishItems(w.items)).get(current.id) || "—"}</td>
-                        <td class="num"><span class="t-muted">{totalQuantity(wishItems(w.items))} bt.</span> <strong>{formatEUR(wishTotal(w, prices))}</strong></td>
-                        <td class="col-actions">
-                          {#if w.status === "new"}
-                            <span class="order-actions">
-                              <Button size="sm" disabled={busyId === w.id} onclick={() => makeSale(w)}>{busyId === w.id ? "…" : "Créer la vente"}</Button>
-                              <Button size="sm" variant="ghost" disabled={busyId === w.id} onclick={() => dismiss(w)}>Ignorer</Button>
-                            </span>
-                          {:else if w.sale_id}
-                            <a href="/manage/sales?statut=pending" class="t-caption">Vente créée</a>
-                          {:else}
-                            <span class="t-caption">Ignorée</span>
-                          {/if}
-                        </td>
-                      </tr>
-                    {/each}
-                    {#each preorders as p (p.guest_id)}
-                      <tr class="muted-row">
-                        <td>
-                          <strong>{p.first_name || "Invité"} {p.last_name || ""}</strong>
-                          <span class="t-caption block">{[p.email, p.phone].filter(Boolean).join(" · ")}</span>
-                        </td>
-                        <td class="num">{quantitiesByVintage(wishItems(p.items)).get(current.id) || "—"}</td>
-                        <td class="num"><span class="t-muted">{totalQuantity(wishItems(p.items))} bt.</span> <strong>{formatEUR(wishTotal(p, prices))}</strong></td>
-                        <td class="col-actions"><span class="t-caption">Pré-commande, pas encore confirmée</span></td>
-                      </tr>
-                    {/each}
+                    {#each wishes as w (w.id)}{@render orderRow(w, false)}{/each}
+                    {#each preorders as p (p.guest_id)}{@render orderRow(p, true)}{/each}
                   </tbody>
-                </table>
+                </DataTable>
               </div>
             {/if}
           </Card>
@@ -577,10 +550,12 @@
         <IconButton label="Précédent" variant="outline" disabled={position === 0} onclick={() => setPosition(position - 1)}>
           <IconArrowLeft size={20} strokeWidth={1.75} />
         </IconButton>
-        <button type="button" class="next-btn" disabled={position === wines.length - 1} onclick={() => setPosition(position + 1)}>
-          {position === wines.length - 1 ? "Dernier de la dégustation" : `Suivant : ${vintageShortLabel(wines[position + 1])}`}
-          <IconArrowRight size={18} strokeWidth={1.75} aria-hidden="true" />
-        </button>
+        <div class="next-btn">
+          <Button variant="primary" size="lg" block disabled={position === wines.length - 1} onclick={() => setPosition(position + 1)}>
+            <span class="next-label">{position === wines.length - 1 ? "Dernier de la dégustation" : `Suivant : ${vintageShortLabel(wines[position + 1])}`}</span>
+            <IconArrowRight size={18} strokeWidth={1.75} aria-hidden="true" />
+          </Button>
+        </div>
       </div>
     {/if}
   </ManagePageShell>
@@ -630,8 +605,7 @@
     width: 8px;
     height: 8px;
     border-radius: 50%;
-    background: #7fd1a0;
-    box-shadow: 0 0 0 0 rgba(127, 209, 160, 0.6);
+    background: var(--live);
     animation: live 1.8s ease-out infinite;
   }
 
@@ -641,13 +615,16 @@
   }
 
   .live-badge.off .dot {
-    background: #9aa29e;
+    background: color-mix(in srgb, currentColor 50%, transparent);
     animation: none;
   }
 
   @keyframes live {
+    from {
+      box-shadow: 0 0 0 0 color-mix(in srgb, var(--live) 60%, transparent);
+    }
     to {
-      box-shadow: 0 0 0 8px rgba(127, 209, 160, 0);
+      box-shadow: 0 0 0 8px transparent;
     }
   }
 
@@ -827,7 +804,6 @@
     width: 64px;
     height: 96px;
     border-radius: 32px 32px 8px 8px;
-    background: #9aa29e;
     box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.12);
   }
 
@@ -857,9 +833,11 @@
     gap: 10px;
   }
 
-  .orders-wrap {
-    overflow-x: auto;
+  /* Tableau collé aux bords de la carte. */
+  .orders :global(.ui-table-wrap) {
+    border: none;
     border-top: 1px solid var(--border-soft);
+    border-radius: 0 0 var(--r-md) var(--r-md);
   }
 
   .block {
@@ -1083,28 +1061,15 @@
       border-top: 1px solid var(--border);
     }
 
+    /* Le nom du produit suivant se tronque plutôt que d'élargir la barre. */
     .next-btn {
       flex: 1;
-      display: inline-flex;
-      align-items: center;
-      justify-content: center;
-      gap: 8px;
-      min-height: 52px;
-      padding: 0 16px;
-      border: none;
-      border-radius: var(--r-sm);
-      background: var(--teal-600);
-      color: #fff;
-      font: inherit;
-      font-weight: 600;
-      cursor: pointer;
-      overflow: hidden;
-      white-space: nowrap;
-      text-overflow: ellipsis;
+      min-width: 0;
     }
 
-    .next-btn:disabled {
-      opacity: 0.5;
+    .next-label {
+      overflow: hidden;
+      text-overflow: ellipsis;
     }
   }
 

@@ -85,6 +85,7 @@
         { name: "--title", note: "Titre de page" },
         { name: "--mist", note: "Sélection, fonds d’icônes" },
         { name: "--gold", note: "Compteurs de la barre latérale" },
+        { name: "--live", note: "Pastille « en direct » (sur fond --night)" },
       ],
     },
     {
