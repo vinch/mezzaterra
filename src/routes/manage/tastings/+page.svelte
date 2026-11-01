@@ -661,7 +661,6 @@
 </Modal>
 
 <style>
-
   .private-badge {
     display: inline-flex;
     align-items: center;

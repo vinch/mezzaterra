@@ -144,10 +144,10 @@
   let totalBottles = $derived(bought.reduce((s, b) => s + b.qty, 0));
 
   /* Préférences : répartition par robe (toujours rouge / blanc / rosé, les autres produits achetés) et domaine préféré. */
-  let robes = $derived(robePreference(bought.map((b) => ({ type: b.vintage.wine?.wine_type, qty: b.qty })), [...MAIN_ROBES, ...KIND_STYLES]));
-  let robeQty = $derived(robes.qty);
-  let robeOrder = $derived(robes.order.filter((r) => MAIN_ROBES.includes(r) || robeQty[r]));
-  let favRobe = $derived(robes.favorite);
+  let { qty: robeQty, order: allRobes, favorite: favRobe } = $derived(
+    robePreference(bought.map((b) => ({ type: b.vintage.wine?.wine_type, qty: b.qty })), [...MAIN_ROBES, ...KIND_STYLES]),
+  );
+  let robeOrder = $derived(allRobes.filter((r) => MAIN_ROBES.includes(r) || robeQty[r]));
 
   let favoriteWinery = $derived((() => {
     const map = new Map<string, number>();

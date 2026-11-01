@@ -128,7 +128,7 @@
 
   /** Appelée après confirmation via le ConfirmDialog. */
   async function send() {
-    if (!subject.trim() || !message.trim() || recipients.length === 0) return;
+    if (!canSend) return;
     sending = true;
     result = "";
     error = "";
@@ -187,6 +187,7 @@
     }
     return [...map.values()];
   })());
+  let canSend = $derived(!!subject.trim() && !!message.trim() && recipients.length > 0);
   let mailtoHref = $derived(`mailto:?bcc=${encodeURIComponent(recipients.map((r) => r.email).join(","))}&subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(message)}`);
   /* Les clients mail tronquent les URLs trop longues : au-delà, on propose seulement la copie. */
   let mailtoUsable = $derived(mailtoHref.length < 8000);
@@ -263,7 +264,7 @@
 
           <h3 class="t-card-title send-title">3. Envoi</h3>
           {#if sendEnabled}
-            <Button variant="primary" size="lg" block disabled={sending || !recipients.length || !subject.trim() || !message.trim()} onclick={() => (confirmOpen = true)}>
+            <Button variant="primary" size="lg" block disabled={sending || !canSend} onclick={() => (confirmOpen = true)}>
               {sending ? "Envoi en cours…" : `Envoyer à ${recipients.length} personne${recipients.length > 1 ? "s" : ""}`}
             </Button>
           {:else}

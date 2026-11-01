@@ -598,7 +598,7 @@
   type Tab = "all" | SaleStatus;
   const TABS: { key: Tab; label: string }[] = [
     { key: "all", label: "Toutes" },
-    ...(Object.entries(STATUS_META) as [SaleStatus, (typeof STATUS_META)[SaleStatus]][]).map(([key, m]) => ({ key, label: m.plural })),
+    ...(Object.keys(STATUS_META) as SaleStatus[]).map((key) => ({ key, label: STATUS_META[key].plural })),
   ];
   let tab = $state<Tab>("all");
   let search = $state("");

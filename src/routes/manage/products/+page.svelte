@@ -439,6 +439,8 @@
     };
   }));
   // Filter wines based on selected filters
+  /* Recherche sans accents ni casse : domaine, nom, appellation ou son label. */
+  let searchQuery = $derived(fold(searchText));
   let filteredWines = $derived(tabWines.filter((wine) => {
     // Filter by winery
     if (filterWineryId && wine.winery_id !== filterWineryId) {
@@ -450,11 +452,9 @@
       return false;
     }
 
-    /* Recherche sans accents ni casse : domaine, nom, appellation ou son label. */
-    if (searchText) {
-      const q = fold(searchText);
+    if (searchQuery) {
       const fields = [wine.winery?.name, wine.name, wine.appelation?.name, wine.appelation?.label?.name];
-      if (!fields.some((f) => fold(f || "").includes(q))) return false;
+      if (!fields.some((f) => fold(f || "").includes(searchQuery))) return false;
     }
 
     return true;
@@ -955,6 +955,5 @@
       overflow-x: auto;
       flex-wrap: nowrap;
     }
-
   }
 </style>
