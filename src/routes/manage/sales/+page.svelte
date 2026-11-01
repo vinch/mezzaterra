@@ -485,7 +485,12 @@
       newStatus === "closed"
         ? { title: "Clôturer cette vente ?", message: "Elle ne pourra plus être modifiée ni changer de statut.", confirmLabel: "Oui, clôturer" }
         : newStatus === "delivered"
-          ? { title: "Marquer cette vente comme livrée ?", message: stockHint, confirmLabel: "Oui, marquer comme livrée" }
+          ? {
+              title: "Marquer cette vente comme livrée ?",
+              /* Depuis « Payée », set_sale_status ne crée aucun mouvement : le stock est déjà sorti. */
+              message: stockHint || "Le stock a déjà été débité au paiement : il ne change pas.",
+              confirmLabel: "Oui, marquer comme livrée",
+            }
           : newStatus === "paid"
             ? {
                 title: "Marquer cette vente comme payée ?",
