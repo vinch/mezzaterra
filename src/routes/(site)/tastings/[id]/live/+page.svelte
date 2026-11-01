@@ -65,7 +65,8 @@
   let showCart = $state(false);
   let showNotes = $state(false);
   let showRecap = $state(false);
-  let commentTimer: ReturnType<typeof setTimeout> | null = null;
+  /* Un délai par vin : commenter le vin suivant n'annule pas l'envoi du précédent. */
+  const commentTimers = new Map<string, ReturnType<typeof setTimeout>>();
   let savedFlash = $state(false);
 
   /* ——— Pré-commande (le panier, enregistré en base à chaque changement) ——— */
@@ -110,7 +111,11 @@
 
   onDestroy(() => {
     if (channel) void supabase.removeChannel(channel);
-    if (commentTimer) clearTimeout(commentTimer);
+    /* Commentaire tapé il y a moins de 1,2 s : envoyé quand même en quittant la page. */
+    for (const [vintageId, timer] of commentTimers) {
+      clearTimeout(timer);
+      void sync(vintageId);
+    }
     preorder?.flush();
   });
 
@@ -182,6 +187,9 @@
   function rate(n: number) {
     if (!current) return;
     persistRating(current, { rating: n });
+    /* Cet envoi porte aussi le commentaire en attente. */
+    clearTimeout(commentTimers.get(current.id));
+    commentTimers.delete(current.id);
     void sync(current.id);
     if (navigator.vibrate) navigator.vibrate(12);
   }
@@ -190,8 +198,14 @@
     if (!current) return;
     const vintageId = current.id;
     persistRating(current, { comment: (e.target as HTMLTextAreaElement).value });
-    if (commentTimer) clearTimeout(commentTimer);
-    commentTimer = setTimeout(() => void sync(vintageId), 1200);
+    clearTimeout(commentTimers.get(vintageId));
+    commentTimers.set(
+      vintageId,
+      setTimeout(() => {
+        commentTimers.delete(vintageId);
+        void sync(vintageId);
+      }, 1200),
+    );
   }
 
   function setQty(vintageId: string, qty: number) {
