@@ -825,14 +825,7 @@
                 {/if}
               </td>
               <td class="col-actions">
-                <div class="ui-row-actions">
-                  {#if sale.status === "closed"}
-                    <IconButton label="Télécharger la facture" onclick={() => downloadInvoice(sale.id)}>
-                      <IconDownload size={18} strokeWidth={1.75} />
-                    </IconButton>
-                  {/if}
-                  <RowMenu items={rowItems(sale)} label="Actions pour la vente de {customerName(sale)}" />
-                </div>
+                <RowMenu items={rowItems(sale)} label="Actions pour la vente de {customerName(sale)}" />
               </td>
             </tr>
           {/each}
