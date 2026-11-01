@@ -127,7 +127,10 @@ export async function staticPng(path: string): Promise<PdfImage | null> {
   }
 }
 
-/** Morceau de nom de fichier sûr : tout ce qui n’est pas lettre ou chiffre devient « _ ». */
+/**
+ * Morceau de nom de fichier sûr : chaque caractère qui n’est ni lettre ni chiffre devient « _ »
+ * (un par caractère, sans fusion : les noms des factures et bons de commande archivés ne bougent pas).
+ */
 export function pdfFileSlug(s: string): string {
-  return s.replace(/[^a-zA-Z0-9]+/g, "_");
+  return s.replace(/[^a-zA-Z0-9]/g, "_");
 }

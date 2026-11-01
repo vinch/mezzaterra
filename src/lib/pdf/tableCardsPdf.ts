@@ -1,5 +1,5 @@
 import jsPDF from "jspdf";
-import { attachRobotoPdf, pdfFileSlug, svgToPng } from "./assets";
+import { attachRobotoPdf, svgToPng } from "./assets";
 import { qrDataUrl } from "$lib/qr";
 import { formatDateLong } from "$lib/dates";
 import { tastingTitle } from "$lib/publicData";
@@ -172,5 +172,6 @@ export async function downloadTableCardsPdf(tasting: any, wines: any[], origin: 
     }
   }
 
-  doc.save(`Fiches_table_${pdfFileSlug(tasting.name || tasting.date)}.pdf`);
+  const slug = (tasting.name || tasting.date).replace(/[^a-zA-Z0-9]+/g, "_");
+  doc.save(`Fiches_table_${slug}.pdf`);
 }
