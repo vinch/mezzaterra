@@ -38,11 +38,6 @@ function formatEur(n: number | null): string {
   return `${n.toFixed(2).replace(".", ",")} €`;
 }
 
-/** Numérotation lisible en PDF (① etc. → $ / lettres avec Helvetica). */
-function noteEntryNumber(n: number): string {
-  return `${n}.`;
-}
-
 function newPageIfNeeded(
   doc: jsPDF,
   y: number,
@@ -333,7 +328,8 @@ export async function downloadNotesPdf(
 
   let idx = 1;
   for (const v of rows) {
-    const title = `${noteEntryNumber(idx)} ${v.wineryName} ${v.wineName}`;
+    /* « 1. », pas « ① » : Helvetica (police de repli) ne l’a pas. */
+    const title = `${idx}. ${v.wineryName} ${v.wineName}`;
     const grapes = v.grapeNames.length ? v.grapeNames.join(", ") : "—";
     const kind = kindInfo(v.kind);
     const abvStr = kind.hasAbv ? ` / ${v.abv != null ? `${v.abv}%` : "—"}` : "";
