@@ -98,7 +98,7 @@
         <dl class="mz-facts mz-facts--ruled">
           <div>
             <dt>Cuvées</dt>
-            <dd>{cuveeCount}</dd>
+            <dd class="count">{cuveeCount}</dd>
           </div>
           {#if styles.length}
             <div>
@@ -245,6 +245,10 @@
 
   .grapes {
     flex-basis: 100%;
+  }
+
+  .count {
+    line-height: 1.2;
   }
 
   /* Couleurs et cépages : en texte courant, pas en police d'affichage. */
