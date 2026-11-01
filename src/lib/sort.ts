@@ -17,10 +17,11 @@ export function compareValues(a: SortValue, b: SortValue, dir: SortDir): number 
 
 /**
  * Copie de `rows` triée selon `sort` ; `values` donne, pour chaque colonne triable, la valeur triée d'une
- * ligne (calculée une fois par ligne). Le tri est stable : à égalité, les lignes gardent leur ordre d'origine.
+ * ligne (calculée une fois par ligne) ; une clé sans valeur laisse l'ordre inchangé. Le tri est stable : à égalité, les lignes gardent leur ordre d'origine.
  */
 export function sortedBy<T, K extends string>(rows: readonly T[], sort: SortState<K>, values: Record<K, (row: T) => SortValue>): T[] {
   const value = values[sort.key];
+  if (!value) return [...rows];
   return rows
     .map((row) => ({ row, v: value(row) }))
     .sort((a, b) => compareValues(a.v, b.v, sort.dir))
