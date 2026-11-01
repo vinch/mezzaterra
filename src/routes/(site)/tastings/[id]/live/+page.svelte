@@ -160,13 +160,15 @@
     const next = { ...prev, ...patch, updatedAt: new Date().toISOString() };
     ratings = { ...ratings, [vintage.id]: next };
     localRatings.save(tasting.id, ratings);
-    return next;
   }
 
-  async function sync(vintage: any, r: LocalRating) {
+  /** Envoie la note telle qu'elle est au moment de l'envoi : un envoi retardé ne remet pas d'anciennes étoiles. */
+  async function sync(vintageId: string) {
+    const r = ratings[vintageId];
+    if (!r) return;
     const ok = await pushFeedback({
       tastingId: tasting.id,
-      vintageId: vintage.id,
+      vintageId,
       rating: r.rating,
       comment: r.comment,
       profile,
@@ -179,17 +181,17 @@
 
   function rate(n: number) {
     if (!current) return;
-    const r = persistRating(current, { rating: n });
-    void sync(current, r);
+    persistRating(current, { rating: n });
+    void sync(current.id);
     if (navigator.vibrate) navigator.vibrate(12);
   }
 
   function onComment(e: Event) {
     if (!current) return;
-    const vintage = current;
-    const r = persistRating(vintage, { comment: (e.target as HTMLTextAreaElement).value });
+    const vintageId = current.id;
+    persistRating(current, { comment: (e.target as HTMLTextAreaElement).value });
     if (commentTimer) clearTimeout(commentTimer);
-    commentTimer = setTimeout(() => void sync(vintage, r), 1200);
+    commentTimer = setTimeout(() => void sync(vintageId), 1200);
   }
 
   function setQty(vintageId: string, qty: number) {
