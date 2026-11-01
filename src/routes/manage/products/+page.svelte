@@ -258,12 +258,12 @@
     await loadWinePairings();
   }
 
+  /** Accord à retirer, en attente de confirmation. */
+  let pairingToRemove = $state<any>(null);
+
+  /** Appelée après confirmation via le ConfirmDialog. */
   async function removePairing(pairingId: string) {
     if (!selectedWine) return;
-
-    if (!confirm("Êtes-vous sûr de vouloir supprimer ce pairing ?")) {
-      return;
-    }
 
     const { error: deleteError } = await supabase
       .from("wine_pairing")
@@ -654,6 +654,16 @@
   onconfirm={confirmDelete}
 />
 
+<ConfirmDialog
+  open={!!pairingToRemove}
+  title="Retirer cet accord ?"
+  message={pairingToRemove ? `« ${pairingToRemove.pairing?.description ?? ""} » ne sera plus proposé avec ce produit.` : ""}
+  confirmLabel="Oui, retirer"
+  action={() => removePairing(pairingToRemove.pairing_id)}
+  oncancel={() => (pairingToRemove = null)}
+  ondone={() => (pairingToRemove = null)}
+/>
+
 <Modal open={showModal} title={editingWine ? formKind.editLabel : formKind.newLabel} onclose={closeModal}>
   <form id="wine-form" class="wine-form" onsubmit={preventDefault(handleSubmit)}>
     <!-- Choisi à la création seulement : la base refuse de changer le type d'un produit qui a des millésimes ou des lots. -->
@@ -719,7 +729,7 @@
       {#each winePairings as wp}
         <li>
           <span>{wp.pairing.description}</span>
-          <IconButton label="Retirer {wp.pairing.description}" onclick={() => removePairing(wp.pairing_id)}>
+          <IconButton label="Retirer {wp.pairing.description}" onclick={() => (pairingToRemove = wp)}>
             <IconX size={16} strokeWidth={1.75} />
           </IconButton>
         </li>

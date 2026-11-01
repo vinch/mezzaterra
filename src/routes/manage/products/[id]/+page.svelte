@@ -334,12 +334,12 @@
     await loadVintageGrapes();
   }
 
+  /** Élément de la composition à retirer, en attente de confirmation. */
+  let grapeToRemove = $state<any>(null);
+
+  /** Appelée après confirmation via le ConfirmDialog. */
   async function removeGrape(grapeId: string) {
     if (!selectedVintage) return;
-
-    if (!confirm("Retirer de la composition ?")) {
-      return;
-    }
 
     const { error: deleteError } = await supabase
       .from("wine_vintage_grape")
@@ -602,7 +602,7 @@
       {#each vintageGrapes as vintageGrape (vintageGrape.grape_id)}
         <li>
           <span>{vintageGrape.grape.name}{#if vintageGrape.percentage}<span class="t-muted"> · {vintageGrape.percentage} %</span>{/if}</span>
-          <IconButton label="Retirer {vintageGrape.grape.name}" onclick={() => removeGrape(vintageGrape.grape_id)}>
+          <IconButton label="Retirer {vintageGrape.grape.name}" onclick={() => (grapeToRemove = vintageGrape)}>
             <IconX size={16} strokeWidth={1.75} />
           </IconButton>
         </li>
@@ -635,6 +635,16 @@
       <Button variant="primary" onclick={closeGrapesModal}>Terminé</Button>
   {/snippet}
 </Modal>
+
+<ConfirmDialog
+  open={!!grapeToRemove}
+  title="Retirer de la composition ?"
+  message={grapeToRemove ? `« ${grapeToRemove.grape?.name ?? ""} » sera retiré de la composition.` : ""}
+  confirmLabel="Oui, retirer"
+  action={() => removeGrape(grapeToRemove.grape_id)}
+  oncancel={() => (grapeToRemove = null)}
+  ondone={() => (grapeToRemove = null)}
+/>
 
 <ConfirmDialog
   open={!!deleteTarget}
