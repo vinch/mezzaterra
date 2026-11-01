@@ -125,8 +125,8 @@ code) reste permise jusqu'à une migration de suivi, après le déploiement.
 colonnes (`wine_vintage_id` → `lot_id`, `winery_id` → `producer_id`…), la vue `inventory` et les
 fonctions (`create_lot`, `public_lot_availability`, clés `lot_id` des lignes JSON de `save_sale`,
 `save_order`, `save_live_preorder`…). Les migrations plus anciennes ci-dessus gardent les noms de
-leur époque. La valeur `'wine'` de `kind` et le bucket `wines` ne changent pas ; les demandes et
-pré-commandes déjà enregistrées avec `wine_vintage_id` restent lues. À appliquer au moment même du
+leur époque. La valeur `'wine'` de `kind` et le bucket `wines` ne changent pas ; le JSON des demandes et
+pré-commandes déjà enregistrées passe de `wine_vintage_id` à `lot_id`. À appliquer au moment même du
 déploiement du code : l'ancien code ne marche pas sur le nouveau schéma, ni l'inverse. Script
 inverse : `supabase/rollback/20261101120000_rename_products_down.sql`.
 

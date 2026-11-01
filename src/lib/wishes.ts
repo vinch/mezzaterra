@@ -63,14 +63,10 @@ export async function linkCustomerToTasting(tastingId: string, customerId: strin
   if (error && error.code !== "23505") throw new Error(error.message);
 }
 
-/**
- * Lignes d'une demande ou d'une pré-commande (`items` en JSON). Une ligne enregistrée avant le
- * renommage du modèle porte encore `wine_vintage_id` : elle reste lue.
- */
 export function wishItems(raw: unknown): WishItem[] {
   if (!Array.isArray(raw)) return [];
   return raw
-    .map((r: any) => ({ lot_id: String(r?.lot_id || r?.wine_vintage_id || ""), quantity: Number(r?.quantity) || 0 }))
+    .map((r: any) => ({ lot_id: String(r?.lot_id || ""), quantity: Number(r?.quantity) || 0 }))
     .filter((r) => r.lot_id && r.quantity > 0);
 }
 
