@@ -1,10 +1,10 @@
 -- Renommage du modèle « vin » en modèle « produit » (vins, huiles d'olive…), une fois pour toutes.
 -- Tables, colonnes, contraintes, index, triggers, fonctions et vue inventory. Aucune donnée n'est
--- copiée ni supprimée : ALTER … RENAME ne touche qu'aux noms, et tout passe dans une transaction.
+-- copiée ni supprimée : ALTER … RENAME ne touche qu'aux noms ; la CLI applique le fichier dans une seule
+-- transaction. Seule écriture : la clé du lot dans le JSON des demandes et pré-commandes (section 9).
 -- Le type de produit 'wine' (domaine product_kind) ne change pas.
 -- Script inverse : supabase/rollback/20261101120000_rename_products_down.sql.
 
-BEGIN;
 
 -- 1. Tables
 ALTER TABLE public."tasting_wine_vintage" RENAME TO "tasting_lot";
@@ -78,72 +78,42 @@ ALTER TRIGGER "wine_vintage_grape_kind_check" ON public."lot_variety" RENAME TO 
 ALTER TRIGGER "wine_vintage_kind_check" ON public."lot" RENAME TO "lot_kind_check";
 ALTER TRIGGER "wine_vintage_kind_lock" ON public."lot" RENAME TO "lot_kind_lock";
 
--- 5. Vue inventory, avant les fonctions qui la lisent : ses colonnes portent les nouveaux noms
-DROP VIEW public."inventory";
-CREATE VIEW public."inventory" WITH ("security_invoker"='on') AS
- SELECT "lot_id",
-    "sum"("quantity") AS "quantity_on_hand"
-   FROM "public"."stock_move"
-  GROUP BY "lot_id";
-ALTER VIEW public."inventory" OWNER TO "postgres";
-GRANT ALL ON TABLE public."inventory" TO "anon";
-GRANT ALL ON TABLE public."inventory" TO "authenticated";
-GRANT ALL ON TABLE public."inventory" TO "service_role";
+-- 5. Vue inventory, avant les fonctions qui la lisent
+ALTER VIEW public."inventory" RENAME COLUMN "wine_vintage_id" TO "lot_id";
 
--- 6. Fonctions de trigger : renommées (même OID, triggers et droits conservés), puis corps réécrit
+-- 6. Transition : les anciennes clés wine_vintage_id du JSON des lignes sont lues comme lot_id. Un onglet
+-- ouvert avant la bascule (vente, commande, pré-commande d'un invité, demande « J'en veux ») envoie encore
+-- l'ancienne clé : sans cela, ses lignes seraient perdues ou enregistrées sans lot, sans erreur.
+-- À retirer par une migration de nettoyage quelques jours après la bascule.
+CREATE FUNCTION public."legacy_lot_items"("p_items" "jsonb") RETURNS "jsonb"
+    LANGUAGE "sql" IMMUTABLE
+    AS $$
+  SELECT CASE WHEN jsonb_typeof(p_items) = 'array' AND p_items @? '$[*].wine_vintage_id' THEN (
+    SELECT jsonb_agg(CASE WHEN e ? 'wine_vintage_id'
+      THEN (e - 'wine_vintage_id') || jsonb_build_object('lot_id', e -> 'wine_vintage_id') ELSE e END ORDER BY i)
+    FROM jsonb_array_elements(p_items) WITH ORDINALITY AS x(e, i)
+  ) ELSE p_items END
+$$;
+ALTER FUNCTION public."legacy_lot_items"("p_items" "jsonb") OWNER TO "postgres";
+
+CREATE FUNCTION public."legacy_lot_items_row"() RETURNS "trigger"
+    LANGUAGE "plpgsql"
+    AS $$
+BEGIN
+  NEW.items := public.legacy_lot_items(NEW.items);
+  RETURN NEW;
+END;
+$$;
+ALTER FUNCTION public."legacy_lot_items_row"() OWNER TO "postgres";
+CREATE TRIGGER "wish_request_legacy_lot_items" BEFORE INSERT OR UPDATE OF "items" ON public."wish_request"
+  FOR EACH ROW EXECUTE FUNCTION public."legacy_lot_items_row"();
+CREATE TRIGGER "live_preorder_legacy_lot_items" BEFORE INSERT OR UPDATE OF "items" ON public."live_preorder"
+  FOR EACH ROW EXECUTE FUNCTION public."legacy_lot_items_row"();
+
+-- 7. Fonctions de trigger : renommées (même OID, triggers et droits conservés), puis corps réécrit
 ALTER FUNCTION public."check_wine_kind"() RENAME TO "check_product_kind";
 ALTER FUNCTION public."check_vintage_kind"() RENAME TO "check_lot_kind";
 ALTER FUNCTION public."check_vintage_grape_kind"() RENAME TO "check_lot_variety_kind";
-
--- 7. Autres fonctions : supprimées puis recréées (noms de paramètres ou colonnes de retour changés)
-DROP FUNCTION public."add_to_supplier_order"("p_supplier_id" "uuid", "p_vintage_id" "uuid", "p_quantity" integer, "p_price" numeric);
-CREATE OR REPLACE FUNCTION "public"."add_to_supplier_order"("p_supplier_id" "uuid", "p_lot_id" "uuid", "p_quantity" integer, "p_price" numeric) RETURNS TABLE("order_id" "uuid", "created" boolean)
-    LANGUAGE "plpgsql"
-    SET "search_path" TO 'public'
-    AS $$
-#variable_conflict use_column
-DECLARE
-  v_order uuid;
-  v_created boolean := false;
-BEGIN
-  PERFORM assert_admin();
-  PERFORM pg_advisory_xact_lock(hashtext('order.reorder'), hashtext(p_supplier_id::text));
-
-  SELECT o.id INTO v_order
-  FROM "order" o
-  WHERE o.supplier_id = p_supplier_id AND o.status = 'pending' AND o.transport_id IS NULL
-  ORDER BY o.date DESC
-  LIMIT 1
-  FOR UPDATE;
-
-  IF v_order IS NULL THEN
-    INSERT INTO "order" (date, supplier_id, status, note, total_price)
-    VALUES (brussels_today(), p_supplier_id, 'pending', 'Réassort préparé depuis le tableau de bord', 0)
-    RETURNING id INTO v_order;
-    v_created := true;
-  END IF;
-
-  UPDATE order_item SET quantity = quantity + p_quantity
-  WHERE id = (
-    SELECT oi.id FROM order_item oi
-    WHERE oi.order_id = v_order AND oi.lot_id = p_lot_id
-    ORDER BY oi.created_at
-    LIMIT 1
-  );
-  IF NOT FOUND THEN
-    INSERT INTO order_item (order_id, lot_id, quantity, price)
-    VALUES (v_order, p_lot_id, p_quantity, p_price);
-  END IF;
-
-  RETURN QUERY SELECT v_order, v_created;
-END;
-$$;
-
-ALTER FUNCTION public."add_to_supplier_order"("p_supplier_id" "uuid", "p_lot_id" "uuid", "p_quantity" integer, "p_price" numeric) OWNER TO "postgres";
-GRANT ALL ON FUNCTION public."add_to_supplier_order"("p_supplier_id" "uuid", "p_lot_id" "uuid", "p_quantity" integer, "p_price" numeric) TO "anon";
-GRANT ALL ON FUNCTION public."add_to_supplier_order"("p_supplier_id" "uuid", "p_lot_id" "uuid", "p_quantity" integer, "p_price" numeric) TO "authenticated";
-GRANT ALL ON FUNCTION public."add_to_supplier_order"("p_supplier_id" "uuid", "p_lot_id" "uuid", "p_quantity" integer, "p_price" numeric) TO "service_role";
-
 CREATE OR REPLACE FUNCTION "public"."check_lot_variety_kind"() RETURNS "trigger"
     LANGUAGE "plpgsql" SECURITY DEFINER
     SET "search_path" TO 'public'
@@ -204,51 +174,39 @@ END;
 $$;
 
 
-DROP FUNCTION public."create_wine_vintage"("p_vintage" "jsonb", "p_source_id" "uuid", "p_copy_grapes" boolean, "p_copy_notes" boolean);
-CREATE OR REPLACE FUNCTION "public"."create_lot"("p_lot" "jsonb", "p_source_id" "uuid" DEFAULT NULL::"uuid", "p_copy_varieties" boolean DEFAULT false, "p_copy_notes" boolean DEFAULT false) RETURNS "uuid"
-    LANGUAGE "plpgsql"
+CREATE OR REPLACE FUNCTION "public"."prevent_kind_change_in_use"() RETURNS "trigger"
+    LANGUAGE "plpgsql" SECURITY DEFINER
     SET "search_path" TO 'public'
     AS $$
-DECLARE
-  v lot := jsonb_populate_record(NULL::lot, p_lot);
-  v_id uuid;
 BEGIN
-  PERFORM assert_admin();
-
-  IF p_source_id IS NOT NULL
-     AND NOT EXISTS (SELECT 1 FROM lot WHERE id = p_source_id AND product_id = v.product_id) THEN
-    RAISE EXCEPTION 'Le millésime repris doit appartenir au même vin';
+  IF (TG_TABLE_NAME = 'product' AND EXISTS (SELECT 1 FROM lot WHERE product_id = NEW.id))
+     OR (TG_TABLE_NAME = 'product_type' AND EXISTS (SELECT 1 FROM product WHERE product_type_id = NEW.id))
+     OR (TG_TABLE_NAME = 'appellation' AND EXISTS (SELECT 1 FROM product WHERE appellation_id = NEW.id))
+     OR (TG_TABLE_NAME = 'variety' AND EXISTS (SELECT 1 FROM lot_variety WHERE variety_id = NEW.id)) THEN
+    RAISE EXCEPTION 'Déjà utilisé : son type de produit ne peut plus changer';
   END IF;
-
-  INSERT INTO lot (product_id, production_year, year, abv, price, image_url, organic, volume_ml)
-  VALUES (v.product_id, v.production_year, v.year, v.abv, v.price, v.image_url, coalesce(v.organic, false),
-          coalesce(v.volume_ml, 750))
-  RETURNING id INTO v_id;
-  -- Prix d'achat obligatoire : non renseigné, on garde le défaut de la colonne.
-  IF v.purchase_price IS NOT NULL THEN
-    UPDATE lot SET purchase_price = v.purchase_price WHERE id = v_id;
-  END IF;
-
-  IF p_source_id IS NOT NULL AND p_copy_varieties THEN
-    INSERT INTO lot_variety (lot_id, variety_id, percentage)
-    SELECT v_id, variety_id, percentage FROM lot_variety WHERE lot_id = p_source_id;
-  END IF;
-
-  IF p_source_id IS NOT NULL AND p_copy_notes THEN
-    INSERT INTO note (lot_id, type, content)
-    SELECT v_id, type, content FROM note WHERE lot_id = p_source_id;
-  END IF;
-
-  RETURN v_id;
+  RETURN NEW;
 END;
 $$;
 
-ALTER FUNCTION public."create_lot"("p_lot" "jsonb", "p_source_id" "uuid", "p_copy_varieties" boolean, "p_copy_notes" boolean) OWNER TO "postgres";
-GRANT ALL ON FUNCTION public."create_lot"("p_lot" "jsonb", "p_source_id" "uuid", "p_copy_varieties" boolean, "p_copy_notes" boolean) TO "anon";
-GRANT ALL ON FUNCTION public."create_lot"("p_lot" "jsonb", "p_source_id" "uuid", "p_copy_varieties" boolean, "p_copy_notes" boolean) TO "authenticated";
-GRANT ALL ON FUNCTION public."create_lot"("p_lot" "jsonb", "p_source_id" "uuid", "p_copy_varieties" boolean, "p_copy_notes" boolean) TO "service_role";
 
-DROP FUNCTION public."my_notebook"();
+CREATE OR REPLACE FUNCTION "public"."set_sale_item_vat_rate"() RETURNS "trigger"
+    LANGUAGE "plpgsql" SECURITY DEFINER
+    SET "search_path" TO 'public'
+    AS $$
+BEGIN
+  NEW.vat_rate := coalesce(
+    (SELECT product_kind_vat_rate(w.kind) FROM lot v JOIN product w ON w.id = v.product_id WHERE v.id = NEW.lot_id),
+    product_kind_vat_rate('wine')
+  );
+  RETURN NEW;
+END;
+$$;
+
+
+
+-- 8. Autres fonctions. Même signature : corps remplacé (droits conservés). Signature changée
+-- (nom, paramètres, colonnes de retour) : supprimées puis recréées avec leurs droits d'origine.
 CREATE OR REPLACE FUNCTION "public"."my_notebook"() RETURNS "jsonb"
     LANGUAGE "plpgsql" STABLE SECURITY DEFINER
     SET "search_path" TO 'public'
@@ -309,46 +267,7 @@ BEGIN
 END;
 $$;
 
-ALTER FUNCTION public."my_notebook"() OWNER TO "postgres";
-GRANT ALL ON FUNCTION public."my_notebook"() TO "anon";
-GRANT ALL ON FUNCTION public."my_notebook"() TO "authenticated";
-GRANT ALL ON FUNCTION public."my_notebook"() TO "service_role";
 
-CREATE OR REPLACE FUNCTION "public"."prevent_kind_change_in_use"() RETURNS "trigger"
-    LANGUAGE "plpgsql" SECURITY DEFINER
-    SET "search_path" TO 'public'
-    AS $$
-BEGIN
-  IF (TG_TABLE_NAME = 'product' AND EXISTS (SELECT 1 FROM lot WHERE product_id = NEW.id))
-     OR (TG_TABLE_NAME = 'product_type' AND EXISTS (SELECT 1 FROM product WHERE product_type_id = NEW.id))
-     OR (TG_TABLE_NAME = 'appellation' AND EXISTS (SELECT 1 FROM product WHERE appellation_id = NEW.id))
-     OR (TG_TABLE_NAME = 'variety' AND EXISTS (SELECT 1 FROM lot_variety WHERE variety_id = NEW.id)) THEN
-    RAISE EXCEPTION 'Déjà utilisé : son type de produit ne peut plus changer';
-  END IF;
-  RETURN NEW;
-END;
-$$;
-
-
-DROP FUNCTION public."public_wine_availability"();
-CREATE OR REPLACE FUNCTION "public"."public_lot_availability"() RETURNS TABLE("lot_id" "uuid", "in_stock" boolean, "low_stock" boolean)
-    LANGUAGE "sql" STABLE SECURITY DEFINER
-    SET "search_path" TO 'public'
-    AS $$
-  SELECT
-    i.lot_id,
-    coalesce(i.quantity_on_hand, 0) > 0,
-    coalesce(i.quantity_on_hand, 0) BETWEEN 1 AND 6
-  FROM inventory i
-  WHERE i.lot_id IS NOT NULL;
-$$;
-
-ALTER FUNCTION public."public_lot_availability"() OWNER TO "postgres";
-GRANT ALL ON FUNCTION public."public_lot_availability"() TO "anon";
-GRANT ALL ON FUNCTION public."public_lot_availability"() TO "authenticated";
-GRANT ALL ON FUNCTION public."public_lot_availability"() TO "service_role";
-
-DROP FUNCTION public."save_live_preorder"("p_tasting_id" "uuid", "p_guest_id" "uuid", "p_items" "jsonb", "p_first_name" "text", "p_last_name" "text", "p_email" "text", "p_phone" "text", "p_confirm" boolean);
 CREATE OR REPLACE FUNCTION "public"."save_live_preorder"("p_tasting_id" "uuid", "p_guest_id" "uuid", "p_items" "jsonb", "p_first_name" "text" DEFAULT NULL::"text", "p_last_name" "text" DEFAULT NULL::"text", "p_email" "text" DEFAULT NULL::"text", "p_phone" "text" DEFAULT NULL::"text", "p_confirm" boolean DEFAULT false) RETURNS "uuid"
     LANGUAGE "plpgsql" SECURITY DEFINER
     SET "search_path" TO 'public'
@@ -360,6 +279,7 @@ DECLARE
   v_draft live_preorder;
   v_id uuid;
 BEGIN
+  p_items := public.legacy_lot_items(p_items);  -- transition, voir section 6
   IF p_tasting_id IS NULL OR p_guest_id IS NULL THEN
     RAISE EXCEPTION 'Dégustation ou invité manquant.';
   END IF;
@@ -431,12 +351,7 @@ BEGIN
 END;
 $_$;
 
-ALTER FUNCTION public."save_live_preorder"("p_tasting_id" "uuid", "p_guest_id" "uuid", "p_items" "jsonb", "p_first_name" "text", "p_last_name" "text", "p_email" "text", "p_phone" "text", "p_confirm" boolean) OWNER TO "postgres";
-GRANT ALL ON FUNCTION public."save_live_preorder"("p_tasting_id" "uuid", "p_guest_id" "uuid", "p_items" "jsonb", "p_first_name" "text", "p_last_name" "text", "p_email" "text", "p_phone" "text", "p_confirm" boolean) TO "anon";
-GRANT ALL ON FUNCTION public."save_live_preorder"("p_tasting_id" "uuid", "p_guest_id" "uuid", "p_items" "jsonb", "p_first_name" "text", "p_last_name" "text", "p_email" "text", "p_phone" "text", "p_confirm" boolean) TO "authenticated";
-GRANT ALL ON FUNCTION public."save_live_preorder"("p_tasting_id" "uuid", "p_guest_id" "uuid", "p_items" "jsonb", "p_first_name" "text", "p_last_name" "text", "p_email" "text", "p_phone" "text", "p_confirm" boolean) TO "service_role";
 
-DROP FUNCTION public."save_order"("p_order_id" "uuid", "p_order" "jsonb", "p_items" "jsonb");
 CREATE OR REPLACE FUNCTION "public"."save_order"("p_order_id" "uuid", "p_order" "jsonb", "p_items" "jsonb") RETURNS "uuid"
     LANGUAGE "plpgsql"
     SET "search_path" TO 'public'
@@ -447,6 +362,7 @@ DECLARE
   v_status text;
   v_transport_status text;
 BEGIN
+  p_items := public.legacy_lot_items(p_items);  -- transition, voir section 6
   PERFORM assert_admin();
 
   IF p_order_id IS NULL THEN
@@ -485,12 +401,7 @@ BEGIN
 END;
 $$;
 
-ALTER FUNCTION public."save_order"("p_order_id" "uuid", "p_order" "jsonb", "p_items" "jsonb") OWNER TO "postgres";
-GRANT ALL ON FUNCTION public."save_order"("p_order_id" "uuid", "p_order" "jsonb", "p_items" "jsonb") TO "anon";
-GRANT ALL ON FUNCTION public."save_order"("p_order_id" "uuid", "p_order" "jsonb", "p_items" "jsonb") TO "authenticated";
-GRANT ALL ON FUNCTION public."save_order"("p_order_id" "uuid", "p_order" "jsonb", "p_items" "jsonb") TO "service_role";
 
-DROP FUNCTION public."save_sale"("p_sale_id" "uuid", "p_sale" "jsonb", "p_items" "jsonb", "p_wish_id" "uuid");
 CREATE OR REPLACE FUNCTION "public"."save_sale"("p_sale_id" "uuid", "p_sale" "jsonb", "p_items" "jsonb", "p_wish_id" "uuid" DEFAULT NULL::"uuid") RETURNS "uuid"
     LANGUAGE "plpgsql"
     SET "search_path" TO 'public'
@@ -500,6 +411,7 @@ DECLARE
   v_id uuid;
   v_status text;
 BEGIN
+  p_items := public.legacy_lot_items(p_items);  -- transition, voir section 6
   PERFORM assert_admin();
 
   IF p_sale_id IS NULL THEN
@@ -544,70 +456,7 @@ BEGIN
 END;
 $$;
 
-ALTER FUNCTION public."save_sale"("p_sale_id" "uuid", "p_sale" "jsonb", "p_items" "jsonb", "p_wish_id" "uuid") OWNER TO "postgres";
-GRANT ALL ON FUNCTION public."save_sale"("p_sale_id" "uuid", "p_sale" "jsonb", "p_items" "jsonb", "p_wish_id" "uuid") TO "anon";
-GRANT ALL ON FUNCTION public."save_sale"("p_sale_id" "uuid", "p_sale" "jsonb", "p_items" "jsonb", "p_wish_id" "uuid") TO "authenticated";
-GRANT ALL ON FUNCTION public."save_sale"("p_sale_id" "uuid", "p_sale" "jsonb", "p_items" "jsonb", "p_wish_id" "uuid") TO "service_role";
 
-DROP FUNCTION public."save_tasting"("p_tasting_id" "uuid", "p_tasting" "jsonb", "p_wine_ids" "uuid"[], "p_added_customer_ids" "uuid"[], "p_removed_customer_ids" "uuid"[]);
-CREATE OR REPLACE FUNCTION "public"."save_tasting"("p_tasting_id" "uuid", "p_tasting" "jsonb", "p_lot_ids" "uuid"[], "p_added_customer_ids" "uuid"[], "p_removed_customer_ids" "uuid"[]) RETURNS "uuid"
-    LANGUAGE "plpgsql"
-    SET "search_path" TO 'public'
-    AS $$
-DECLARE
-  v tasting := jsonb_populate_record(NULL::tasting, p_tasting);
-  v_id uuid;
-BEGIN
-  PERFORM assert_admin();
-
-  IF p_tasting_id IS NULL THEN
-    INSERT INTO tasting (name, date, location, notes, start_time, price, capacity, description, is_private)
-    VALUES (v.name, v.date, v.location, v.notes, v.start_time, v.price, v.capacity, v.description, coalesce(v.is_private, false))
-    RETURNING id INTO v_id;
-  ELSE
-    UPDATE tasting SET
-      name = v.name, date = v.date, location = v.location, notes = v.notes, start_time = v.start_time,
-      price = v.price, capacity = v.capacity, description = v.description, is_private = coalesce(v.is_private, false)
-    WHERE id = p_tasting_id;
-    IF NOT FOUND THEN
-      RAISE EXCEPTION 'Dégustation introuvable';
-    END IF;
-    v_id := p_tasting_id;
-  END IF;
-
-  DELETE FROM tasting_lot WHERE tasting_id = v_id;
-  INSERT INTO tasting_lot (tasting_id, lot_id, "order")
-  SELECT v_id, w.id, w.ord FROM unnest(p_lot_ids) WITH ORDINALITY AS w(id, ord);
-
-  DELETE FROM tasting_customer WHERE tasting_id = v_id AND customer_id = ANY (p_removed_customer_ids);
-  INSERT INTO tasting_customer (tasting_id, customer_id)
-  SELECT DISTINCT v_id, c FROM unnest(p_added_customer_ids) AS c
-  ON CONFLICT DO NOTHING;
-
-  RETURN v_id;
-END;
-$$;
-
-ALTER FUNCTION public."save_tasting"("p_tasting_id" "uuid", "p_tasting" "jsonb", "p_lot_ids" "uuid"[], "p_added_customer_ids" "uuid"[], "p_removed_customer_ids" "uuid"[]) OWNER TO "postgres";
-GRANT ALL ON FUNCTION public."save_tasting"("p_tasting_id" "uuid", "p_tasting" "jsonb", "p_lot_ids" "uuid"[], "p_added_customer_ids" "uuid"[], "p_removed_customer_ids" "uuid"[]) TO "anon";
-GRANT ALL ON FUNCTION public."save_tasting"("p_tasting_id" "uuid", "p_tasting" "jsonb", "p_lot_ids" "uuid"[], "p_added_customer_ids" "uuid"[], "p_removed_customer_ids" "uuid"[]) TO "authenticated";
-GRANT ALL ON FUNCTION public."save_tasting"("p_tasting_id" "uuid", "p_tasting" "jsonb", "p_lot_ids" "uuid"[], "p_added_customer_ids" "uuid"[], "p_removed_customer_ids" "uuid"[]) TO "service_role";
-
-CREATE OR REPLACE FUNCTION "public"."set_sale_item_vat_rate"() RETURNS "trigger"
-    LANGUAGE "plpgsql" SECURITY DEFINER
-    SET "search_path" TO 'public'
-    AS $$
-BEGIN
-  NEW.vat_rate := coalesce(
-    (SELECT product_kind_vat_rate(w.kind) FROM lot v JOIN product w ON w.id = v.product_id WHERE v.id = NEW.lot_id),
-    product_kind_vat_rate('wine')
-  );
-  RETURN NEW;
-END;
-$$;
-
-
-DROP FUNCTION public."set_sale_status"("p_sale_id" "uuid", "p_status" "text", "p_payment_method" "text");
 CREATE OR REPLACE FUNCTION "public"."set_sale_status"("p_sale_id" "uuid", "p_status" "text", "p_payment_method" "text" DEFAULT NULL::"text") RETURNS "text"
     LANGUAGE "plpgsql"
     SET "search_path" TO 'public'
@@ -666,12 +515,7 @@ BEGIN
 END;
 $$;
 
-ALTER FUNCTION public."set_sale_status"("p_sale_id" "uuid", "p_status" "text", "p_payment_method" "text") OWNER TO "postgres";
-GRANT ALL ON FUNCTION public."set_sale_status"("p_sale_id" "uuid", "p_status" "text", "p_payment_method" "text") TO "anon";
-GRANT ALL ON FUNCTION public."set_sale_status"("p_sale_id" "uuid", "p_status" "text", "p_payment_method" "text") TO "authenticated";
-GRANT ALL ON FUNCTION public."set_sale_status"("p_sale_id" "uuid", "p_status" "text", "p_payment_method" "text") TO "service_role";
 
-DROP FUNCTION public."set_transport_status"("p_transport_id" "uuid", "p_status" "text");
 CREATE OR REPLACE FUNCTION "public"."set_transport_status"("p_transport_id" "uuid", "p_status" "text") RETURNS "void"
     LANGUAGE "plpgsql"
     SET "search_path" TO 'public'
@@ -704,22 +548,164 @@ BEGIN
 END;
 $$;
 
-ALTER FUNCTION public."set_transport_status"("p_transport_id" "uuid", "p_status" "text") OWNER TO "postgres";
-GRANT ALL ON FUNCTION public."set_transport_status"("p_transport_id" "uuid", "p_status" "text") TO "anon";
-GRANT ALL ON FUNCTION public."set_transport_status"("p_transport_id" "uuid", "p_status" "text") TO "authenticated";
-GRANT ALL ON FUNCTION public."set_transport_status"("p_transport_id" "uuid", "p_status" "text") TO "service_role";
 
+DROP FUNCTION public."add_to_supplier_order"("p_supplier_id" "uuid", "p_vintage_id" "uuid", "p_quantity" integer, "p_price" numeric);
+CREATE OR REPLACE FUNCTION "public"."add_to_supplier_order"("p_supplier_id" "uuid", "p_lot_id" "uuid", "p_quantity" integer, "p_price" numeric) RETURNS TABLE("order_id" "uuid", "created" boolean)
+    LANGUAGE "plpgsql"
+    SET "search_path" TO 'public'
+    AS $$
+#variable_conflict use_column
+DECLARE
+  v_order uuid;
+  v_created boolean := false;
+BEGIN
+  PERFORM assert_admin();
+  PERFORM pg_advisory_xact_lock(hashtext('order.reorder'), hashtext(p_supplier_id::text));
 
--- 8. Lignes des demandes et pré-commandes enregistrées en JSON : la clé du lot suit le renommage
-UPDATE public."wish_request" SET items = (
-  SELECT jsonb_agg(CASE WHEN e ? 'wine_vintage_id' THEN (e - 'wine_vintage_id') || jsonb_build_object('lot_id', e -> 'wine_vintage_id') ELSE e END ORDER BY i)
-  FROM jsonb_array_elements(items) WITH ORDINALITY AS x(e, i)
-) WHERE jsonb_typeof(items) = 'array' AND items @? '$[*].wine_vintage_id';
-UPDATE public."live_preorder" SET items = (
-  SELECT jsonb_agg(CASE WHEN e ? 'wine_vintage_id' THEN (e - 'wine_vintage_id') || jsonb_build_object('lot_id', e -> 'wine_vintage_id') ELSE e END ORDER BY i)
-  FROM jsonb_array_elements(items) WITH ORDINALITY AS x(e, i)
-) WHERE jsonb_typeof(items) = 'array' AND items @? '$[*].wine_vintage_id';
+  SELECT o.id INTO v_order
+  FROM "order" o
+  WHERE o.supplier_id = p_supplier_id AND o.status = 'pending' AND o.transport_id IS NULL
+  ORDER BY o.date DESC
+  LIMIT 1
+  FOR UPDATE;
+
+  IF v_order IS NULL THEN
+    INSERT INTO "order" (date, supplier_id, status, note, total_price)
+    VALUES (brussels_today(), p_supplier_id, 'pending', 'Réassort préparé depuis le tableau de bord', 0)
+    RETURNING id INTO v_order;
+    v_created := true;
+  END IF;
+
+  UPDATE order_item SET quantity = quantity + p_quantity
+  WHERE id = (
+    SELECT oi.id FROM order_item oi
+    WHERE oi.order_id = v_order AND oi.lot_id = p_lot_id
+    ORDER BY oi.created_at
+    LIMIT 1
+  );
+  IF NOT FOUND THEN
+    INSERT INTO order_item (order_id, lot_id, quantity, price)
+    VALUES (v_order, p_lot_id, p_quantity, p_price);
+  END IF;
+
+  RETURN QUERY SELECT v_order, v_created;
+END;
+$$;
+
+ALTER FUNCTION public."add_to_supplier_order"("p_supplier_id" "uuid", "p_lot_id" "uuid", "p_quantity" integer, "p_price" numeric) OWNER TO "postgres";
+GRANT ALL ON FUNCTION public."add_to_supplier_order"("p_supplier_id" "uuid", "p_lot_id" "uuid", "p_quantity" integer, "p_price" numeric) TO "anon";
+GRANT ALL ON FUNCTION public."add_to_supplier_order"("p_supplier_id" "uuid", "p_lot_id" "uuid", "p_quantity" integer, "p_price" numeric) TO "authenticated";
+GRANT ALL ON FUNCTION public."add_to_supplier_order"("p_supplier_id" "uuid", "p_lot_id" "uuid", "p_quantity" integer, "p_price" numeric) TO "service_role";
+
+DROP FUNCTION public."create_wine_vintage"("p_vintage" "jsonb", "p_source_id" "uuid", "p_copy_grapes" boolean, "p_copy_notes" boolean);
+CREATE OR REPLACE FUNCTION "public"."create_lot"("p_lot" "jsonb", "p_source_id" "uuid" DEFAULT NULL::"uuid", "p_copy_varieties" boolean DEFAULT false, "p_copy_notes" boolean DEFAULT false) RETURNS "uuid"
+    LANGUAGE "plpgsql"
+    SET "search_path" TO 'public'
+    AS $$
+DECLARE
+  v lot := jsonb_populate_record(NULL::lot, p_lot);
+  v_id uuid;
+BEGIN
+  PERFORM assert_admin();
+
+  IF p_source_id IS NOT NULL
+     AND NOT EXISTS (SELECT 1 FROM lot WHERE id = p_source_id AND product_id = v.product_id) THEN
+    RAISE EXCEPTION 'Le millésime repris doit appartenir au même vin';
+  END IF;
+
+  INSERT INTO lot (product_id, production_year, year, abv, price, image_url, organic, volume_ml)
+  VALUES (v.product_id, v.production_year, v.year, v.abv, v.price, v.image_url, coalesce(v.organic, false),
+          coalesce(v.volume_ml, 750))
+  RETURNING id INTO v_id;
+  -- Prix d'achat obligatoire : non renseigné, on garde le défaut de la colonne.
+  IF v.purchase_price IS NOT NULL THEN
+    UPDATE lot SET purchase_price = v.purchase_price WHERE id = v_id;
+  END IF;
+
+  IF p_source_id IS NOT NULL AND p_copy_varieties THEN
+    INSERT INTO lot_variety (lot_id, variety_id, percentage)
+    SELECT v_id, variety_id, percentage FROM lot_variety WHERE lot_id = p_source_id;
+  END IF;
+
+  IF p_source_id IS NOT NULL AND p_copy_notes THEN
+    INSERT INTO note (lot_id, type, content)
+    SELECT v_id, type, content FROM note WHERE lot_id = p_source_id;
+  END IF;
+
+  RETURN v_id;
+END;
+$$;
+
+ALTER FUNCTION public."create_lot"("p_lot" "jsonb", "p_source_id" "uuid", "p_copy_varieties" boolean, "p_copy_notes" boolean) OWNER TO "postgres";
+GRANT ALL ON FUNCTION public."create_lot"("p_lot" "jsonb", "p_source_id" "uuid", "p_copy_varieties" boolean, "p_copy_notes" boolean) TO "anon";
+GRANT ALL ON FUNCTION public."create_lot"("p_lot" "jsonb", "p_source_id" "uuid", "p_copy_varieties" boolean, "p_copy_notes" boolean) TO "authenticated";
+GRANT ALL ON FUNCTION public."create_lot"("p_lot" "jsonb", "p_source_id" "uuid", "p_copy_varieties" boolean, "p_copy_notes" boolean) TO "service_role";
+
+DROP FUNCTION public."public_wine_availability"();
+CREATE OR REPLACE FUNCTION "public"."public_lot_availability"() RETURNS TABLE("lot_id" "uuid", "in_stock" boolean, "low_stock" boolean)
+    LANGUAGE "sql" STABLE SECURITY DEFINER
+    SET "search_path" TO 'public'
+    AS $$
+  SELECT
+    i.lot_id,
+    coalesce(i.quantity_on_hand, 0) > 0,
+    coalesce(i.quantity_on_hand, 0) BETWEEN 1 AND 6
+  FROM inventory i
+  WHERE i.lot_id IS NOT NULL;
+$$;
+
+ALTER FUNCTION public."public_lot_availability"() OWNER TO "postgres";
+REVOKE ALL ON FUNCTION public."public_lot_availability"() FROM PUBLIC;
+GRANT ALL ON FUNCTION public."public_lot_availability"() TO "anon";
+GRANT ALL ON FUNCTION public."public_lot_availability"() TO "authenticated";
+GRANT ALL ON FUNCTION public."public_lot_availability"() TO "service_role";
+
+DROP FUNCTION public."save_tasting"("p_tasting_id" "uuid", "p_tasting" "jsonb", "p_wine_ids" "uuid"[], "p_added_customer_ids" "uuid"[], "p_removed_customer_ids" "uuid"[]);
+CREATE OR REPLACE FUNCTION "public"."save_tasting"("p_tasting_id" "uuid", "p_tasting" "jsonb", "p_lot_ids" "uuid"[], "p_added_customer_ids" "uuid"[], "p_removed_customer_ids" "uuid"[]) RETURNS "uuid"
+    LANGUAGE "plpgsql"
+    SET "search_path" TO 'public'
+    AS $$
+DECLARE
+  v tasting := jsonb_populate_record(NULL::tasting, p_tasting);
+  v_id uuid;
+BEGIN
+  PERFORM assert_admin();
+
+  IF p_tasting_id IS NULL THEN
+    INSERT INTO tasting (name, date, location, notes, start_time, price, capacity, description, is_private)
+    VALUES (v.name, v.date, v.location, v.notes, v.start_time, v.price, v.capacity, v.description, coalesce(v.is_private, false))
+    RETURNING id INTO v_id;
+  ELSE
+    UPDATE tasting SET
+      name = v.name, date = v.date, location = v.location, notes = v.notes, start_time = v.start_time,
+      price = v.price, capacity = v.capacity, description = v.description, is_private = coalesce(v.is_private, false)
+    WHERE id = p_tasting_id;
+    IF NOT FOUND THEN
+      RAISE EXCEPTION 'Dégustation introuvable';
+    END IF;
+    v_id := p_tasting_id;
+  END IF;
+
+  DELETE FROM tasting_lot WHERE tasting_id = v_id;
+  INSERT INTO tasting_lot (tasting_id, lot_id, "order")
+  SELECT v_id, w.id, w.ord FROM unnest(p_lot_ids) WITH ORDINALITY AS w(id, ord);
+
+  DELETE FROM tasting_customer WHERE tasting_id = v_id AND customer_id = ANY (p_removed_customer_ids);
+  INSERT INTO tasting_customer (tasting_id, customer_id)
+  SELECT DISTINCT v_id, c FROM unnest(p_added_customer_ids) AS c
+  ON CONFLICT DO NOTHING;
+
+  RETURN v_id;
+END;
+$$;
+
+ALTER FUNCTION public."save_tasting"("p_tasting_id" "uuid", "p_tasting" "jsonb", "p_lot_ids" "uuid"[], "p_added_customer_ids" "uuid"[], "p_removed_customer_ids" "uuid"[]) OWNER TO "postgres";
+GRANT ALL ON FUNCTION public."save_tasting"("p_tasting_id" "uuid", "p_tasting" "jsonb", "p_lot_ids" "uuid"[], "p_added_customer_ids" "uuid"[], "p_removed_customer_ids" "uuid"[]) TO "anon";
+GRANT ALL ON FUNCTION public."save_tasting"("p_tasting_id" "uuid", "p_tasting" "jsonb", "p_lot_ids" "uuid"[], "p_added_customer_ids" "uuid"[], "p_removed_customer_ids" "uuid"[]) TO "authenticated";
+GRANT ALL ON FUNCTION public."save_tasting"("p_tasting_id" "uuid", "p_tasting" "jsonb", "p_lot_ids" "uuid"[], "p_added_customer_ids" "uuid"[], "p_removed_customer_ids" "uuid"[]) TO "service_role";
+
+-- 9. Lignes des demandes et pré-commandes déjà enregistrées : la clé du lot suit le renommage
+UPDATE public."wish_request" SET items = public.legacy_lot_items(items) WHERE items @? '$[*].wine_vintage_id';
+UPDATE public."live_preorder" SET items = public.legacy_lot_items(items) WHERE items @? '$[*].wine_vintage_id';
 
 NOTIFY pgrst, 'reload schema';
-
-COMMIT;
