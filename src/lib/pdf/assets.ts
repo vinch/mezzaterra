@@ -70,13 +70,16 @@ function aspectOf(img: HTMLImageElement): number | null {
   return width && height ? height / width : null;
 }
 
-/** jsPDF n’accepte pas le SVG : rasterisation côté navigateur, assez large pour rester net une fois réduit en mm. */
-export async function svgToPng(url: string, widthPx = 1600): Promise<PdfImage | null> {
+/**
+ * SVG de `static/` (ex. « /logo-black.svg ») rasterisé : jsPDF n’accepte pas le SVG. Assez large pour
+ * rester net une fois réduit en mm.
+ */
+export async function svgToPng(path: string, widthPx = 1600): Promise<PdfImage | null> {
   if (typeof fetch === "undefined" || typeof document === "undefined") {
     return null;
   }
   try {
-    const res = await fetch(url);
+    const res = await fetch(`${base}${path}`);
     if (!res.ok) return null;
     const blob = new Blob([await res.text()], {
       type: "image/svg+xml;charset=utf-8",

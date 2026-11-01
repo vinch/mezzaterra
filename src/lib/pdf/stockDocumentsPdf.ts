@@ -1,4 +1,3 @@
-import { base } from "$app/paths";
 import jsPDF from "jspdf";
 import { attachRobotoPdf, staticPng, svgToPng } from "./assets";
 import { parseIsoDate } from "$lib/dates";
@@ -84,7 +83,7 @@ function drawFillInLine(
 
 /** En-tête commun : logo à gauche, QR à droite (moitié de la hauteur du logo, centré sur lui). */
 async function drawLogoAndQr(doc: jsPDF, pageW: number, margin: number, top: number) {
-  const [logo, qr] = await Promise.all([svgToPng(`${base}/logo-black.svg`, 3000), staticPng("/qr.png")]);
+  const [logo, qr] = await Promise.all([svgToPng("/logo-black.svg", 3000), staticPng("/qr.png")]);
   const logoWmm = 48;
   let logoHmm = 0;
   let qrHmm = 0;
