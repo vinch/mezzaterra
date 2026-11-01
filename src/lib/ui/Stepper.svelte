@@ -51,7 +51,7 @@
     height: 40px;
     border: 1px solid var(--input-border);
     border-radius: var(--r-sm);
-    background: #fff;
+    background: var(--control-bg);
   }
 
   .stepper--lg {
@@ -78,8 +78,10 @@
     background: var(--mist);
   }
 
+  /* Comme les boutons désactivés : texte secondaire estompé. */
   button:disabled {
-    color: #b6b9b4;
+    color: var(--ink-2);
+    opacity: 0.5;
     cursor: not-allowed;
   }
 

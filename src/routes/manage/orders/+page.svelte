@@ -403,6 +403,7 @@
     ? `La commande du ${formatDate(confirmTarget.date)} chez ${confirmTarget.supplier.name} ne pourra plus être modifiée ni supprimée.`
     : ""}
   confirmLabel="Oui, confirmer"
+  tone="primary"
   action={() => updateOrderStatus(confirmTarget.id, "confirmed")}
 />
 
@@ -421,7 +422,7 @@
     {#if error}
       <div class="error-message" role="alert">{error}</div>
     {/if}
-    <div class="grid-2">
+    <div class="ui-grid-2">
       <Field id="order-date" label="Date" required>
         <input id="order-date" class="ui-control" type="date" bind:value={formData.date} required />
       </Field>
@@ -510,7 +511,7 @@
     {#if detailsOrder}<StatusBadge kind="order" status={detailsOrder.status} />{/if}
   {/snippet}
   {#if detailsOrder}
-    <dl class="facts">
+    <dl class="ui-facts">
       <div><dt>Fournisseur</dt><dd>{detailsOrder.supplier.name}</dd></div>
       <div><dt>Date</dt><dd>{formatDate(detailsOrder.date)}</dd></div>
       <div><dt>Transport</dt><dd>{detailsOrder.transport?.transporter.name ?? "—"}</dd></div>
@@ -572,12 +573,6 @@
     gap: 20px;
   }
 
-  .grid-2 {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 16px;
-  }
-
   .items {
     display: flex;
     flex-direction: column;
@@ -628,26 +623,6 @@
     color: var(--ink);
   }
 
-  .facts {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 12px 24px;
-    margin: 0 0 20px;
-  }
-
-  .facts .wide {
-    grid-column: 1 / -1;
-  }
-
-  .facts dt {
-    font-size: 12px;
-    color: var(--ink-2);
-  }
-
-  .facts dd {
-    margin: 2px 0 0;
-  }
-
   .grand-total {
     display: flex;
     justify-content: space-between;
@@ -665,11 +640,6 @@
   }
 
   @media (max-width: 767px) {
-    .grid-2,
-    .facts {
-      grid-template-columns: 1fr;
-    }
-
     .add-row {
       grid-template-columns: 1fr 1fr;
     }

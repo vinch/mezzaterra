@@ -9,7 +9,7 @@
   import Spinner from "$lib/ui/Spinner.svelte";
   import { IconInbox } from "$lib/ui/icons";
   import { VINTAGE_LABEL_SELECT, vintageLabel } from "$lib/wine";
-  import { formatDate, formatEUR } from "$lib/format";
+  import { formatDate, formatDateTime, formatEUR } from "$lib/format";
   import { contactReason } from "$lib/contact";
   import {
     createSaleFromWish,
@@ -103,10 +103,6 @@
     return t ? t.name || `Dégustation du ${formatDate(t.date)}` : "Dégustation";
   }
 
-  function receivedAt(iso: string): string {
-    return new Date(iso).toLocaleString("fr-FR", { dateStyle: "short", timeStyle: "short" });
-  }
-
   function replyHref(m: ContactMessage): string {
     const label = contactReason(m.reason)?.label ?? "Votre message";
     /* Adresse encodée : un « ? » ou un « & » saisi dans l'email ne doit pas ajouter de destinataire. */
@@ -182,7 +178,7 @@
                   <span class="source">
                     {item.kind === "message" ? (contactReason(item.r.reason)?.label ?? "Message") : `« J’en veux » · ${tastingName(item.r.tasting_id)}`}
                   </span>
-                  <span class="t-caption">{receivedAt(r.created_at)}</span>
+                  <span class="t-caption">{formatDateTime(r.created_at)}</span>
                 </div>
               </header>
               {#if item.kind === "message"}

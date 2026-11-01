@@ -92,12 +92,14 @@
       tokens: [
         { name: "--paper", note: "Fond de l’app" },
         { name: "--card", note: "Cartes, tableaux, modales" },
+        { name: "--control-bg", note: "Champs, boutons secondaires" },
         { name: "--table-head", note: "En-têtes, pieds de modale" },
         { name: "--row-hover", note: "Survol d’une ligne" },
         { name: "--border", note: "Bordure des cartes" },
         { name: "--border-soft", note: "Séparateurs internes" },
         { name: "--input-border", note: "Champs" },
         { name: "--btn-border", note: "Boutons secondaires" },
+        { name: "--overlay", note: "Fond derrière une modale ou un tiroir" },
       ],
     },
     {
@@ -106,7 +108,11 @@
         { name: "--ink", note: "Texte principal" },
         { name: "--ink-2", note: "Texte secondaire (≥ 4,5:1)" },
         { name: "--danger", note: "Destructif, rupture, erreur" },
+        { name: "--danger-bg", note: "Fond d’erreur, survol destructif" },
+        { name: "--danger-border", note: "Bordure d’erreur" },
         { name: "--warn", note: "Stock bas (texte)" },
+        { name: "--warn-bg", note: "Encadré d’avertissement, « à faire »" },
+        { name: "--warn-border", note: "Bordure d’avertissement" },
       ],
     },
     {
@@ -150,6 +156,8 @@
   let robeFilter = $state("");
   let modalOpen = $state(false);
   let confirmOpen = $state(false);
+  let primaryConfirmOpen = $state(false);
+  let demoTemplate = $state("Invitation");
   let demoStatus = $state<SaleStatus>("pending");
   let demoTab = $state<ProductKind>(DEFAULT_KIND);
   let demoOrder = $state(["Trebbiano d’Abruzzo", "Cerasuolo", "Montepulciano d’Abruzzo"]);
@@ -212,6 +220,7 @@
             <li><strong>Réutiliser avant de créer.</strong> Un composant de <code>src/lib/ui/</code> existe pour les boutons, champs, tableaux, badges, modales, menus, cartes, états vides et chargements (<code>Spinner</code>).</li>
             <li><strong>Tokens uniquement.</strong> Couleurs, rayons et ombres viennent des variables CSS : jamais de hex en dur dans une page.</li>
             <li><strong>Un seul bouton <code>primary</code></strong> par écran ou par modale. <code>danger-solid</code> est réservé à <code>ConfirmDialog</code>.</li>
+            <li><strong>Confirmations</strong> par <code>ConfirmDialog</code>, jamais <code>confirm()</code> : rouge pour une suppression, <code>tone="primary"</code> pour une action irréversible non destructive (envoi d’une campagne, vente payée, transport livré).</li>
             <li><strong>Pages de gestion</strong> : <code>ManagePageShell</code> (titre, contexte, actions à droite), puis le contenu.</li>
             <li><strong>Actions d’une ligne</strong> dans un <code>RowMenu</code> « … » : seulement celles permises par l’état, « Supprimer… » en dernier, qui ouvre un <code>ConfirmDialog</code>.</li>
             <li><strong>Icônes</strong> importées depuis <code>$lib/ui/icons</code>, jamais directement depuis <code>@lucide/svelte</code>.</li>
@@ -266,6 +275,7 @@
               <div class="shape" style="border-radius: var({s.name})"><code>{s.name}</code><span class="t-caption">{s.note}</span></div>
             {/each}
             <div class="shape" style="box-shadow: var(--shadow-pop)"><code>--shadow-pop</code><span class="t-caption">Menus, modales</span></div>
+            <div class="shape" style="box-shadow: var(--focus-ring)"><code>--focus-ring</code><span class="t-caption">Champ actif</span></div>
           </div>
         </section>
 
@@ -358,13 +368,18 @@
             <StockBadge kind="low" label="2 bt." />
           </div>
 
-          <h3 class="ds-h3"><code>.ui-chip</code> · puces de filtre</h3>
+          <h3 class="ds-h3"><code>.ui-chip</code> · puces de filtre (<code>aria-pressed</code>) ou de choix (<code>&lt;label&gt;</code> autour d’un radio masqué)</h3>
           <div class="row">
             <button type="button" class="ui-chip" aria-pressed={!robeFilter} onclick={() => (robeFilter = "")}>Toutes</button>
             {#each WINE_STYLES.slice(0, 4) as s}
               <button type="button" class="ui-chip" aria-pressed={robeFilter === s.key} onclick={() => (robeFilter = robeFilter === s.key ? "" : s.key)}>
                 <WineDot robe={s.key} />{s.label}<span class="count">12</span>
               </button>
+            {/each}
+          </div>
+          <div class="row" role="radiogroup" aria-label="Modèle de message">
+            {#each ["Invitation", "Rappel aux inscrits", "Message libre"] as t}
+              <label class="ui-chip"><input type="radio" bind:group={demoTemplate} value={t} /> {t}</label>
             {/each}
           </div>
         </section>
@@ -445,12 +460,24 @@
               <p class="flush padded-text t-muted"><code>padded={"{false}"}</code> pour coller un tableau ou une liste aux bords.</p>
             </Card>
           </div>
+
+          <h3 class="ds-h3"><code>.ui-grid-2</code> · <code>.ui-facts</code> · détail</h3>
+          <p class="t-muted"><code>.ui-grid-2</code> range des champs sur deux colonnes (une sur mobile), <code>.wide</code> sur un enfant direct pour toute la largeur. <code>.ui-facts</code> sur un <code>&lt;dl&gt;</code> : fiche de détail d’une modale (vente, commande, transport), <code>.wide</code> pour une ligne pleine largeur.</p>
+          <Card>
+            <dl class="ui-facts">
+              <div><dt>Date</dt><dd>17/10/2026</dd></div>
+              <div><dt>Client</dt><dd>Giulia Rossi</dd></div>
+              <div><dt>Facture</dt><dd>2026-0042</dd></div>
+              <div><dt>Mode de paiement</dt><dd>Virement</dd></div>
+              <div class="wide"><dt>Note</dt><dd>Livraison le samedi matin.</dd></div>
+            </dl>
+          </Card>
         </section>
 
         <!-- ——— Tableaux ——— -->
         <section id="tableaux" class="ds-section">
           <h2 class="t-card-title">Tableaux</h2>
-          <p class="t-muted"><code>DataTable</code> avec <code>caption</code> ; en-têtes <code>scope="col"</code>, colonnes chiffrées <code>.num</code>, nom cliquable <code>.row-link</code>, actions dans <code>.col-actions</code> avec un <code>RowMenu</code>.</p>
+          <p class="t-muted"><code>DataTable</code> avec <code>caption</code> ; en-têtes <code>scope="col"</code>, colonnes chiffrées <code>.num</code>, nom cliquable <code>.row-link</code>, actions dans <code>.col-actions</code> avec un <code>RowMenu</code> (précédé d’un bouton icône fréquent : les deux dans <code>.ui-row-actions</code>).</p>
           <DataTable caption="Exemple de tableau">
             <thead>
               <tr>
@@ -473,7 +500,12 @@
                     </span>
                   </td>
                   <td class="num">{formatEUR(row.price)}</td>
-                  <td class="col-actions"><RowMenu items={rowItems} label="Actions pour {row.wine}" /></td>
+                  <td class="col-actions">
+                    <div class="ui-row-actions">
+                      <IconButton label="Télécharger la fiche de {row.wine}"><IconDownload size={18} strokeWidth={1.75} /></IconButton>
+                      <RowMenu items={rowItems} label="Actions pour {row.wine}" />
+                    </div>
+                  </td>
                 </tr>
               {/each}
             </tbody>
@@ -483,7 +515,7 @@
         <!-- ——— États ——— -->
         <section id="etats" class="ds-section">
           <h2 class="t-card-title">États</h2>
-          <p class="t-muted"><code>Spinner</code> pour tout chargement, sans texte visible (« Chargement… » est lu par les lecteurs d’écran), taille réglable avec <code>size</code> ; <code>inline</code> pour une action en cours dans une ligne (fiches de table d’une dégustation). <code>EmptyState</code> quand il n’y a rien, <code>.error-message</code> et <code>.success-message</code> pour le retour d’une action.</p>
+          <p class="t-muted"><code>Spinner</code> pour tout chargement, sans texte visible (« Chargement… » est lu par les lecteurs d’écran), taille réglable avec <code>size</code> ; <code>inline</code> pour une action en cours dans une ligne (fiches de table d’une dégustation). <code>EmptyState</code> quand il n’y a rien, <code>.error-message</code> et <code>.success-message</code> pour le retour d’une action, <code>.warning-message</code> pour un avertissement durable (configuration manquante…).</p>
           <div class="cards">
             <Card padded={false}>
               <EmptyState icon={IconReceipt} title="Aucune vente pour l’instant" text="Créez la première vente : elle sera enregistrée « En attente ».">
@@ -495,6 +527,7 @@
               <div class="t-muted">Fiches en cours <Spinner size={16} inline /></div>
               <div class="error-message" role="alert">Impossible d’enregistrer la vente.</div>
               <div class="success-message"><IconCheck size={16} strokeWidth={1.75} /> Vente enregistrée.</div>
+              <p class="warning-message">L’envoi direct n’est pas configuré : ajoutez <code>RESEND_API_KEY</code> aux variables d’environnement.</p>
             </div>
           </div>
         </section>
@@ -506,6 +539,7 @@
           <div class="row">
             <Button onclick={() => (modalOpen = true)}>Ouvrir une modale</Button>
             <Button variant="danger" onclick={() => (confirmOpen = true)}>Supprimer…</Button>
+            <Button onclick={() => (primaryConfirmOpen = true)}>Envoyer…</Button>
             <RowMenu items={rowItems} label="Menu de démonstration" />
           </div>
           <pre class="code"><code>{`<Modal open={showModal} title="Nouveau vin" onclose={close}>
@@ -516,7 +550,8 @@
   {/snippet}
 </Modal>
 
-<ConfirmDialog bind:open={confirmOpen} title="Supprimer ce vin ?" message="…" action={remove} ondone={reload} />`}</code></pre>
+<ConfirmDialog bind:open={confirmOpen} title="Supprimer ce vin ?" message="…" action={remove} ondone={reload} />
+<ConfirmDialog bind:open={sendOpen} title="Envoyer cette campagne ?" confirmLabel="Oui, envoyer" tone="primary" action={send} />`}</code></pre>
         </section>
 
         <!-- ——— Navigation ——— -->
@@ -594,6 +629,15 @@
     title="Supprimer ce vin ?"
     message="« Montepulciano d’Abruzzo » sera supprimé du catalogue. Les ventes passées ne sont pas modifiées."
     onconfirm={() => (confirmOpen = false)}
+  />
+
+  <ConfirmDialog
+    bind:open={primaryConfirmOpen}
+    title="Envoyer cette campagne ?"
+    message="« Dégustation d’automne » sera envoyé à 128 destinataires."
+    confirmLabel="Oui, envoyer"
+    tone="primary"
+    onconfirm={() => (primaryConfirmOpen = false)}
   />
 </div>
 

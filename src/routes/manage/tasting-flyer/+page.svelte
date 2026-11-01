@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { errorMessage } from "$lib/async";
   import { onMount } from "svelte";
   import ManagePageShell from "$lib/components/manage/ManagePageShell.svelte";
   import Spinner from "$lib/ui/Spinner.svelte";
@@ -33,7 +34,7 @@
     try {
       assets = await loadFlyerAssets();
     } catch (e) {
-      error = e instanceof Error ? e.message : "Impossible de charger le visuel";
+      error = errorMessage(e);
     } finally {
       loading = false;
     }
@@ -85,7 +86,7 @@
       a.click();
       URL.revokeObjectURL(url);
     } catch (e) {
-      error = e instanceof Error ? e.message : "Erreur lors du téléchargement";
+      error = errorMessage(e);
     }
   }
 
@@ -104,7 +105,7 @@
       await navigator.share({ files: [file] });
     } catch (e) {
       if (!(e instanceof DOMException && e.name === "AbortError")) {
-        error = e instanceof Error ? e.message : "Erreur lors du partage";
+        error = errorMessage(e);
       }
     } finally {
       sharing = false;
@@ -220,8 +221,8 @@
     display: block;
     width: 100%;
     height: auto;
-    border-radius: 8px;
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+    border-radius: var(--r-sm);
+    box-shadow: var(--shadow-pop);
   }
 
   .flyer-preview canvas.hidden {

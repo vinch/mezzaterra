@@ -9,6 +9,8 @@
   import ManagePageShell from "$lib/components/manage/ManagePageShell.svelte";
   import Modal from "$lib/ui/Modal.svelte";
   import Button from "$lib/ui/Button.svelte";
+  import Field from "$lib/ui/Field.svelte";
+  import Select from "$lib/ui/Select.svelte";
   import ConfirmDialog from "$lib/ui/ConfirmDialog.svelte";
   import DataTable from "$lib/ui/DataTable.svelte";
   import EmptyState from "$lib/ui/EmptyState.svelte";
@@ -240,44 +242,28 @@
 <!-- Modal de création / édition -->
 <Modal open={formOpen} title={editingMove ? "Modifier le mouvement de stock" : "Nouveau mouvement de stock"} onclose={closeForm}>
   {#if error}<div class="error-message" role="alert">{error}</div>{/if}
-  <form id="move-form" onsubmit={preventDefault(submitForm)}>
-    <div class="form-grid">
-      <div class="form-group">
-        <label for="reason">Raison *</label>
-        <select id="reason" bind:value={formData.reason} required>
-          <option value="">Sélectionner une raison</option>
-          {#each stockReasons as reason}
-            <option value={reason.value}>{reason.label}</option>
-          {/each}
-        </select>
-      </div>
+  <form id="move-form" class="ui-grid-2" onsubmit={preventDefault(submitForm)}>
+    <Field id="reason" label="Raison" required>
+      <Select id="reason" bind:value={formData.reason} required>
+        <option value="">Sélectionner une raison</option>
+        {#each stockReasons as reason}
+          <option value={reason.value}>{reason.label}</option>
+        {/each}
+      </Select>
+    </Field>
 
-      <div class="form-group">
-        <label for="quantity">Quantité *</label>
-        <input
-          type="number"
-          id="quantity"
-          bind:value={formData.quantity}
-          min="1"
-          placeholder="Entrez un nombre"
-          required
-        />
-      </div>
+    <Field id="quantity" label="Quantité" required>
+      <input id="quantity" class="ui-control" type="number" min="1" placeholder="Entrez un nombre" bind:value={formData.quantity} required />
+    </Field>
 
-      <div class="form-group">
-        <label for="date">Date *</label>
-        <input type="date" id="date" bind:value={formData.date} required />
-      </div>
+    <Field id="date" label="Date" required>
+      <input id="date" class="ui-control" type="date" bind:value={formData.date} required />
+    </Field>
 
-      <div class="form-group full-width">
-        <label for="note">Note</label>
-        <textarea
-          id="note"
-          bind:value={formData.note}
-          rows="3"
-          placeholder="Commentaires sur ce mouvement..."
-        ></textarea>
-      </div>
+    <div class="wide">
+      <Field id="note" label="Note">
+        <textarea id="note" class="ui-control" rows="3" placeholder="Commentaires sur ce mouvement…" bind:value={formData.note}></textarea>
+      </Field>
     </div>
   </form>
   {#snippet footer()}

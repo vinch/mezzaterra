@@ -1,3 +1,9 @@
+<script lang="ts" module>
+  /* Modales ouvertes, la plus récente en dernier : seule celle du dessus gère Échap et Tab, et la
+     page reste bloquée tant qu'il en reste une (confirmation ouverte par-dessus une modale…). */
+  const openStack: symbol[] = [];
+</script>
+
 <script lang="ts">
   import { self } from "$lib/ui/events";
   import { tick, untrack, type Snippet } from "svelte";
@@ -38,12 +44,17 @@
   const titleId = `modal-title-${Math.random().toString(36).slice(2, 9)}`;
   let dialog = $state<HTMLElement | undefined>();
   let returnFocus: HTMLElement | null = null;
+  const token = Symbol();
+  const isTop = () => openStack[openStack.length - 1] === token;
+  /** Rang dans la pile à l'ouverture : la plus récente est peinte au-dessus, où qu'elle soit dans le DOM. */
+  let depth = $state(0);
 
   const FOCUSABLE =
     'a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])';
 
   async function onOpen() {
     returnFocus = document.activeElement as HTMLElement | null;
+    depth = openStack.push(token);
     document.body.style.overflow = "hidden";
     await tick();
     const first = dialog?.querySelector<HTMLElement>("[autofocus]") ?? dialog?.querySelector<HTMLElement>(".modal-body " + FOCUSABLE.split(",").join(", .modal-body "));
@@ -51,7 +62,9 @@
   }
 
   function onClose() {
-    document.body.style.overflow = "";
+    const i = openStack.indexOf(token);
+    if (i >= 0) openStack.splice(i, 1);
+    if (!openStack.length) document.body.style.overflow = "";
     returnFocus?.focus?.();
   }
 
@@ -66,9 +79,9 @@
     onclose?.();
   }
 
-  /* Si le focus a quitté la modale (élément retiré du DOM…), Échap et Tab restent gérés. */
+  /* Si le focus a quitté la modale du dessus (élément retiré du DOM…), Échap et Tab restent gérés. */
   function onWindowKeydown(e: KeyboardEvent) {
-    if (!open || !dialog || dialog.contains(document.activeElement)) return;
+    if (!open || !dialog || !isTop() || dialog.contains(document.activeElement)) return;
     if (e.key === "Escape") {
       close();
     } else if (e.key === "Tab") {
@@ -105,6 +118,7 @@
 {#if open}
   <div
     class="backdrop"
+    style:z-index={2000 + depth}
     transition:fade={{ duration: 120 }}
     onclick={self(() => closeOnBackdrop && close())}
     role="presentation"
@@ -149,7 +163,7 @@
     align-items: flex-start;
     justify-content: center;
     padding: 40px 16px;
-    background: rgba(28, 44, 46, 0.55);
+    background: var(--overlay);
     overflow-y: auto;
   }
 

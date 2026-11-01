@@ -16,6 +16,8 @@
   import { todayIso } from "$lib/dates";
   import { wineTypeLabel } from "$lib/wine";
   import { fetchWineTypes } from "$lib/manageData";
+  import { errorMessage } from "$lib/async";
+  import { formatEUR } from "$lib/format";
 
   let rows = $state.raw<StockDocVintage[]>([]);
   let loading = $state(true);
@@ -120,7 +122,7 @@
       const { downloadPricesPdf } = await import("$lib/pdf/stockDocumentsPdf");
       await downloadPricesPdf(rows, new Set(selectedVintageIds));
     } catch (e) {
-      docError = e instanceof Error ? e.message : "Erreur PDF";
+      docError = errorMessage(e);
     }
   }
 
@@ -157,7 +159,7 @@
       });
       closeNotesModal();
     } catch (e) {
-      docError = e instanceof Error ? e.message : "Erreur PDF";
+      docError = errorMessage(e);
       notesPdfGenerating = false;
     }
   }
@@ -278,7 +280,7 @@
                 <td>{wineTypeLabel({ name: r.wineTypeName, kind: r.kind })}</td>
                 <td>{vintageLabel(r)}</td>
                 <td class="num">
-                  {r.price != null ? `${r.price.toFixed(2)}` : "—"}
+                  {formatEUR(r.price)}
                 </td>
                 <td class="num">{r.quantity_on_hand}</td>
               </tr>
@@ -419,7 +421,7 @@
 
   .notes-modal-hint {
     margin: 0 0 1.25rem;
-    color: #555;
+    color: var(--ink-2);
     font-size: 0.9rem;
     line-height: 1.5;
   }
@@ -456,7 +458,7 @@
     padding: 0.65rem 0.75rem;
     background: var(--table-head);
     border: 1px solid var(--border-soft);
-    border-radius: 6px;
+    border-radius: var(--r-sm);
   }
 
   .notes-order-num {

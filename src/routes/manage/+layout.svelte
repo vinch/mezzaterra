@@ -379,7 +379,7 @@
       inset: 0 0 calc(64px + env(safe-area-inset-bottom)) 0;
       z-index: 250;
       border: none;
-      background: rgba(28, 44, 46, 0.5);
+      background: var(--overlay);
       opacity: 0;
       pointer-events: none;
       transition: opacity 0.2s ease;

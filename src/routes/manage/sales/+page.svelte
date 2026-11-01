@@ -33,10 +33,10 @@
     IconTrash,
     IconX,
   } from "$lib/ui/icons";
-  import { fold, formatDate, formatEUR, initials, toNumber } from "$lib/format";
+  import { fold, formatDate, formatEUR, formatPercent, initials, toNumber } from "$lib/format";
   import { isoDateOnly, todayIso } from "$lib/dates";
   import { lineTotal } from "$lib/analytics";
-  import { styleByKey, vintageProductLabel, vintageShortLabel, wineRobe, type WineStyleKey } from "$lib/wine";
+  import { robePreference, styleByKey, vintageProductLabel, vintageShortLabel } from "$lib/wine";
   import {
     PAYMENT_METHOD_OPTIONS,
     SALE_LINE_ITEMS_SELECT,
@@ -44,6 +44,7 @@
     globalDiscountAmount,
     itemsSubtotal,
     lineDiscountError,
+    lineDiscountLabel,
     paymentMethodLabel,
     saleItemDescription,
     saleTotal,
@@ -105,7 +106,7 @@
     /* Liens profonds depuis le tableau de bord : ?statut=pending, ?nouvelle=1 */
     const params = new URLSearchParams(window.location.search);
     const st = params.get("statut");
-    if (st && ["pending", "paid", "delivered", "closed", "cancelled"].includes(st)) tab = st as Tab;
+    if (st && Object.hasOwn(STATUS_META, st)) tab = st as Tab;
     const t = params.get("degustation");
     if (t) tastingFilter = t;
     try {
@@ -234,11 +235,7 @@
       discount_type: item.discount_type || null,
       note: item.note || (item.wine_vintage_id ? "" : TASTING_LINE_NOTE),
     }));
-    selectedVintageId = "";
-    selectedQuantity = "";
-    selectedPrice = "";
-    selectedDiscount = "";
-    selectedDiscountType = "amount";
+    resetLineInput();
     formOpen = true;
   }
 
@@ -286,6 +283,11 @@
       tasting_id: tastingOnDate(todayIso()),
     };
     saleItems = [];
+    resetLineInput();
+  }
+
+  /** Saisie d'une nouvelle ligne remise à zéro (type de remise : « montant » par défaut). */
+  function resetLineInput() {
     selectedVintageId = "";
     selectedQuantity = "";
     selectedPrice = "";
@@ -332,62 +334,38 @@
       return;
     }
 
-    if (selectedVintageId === TASTING_SELECT_VALUE) {
-      saleItems = [
-        ...saleItems,
-        {
-          wine_vintage: null,
-          wine_vintage_id: null,
-          quantity,
-          price: toNumber(selectedPrice),
-          discount: discountVal,
-          discount_type: discountVal > 0 ? selectedDiscountType || null : null,
-          note: TASTING_LINE_NOTE,
-        },
-      ];
-      selectedVintageId = "";
-      selectedQuantity = "";
-      selectedPrice = "";
-      selectedDiscount = "";
-      selectedDiscountType = "amount";
-      error = "";
-      return;
+    /* Ligne dégustation : sans millésime ni contrôle de stock. */
+    const tasting = selectedVintageId === TASTING_SELECT_VALUE;
+    let vintage: any = null;
+    if (!tasting) {
+      if (!selectedVintageId) return;
+      const availableStock = getAvailableStock(selectedVintageId);
+      if (availableStock == null) {
+        error = "Stock indisponible : impossible d’ajouter des bouteilles pour l’instant.";
+        return;
+      }
+      if (quantity > availableStock) {
+        error = `Stock insuffisant. Stock disponible: ${availableStock}`;
+        return;
+      }
+      vintage = wineVintages.find((v) => v.id === selectedVintageId);
+      if (!vintage) return;
     }
 
-    if (!selectedVintageId) return;
-
-    const availableStock = getAvailableStock(selectedVintageId);
-
-    if (availableStock == null) {
-      error = "Stock indisponible : impossible d’ajouter des bouteilles pour l’instant.";
-      return;
-    }
-    if (quantity > availableStock) {
-      error = `Stock insuffisant. Stock disponible: ${availableStock}`;
-      return;
-    }
-
-    const vintage = wineVintages.find((v) => v.id === selectedVintageId);
-    if (vintage) {
-      saleItems = [
-        ...saleItems,
-        {
-          wine_vintage: vintage,
-          wine_vintage_id: selectedVintageId,
-          quantity: quantity,
-          price: toNumber(selectedPrice),
-          discount: discountVal,
-          discount_type: discountVal > 0 ? selectedDiscountType || null : null,
-          note: "",
-        },
-      ];
-      selectedVintageId = "";
-      selectedQuantity = "";
-      selectedPrice = "";
-      selectedDiscount = "";
-      selectedDiscountType = "amount";
-      error = ""; // Clear any previous errors
-    }
+    saleItems = [
+      ...saleItems,
+      {
+        wine_vintage: vintage,
+        wine_vintage_id: tasting ? null : selectedVintageId,
+        quantity,
+        price: toNumber(selectedPrice),
+        discount: discountVal,
+        discount_type: discountVal > 0 ? selectedDiscountType || null : null,
+        note: tasting ? TASTING_LINE_NOTE : "",
+      },
+    ];
+    resetLineInput();
+    error = "";
   }
 
   function removeSaleItem(index: number) {
@@ -478,8 +456,8 @@
       return true;
     }
 
-    const stockHint =
-      currentStatus === "pending" ? "\n\nLe stock sera débité (hors lignes dégustation)." : "";
+    /* En attente, la vente n'a pas encore sorti son stock : le changement le débite. */
+    const stockHint = currentStatus === "pending" ? "Le stock sera débité (hors lignes dégustation)." : "";
 
     /* Mode de paiement manquant : demandé ici, la facture en a besoin (une vente livrée n'est plus modifiable). */
     let paymentMethod: string | null = null;
@@ -503,16 +481,25 @@
       }
     }
 
-    const question =
+    const question: StatusAsk | null =
       newStatus === "closed"
-        ? "Clôturer cette vente ?\n\nElle ne pourra plus être modifiée ni changer de statut."
+        ? { title: "Clôturer cette vente ?", message: "Elle ne pourra plus être modifiée ni changer de statut.", confirmLabel: "Oui, clôturer" }
         : newStatus === "delivered"
-          ? `Marquer cette vente comme livrée ?${stockHint}`
+          ? {
+              title: "Marquer cette vente comme livrée ?",
+              /* Depuis « Payée », set_sale_status ne crée aucun mouvement : le stock est déjà sorti. */
+              message: stockHint || "Le stock a déjà été débité au paiement : il ne change pas.",
+              confirmLabel: "Oui, marquer comme livrée",
+            }
           : newStatus === "paid"
-            ? `Marquer cette vente comme payée ?${stockHint}\n\nUn numéro de facture sera attribué si besoin.`
+            ? {
+                title: "Marquer cette vente comme payée ?",
+                message: [stockHint, "Un numéro de facture sera attribué si besoin."].filter(Boolean).join(" "),
+                confirmLabel: "Oui, marquer comme payée",
+              }
             : null;
     /* La fenêtre du mode de paiement vaut confirmation. */
-    if (question && !paymentMethod && !confirm(question)) {
+    if (question && !paymentMethod && !(await askStatus(question))) {
       return false;
     }
 
@@ -535,6 +522,21 @@
     );
 
     return true;
+  }
+
+  /* Confirmation d'un changement de statut : résolue à true si on confirme, false si on annule. */
+  type StatusAsk = { title: string; message: string; confirmLabel: string };
+  let statusPrompt = $state<(StatusAsk & { resolve: (ok: boolean) => void }) | null>(null);
+  let statusConfirmOpen = $state(false);
+  function askStatus(ask: StatusAsk): Promise<boolean> {
+    statusPrompt?.resolve(false);
+    statusConfirmOpen = true;
+    return new Promise((resolve) => (statusPrompt = { ...ask, resolve }));
+  }
+  /* La demande reste en place après réponse : les textes ne changent pas pendant la fermeture. */
+  function answerStatus(ok: boolean) {
+    statusPrompt?.resolve(ok);
+    statusConfirmOpen = false;
   }
 
   /* Fenêtre « Mode de paiement » : résolue par le choix, ou null si on annule. Elle vaut confirmation. */
@@ -601,11 +603,7 @@
   type Tab = "all" | SaleStatus;
   const TABS: { key: Tab; label: string }[] = [
     { key: "all", label: "Toutes" },
-    { key: "pending", label: STATUS_META.pending.plural },
-    { key: "paid", label: STATUS_META.paid.plural },
-    { key: "delivered", label: STATUS_META.delivered.plural },
-    { key: "closed", label: STATUS_META.closed.plural },
-    { key: "cancelled", label: STATUS_META.cancelled.plural },
+    ...(Object.keys(STATUS_META) as SaleStatus[]).map((key) => ({ key, label: STATUS_META[key].plural })),
   ];
   let tab = $state<Tab>("all");
   let search = $state("");
@@ -680,12 +678,8 @@
       .from("sale_item")
       .select("quantity, sale_id, wine_vintage ( wine ( wine_type ( name, kind ) ) )")
       .in("sale_id", own.map((s) => s.id).slice(0, 100));
-    const byRobe = new Map<WineStyleKey, number>();
-    for (const it of (data || []) as any[]) {
-      const r = wineRobe(it.wine_vintage?.wine?.wine_type).key;
-      if (r === "red" || r === "white" || r === "rose") byRobe.set(r, (byRobe.get(r) ?? 0) + (it.quantity || 0));
-    }
-    const fav = [...byRobe.entries()].sort((a, b) => b[1] - a[1])[0]?.[0];
+    /* Robes du vin seulement : « Aime les huiles » n'aide pas à conseiller un vin. */
+    const fav = robePreference(((data || []) as any[]).map((it) => ({ type: it.wine_vintage?.wine?.wine_type, qty: it.quantity || 0 }))).favorite;
     if (hintFor !== id) return;
     customerHint = [
       fav ? `Aime les ${styleByKey(fav).label.toLowerCase()}s` : "",
@@ -742,7 +736,6 @@
     if (formOpen && id && id !== hintFor) untrack(() => void loadCustomerHint(id));
   });
 </script>
-
 
 <svelte:head>
   <title>Ventes - Gestion</title>
@@ -833,14 +826,7 @@
                 {/if}
               </td>
               <td class="col-actions">
-                <div class="row-actions">
-                  {#if sale.status === "closed"}
-                    <IconButton label="Télécharger la facture" onclick={() => downloadInvoice(sale.id)}>
-                      <IconDownload size={18} strokeWidth={1.75} />
-                    </IconButton>
-                  {/if}
-                  <RowMenu items={rowItems(sale)} label="Actions pour la vente de {customerName(sale)}" />
-                </div>
+                <RowMenu items={rowItems(sale)} label="Actions pour la vente de {customerName(sale)}" />
               </td>
             </tr>
           {/each}
@@ -883,15 +869,25 @@
   onconfirm={confirmDelete}
 />
 
+<ConfirmDialog
+  bind:open={statusConfirmOpen}
+  title={statusPrompt?.title}
+  message={statusPrompt?.message}
+  confirmLabel={statusPrompt?.confirmLabel}
+  tone="primary"
+  onconfirm={() => answerStatus(true)}
+  oncancel={() => answerStatus(false)}
+/>
+
 <Modal open={!!paymentPrompt} title="Mode de paiement" maxWidth={440} onclose={() => answerPayment(null)}>
   <Field id="paid-payment" label="Mode de paiement" help={paymentPrompt?.note}>
     {#snippet children({ describedby })}
-      <select id="paid-payment" class="ui-control" bind:value={paymentChoice} aria-describedby={describedby}>
+      <Select id="paid-payment" bind:value={paymentChoice} {describedby}>
         <option value="">Choisir…</option>
         {#each PAYMENT_METHOD_OPTIONS as opt}
           <option value={opt.value}>{opt.label}</option>
         {/each}
-      </select>
+      </Select>
     {/snippet}
   </Field>
   {#snippet footer()}
@@ -918,7 +914,7 @@
       <div class="error-message" role="alert">Stock indisponible : impossible d’ajouter des bouteilles pour l’instant.</div>
     {/if}
 
-    <div class="grid-2">
+    <div class="ui-grid-2">
       <Field id="sale-date" label="Date" required>
         <input id="sale-date" class="ui-control" type="date" bind:value={formData.date} required />
       </Field>
@@ -1001,9 +997,7 @@
                     </td>
                     <td class="num">{formatEUR(toNumber(item.price))}</td>
                     <td class="num">
-                      {#if toNumber(item.discount) > 0}
-                        {item.discount_type === "percent" ? `−${toNumber(item.discount)} %` : `−${formatEUR(toNumber(item.discount))}`}
-                      {:else}—{/if}
+                      {lineDiscountLabel(item)}
                     </td>
                     <td class="num"><strong>{formatEUR(lineTotal(item))}</strong></td>
                     <td class="col-actions">
@@ -1051,17 +1045,17 @@
       </div>
     </section>
 
-    <div class="grid-2">
+    <div class="ui-grid-2">
       <Field id="sale-payment" label="Mode de paiement" help="Sinon, demandé au passage en « Payée ».">
         {#snippet children({ describedby })}
-                <select id="sale-payment" class="ui-control" bind:value={formData.payment_method} aria-describedby={describedby}>
+          <Select id="sale-payment" bind:value={formData.payment_method} {describedby}>
             <option value="">— Non renseigné —</option>
             {#each PAYMENT_METHOD_OPTIONS as opt}
               <option value={opt.value}>{opt.label}</option>
             {/each}
-          </select>
-                      {/snippet}
-            </Field>
+          </Select>
+        {/snippet}
+      </Field>
 
       <Field id="sale-global-discount" label="Ristourne globale" optional help="Sur le sous-total, après les remises par article." >
         {#snippet children({ describedby })}
@@ -1078,12 +1072,14 @@
     </div>
 
     <Field id="sale-tasting" label="Dégustation" optional help="Proposée automatiquement quand une dégustation a lieu à la date de la vente.">
-      <select id="sale-tasting" class="ui-control" bind:value={formData.tasting_id} onchange={() => (tastingTouched = true)}>
-        <option value="">— Aucune —</option>
-        {#each tastings as t}
-          <option value={t.id}>{t.name || "Dégustation"} · {formatDate(t.date)}</option>
-        {/each}
-      </select>
+      {#snippet children({ describedby })}
+        <Select id="sale-tasting" bind:value={formData.tasting_id} {describedby} onchange={() => (tastingTouched = true)}>
+          <option value="">— Aucune —</option>
+          {#each tastings as t}
+            <option value={t.id}>{t.name || "Dégustation"} · {formatDate(t.date)}</option>
+          {/each}
+        </Select>
+      {/snippet}
     </Field>
 
     <Field id="sale-note" label="Note">
@@ -1108,7 +1104,7 @@
     {#if detailsSale}<StatusBadge status={detailsSale.status} />{/if}
   {/snippet}
   {#if detailsSale}
-    <dl class="facts">
+    <dl class="ui-facts">
       <div><dt>Date</dt><dd>{formatDate(detailsSale.date)}</dd></div>
       <div>
         <dt>Client</dt>
@@ -1146,9 +1142,7 @@
               <td class="num">{item.quantity}</td>
               <td class="num">{formatEUR(toNumber(item.price))}</td>
               <td class="num">
-                {#if toNumber(item.discount) > 0}
-                  {item.discount_type === "percent" ? `−${toNumber(item.discount)} %` : `−${formatEUR(toNumber(item.discount))}`}
-                {:else}—{/if}
+                {lineDiscountLabel(item)}
               </td>
               <td class="num"><strong>{formatEUR(lineTotal(item))}</strong></td>
             </tr>
@@ -1159,7 +1153,7 @@
         {#if toNumber(detailsSale.global_discount) > 0}
           <p><span>Sous-total articles (TTC)</span><span>{formatEUR(itemsSubtotal(detailsSaleItems))}</span></p>
           <p>
-            <span>Ristourne globale {detailsSale.global_discount_type === "percent" ? `(${toNumber(detailsSale.global_discount)} %)` : "(montant)"}</span>
+            <span>Ristourne globale {detailsSale.global_discount_type === "percent" ? `(${formatPercent(toNumber(detailsSale.global_discount))})` : "(montant)"}</span>
             <span>−{formatEUR(globalDiscountAmount(detailsSaleItems, detailsSale.total_price))}</span>
           </p>
         {/if}
@@ -1248,12 +1242,6 @@
     text-decoration: underline;
   }
 
-  .row-actions {
-    display: inline-flex;
-    align-items: center;
-    gap: 4px;
-  }
-
   .label-short {
     display: none;
   }
@@ -1329,12 +1317,6 @@
     gap: 20px;
   }
 
-  .grid-2 {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 16px;
-  }
-
   .chip {
     display: flex;
     align-items: center;
@@ -1343,7 +1325,7 @@
     padding: 0 4px 0 6px;
     border: 1px solid var(--input-border);
     border-radius: var(--r-sm);
-    background: #fff;
+    background: var(--control-bg);
   }
 
   .chip-avatar {
@@ -1388,7 +1370,7 @@
   .items-box {
     border: 1px solid var(--border);
     border-radius: var(--r-md);
-    background: #fff;
+    background: var(--card);
     overflow: hidden;
   }
 
@@ -1459,25 +1441,6 @@
   }
 
   /* ——— Détail ——— */
-  .facts {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 12px 24px;
-    margin: 0 0 20px;
-  }
-
-  .facts .wide {
-    grid-column: 1 / -1;
-  }
-
-  .facts dt {
-    font-size: 12px;
-    color: var(--ink-2);
-  }
-
-  .facts dd {
-    margin: 2px 0 0;
-  }
 
   .detail-totals {
     margin-top: 12px;
@@ -1520,11 +1483,6 @@
     .search,
     .period {
       flex: 1 1 auto;
-    }
-
-    .grid-2,
-    .facts {
-      grid-template-columns: 1fr;
     }
 
     .add-row {

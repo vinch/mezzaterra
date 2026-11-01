@@ -21,7 +21,7 @@
   import Spinner from "$lib/ui/Spinner.svelte";
   import Tabs from "$lib/ui/Tabs.svelte";
   import Combobox, { type ComboOption } from "$lib/ui/Combobox.svelte";
-  import { byVolume, styleByKey, vintageShortLabel, wineRobe, type WineStyleKey, wineTitle, wineTypeLabel, withVolume } from "$lib/wine";
+  import { byVolume, compareWines, MAIN_ROBES, styleByKey, vintageShortLabel, wineRobe, type WineStyleKey, wineTitle, wineTypeLabel, withVolume } from "$lib/wine";
   import {
     IconArchive,
     IconArchiveRestore,
@@ -118,21 +118,7 @@
           (a, b) => (a.year ?? a.production_year ?? 0) - (b.year ?? b.production_year ?? 0) || byVolume(a, b),
         );
       }
-      wines = (data || []).sort((a, b) => {
-        // First: sort by winery name
-        const wineryA = a.winery?.name?.toLowerCase() || "";
-        const wineryB = b.winery?.name?.toLowerCase() || "";
-        if (wineryA !== wineryB) {
-          return wineryA.localeCompare(wineryB);
-        }
-
-        // Second: sort by wine name or appellation
-        const wineNameA =
-          a.name?.toLowerCase() || a.appelation?.name?.toLowerCase() || "";
-        const wineNameB =
-          b.name?.toLowerCase() || b.appelation?.name?.toLowerCase() || "";
-        return wineNameA.localeCompare(wineNameB);
-      });
+      wines = (data || []).sort(compareWines);
     }
   }
 
@@ -198,38 +184,16 @@
       description: formData.description || null,
       winery_id: formData.winery_id,
       wine_type_id: formData.wine_type_id,
+      /* Vide : aucune appellation (null efface celle d'un produit modifié). */
+      appelation_id: formData.appelation_id || null,
     };
 
-    // Include appelation_id only if it has a value, or set to null to clear it
-    if (editingWine) {
-      // For updates, set to null if empty to allow clearing the appellation
-      wineData.appelation_id = formData.appelation_id || null;
-    } else {
-      // For inserts, only include if it has a value
-      if (formData.appelation_id) {
-        wineData.appelation_id = formData.appelation_id;
-      }
-    }
-
-    if (editingWine) {
-      const { error: updateError } = await supabase
-        .from("wine")
-        .update(wineData)
-        .eq("id", editingWine.id);
-
-      if (updateError) {
-        error = updateError.message;
-        return;
-      }
-    } else {
-      const { error: insertError } = await supabase
-        .from("wine")
-        .insert(wineData);
-
-      if (insertError) {
-        error = insertError.message;
-        return;
-      }
+    const { error: saveError } = editingWine
+      ? await supabase.from("wine").update(wineData).eq("id", editingWine.id)
+      : await supabase.from("wine").insert(wineData);
+    if (saveError) {
+      error = saveError.message;
+      return;
     }
 
     /* Montre le produit, même enregistré sous un autre type que l'onglet ouvert. */
@@ -294,12 +258,12 @@
     await loadWinePairings();
   }
 
+  /** Accord à retirer, en attente de confirmation. */
+  let pairingToRemove = $state<any>(null);
+
+  /** Appelée après confirmation via le ConfirmDialog. */
   async function removePairing(pairingId: string) {
     if (!selectedWine) return;
-
-    if (!confirm("Êtes-vous sûr de vouloir supprimer ce pairing ?")) {
-      return;
-    }
 
     const { error: deleteError } = await supabase
       .from("wine_pairing")
@@ -345,7 +309,6 @@
 
   let robeFilter = $state<WineStyleKey | "">("");
   let inStockOnly = $state(false);
-  const ROBES: WineStyleKey[] = ["red", "white", "rose"];
 
   /** Un onglet par type de produit : vins et huiles ne se mélangent pas dans la liste. */
   let tab = $state<ProductKind>(kindFromUrl($page.url));
@@ -476,6 +439,8 @@
     };
   }));
   // Filter wines based on selected filters
+  /* Recherche sans accents ni casse : domaine, nom, appellation ou son label. */
+  let searchQuery = $derived(fold(searchText));
   let filteredWines = $derived(tabWines.filter((wine) => {
     // Filter by winery
     if (filterWineryId && wine.winery_id !== filterWineryId) {
@@ -487,23 +452,9 @@
       return false;
     }
 
-    // Filter by search text (domaine, nom, appellation)
-    if (searchText) {
-      const searchLower = searchText.toLowerCase();
-      const wineryName = wine.winery?.name?.toLowerCase() || "";
-      const wineName = wine.name?.toLowerCase() || "";
-      const appelationName = wine.appelation?.name?.toLowerCase() || "";
-      const appelationLabel = wine.appelation?.label?.name?.toLowerCase() || "";
-
-      const matchesSearch =
-        wineryName.includes(searchLower) ||
-        wineName.includes(searchLower) ||
-        appelationName.includes(searchLower) ||
-        appelationLabel.includes(searchLower);
-
-      if (!matchesSearch) {
-        return false;
-      }
+    if (searchQuery) {
+      const fields = [wine.winery?.name, wine.name, wine.appelation?.name, wine.appelation?.label?.name];
+      if (!fields.some((f) => fold(f || "").includes(searchQuery))) return false;
     }
 
     return true;
@@ -574,7 +525,7 @@
       {#if !tabKind.style}
         <div class="chips" role="group" aria-label="Filtrer par robe">
           <button type="button" class="ui-chip" aria-pressed={!robeFilter} onclick={() => (robeFilter = "")}>Tous</button>
-          {#each ROBES as r}
+          {#each MAIN_ROBES as r}
             <button type="button" class="ui-chip" aria-pressed={robeFilter === r} onclick={() => (robeFilter = robeFilter === r ? "" : r)}>
               <WineDot robe={r} />{styleByKey(r).label}
             </button>
@@ -702,6 +653,16 @@
   onconfirm={confirmDelete}
 />
 
+<ConfirmDialog
+  open={!!pairingToRemove}
+  title="Retirer cet accord ?"
+  message={pairingToRemove ? `« ${pairingToRemove.pairing?.description ?? ""} » ne sera plus proposé avec ce produit.` : ""}
+  confirmLabel="Oui, retirer"
+  action={() => removePairing(pairingToRemove.pairing_id)}
+  oncancel={() => (pairingToRemove = null)}
+  ondone={() => (pairingToRemove = null)}
+/>
+
 <Modal open={showModal} title={editingWine ? formKind.editLabel : formKind.newLabel} onclose={closeModal}>
   <form id="wine-form" class="wine-form" onsubmit={preventDefault(handleSubmit)}>
     <!-- Choisi à la création seulement : la base refuse de changer le type d'un produit qui a des millésimes ou des lots. -->
@@ -721,7 +682,7 @@
     <Field id="wine-name" label="Nom" help="Laisser vide pour utiliser le nom de l’appellation.">
       <input id="wine-name" class="ui-control" type="text" bind:value={formData.name} />
     </Field>
-    <div class="grid-2">
+    <div class="ui-grid-2">
       <Field id="wine-winery" label="Domaine" required>
         <select id="wine-winery" class="ui-control" bind:value={formData.winery_id} required>
           <option value="">Sélectionner un domaine</option>
@@ -767,7 +728,7 @@
       {#each winePairings as wp}
         <li>
           <span>{wp.pairing.description}</span>
-          <IconButton label="Retirer {wp.pairing.description}" onclick={() => removePairing(wp.pairing_id)}>
+          <IconButton label="Retirer {wp.pairing.description}" onclick={() => (pairingToRemove = wp)}>
             <IconX size={16} strokeWidth={1.75} />
           </IconButton>
         </li>
@@ -859,8 +820,6 @@
     line-height: 18px;
   }
 
-
-
   .vintages {
     display: flex;
     flex-wrap: wrap;
@@ -869,7 +828,7 @@
 
   .vintage-chip {
     padding: 2px 8px;
-    border-radius: 4px;
+    border-radius: var(--r-sm);
     background: var(--table-head);
     border: 1px solid var(--border-soft);
     font-size: 12px;
@@ -878,7 +837,7 @@
 
   .vintage-chip.out {
     background: var(--st-cancelled-bg);
-    border-color: #ecc9c9;
+    border-color: var(--danger-border);
     color: var(--danger);
   }
 
@@ -953,12 +912,6 @@
     gap: 16px;
   }
 
-  .grid-2 {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 16px;
-  }
-
   .pairing-intro {
     margin: 0 0 12px;
   }
@@ -969,7 +922,7 @@
     padding: 0;
     border: 1px solid var(--border-soft);
     border-radius: var(--r-md);
-    background: #fff;
+    background: var(--card);
   }
 
   .pairings li {
@@ -1001,10 +954,6 @@
     .chips {
       overflow-x: auto;
       flex-wrap: nowrap;
-    }
-
-    .grid-2 {
-      grid-template-columns: 1fr;
     }
   }
 </style>

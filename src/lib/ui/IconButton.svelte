@@ -83,7 +83,7 @@
 
   .icon-btn--outline {
     border-color: var(--btn-border);
-    background: #fff;
+    background: var(--control-bg);
   }
 
   .icon-btn--dark {

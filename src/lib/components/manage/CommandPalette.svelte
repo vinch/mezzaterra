@@ -277,7 +277,7 @@
     justify-content: center;
     align-items: flex-start;
     padding: 12vh 1rem 1rem;
-    background: rgba(14, 24, 25, 0.45);
+    background: var(--overlay);
     backdrop-filter: blur(2px);
   }
 
@@ -286,9 +286,9 @@
     max-height: 70vh;
     display: flex;
     flex-direction: column;
-    background: white;
-    border-radius: 14px;
-    box-shadow: 0 30px 70px -20px rgba(0, 0, 0, 0.45);
+    background: var(--card);
+    border-radius: var(--r-md);
+    box-shadow: var(--shadow-pop);
     overflow: hidden;
     font-family: var(--font-sans);
   }
@@ -298,7 +298,7 @@
     align-items: center;
     gap: 0.75rem;
     padding: 0.9rem 1rem;
-    border-bottom: 1px solid #eee;
+    border-bottom: 1px solid var(--border-soft);
     color: var(--mz-muted);
   }
 
@@ -306,6 +306,7 @@
     flex: 1;
     border: none;
     outline: none;
+    background: none;
     font: inherit;
     font-size: 1.05rem;
     color: var(--ink);
@@ -314,9 +315,9 @@
   kbd {
     display: inline-block;
     padding: 0.1rem 0.4rem;
-    border-radius: 4px;
-    border: 1px solid #ddd;
-    background: #f8f9fa;
+    border-radius: var(--r-sm);
+    border: 1px solid var(--border);
+    background: var(--table-head);
     font-family: inherit;
     font-size: 0.72rem;
     color: var(--mz-muted);
@@ -333,7 +334,7 @@
     font-weight: 600;
     letter-spacing: 0.1em;
     text-transform: uppercase;
-    color: #868e96;
+    color: var(--ink-2);
   }
 
   .row {
@@ -343,7 +344,7 @@
     gap: 0.7rem;
     padding: 0.6rem 0.65rem;
     border: none;
-    border-radius: 8px;
+    border-radius: var(--r-sm);
     background: none;
     color: var(--ink);
     font: inherit;
@@ -367,23 +368,23 @@
 
   .hint {
     font-size: 0.8rem;
-    color: #868e96;
+    color: var(--ink-2);
     white-space: nowrap;
   }
 
   .empty {
     padding: 1.5rem;
     text-align: center;
-    color: #868e96;
+    color: var(--ink-2);
   }
 
   footer {
     display: flex;
     gap: 1rem;
     padding: 0.55rem 1rem;
-    border-top: 1px solid #eee;
+    border-top: 1px solid var(--border-soft);
     font-size: 0.75rem;
-    color: #868e96;
+    color: var(--ink-2);
   }
 
   footer kbd {

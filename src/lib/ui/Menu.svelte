@@ -229,7 +229,7 @@
 
   .item.danger:hover,
   .item.danger:focus {
-    background: #fbefef;
+    background: var(--danger-bg);
   }
 
   .sep {

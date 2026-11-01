@@ -4,8 +4,9 @@
   import Button from "./Button.svelte";
 
   /**
-   * Confirmation d'une action destructive.
-   * Titre en question, phrase d'impact, « Annuler » (ghost) puis « Oui, supprimer » (danger-solid).
+   * Confirmation d'une action : titre en question, phrase d'impact, « Annuler » (ghost) puis le
+   * bouton de confirmation, rouge (danger-solid) pour une suppression, primary (`tone="primary"`)
+   * pour une action irréversible mais non destructive (envoi, changement de statut).
    */
   interface Props {
     onconfirm?: () => void;
@@ -17,6 +18,7 @@
     confirmLabel?: string;
     cancelLabel?: string;
     busy?: boolean;
+    tone?: "danger" | "primary";
     /**
      * Action confirmée. Si fournie, la boîte gère seule l'attente (impossible de l'annuler pendant)
      * puis appelle `ondone` ; sinon, elle appelle seulement `onconfirm`.
@@ -32,6 +34,7 @@
     confirmLabel = "Oui, supprimer",
     cancelLabel = "Annuler",
     busy = $bindable(false),
+    tone = "danger",
     action = null,
     children,
     onconfirm,
@@ -62,7 +65,7 @@
   <p class="impact">{message}{@render children?.()}</p>
   {#snippet footer()}
       <Button variant="ghost" disabled={busy && !!action} onclick={cancel}>{cancelLabel}</Button>
-      <Button variant="danger-solid" disabled={busy} onclick={confirm}>
+      <Button variant={tone === "primary" ? "primary" : "danger-solid"} disabled={busy} onclick={confirm}>
         {busy ? "…" : confirmLabel}
       </Button>
   {/snippet}

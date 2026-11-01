@@ -17,6 +17,21 @@ export function formatDate(iso: string | null | undefined): string {
   return d && m && y ? `${d}/${m}/${y}` : iso;
 }
 
+const decimal = new Intl.NumberFormat("fr-BE", { maximumFractionDigits: 2 });
+
+/** « 12,5 % » : pourcentage à la virgule décimale, comme les montants. */
+export function formatPercent(n: number): string {
+  return `${decimal.format(n)} %`;
+}
+
+const dateTime = new Intl.DateTimeFormat("fr-FR", { dateStyle: "short", timeStyle: "short" });
+
+/** « 17/10/2026 19:30 » à partir d'un horodatage ISO (heure locale) ; « — » si vide ou illisible. */
+export function formatDateTime(iso: string | null | undefined): string {
+  const d = iso ? new Date(iso) : null;
+  return d && !Number.isNaN(d.getTime()) ? dateTime.format(d) : "—";
+}
+
 /** Montant saisi ou renvoyé par PostgREST (number ou string, virgule décimale FR) ; 0 si invalide. */
 export function toNumber(value: unknown): number {
   if (value == null || value === "") return 0;

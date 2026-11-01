@@ -1,7 +1,7 @@
 import { supabase } from "./supabase";
 import { LINE_ITEMS_SELECT } from "./manageData";
 import { lineTotal } from "./analytics";
-import { toNumber } from "./format";
+import { formatEUR, formatPercent, toNumber } from "./format";
 import { vintageProductLabel } from "./wine";
 
 /** Règles des ventes partagées par la page Ventes et la facture PDF. */
@@ -48,6 +48,13 @@ export function lineDiscountError(item: { price: unknown; quantity: unknown; dis
   return discount > gross
     ? `La remise (${discount.toFixed(2).replace(".", ",")} €) dépasse le montant de la ligne (${gross.toFixed(2).replace(".", ",")} €).`
     : null;
+}
+
+/** Remise d'une ligne telle qu'affichée : « −10 % », « −5,00 € », « — » sans remise. */
+export function lineDiscountLabel(item: { discount: unknown; discount_type?: string | null }): string {
+  const discount = toNumber(item.discount);
+  if (discount <= 0) return "—";
+  return item.discount_type === "percent" ? `−${formatPercent(discount)}` : `−${formatEUR(discount)}`;
 }
 
 /** Lignes de vente : remises et note (ligne dégustation) en plus des lignes d'articles. */
