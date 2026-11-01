@@ -37,14 +37,15 @@
   let transports: any[] = $derived(data.transports);
   const SORT_VALUES = {
     transporter: (t: any) => t.transporter?.name,
-    departure: (t: any) => t.departure_date,
-    arrival: (t: any) => t.arrival_date,
+    /* Sans date : transport encore à planifier, compté comme le plus lointain (en tête du plus récent d'abord). */
+    departure: (t: any) => t.departure_date ?? "9999",
+    arrival: (t: any) => t.arrival_date ?? "9999",
     status: (t: any) => statusRank("transport", t.status),
     orders: (t: any) => t.order_count || 0,
     pallets: (t: any) => t.pallets_number || null,
     price: (t: any) => toNumberOrNull(t.price),
   };
-  /* Par défaut, le départ le plus récent d'abord ; sans date de départ, en fin de liste. */
+  /* Par défaut, le départ le plus récent d'abord, comme au chargement. */
   let sort = $state<SortState<keyof typeof SORT_VALUES>>({ key: "departure", dir: "desc" });
   let sortedTransports = $derived(sortedBy(transports, sort, SORT_VALUES));
   /* Rechargés par invalidateAll() après une création, une modification ou une suppression. */
