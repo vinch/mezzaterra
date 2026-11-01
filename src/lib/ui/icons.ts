@@ -5,6 +5,7 @@ export { default as IconArrowDown } from "@lucide/svelte/icons/arrow-down";
 export { default as IconArrowLeft } from "@lucide/svelte/icons/arrow-left";
 export { default as IconArrowRight } from "@lucide/svelte/icons/arrow-right";
 export { default as IconArrowUp } from "@lucide/svelte/icons/arrow-up";
+export { default as IconArrowUpDown } from "@lucide/svelte/icons/arrow-up-down";
 export { default as IconBox } from "@lucide/svelte/icons/package";
 export { default as IconCalendar } from "@lucide/svelte/icons/calendar";
 export { default as IconChart } from "@lucide/svelte/icons/chart-column";
