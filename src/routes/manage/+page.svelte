@@ -492,8 +492,8 @@
     gap: 8px 24px;
     padding: 12px 16px;
     margin-bottom: 16px;
-    background: #f7efd7;
-    border: 1px solid #ead9a8;
+    background: var(--warn-bg);
+    border: 1px solid var(--warn-border);
     border-radius: var(--r-md);
   }
 

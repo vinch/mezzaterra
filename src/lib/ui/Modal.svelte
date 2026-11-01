@@ -149,7 +149,7 @@
     align-items: flex-start;
     justify-content: center;
     padding: 40px 16px;
-    background: rgba(28, 44, 46, 0.55);
+    background: var(--overlay);
     overflow-y: auto;
   }
 

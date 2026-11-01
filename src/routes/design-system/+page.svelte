@@ -92,12 +92,14 @@
       tokens: [
         { name: "--paper", note: "Fond de l’app" },
         { name: "--card", note: "Cartes, tableaux, modales" },
+        { name: "--control-bg", note: "Champs, boutons secondaires" },
         { name: "--table-head", note: "En-têtes, pieds de modale" },
         { name: "--row-hover", note: "Survol d’une ligne" },
         { name: "--border", note: "Bordure des cartes" },
         { name: "--border-soft", note: "Séparateurs internes" },
         { name: "--input-border", note: "Champs" },
         { name: "--btn-border", note: "Boutons secondaires" },
+        { name: "--overlay", note: "Fond derrière une modale ou un tiroir" },
       ],
     },
     {
@@ -106,7 +108,11 @@
         { name: "--ink", note: "Texte principal" },
         { name: "--ink-2", note: "Texte secondaire (≥ 4,5:1)" },
         { name: "--danger", note: "Destructif, rupture, erreur" },
+        { name: "--danger-bg", note: "Fond d’erreur, survol destructif" },
+        { name: "--danger-border", note: "Bordure d’erreur" },
         { name: "--warn", note: "Stock bas (texte)" },
+        { name: "--warn-bg", note: "Encadré d’avertissement, « à faire »" },
+        { name: "--warn-border", note: "Bordure d’avertissement" },
       ],
     },
     {
@@ -266,6 +272,7 @@
               <div class="shape" style="border-radius: var({s.name})"><code>{s.name}</code><span class="t-caption">{s.note}</span></div>
             {/each}
             <div class="shape" style="box-shadow: var(--shadow-pop)"><code>--shadow-pop</code><span class="t-caption">Menus, modales</span></div>
+            <div class="shape" style="box-shadow: var(--focus-ring)"><code>--focus-ring</code><span class="t-caption">Champ actif</span></div>
           </div>
         </section>
 

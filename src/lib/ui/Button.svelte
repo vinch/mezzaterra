@@ -116,7 +116,7 @@
   }
 
   .btn--secondary {
-    background: #fff;
+    background: var(--control-bg);
     border-color: var(--btn-border);
     color: var(--ink);
   }
@@ -139,13 +139,13 @@
   }
 
   .btn--danger {
-    background: #fff;
+    background: var(--control-bg);
     border-color: var(--danger);
     color: var(--danger);
   }
 
   .btn--danger:hover:not(:disabled) {
-    background: #fbefef;
+    background: var(--danger-bg);
   }
 
   .btn--danger-solid {

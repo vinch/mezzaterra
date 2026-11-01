@@ -220,7 +220,7 @@
     display: block;
     width: 100%;
     height: auto;
-    border-radius: 8px;
+    border-radius: var(--r-sm);
     box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
   }
 

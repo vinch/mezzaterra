@@ -869,7 +869,7 @@
 
   .vintage-chip {
     padding: 2px 8px;
-    border-radius: 4px;
+    border-radius: var(--r-sm);
     background: var(--table-head);
     border: 1px solid var(--border-soft);
     font-size: 12px;
@@ -878,7 +878,7 @@
 
   .vintage-chip.out {
     background: var(--st-cancelled-bg);
-    border-color: #ecc9c9;
+    border-color: var(--danger-border);
     color: var(--danger);
   }
 
@@ -969,7 +969,7 @@
     padding: 0;
     border: 1px solid var(--border-soft);
     border-radius: var(--r-md);
-    background: #fff;
+    background: var(--card);
   }
 
   .pairings li {

@@ -419,7 +419,7 @@
 
   .notes-modal-hint {
     margin: 0 0 1.25rem;
-    color: #555;
+    color: var(--ink-2);
     font-size: 0.9rem;
     line-height: 1.5;
   }
@@ -456,7 +456,7 @@
     padding: 0.65rem 0.75rem;
     background: var(--table-head);
     border: 1px solid var(--border-soft);
-    border-radius: 6px;
+    border-radius: var(--r-sm);
   }
 
   .notes-order-num {

@@ -16,6 +16,7 @@
   --mist: #e3ecea; /* sélection, fonds d'icônes */
   --paper: var(--mz-paper); /* fond de l'app */
   --card: #faf8f3; /* cartes, tableaux */
+  --control-bg: #fff; /* champs, boutons secondaires */
   --table-head: #f3f0e8;
   --row-hover: #f4f1ea;
   --border: #dcd6c8;
@@ -25,7 +26,11 @@
   --ink: var(--mz-ink); /* texte principal */
   --ink-2: #5f6764; /* texte secondaire (≥ 4,5:1 sur carte et papier) */
   --danger: #9b2c2c; /* destructif, rupture */
+  --danger-bg: #fbefef; /* message d'erreur, survol destructif */
+  --danger-border: #ecc9c9;
   --warn: #8a5a00; /* stock bas (texte) */
+  --warn-bg: #f7efd7; /* encadré d'avertissement, « à faire » */
+  --warn-border: #ead9a8;
   --gold: #e8c96a; /* compteur de la barre latérale */
 
   /* Statuts (badges) */
@@ -51,6 +56,8 @@
   --r-pill: 999px;
   --control-h: 40px;
   --shadow-pop: 0 8px 24px rgba(31, 42, 43, 0.14);
+  --focus-ring: 0 0 0 2px rgba(37, 97, 105, 0.18); /* champ actif */
+  --overlay: rgba(28, 44, 46, 0.55); /* fond derrière une modale ou un tiroir */
 }
 
 @media (max-width: 767px) {
@@ -148,7 +155,7 @@
   padding: 0 12px;
   border: 1px solid var(--input-border);
   border-radius: var(--r-sm);
-  background: #fff;
+  background: var(--control-bg);
   color: var(--ink);
   font: inherit;
   font-size: 14px;
@@ -243,7 +250,7 @@ select:disabled {
 .ui-control:focus {
   outline: none;
   border-color: var(--teal-600);
-  box-shadow: 0 0 0 2px rgba(37, 97, 105, 0.18);
+  box-shadow: var(--focus-ring);
 }
 
 .ui-control[aria-invalid="true"] {
@@ -349,7 +356,7 @@ select:disabled {
   padding: 0 14px;
   border: 1px solid var(--btn-border);
   border-radius: var(--r-pill);
-  background: #fff;
+  background: var(--control-bg);
   color: var(--ink);
   font: inherit;
   font-weight: 500;

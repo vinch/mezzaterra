@@ -1343,7 +1343,7 @@
     padding: 0 4px 0 6px;
     border: 1px solid var(--input-border);
     border-radius: var(--r-sm);
-    background: #fff;
+    background: var(--control-bg);
   }
 
   .chip-avatar {
@@ -1388,7 +1388,7 @@
   .items-box {
     border: 1px solid var(--border);
     border-radius: var(--r-md);
-    background: #fff;
+    background: var(--card);
     overflow: hidden;
   }
 
