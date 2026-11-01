@@ -52,16 +52,16 @@ export type ProductKindInfo = {
    */
   style: ProductStyleKey | null;
   /** Lot du produit (une ligne `lot`, vendue et stockée) : « Millésime », « Lot ». */
-  batch: string;
-  batchPlural: string;
-  newBatch: string;
+  lot: string;
+  lotPlural: string;
+  newLot: string;
   /** « Aucun millésime », « Aucun lot ». */
-  noBatch: string;
+  noLot: string;
   /** « Ajouter un millésime » (menu de la liste des produits). */
-  addBatch: string;
+  addLot: string;
   /** « Modifier le millésime », « ce millésime ». */
-  editBatch: string;
-  thisBatch: string;
+  editLot: string;
+  thisLot: string;
   /** Année du lot (`lot.year`), toujours facultative (vin non millésimé, huile sans récolte indiquée). */
   yearLabel: string;
   yearPlaceholder: string;
@@ -72,12 +72,12 @@ export type ProductKindInfo = {
   /** Lot sans année : « Non millésimé ». */
   noYear: string;
   /** Composition (`variety`) : « Cépages », « Variétés d'olives ». */
-  ingredients: string;
+  varieties: string;
   /** « Nouveau cépage », « Nouvelle variété » (référentiel des cépages et variétés). */
-  newIngredient: string;
+  newVariety: string;
   /** « Choisir un cépage… », « Aucun cépage ». */
-  chooseIngredient: string;
-  noIngredient: string;
+  chooseVariety: string;
+  noVariety: string;
   /** Le degré d'alcool a un sens (`lot.abv`). */
   hasAbv: boolean;
   /** Contenants proposés à la création d'un lot (en mL), le premier par défaut. */
@@ -111,22 +111,22 @@ export const PRODUCT_KINDS: Record<ProductKind, ProductKindInfo> = {
     untitled: "Vin sans nom",
     typeLabel: "Robe",
     style: null,
-    batch: "Millésime",
-    batchPlural: "Millésimes",
-    newBatch: "Nouveau millésime",
-    noBatch: "Aucun millésime",
-    addBatch: "Ajouter un millésime",
-    editBatch: "Modifier le millésime",
-    thisBatch: "ce millésime",
+    lot: "Millésime",
+    lotPlural: "Millésimes",
+    newLot: "Nouveau millésime",
+    noLot: "Aucun millésime",
+    addLot: "Ajouter un millésime",
+    editLot: "Modifier le millésime",
+    thisLot: "ce millésime",
     yearLabel: "Année millésime",
     yearPlaceholder: "Si le vin est non millésimé, laissez vide",
     yearFact: "Millésime",
     otherYears: "Autres millésimes",
     noYear: "Non millésimé",
-    ingredients: "Cépages",
-    newIngredient: "Nouveau cépage",
-    chooseIngredient: "Choisir un cépage…",
-    noIngredient: "Aucun cépage",
+    varieties: "Cépages",
+    newVariety: "Nouveau cépage",
+    chooseVariety: "Choisir un cépage…",
+    noVariety: "Aucun cépage",
     hasAbv: true,
     volumes: [750, 375, 500, 1500, 3000],
     standardVolume: 750,
@@ -157,22 +157,22 @@ export const PRODUCT_KINDS: Record<ProductKind, ProductKindInfo> = {
     typeLabel: "Fruité",
     typeOrder: ["Fruité léger", "Fruité moyen", "Fruité intense"],
     style: "oil",
-    batch: "Lot",
-    batchPlural: "Lots",
-    newBatch: "Nouveau lot",
-    noBatch: "Aucun lot",
-    addBatch: "Ajouter un lot",
-    editBatch: "Modifier le lot",
-    thisBatch: "ce lot",
+    lot: "Lot",
+    lotPlural: "Lots",
+    newLot: "Nouveau lot",
+    noLot: "Aucun lot",
+    addLot: "Ajouter un lot",
+    editLot: "Modifier le lot",
+    thisLot: "ce lot",
     yearLabel: "Année de récolte",
     yearPlaceholder: "Si l’huile n’indique pas de récolte, laissez vide",
     yearFact: "Récolte",
     otherYears: "Autres récoltes",
     noYear: "Sans récolte indiquée",
-    ingredients: "Variétés d’olives",
-    newIngredient: "Nouvelle variété",
-    chooseIngredient: "Choisir une variété…",
-    noIngredient: "Aucune variété",
+    varieties: "Variétés d’olives",
+    newVariety: "Nouvelle variété",
+    chooseVariety: "Choisir une variété…",
+    noVariety: "Aucune variété",
     hasAbv: false,
     volumes: [500, 250, 750, 1000, 3000, 5000],
     standardVolume: null,

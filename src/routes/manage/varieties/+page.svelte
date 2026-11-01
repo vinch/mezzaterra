@@ -10,11 +10,11 @@
 <RefCrudPage
   title="Cépages et variétés"
   table="variety"
-  newLabel={(k) => k.newIngredient}
+  newLabel={(k) => k.newVariety}
   editLabel="Modifier"
   thisLabel="ce cépage ou cette variété"
   emptyText="Les cépages s’associent ensuite aux millésimes, les variétés d’olives aux lots d’huile."
-  kindTabs={(k) => k.ingredients}
+  kindTabs={(k) => k.varieties}
   fields={[
     { key: "name", label: "Nom", required: true },
     { key: "description", label: "Description", type: "textarea" },

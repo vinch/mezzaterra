@@ -116,7 +116,7 @@ export async function downloadTableCardsPdf(tasting: any, lots: any[], origin: s
     if (varieties) {
       doc.setTextColor(...MUTED);
       doc.setFontSize(10);
-      doc.text(doc.splitTextToSize(`${kind.ingredients} : ${varieties}`, W - 2 * M), M, y);
+      doc.text(doc.splitTextToSize(`${kind.varieties} : ${varieties}`, W - 2 * M), M, y);
       y += 6;
     }
 

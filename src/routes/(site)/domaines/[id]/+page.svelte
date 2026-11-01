@@ -47,10 +47,10 @@
     }
     return PRODUCT_KIND_LIST.filter((k) => varietiesByKind.has(k.key)).map((k) => ({
       ...k,
-      varieties: [...varietiesByKind.get(k.key)!].sort((a, b) => a.localeCompare(b, "fr")),
+      varietyNames: [...varietiesByKind.get(k.key)!].sort((a, b) => a.localeCompare(b, "fr")),
     }));
   })());
-  let varieties = $derived(kinds.flatMap((k) => k.varieties));
+  let varieties = $derived(kinds.flatMap((k) => k.varietyNames));
   /* « vins », « huiles d’olive », « vins et huiles d’olive ». */
   let productsLabel = $derived((kinds.length ? kinds : [PRODUCT_KINDS[DEFAULT_KIND]]).map((k) => k.plural.toLowerCase()).join(" et "));
 
@@ -110,10 +110,10 @@
               </dd>
             </div>
           {/if}
-          {#each kinds.filter((k) => k.varieties.length) as k (k.key)}
+          {#each kinds.filter((k) => k.varietyNames.length) as k (k.key)}
             <div class="varieties">
-              <dt>{k.ingredients}</dt>
-              <dd class="plain">{k.varieties.join(", ")}</dd>
+              <dt>{k.varieties}</dt>
+              <dd class="plain">{k.varietyNames.join(", ")}</dd>
             </div>
           {/each}
         </dl>

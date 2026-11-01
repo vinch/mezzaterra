@@ -122,7 +122,7 @@
   }
 
   /* Une ouverture plus récente relance la lecture : sa réponse fait foi. */
-  const detailsLoad = latestOnly((e) => (error = `${kind.ingredients} et notes illisibles : ${errorMessage(e)}`));
+  const detailsLoad = latestOnly((e) => (error = `${kind.varieties} et notes illisibles : ${errorMessage(e)}`));
 
   async function loadSourceDetails() {
     sourceDetails = null;
@@ -228,7 +228,7 @@
       /* 23505 : index unique produit + année + contenant (un seul « 50 cl 2025 » par produit). */
       if (formOpen) {
         error = saveError?.code === "23505"
-          ? `Ce ${kind.batch.toLowerCase()} existe déjà (même année, ou même mise en bouteille sans année, et même contenant). S’il est « plus jamais disponible », remettez-le plutôt au catalogue.`
+          ? `Ce ${kind.lot.toLowerCase()} existe déjà (même année, ou même mise en bouteille sans année, et même contenant). S’il est « plus jamais disponible », remettez-le plutôt au catalogue.`
           : saveError?.message ?? "Introuvable après l’enregistrement";
       }
       return;
@@ -272,7 +272,7 @@
     const gone = isDiscontinued(v);
     return [
       { label: "Gérer le stock", icon: IconBox, href: `/manage/products/${product.id}/stock/${v.id}` },
-      { label: kind.ingredients, icon: kindIcons.ingredient, onSelect: () => openVarietiesModal(v) },
+      { label: kind.varieties, icon: kindIcons.variety, onSelect: () => openVarietiesModal(v) },
       { label: "Modifier", icon: IconPencil, onSelect: () => openEditModal(v) },
       {
         label: gone ? "Remettre au catalogue" : "Plus jamais disponible",
@@ -378,7 +378,7 @@
 
 <ManagePageShell title={productTitle(product)} {subtitle} back={{ href: kindListHref("/manage/products", kindOf(product)), label: "Produits" }}>
   {#snippet actions()}
-      <Button variant="primary" onclick={openCreateModal}><IconPlus size={16} strokeWidth={1.75} /> {kind.newBatch}</Button>
+      <Button variant="primary" onclick={openCreateModal}><IconPlus size={16} strokeWidth={1.75} /> {kind.newLot}</Button>
   {/snippet}
 
   {#if product.description}
@@ -390,14 +390,14 @@
   {/if}
 
   {#if lots.length === 0}
-    <EmptyState icon={kindIcons.product} title="{kind.noBatch} pour {kind.thisLabel}" text="À ajouter pour vendre, stocker et servir en dégustation.">
-      <Button onclick={openCreateModal}><IconPlus size={16} strokeWidth={1.75} /> {kind.newBatch}</Button>
+    <EmptyState icon={kindIcons.product} title="{kind.noLot} pour {kind.thisLabel}" text="À ajouter pour vendre, stocker et servir en dégustation.">
+      <Button onclick={openCreateModal}><IconPlus size={16} strokeWidth={1.75} /> {kind.newLot}</Button>
     </EmptyState>
   {:else}
-    <DataTable caption="{kind.batchPlural} de {productTitle(product)}">
+    <DataTable caption="{kind.lotPlural} de {productTitle(product)}">
       <thead>
         <tr>
-          <th scope="col">{kind.batch}</th>
+          <th scope="col">{kind.lot}</th>
           <th scope="col">Mise en bouteille</th>
           {#if kind.hasAbv}<th scope="col" class="num">Degré</th>{/if}
           <th scope="col" class="num">Prix d’achat</th>
@@ -429,13 +429,13 @@
 </ManagePageShell>
 
 <!-- Modal de création / édition -->
-<Modal open={formOpen} title="{editingLot ? kind.editBatch : kind.newBatch} - {productTitle(product)}" onclose={closeForm}>
+<Modal open={formOpen} title="{editingLot ? kind.editLot : kind.newLot} - {productTitle(product)}" onclose={closeForm}>
   {#if error}<div class="error-message" role="alert">{error}</div>{/if}
   <form id="lot-form" class="ui-grid-2" onsubmit={preventDefault(submitForm)}>
     {#if !editingLot && lots.length}
       <fieldset class="reuse wide">
         <legend class="t-label">Reprendre les données de</legend>
-        <Select ariaLabel="{kind.batch} repris" value={sourceId} onchange={(e) => pickSource((e.currentTarget as HTMLSelectElement).value)}>
+        <Select ariaLabel="{kind.lot} repris" value={sourceId} onchange={(e) => pickSource((e.currentTarget as HTMLSelectElement).value)}>
           <option value="">Ne rien reprendre</option>
           {#each lots as v (v.id)}
             <option value={v.id}>{lotYearLabel(v, kind.key)}</option>
@@ -465,7 +465,7 @@
                     disabled={noVarieties}
                     onchange={(e) => (copyVarieties = e.currentTarget.checked)}
                   />
-                  {kind.ingredients}
+                  {kind.varieties}
                   <span class="t-muted">{sourceInfo ? sourceInfo.varieties || "aucun" : "…"}</span>
                 </label>
                 <label class="checkbox-label">
@@ -481,7 +481,7 @@
               </div>
             </div>
           {/if}
-          <p class="t-caption reuse-hint">Les accords mets sont ceux du produit : ils valent déjà pour tous ses {kind.batchPlural.toLowerCase()}.</p>
+          <p class="t-caption reuse-hint">Les accords mets sont ceux du produit : ils valent déjà pour tous ses {kind.lotPlural.toLowerCase()}.</p>
       </fieldset>
     {/if}
 
@@ -538,11 +538,11 @@
 </Modal>
 
 <!-- Cépages d'un millésime, variétés d'olives d'un lot -->
-<Modal open={showVarietiesModal} title={kind.ingredients} maxWidth={520} onclose={closeVarietiesModal}>
+<Modal open={showVarietiesModal} title={kind.varieties} maxWidth={520} onclose={closeVarietiesModal}>
   {#if error}<div class="error-message" role="alert">{error}</div>{/if}
   {#if selectedLot}<p class="t-muted varieties-intro">{productTitle(product)} · {lotYearLabel(selectedLot, kind.key)}</p>{/if}
   {#if lotVarieties.length === 0}
-    <EmptyState icon={kindIcons.ingredient} title="{kind.noIngredient} pour {kind.thisBatch}" compact />
+    <EmptyState icon={kindIcons.variety} title="{kind.noVariety} pour {kind.thisLot}" compact />
   {:else}
     <ul class="varieties">
       {#each lotVarieties as lotVariety (lotVariety.variety_id)}
@@ -556,8 +556,8 @@
     </ul>
   {/if}
   <div class="add-variety">
-    <select class="ui-control" bind:value={selectedVarietyId} aria-label="{kind.ingredients} : ajouter">
-      <option value="">{kind.chooseIngredient}</option>
+    <select class="ui-control" bind:value={selectedVarietyId} aria-label="{kind.varieties} : ajouter">
+      <option value="">{kind.chooseVariety}</option>
       {#each allVarieties as variety (variety.id)}
         <option value={variety.id} disabled={linkedVarietyIds.has(variety.id)}>
           {variety.name}{linkedVarietyIds.has(variety.id) ? " (déjà ajouté)" : ""}
@@ -594,8 +594,8 @@
 
 <ConfirmDialog
   open={!!deleteTarget}
-  title="Supprimer {kind.thisBatch} ?"
-  message={deleteTarget ? `${kind.batch} ${lotYearLabel(deleteTarget, kind.key)} : suppression avec ${kind.ingredients.toLowerCase()} et notes, si aucune vente ni aucun mouvement de stock ne l’utilise.` : ""}
+  title="Supprimer {kind.thisLot} ?"
+  message={deleteTarget ? `${kind.lot} ${lotYearLabel(deleteTarget, kind.key)} : suppression avec ${kind.varieties.toLowerCase()} et notes, si aucune vente ni aucun mouvement de stock ne l’utilise.` : ""}
   action={() => deleteLot(deleteTarget!)}
   oncancel={() => (deleteTarget = null)}
   ondone={() => (deleteTarget = null)}

@@ -409,7 +409,7 @@
     const items: MenuItem[] = [
       { label: "Ouvrir la fiche", icon: IconEye, href: `/manage/products/${product.id}` },
       { label: "Modifier", icon: IconPencil, onSelect: () => openEditModal(product) },
-      { label: kind.addBatch, icon: IconPlus, href: `/manage/products/${product.id}?nouveau=1` },
+      { label: kind.addLot, icon: IconPlus, href: `/manage/products/${product.id}?nouveau=1` },
     ];
     if (kind.pairingsLabel) items.push({ label: kind.pairingsLabel, icon: IconPlate, onSelect: () => openPairingsModal(product) });
     if (latestLot(product)) items.push({ label: "Commander (réassort)", icon: IconClipboard, onSelect: () => reorder(product) });
@@ -499,10 +499,10 @@
       compareValues(sortValue(a, sort.key), sortValue(b, sort.key), sort.dir)));
   /** « 19 vins (35 millésimes) · 120 bouteilles en stock », pour l'onglet ouvert. */
   let subtitle = $derived.by(() => {
-    const batches = tabProducts.reduce((n, w: any) => n + (w.lot?.length ?? 0), 0);
+    const lotCount = tabProducts.reduce((n, w: any) => n + (w.lot?.length ?? 0), 0);
     const bottles = tabProducts.reduce((n, w) => n + (stockById.get(w.id)?.total ?? 0), 0);
     return [
-      `${kindCount(tabKind, tabProducts.length)} (${batches} ${(batches > 1 ? tabKind.batchPlural : tabKind.batch).toLowerCase()})`,
+      `${kindCount(tabKind, tabProducts.length)} (${lotCount} ${(lotCount > 1 ? tabKind.lotPlural : tabKind.lot).toLowerCase()})`,
       stock ? `${bottles} bouteille${bottles > 1 ? "s" : ""} en stock` : "stock indisponible",
     ].join(" · ");
   });
@@ -536,7 +536,7 @@
     <Spinner />
   {:else if tabProducts.length === 0}
     <div class="empty-card">
-      <EmptyState icon={KIND_ICONS[tab].product} title={tabKind.noProduct} text="Créez le produit, puis ses {tabKind.batchPlural.toLowerCase()} (un par contenant).">
+      <EmptyState icon={KIND_ICONS[tab].product} title={tabKind.noProduct} text="Créez le produit, puis ses {tabKind.lotPlural.toLowerCase()} (un par contenant).">
         <Button onclick={openCreateModal}><IconPlus size={16} strokeWidth={1.75} /> {tabKind.newLabel}</Button>
       </EmptyState>
     </div>
@@ -592,7 +592,7 @@
             <tr>
               <SortHeader column="name" label="Produit" also={{ column: "producer", label: "Domaine" }} bind:sort />
               <SortHeader column="type" label={tabKind.typeLabel} bind:sort />
-              <th scope="col">{tabKind.batchPlural} · stock</th>
+              <th scope="col">{tabKind.lotPlural} · stock</th>
               <SortHeader column="stock" label="Stock" num firstDir="desc" bind:sort />
               <SortHeader column="price" label="Prix de vente" num bind:sort />
               <th scope="col" class="col-actions"><span class="sr-only">Actions</span></th>
@@ -629,7 +629,7 @@
                         </span>
                       {/if}
                     {:else}
-                      <span class="t-muted">{kindInfo(product).noBatch}</span>
+                      <span class="t-muted">{kindInfo(product).noLot}</span>
                     {/each}
                   </span>
                 </td>
@@ -674,7 +674,7 @@
   bind:open={confirmOpen}
   title="Supprimer {deleteTarget ? kindInfo(deleteTarget).thisLabel : 'ce produit'} ?"
   message={deleteTarget
-    ? `« ${productTitle(deleteTarget)} » (${deleteTarget.producer?.name ?? ""}) sera supprimé du catalogue, ainsi que ses ${deleteTarget.lot?.length ?? 0} ${kindInfo(deleteTarget).batchPlural.toLowerCase()} si la base l’autorise. Les ventes passées ne sont pas modifiées.`
+    ? `« ${productTitle(deleteTarget)} » (${deleteTarget.producer?.name ?? ""}) sera supprimé du catalogue, ainsi que ses ${deleteTarget.lot?.length ?? 0} ${kindInfo(deleteTarget).lotPlural.toLowerCase()} si la base l’autorise. Les ventes passées ne sont pas modifiées.`
     : ""}
   onconfirm={confirmDelete}
 />

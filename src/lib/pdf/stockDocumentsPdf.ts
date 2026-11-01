@@ -346,7 +346,7 @@ export async function downloadNotesPdf(
     const varieties = v.varietyNames.length ? v.varietyNames.join(", ") : "—";
     const kind = kindInfo(v.kind);
     const abvStr = kind.hasAbv ? ` / ${v.abv != null ? `${v.abv}%` : "—"}` : "";
-    const detail = `${productTypeLabel({ name: v.productTypeName, kind: v.kind })} / ${stockLotLabel(v)}${abvStr} / ${kind.ingredients} : ${varieties} / ${v.appellationLine || "—"}`;
+    const detail = `${productTypeLabel({ name: v.productTypeName, kind: v.kind })} / ${stockLotLabel(v)}${abvStr} / ${kind.varieties} : ${varieties} / ${v.appellationLine || "—"}`;
 
     const titleLines = fitLine(doc, title, textW - 2, 10.5);
     const detailLines = fitLine(doc, detail, textW, 9);

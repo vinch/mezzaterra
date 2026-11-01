@@ -117,7 +117,7 @@
           {#if v.abv}<div><dt>Alcool</dt><dd>{v.abv} % vol.</dd></div>{/if}
           {#if formatsText(data.formats)}<div><dt>Contenant</dt><dd>{formatVolume(v.volume_ml)}</dd></div>{/if}
           {#if v.price}<div><dt>Prix</dt><dd>{formatEUR(v.price)}</dd></div>{/if}
-          {#if varieties}<div><dt>{kind.ingredients}</dt><dd class="mz-facts-text">{varieties}</dd></div>{/if}
+          {#if varieties}<div><dt>{kind.varieties}</dt><dd class="mz-facts-text">{varieties}</dd></div>{/if}
           {#if stock}
             <div>
               <dt>Disponibilité</dt>

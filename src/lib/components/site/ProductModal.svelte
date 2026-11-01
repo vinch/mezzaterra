@@ -105,7 +105,7 @@
       <div class="content">
         {#if varieties}
           <section>
-            <h3 class="mz-eyebrow mz-eyebrow--heading">{kind.ingredients}</h3>
+            <h3 class="mz-eyebrow mz-eyebrow--heading">{kind.varieties}</h3>
             <p>{varieties}</p>
           </section>
         {/if}
