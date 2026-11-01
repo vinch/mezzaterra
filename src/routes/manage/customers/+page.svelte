@@ -26,7 +26,7 @@
   emptyText="Les clients se créent aussi depuis une vente, une inscription ou une demande « J’en veux »."
   rowLabel={customerDisplayLabel}
   rowHref={(c) => `/manage/customers/${c.id}`}
-  editId={$page.url.searchParams.get("modifier")}
+  editId={$page.url.searchParams.get("edit")}
   fields={[
     { key: "first_name", label: "Prénom", required: true },
     { key: "last_name", label: "Nom", required: true },
