@@ -106,7 +106,7 @@
     /* Liens profonds depuis le tableau de bord : ?statut=pending, ?nouvelle=1 */
     const params = new URLSearchParams(window.location.search);
     const st = params.get("statut");
-    if (st && ["pending", "paid", "delivered", "closed", "cancelled"].includes(st)) tab = st as Tab;
+    if (st && Object.hasOwn(STATUS_META, st)) tab = st as Tab;
     const t = params.get("degustation");
     if (t) tastingFilter = t;
     try {
@@ -598,11 +598,7 @@
   type Tab = "all" | SaleStatus;
   const TABS: { key: Tab; label: string }[] = [
     { key: "all", label: "Toutes" },
-    { key: "pending", label: STATUS_META.pending.plural },
-    { key: "paid", label: STATUS_META.paid.plural },
-    { key: "delivered", label: STATUS_META.delivered.plural },
-    { key: "closed", label: STATUS_META.closed.plural },
-    { key: "cancelled", label: STATUS_META.cancelled.plural },
+    ...(Object.entries(STATUS_META) as [SaleStatus, (typeof STATUS_META)[SaleStatus]][]).map(([key, m]) => ({ key, label: m.plural })),
   ];
   let tab = $state<Tab>("all");
   let search = $state("");
@@ -891,12 +887,12 @@
 <Modal open={!!paymentPrompt} title="Mode de paiement" maxWidth={440} onclose={() => answerPayment(null)}>
   <Field id="paid-payment" label="Mode de paiement" help={paymentPrompt?.note}>
     {#snippet children({ describedby })}
-      <select id="paid-payment" class="ui-control" bind:value={paymentChoice} aria-describedby={describedby}>
+      <Select id="paid-payment" bind:value={paymentChoice} {describedby}>
         <option value="">Choisir…</option>
         {#each PAYMENT_METHOD_OPTIONS as opt}
           <option value={opt.value}>{opt.label}</option>
         {/each}
-      </select>
+      </Select>
     {/snippet}
   </Field>
   {#snippet footer()}
@@ -1057,14 +1053,14 @@
     <div class="ui-grid-2">
       <Field id="sale-payment" label="Mode de paiement" help="Sinon, demandé au passage en « Payée ».">
         {#snippet children({ describedby })}
-                <select id="sale-payment" class="ui-control" bind:value={formData.payment_method} aria-describedby={describedby}>
+          <Select id="sale-payment" bind:value={formData.payment_method} {describedby}>
             <option value="">— Non renseigné —</option>
             {#each PAYMENT_METHOD_OPTIONS as opt}
               <option value={opt.value}>{opt.label}</option>
             {/each}
-          </select>
-                      {/snippet}
-            </Field>
+          </Select>
+        {/snippet}
+      </Field>
 
       <Field id="sale-global-discount" label="Ristourne globale" optional help="Sur le sous-total, après les remises par article." >
         {#snippet children({ describedby })}
@@ -1081,12 +1077,14 @@
     </div>
 
     <Field id="sale-tasting" label="Dégustation" optional help="Proposée automatiquement quand une dégustation a lieu à la date de la vente.">
-      <select id="sale-tasting" class="ui-control" bind:value={formData.tasting_id} onchange={() => (tastingTouched = true)}>
-        <option value="">— Aucune —</option>
-        {#each tastings as t}
-          <option value={t.id}>{t.name || "Dégustation"} · {formatDate(t.date)}</option>
-        {/each}
-      </select>
+      {#snippet children({ describedby })}
+        <Select id="sale-tasting" bind:value={formData.tasting_id} {describedby} onchange={() => (tastingTouched = true)}>
+          <option value="">— Aucune —</option>
+          {#each tastings as t}
+            <option value={t.id}>{t.name || "Dégustation"} · {formatDate(t.date)}</option>
+          {/each}
+        </Select>
+      {/snippet}
     </Field>
 
     <Field id="sale-note" label="Note">
