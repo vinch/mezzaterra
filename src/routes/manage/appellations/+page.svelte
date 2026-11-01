@@ -39,7 +39,7 @@
   columns={[
     { label: "Nom", value: (a) => a.name },
     { label: "Description", value: (a) => a.description, truncate: 60 },
-    { label: "Région", value: (a) => a.region && [a.region.country?.flag, a.region.name].filter(Boolean).join(" ") },
+    { label: "Région", value: (a) => a.region && [a.region.country?.flag, a.region.name].filter(Boolean).join(" "), sort: (a) => a.region?.name },
     { label: "Label", value: (a) => a.label?.name },
   ]}
 />

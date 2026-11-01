@@ -7,14 +7,18 @@
   import Button from "$lib/ui/Button.svelte";
   import MoveButtons from "$lib/ui/MoveButtons.svelte";
   import Spinner from "$lib/ui/Spinner.svelte";
+  import SortHeader from "$lib/ui/SortHeader.svelte";
   import {
     fetchStockDocVintages,
     sortedStockForDocuments,
+    stockSortValues,
     stockVintageLabel as vintageLabel,
     type StockDocVintage,
+    type StockSortKey,
   } from "$lib/stockDocuments";
+  import { sortedBy, type SortState } from "$lib/sort";
   import { todayIso } from "$lib/dates";
-  import { productTypeLabel } from "$lib/wine";
+  import { productTypeLabel, robeRanks } from "$lib/wine";
   import { fetchWineTypes } from "$lib/manageData";
   import { errorMessage } from "$lib/async";
   import { formatEUR } from "$lib/format";
@@ -61,7 +65,7 @@
       error = fetchError;
       rows = [];
     } else {
-      rows = data;
+      rows = sortedStockForDocuments(data);
     }
     loading = false;
   }
@@ -81,7 +85,10 @@
     return true;
   }));
 
-  let sortedVisible = $derived(sortedStockForDocuments(filteredRows));
+  /* Par défaut, par domaine ; à égalité, l'ordre du chargement (nom, puis millésime ↓). */
+  let sort = $state<SortState<StockSortKey>>({ key: "winery", dir: "asc" });
+  let sortValues = $derived(stockSortValues(robeRanks(wineTypes)));
+  let sortedVisible = $derived(sortedBy(filteredRows, sort, sortValues));
 
   let allVisibleSelected =
     $derived(sortedVisible.length > 0 &&
@@ -128,7 +135,8 @@
 
   function openNotesModal() {
     docError = "";
-    const picked = sortedVisible.filter((r) =>
+    /* Dans l'ordre habituel (domaine, nom, millésime ↓), quel que soit le tri du tableau. */
+    const picked = filteredRows.filter((r) =>
       selectedVintageIds.includes(r.id),
     );
     if (picked.length === 0) {
@@ -256,12 +264,12 @@
                   aria-label="Tout sélectionner ou tout désélectionner dans la liste affichée"
                 />
               </th>
-              <th>Domaine</th>
-              <th>Nom</th>
-              <th>Type</th>
-              <th>Mill.</th>
-              <th class="num">Prix</th>
-              <th class="num">Stock</th>
+              <SortHeader column="winery" label="Domaine" bind:sort />
+              <SortHeader column="name" label="Nom" bind:sort />
+              <SortHeader column="type" label="Type" bind:sort />
+              <SortHeader column="year" label="Mill." firstDir="desc" bind:sort />
+              <SortHeader column="price" label="Prix" num firstDir="asc" bind:sort />
+              <SortHeader column="stock" label="Stock" num bind:sort />
             </tr>
           </thead>
           <tbody>

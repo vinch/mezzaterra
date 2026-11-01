@@ -31,6 +31,16 @@ export const KIND_META: Record<StatusKind, Record<string, StatusMeta>> = {
   },
 };
 
+const STATUS_RANKS = Object.fromEntries(
+  Object.entries(KIND_META).map(([kind, meta]) => [kind, new Map(Object.keys(meta).map((s, i) => [s, i]))]),
+) as Record<StatusKind, Map<string, number>>;
+
+/** Rang d'un statut dans l'ordre de son type (tri d'une colonne Statut) ; un statut inconnu vient en dernier. */
+export function statusRank(kind: StatusKind, status: string | null | undefined): number {
+  const ranks = STATUS_RANKS[kind];
+  return ranks.get(status ?? "pending") ?? ranks.size;
+}
+
 export function statusMeta(kind: StatusKind, status: string | null | undefined): StatusMeta {
   return KIND_META[kind][status ?? "pending"] ?? { label: status ?? "", tone: "closed", icon: IconLock };
 }

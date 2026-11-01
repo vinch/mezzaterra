@@ -1,5 +1,6 @@
 import type { Country, Region } from "$lib/types";
 import { DEFAULT_KIND, PRODUCT_KIND_OPTIONS } from "$lib/productKinds";
+import type { SortValue } from "$lib/sort";
 
 /** Description des pages de référentiel (RefCrudPage) : champs, colonnes et listes de choix. */
 
@@ -36,6 +37,18 @@ export type RefColumn = {
   href?: (row: any) => string | null | undefined;
   /** Coupe le texte au-delà de N caractères (texte complet en infobulle). */
   truncate?: number;
+  /**
+   * Tri dans l'en-tête : par défaut sur le texte affiché, sauf lien ou texte coupé (non triables) ;
+   * une fonction trie sur une autre valeur, `false` exclut la colonne.
+   */
+  sort?: false | ((row: any) => SortValue);
+};
+
+/** Colonne « Pays » (« 🇮🇹 Italie »), triée sur le nom et non sur le drapeau. */
+export const COUNTRY_COLUMN: RefColumn = {
+  label: "Pays",
+  value: (r) => countryLabel(r.country),
+  sort: (r) => r.country?.name,
 };
 
 /** « 🇮🇹 Italie » (vide sans pays). */
@@ -87,9 +100,9 @@ export function contactFields(countries: RefOption[]): RefField[] {
 
 export const CONTACT_COLUMNS: RefColumn[] = [
   { label: "Nom", value: (s) => s.name },
-  { label: "Email", value: (s) => s.email },
-  { label: "Téléphone", value: (s) => s.phone_number },
+  { label: "Email", value: (s) => s.email, sort: false },
+  { label: "Téléphone", value: (s) => s.phone_number, sort: false },
   { label: "Ville", value: (s) => s.city },
-  { label: "Pays", value: (s) => countryLabel(s.country) },
-  { label: "TVA", value: (s) => s.vat },
+  COUNTRY_COLUMN,
+  { label: "TVA", value: (s) => s.vat, sort: false },
 ];
