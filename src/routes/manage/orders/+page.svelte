@@ -403,6 +403,7 @@
     ? `La commande du ${formatDate(confirmTarget.date)} chez ${confirmTarget.supplier.name} ne pourra plus être modifiée ni supprimée.`
     : ""}
   confirmLabel="Oui, confirmer"
+  tone="primary"
   action={() => updateOrderStatus(confirmTarget.id, "confirmed")}
 />
 
