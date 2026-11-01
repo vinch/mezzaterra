@@ -10,6 +10,8 @@
   import Button from "$lib/ui/Button.svelte";
   import IconButton from "$lib/ui/IconButton.svelte";
   import ConfirmDialog from "$lib/ui/ConfirmDialog.svelte";
+  import Field from "$lib/ui/Field.svelte";
+  import Select from "$lib/ui/Select.svelte";
   import DataTable from "$lib/ui/DataTable.svelte";
   import EmptyState from "$lib/ui/EmptyState.svelte";
   import RowMenu from "$lib/ui/RowMenu.svelte";
@@ -426,17 +428,16 @@
 <!-- Modal de création / édition -->
 <Modal open={formOpen} title="{editingVintage ? kind.editBatch : kind.newBatch} - {wineTitle(wine)}" onclose={closeForm}>
   {#if error}<div class="error-message" role="alert">{error}</div>{/if}
-  <form id="vintage-form" onsubmit={preventDefault(submitForm)}>
-    <div class="form-grid">
-      {#if !editingVintage && vintages.length}
-        <fieldset class="form-group full-width reuse">
-          <legend class="section-title">Reprendre les données de</legend>
-          <select aria-label="{kind.batch} repris" value={sourceId} onchange={(e) => pickSource(e.currentTarget.value)}>
-            <option value="">Ne rien reprendre</option>
-            {#each vintages as v (v.id)}
-              <option value={v.id}>{vintageYearLabel(v, kind.key)}</option>
-            {/each}
-          </select>
+  <form id="vintage-form" class="ui-grid-2" onsubmit={preventDefault(submitForm)}>
+    {#if !editingVintage && vintages.length}
+      <fieldset class="reuse">
+        <legend class="t-label">Reprendre les données de</legend>
+        <Select ariaLabel="{kind.batch} repris" value={sourceId} onchange={(e) => pickSource((e.currentTarget as HTMLSelectElement).value)}>
+          <option value="">Ne rien reprendre</option>
+          {#each vintages as v (v.id)}
+            <option value={v.id}>{vintageYearLabel(v, kind.key)}</option>
+          {/each}
+        </Select>
           {#if source}
             <div class="reuse-items">
               <!-- Aperçu de la bouteille à côté des cases (silhouette du site sans image) : lignes de même hauteur. -->
@@ -478,112 +479,54 @@
             </div>
           {/if}
           <p class="t-caption reuse-hint">Les accords mets sont ceux du produit : ils valent déjà pour tous ses {kind.batchPlural.toLowerCase()}.</p>
-        </fieldset>
-      {/if}
+      </fieldset>
+    {/if}
 
-      <div class="form-group">
-        <label for="production_year">Année de mise en bouteille *</label>
-        <!-- Focus à l'ouverture ici, pas sur la liste du millésime repris (la saisie de l'année y changerait le choix). -->
-        <!-- svelte-ignore a11y_autofocus -->
-        <input
-          type="number"
-          id="production_year"
-          autofocus
-          bind:value={vintageFormData.production_year}
-          min="1900"
-          max="2030"
-          required
-        />
-      </div>
+    <Field id="production_year" label="Année de mise en bouteille" required>
+      <!-- Focus à l'ouverture ici, pas sur la liste du millésime repris (la saisie de l'année y changerait le choix). -->
+      <!-- svelte-ignore a11y_autofocus -->
+      <input id="production_year" class="ui-control" type="number" autofocus bind:value={vintageFormData.production_year} min="1900" max="2030" required />
+    </Field>
 
-      <div class="form-group">
-        <label for="year">{kind.yearLabel}</label>
-        <input
-          type="number"
-          id="year"
-          bind:value={vintageFormData.year}
-          min="1900"
-          max="2030"
-          placeholder={kind.yearPlaceholder}
-        />
-      </div>
+    <Field id="year" label={kind.yearLabel}>
+      <input id="year" class="ui-control" type="number" bind:value={vintageFormData.year} min="1900" max="2030" placeholder={kind.yearPlaceholder} />
+    </Field>
 
-      <!-- Un lot par contenant : 50 cl et 5 L d'une même huile ont chacun leur prix et leur stock. -->
-      <div class="form-group">
-        <label for="volume_ml">Contenant *</label>
-        <!-- Fixé à la création : changer le contenant d'un lot réécrirait son stock et ses ventes passées. -->
-        <select
-          id="volume_ml"
-          bind:value={vintageFormData.volume_ml}
-          required
-          disabled={!!editingVintage}
-        >
-          {#each editingVintage ? [editingVintage.volume_ml] : kind.volumes as ml (ml)}
-            <option value={String(ml)}>{formatVolume(ml)}</option>
-          {/each}
-        </select>
-      </div>
+    <!-- Un lot par contenant : 50 cl et 5 L d'une même huile ont chacun leur prix et leur stock. -->
+    <!-- Fixé à la création : changer le contenant d'un lot réécrirait son stock et ses ventes passées. -->
+    <Field id="volume_ml" label="Contenant" required>
+      <Select id="volume_ml" bind:value={vintageFormData.volume_ml} required disabled={!!editingVintage}>
+        {#each editingVintage ? [editingVintage.volume_ml] : kind.volumes as ml (ml)}
+          <option value={String(ml)}>{formatVolume(ml)}</option>
+        {/each}
+      </Select>
+    </Field>
 
-      <div class="form-group">
-        <label for="purchase_price">Prix d'achat (€)</label>
-        <input
-          type="number"
-          step="0.01"
-          id="purchase_price"
-          bind:value={vintageFormData.purchase_price}
-          min="0"
-          placeholder="Prix unitaire payé au fournisseur"
-        />
-      </div>
+    <Field id="purchase_price" label="Prix d’achat (€)">
+      <input id="purchase_price" class="ui-control" type="number" step="0.01" min="0" bind:value={vintageFormData.purchase_price} placeholder="Prix unitaire payé au fournisseur" />
+    </Field>
 
-      <div class="form-group">
-        <label for="price">Prix de vente (€)</label>
-        <input
-          type="number"
-          step="0.01"
-          id="price"
-          bind:value={vintageFormData.price}
-          min="0"
-          placeholder="Prix unitaire de vente"
-        />
-      </div>
+    <Field id="price" label="Prix de vente (€)">
+      <input id="price" class="ui-control" type="number" step="0.01" min="0" bind:value={vintageFormData.price} placeholder="Prix unitaire de vente" />
+    </Field>
 
-      {#if kind.hasAbv}
-        <div class="form-group">
-          <label for="abv">Degré d'alcool (%)</label>
-          <input
-            type="number"
-            step="0.1"
-            id="abv"
-            bind:value={vintageFormData.abv}
-            min="0"
-            max="20"
-          />
-        </div>
-      {/if}
+    {#if kind.hasAbv}
+      <Field id="abv" label="Degré d’alcool (%)">
+        <input id="abv" class="ui-control" type="number" step="0.1" min="0" max="20" bind:value={vintageFormData.abv} />
+      </Field>
+    {/if}
 
-      <div class="form-group">
-        <label for="image_url">URL de l'image</label>
-        <input
-          type="url"
-          id="image_url"
-          bind:value={vintageFormData.image_url}
-          disabled={imageReused}
-          aria-describedby={imageReused ? "image-hint" : undefined}
-        />
-        <!-- Image reprise : on la change en décochant « Image » plus haut. -->
-        {#if imageReused}
-          <span id="image-hint" class="t-caption">Décochez « Image » pour en mettre une autre.</span>
-        {/if}
-      </div>
+    <!-- Image reprise : on la change en décochant « Image » plus haut. -->
+    <Field id="image_url" label="URL de l’image" help={imageReused ? "Décochez « Image » pour en mettre une autre." : ""}>
+      {#snippet children({ describedby })}
+        <input id="image_url" class="ui-control" type="url" bind:value={vintageFormData.image_url} disabled={imageReused} aria-describedby={describedby} />
+      {/snippet}
+    </Field>
 
-      <div class="form-group full-width">
-        <label class="checkbox-label">
-          <input type="checkbox" bind:checked={vintageFormData.organic} />
-          {kind.organicLabel}
-        </label>
-      </div>
-    </div>
+    <label class="checkbox-label wide">
+      <input type="checkbox" bind:checked={vintageFormData.organic} />
+      {kind.organicLabel}
+    </label>
   </form>
   {#snippet footer()}
       <Button variant="ghost" onclick={closeForm}>Annuler</Button>
@@ -681,11 +624,18 @@
   }
 
   .reuse {
+    grid-column: 1 / -1;
+    display: flex;
+    flex-direction: column;
     margin: 0;
     padding: 12px 14px;
     border: 1px solid var(--border-soft);
     border-radius: var(--r-sm);
     gap: 10px;
+  }
+
+  .wide {
+    grid-column: 1 / -1;
   }
 
   .reuse legend {
@@ -726,8 +676,6 @@
   .reuse-hint {
     margin: 0;
   }
-
-
 
   .organic {
     padding: 0 8px;
