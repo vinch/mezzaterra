@@ -412,10 +412,23 @@ select:disabled {
   border-color: var(--teal-600);
 }
 
-.ui-chip[aria-pressed="true"] {
+.ui-chip[aria-pressed="true"],
+.ui-chip:has(input:checked) {
   background: var(--night);
   border-color: var(--night);
   color: #fff;
+}
+
+/* Puce-choix : <label class="ui-chip"> autour d'un bouton radio masqué (choix exclusif). */
+.ui-chip input[type="radio"] {
+  position: absolute;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.ui-chip:has(input:focus-visible) {
+  outline: 2px solid var(--teal-600);
+  outline-offset: 2px;
 }
 
 .ui-chip .count {

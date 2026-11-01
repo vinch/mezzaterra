@@ -157,6 +157,7 @@
   let modalOpen = $state(false);
   let confirmOpen = $state(false);
   let primaryConfirmOpen = $state(false);
+  let demoTemplate = $state("Invitation");
   let demoStatus = $state<SaleStatus>("pending");
   let demoTab = $state<ProductKind>(DEFAULT_KIND);
   let demoOrder = $state(["Trebbiano d’Abruzzo", "Cerasuolo", "Montepulciano d’Abruzzo"]);
@@ -367,13 +368,18 @@
             <StockBadge kind="low" label="2 bt." />
           </div>
 
-          <h3 class="ds-h3"><code>.ui-chip</code> · puces de filtre</h3>
+          <h3 class="ds-h3"><code>.ui-chip</code> · puces de filtre (<code>aria-pressed</code>) ou de choix (<code>&lt;label&gt;</code> autour d’un radio masqué)</h3>
           <div class="row">
             <button type="button" class="ui-chip" aria-pressed={!robeFilter} onclick={() => (robeFilter = "")}>Toutes</button>
             {#each WINE_STYLES.slice(0, 4) as s}
               <button type="button" class="ui-chip" aria-pressed={robeFilter === s.key} onclick={() => (robeFilter = robeFilter === s.key ? "" : s.key)}>
                 <WineDot robe={s.key} />{s.label}<span class="count">12</span>
               </button>
+            {/each}
+          </div>
+          <div class="row" role="radiogroup" aria-label="Modèle de message">
+            {#each ["Invitation", "Rappel aux inscrits", "Message libre"] as t}
+              <label class="ui-chip"><input type="radio" bind:group={demoTemplate} value={t} /> {t}</label>
             {/each}
           </div>
         </section>
@@ -509,7 +515,7 @@
         <!-- ——— États ——— -->
         <section id="etats" class="ds-section">
           <h2 class="t-card-title">États</h2>
-          <p class="t-muted"><code>Spinner</code> pour tout chargement, sans texte visible (« Chargement… » est lu par les lecteurs d’écran), taille réglable avec <code>size</code> ; <code>inline</code> pour une action en cours dans une ligne (fiches de table d’une dégustation). <code>EmptyState</code> quand il n’y a rien, <code>.error-message</code> et <code>.success-message</code> pour le retour d’une action.</p>
+          <p class="t-muted"><code>Spinner</code> pour tout chargement, sans texte visible (« Chargement… » est lu par les lecteurs d’écran), taille réglable avec <code>size</code> ; <code>inline</code> pour une action en cours dans une ligne (fiches de table d’une dégustation). <code>EmptyState</code> quand il n’y a rien, <code>.error-message</code> et <code>.success-message</code> pour le retour d’une action, <code>.warning-message</code> pour un avertissement durable (configuration manquante…).</p>
           <div class="cards">
             <Card padded={false}>
               <EmptyState icon={IconReceipt} title="Aucune vente pour l’instant" text="Créez la première vente : elle sera enregistrée « En attente ».">
@@ -521,6 +527,7 @@
               <div class="t-muted">Fiches en cours <Spinner size={16} inline /></div>
               <div class="error-message" role="alert">Impossible d’enregistrer la vente.</div>
               <div class="success-message"><IconCheck size={16} strokeWidth={1.75} /> Vente enregistrée.</div>
+              <div class="warning-message">L’envoi direct des campagnes n’est pas configuré.</div>
             </div>
           </div>
         </section>

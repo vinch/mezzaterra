@@ -15,7 +15,7 @@ menus de ligne, chiffres, accessibilité, textes).
   pour le cadre de page. Pas de bouton, champ, tableau ou modale en HTML brut
   stylé à la main. De `src/lib/styles/manage-shared.css`, seules les classes
   montrées sur la page (`.error-message`, `.success-message`,
-  `.checkbox-label`) servent aux nouveaux écrans ; les autres (`.form-group`,
+  `.warning-message`, `.checkbox-label`) servent aux nouveaux écrans ; les autres (`.form-group`,
   `.table-container`, `.btn-primary`…) sont pour les anciens. Mise en page
   d’un formulaire ou d’un détail : `.ui-grid-2`, `.ui-facts`, `.ui-row-actions`
   (`src/app.css`). Tout chargement s’affiche avec `Spinner`, jamais un texte

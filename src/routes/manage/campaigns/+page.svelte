@@ -207,9 +207,9 @@
       <Card title="1. Message">
         <div class="stack">
           <div class="templates" role="radiogroup" aria-label="Modèle">
-            <label class:on={template === "invite"}><input type="radio" bind:group={template} value="invite" onchange={applyTemplate} /> Invitation</label>
-            <label class:on={template === "reminder"}><input type="radio" bind:group={template} value="reminder" onchange={applyTemplate} /> Rappel aux inscrits</label>
-            <label class:on={template === "free"}><input type="radio" bind:group={template} value="free" onchange={applyTemplate} /> Message libre</label>
+            <label class="ui-chip"><input type="radio" bind:group={template} value="invite" onchange={applyTemplate} /> Invitation</label>
+            <label class="ui-chip"><input type="radio" bind:group={template} value="reminder" onchange={applyTemplate} /> Rappel aux inscrits</label>
+            <label class="ui-chip"><input type="radio" bind:group={template} value="free" onchange={applyTemplate} /> Message libre</label>
           </div>
 
           {#if template !== "free"}
@@ -236,8 +236,7 @@
         </div>
       </Card>
 
-      <Card title="2. Destinataires">
-        {#snippet actions()}<span class="count">{recipients.length}</span>{/snippet}
+      <Card title="2. Destinataires" subtitle="{recipients.length} destinataire{recipients.length > 1 ? 's' : ''}">
         <div class="stack">
           <label class="checkbox-label"><input type="checkbox" bind:checked={useSubscribers} /> Abonnés newsletter <span class="t-muted">({subscribers.length})</span></label>
           <label class="checkbox-label"><input type="checkbox" bind:checked={useCustomers} /> Clients avec email <span class="t-muted">({customers.length})</span></label>
@@ -268,7 +267,7 @@
               {sending ? "Envoi en cours…" : `Envoyer à ${recipients.length} personne${recipients.length > 1 ? "s" : ""}`}
             </Button>
           {:else}
-            <p class="notice">
+            <p class="warning-message">
               L’envoi direct n’est pas configuré. Ajoutez <code>RESEND_API_KEY</code> et <code>CAMPAIGN_FROM</code>
               aux variables d’environnement du serveur pour envoyer depuis ici. En attendant :
             </p>
@@ -317,39 +316,10 @@
     margin: 16px 0 0;
   }
 
-  .count {
-    padding: 2px 10px;
-    border-radius: var(--r-pill);
-    background: var(--teal-600);
-    color: #fff;
-    font-size: 13px;
-    font-weight: 600;
-  }
-
   .templates {
     display: flex;
     flex-wrap: wrap;
     gap: 6px;
-  }
-
-  .templates label {
-    padding: 6px 14px;
-    border-radius: var(--r-pill);
-    border: 1px solid var(--border);
-    background: var(--control-bg);
-    cursor: pointer;
-  }
-
-  .templates label.on {
-    background: var(--teal-600);
-    border-color: var(--teal-600);
-    color: #fff;
-  }
-
-  .templates input {
-    position: absolute;
-    opacity: 0;
-    pointer-events: none;
   }
 
   .indent {
@@ -371,14 +341,6 @@
     margin: 8px 0 0;
     padding-left: 18px;
     font-size: 13px;
-  }
-
-  .notice {
-    margin: 0;
-    padding: 12px 14px;
-    background: var(--warn-bg);
-    border: 1px solid var(--warn-border);
-    border-radius: var(--r-sm);
   }
 
   .fallback {
