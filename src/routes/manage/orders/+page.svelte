@@ -251,6 +251,18 @@
     orders = orders.map((o) => (o.id === orderId ? { ...o, status: newStatus } : o));
   }
 
+  /* Confirmer une commande est irréversible (plus de modification ni de suppression) : demandé d'abord. */
+  let confirmTarget = $state<any>(null);
+  let confirmOrderOpen = $state(false);
+  function changeStatus(order: any, next: string) {
+    if (next === "confirmed") {
+      confirmTarget = order;
+      confirmOrderOpen = true;
+      return;
+    }
+    void updateOrderStatus(order.id, next);
+  }
+
   /** Appelée après confirmation via le ConfirmDialog. */
   async function deleteOrder(id: string) {
     const { data: deleted, error: deleteError } = await supabase
@@ -371,7 +383,7 @@
               {:else}—{/if}
             </td>
             <td>
-              <StatusMenuBadge kind="order" status={order.status} onselect={(next) => updateOrderStatus(order.id, next)} />
+              <StatusMenuBadge kind="order" status={order.status} onselect={(next) => changeStatus(order, next)} />
             </td>
             <td class="num"><strong>{formatEUR(order.total_price ?? 0)}</strong></td>
             <td class="col-actions">
@@ -383,6 +395,16 @@
     </DataTable>
   {/if}
 </ManagePageShell>
+
+<ConfirmDialog
+  bind:open={confirmOrderOpen}
+  title="Confirmer cette commande ?"
+  message={confirmTarget
+    ? `La commande du ${formatDate(confirmTarget.date)} chez ${confirmTarget.supplier.name} ne pourra plus être modifiée ni supprimée.`
+    : ""}
+  confirmLabel="Oui, confirmer"
+  action={() => updateOrderStatus(confirmTarget.id, "confirmed")}
+/>
 
 <ConfirmDialog
   bind:open={confirmOpen}
