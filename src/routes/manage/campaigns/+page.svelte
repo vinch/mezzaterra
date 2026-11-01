@@ -4,6 +4,11 @@
   import { supabase } from "$lib/supabase";
   import ManagePageShell from "$lib/components/manage/ManagePageShell.svelte";
   import Spinner from "$lib/ui/Spinner.svelte";
+  import Button from "$lib/ui/Button.svelte";
+  import Card from "$lib/ui/Card.svelte";
+  import ConfirmDialog from "$lib/ui/ConfirmDialog.svelte";
+  import Field from "$lib/ui/Field.svelte";
+  import Select from "$lib/ui/Select.svelte";
   import { formatDateLong, formatTime, todayIso } from "$lib/dates";
   import { formatEUR } from "$lib/format";
   import { isPrivateTasting, tastingTitle } from "$lib/publicData";
@@ -32,6 +37,7 @@
   let attachFlyer = $state(true);
 
   let sending = $state(false);
+  let confirmOpen = $state(false);
   let result = $state("");
   let copied = $state("");
 
@@ -120,9 +126,9 @@
     return canvas.toDataURL("image/png").split(",")[1] ?? null;
   }
 
+  /** Appelée après confirmation via le ConfirmDialog. */
   async function send() {
     if (!subject.trim() || !message.trim() || recipients.length === 0) return;
-    if (!confirm(`Envoyer « ${subject} » à ${recipients.length} destinataire${recipients.length > 1 ? "s" : ""} ?`)) return;
     sending = true;
     result = "";
     error = "";
@@ -194,148 +200,149 @@
   {#if loading}
     <Spinner />
   {:else}
-    {#if error}<div class="error-message">{error}</div>{/if}
+    {#if error}<div class="error-message" role="alert">{error}</div>{/if}
     {#if result}<div class="success-message">{result}</div>{/if}
 
     <div class="layout">
-      <section class="card">
-        <h2>1. Message</h2>
-        <div class="templates" role="radiogroup" aria-label="Modèle">
-          <label class:on={template === "invite"}><input type="radio" bind:group={template} value="invite" onchange={applyTemplate} /> Invitation</label>
-          <label class:on={template === "reminder"}><input type="radio" bind:group={template} value="reminder" onchange={applyTemplate} /> Rappel aux inscrits</label>
-          <label class:on={template === "free"}><input type="radio" bind:group={template} value="free" onchange={applyTemplate} /> Message libre</label>
-        </div>
-
-        {#if template !== "free"}
-          <div class="form-group">
-            <label for="camp-tasting">Dégustation</label>
-            <select id="camp-tasting" bind:value={tastingId} onchange={applyTemplate}>
-              {#each tastings as t}
-                <option value={t.id}>{tastingTitle(t)} — {formatDateLong(t.date)}</option>
-              {/each}
-            </select>
+      <Card title="1. Message">
+        <div class="stack">
+          <div class="templates" role="radiogroup" aria-label="Modèle">
+            <label class:on={template === "invite"}><input type="radio" bind:group={template} value="invite" onchange={applyTemplate} /> Invitation</label>
+            <label class:on={template === "reminder"}><input type="radio" bind:group={template} value="reminder" onchange={applyTemplate} /> Rappel aux inscrits</label>
+            <label class:on={template === "free"}><input type="radio" bind:group={template} value="free" onchange={applyTemplate} /> Message libre</label>
           </div>
-        {/if}
 
-        <div class="form-group">
-          <label for="camp-subject">Objet</label>
-          <input id="camp-subject" bind:value={subject} />
-        </div>
-        <div class="form-group">
-          <label for="camp-message">Message</label>
-          <textarea id="camp-message" rows="14" bind:value={message}></textarea>
-          <small class="hint">Texte simple : les liens deviennent cliquables, un lien de désinscription est ajouté pour les abonnés.</small>
-        </div>
-        {#if template !== "free"}
-          <label class="check"><input type="checkbox" bind:checked={attachFlyer} /> Joindre le visuel de la soirée (généré automatiquement)</label>
-        {/if}
-      </section>
+          {#if template !== "free"}
+            <Field id="camp-tasting" label="Dégustation">
+              <Select id="camp-tasting" bind:value={tastingId} onchange={applyTemplate}>
+                {#each tastings as t}
+                  <option value={t.id}>{tastingTitle(t)} — {formatDateLong(t.date)}</option>
+                {/each}
+              </Select>
+            </Field>
+          {/if}
 
-      <section class="card">
-        <h2>2. Destinataires <span class="count">{recipients.length}</span></h2>
-        <label class="check"><input type="checkbox" bind:checked={useSubscribers} /> Abonnés newsletter <span class="muted">({subscribers.length})</span></label>
-        <label class="check"><input type="checkbox" bind:checked={useCustomers} /> Clients avec email <span class="muted">({customers.length})</span></label>
-        <label class="check"><input type="checkbox" bind:checked={useRegistrants} /> Inscrits à une dégustation</label>
-        {#if useRegistrants}
-          <select class="indent" bind:value={registrantTastingId}>
-            {#each tastings as t}
-              <option value={t.id}>{tastingTitle(t)} — {formatDateLong(t.date)}</option>
-            {/each}
-          </select>
-        {/if}
-        <p class="muted small">Doublons fusionnés automatiquement.</p>
-
-        <details>
-          <summary>Voir la liste</summary>
-          <ul class="emails">
-            {#each recipients as r}
-              <li>{r.email} <span class="muted">· {r.source}</span></li>
-            {/each}
-          </ul>
-        </details>
-
-        <h2 class="send-title">3. Envoi</h2>
-        {#if sendEnabled}
-          <button type="button" class="btn-primary big" disabled={sending || !recipients.length || !subject.trim()} onclick={send}>
-            {sending ? "Envoi en cours…" : `Envoyer à ${recipients.length} personne${recipients.length > 1 ? "s" : ""}`}
-          </button>
-        {:else}
-          <p class="notice">
-            L’envoi direct n’est pas configuré. Ajoutez <code>RESEND_API_KEY</code> et <code>CAMPAIGN_FROM</code>
-            aux variables d’environnement du serveur pour envoyer depuis ici. En attendant :
-          </p>
-        {/if}
-        <div class="fallback">
-          <button type="button" class="btn-secondary" onclick={() => copy(recipients.map((r) => r.email).join(", "), "emails")}>
-            {copied === "emails" ? "Copié ✓" : "Copier les adresses"}
-          </button>
-          <button type="button" class="btn-secondary" onclick={() => copy(message, "message")}>
-            {copied === "message" ? "Copié ✓" : "Copier le message"}
-          </button>
-          {#if mailtoUsable && recipients.length}
-            <a class="btn-secondary" href={mailtoHref}>Ouvrir ma messagerie (Cci)</a>
+          <Field id="camp-subject" label="Objet">
+            <input id="camp-subject" class="ui-control" bind:value={subject} />
+          </Field>
+          <Field id="camp-message" label="Message" help="Texte simple : les liens deviennent cliquables, un lien de désinscription est ajouté pour les abonnés.">
+            {#snippet children({ describedby })}
+              <textarea id="camp-message" class="ui-control" rows="14" bind:value={message} aria-describedby={describedby}></textarea>
+            {/snippet}
+          </Field>
+          {#if template !== "free"}
+            <label class="checkbox-label"><input type="checkbox" bind:checked={attachFlyer} /> Joindre le visuel de la soirée (généré automatiquement)</label>
           {/if}
         </div>
-      </section>
+      </Card>
+
+      <Card title="2. Destinataires">
+        {#snippet actions()}<span class="count">{recipients.length}</span>{/snippet}
+        <div class="stack">
+          <label class="checkbox-label"><input type="checkbox" bind:checked={useSubscribers} /> Abonnés newsletter <span class="t-muted">({subscribers.length})</span></label>
+          <label class="checkbox-label"><input type="checkbox" bind:checked={useCustomers} /> Clients avec email <span class="t-muted">({customers.length})</span></label>
+          <label class="checkbox-label"><input type="checkbox" bind:checked={useRegistrants} /> Inscrits à une dégustation</label>
+          {#if useRegistrants}
+            <div class="indent">
+              <Select bind:value={registrantTastingId} ariaLabel="Dégustation des inscrits">
+                {#each tastings as t}
+                  <option value={t.id}>{tastingTitle(t)} — {formatDateLong(t.date)}</option>
+                {/each}
+              </Select>
+            </div>
+          {/if}
+          <p class="t-caption flush">Doublons fusionnés automatiquement.</p>
+
+          <details>
+            <summary>Voir la liste</summary>
+            <ul class="emails">
+              {#each recipients as r}
+                <li>{r.email} <span class="t-muted">· {r.source}</span></li>
+              {/each}
+            </ul>
+          </details>
+
+          <h3 class="t-card-title send-title">3. Envoi</h3>
+          {#if sendEnabled}
+            <Button variant="primary" size="lg" block disabled={sending || !recipients.length || !subject.trim() || !message.trim()} onclick={() => (confirmOpen = true)}>
+              {sending ? "Envoi en cours…" : `Envoyer à ${recipients.length} personne${recipients.length > 1 ? "s" : ""}`}
+            </Button>
+          {:else}
+            <p class="notice">
+              L’envoi direct n’est pas configuré. Ajoutez <code>RESEND_API_KEY</code> et <code>CAMPAIGN_FROM</code>
+              aux variables d’environnement du serveur pour envoyer depuis ici. En attendant :
+            </p>
+          {/if}
+          <div class="fallback">
+            <Button onclick={() => copy(recipients.map((r) => r.email).join(", "), "emails")}>
+              {copied === "emails" ? "Copié ✓" : "Copier les adresses"}
+            </Button>
+            <Button onclick={() => copy(message, "message")}>
+              {copied === "message" ? "Copié ✓" : "Copier le message"}
+            </Button>
+            {#if mailtoUsable && recipients.length}
+              <Button href={mailtoHref}>Ouvrir ma messagerie (Cci)</Button>
+            {/if}
+          </div>
+        </div>
+      </Card>
     </div>
   {/if}
 </ManagePageShell>
+
+<ConfirmDialog
+  bind:open={confirmOpen}
+  title="Envoyer cette campagne ?"
+  message="« {subject} » sera envoyé à {recipients.length} destinataire{recipients.length > 1 ? 's' : ''}."
+  confirmLabel="Oui, envoyer"
+  action={send}
+/>
 
 <style>
   .layout {
     display: grid;
     grid-template-columns: minmax(0, 1.5fr) minmax(300px, 1fr);
-    gap: 1.5rem;
+    gap: 24px;
     align-items: start;
   }
 
-  .card {
-    background: white;
-    border-radius: 12px;
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
-    padding: 1.4rem 1.5rem;
-  }
-
-  h2 {
-    margin: 0 0 1rem;
-    font-size: 1.05rem;
-    color: var(--ink);
+  .stack {
     display: flex;
-    align-items: center;
-    gap: 0.5rem;
+    flex-direction: column;
+    gap: 12px;
   }
 
   .send-title {
-    margin-top: 1.75rem;
+    margin: 16px 0 0;
   }
 
   .count {
-    padding: 0.1rem 0.55rem;
-    border-radius: 999px;
+    padding: 2px 10px;
+    border-radius: var(--r-pill);
     background: var(--teal-600);
-    color: white;
-    font-size: 0.85rem;
+    color: #fff;
+    font-size: 13px;
+    font-weight: 600;
   }
 
   .templates {
     display: flex;
     flex-wrap: wrap;
-    gap: 0.4rem;
-    margin-bottom: 1rem;
+    gap: 6px;
   }
 
   .templates label {
-    padding: 0.45rem 0.9rem;
-    border-radius: 999px;
+    padding: 6px 14px;
+    border-radius: var(--r-pill);
     border: 1px solid var(--border);
+    background: var(--control-bg);
     cursor: pointer;
-    font-size: 0.9rem;
   }
 
   .templates label.on {
     background: var(--teal-600);
     border-color: var(--teal-600);
-    color: white;
+    color: #fff;
   }
 
   .templates input {
@@ -344,103 +351,39 @@
     pointer-events: none;
   }
 
-  .form-group {
-    display: flex;
-    flex-direction: column;
-    gap: 0.35rem;
-    margin-bottom: 1rem;
-  }
-
-  .form-group label {
-    font-size: 0.9rem;
-    font-weight: 500;
-  }
-
-  .form-group input,
-  .form-group select,
-  .form-group textarea,
   .indent {
-    padding: 0.55rem 0.7rem;
-    border: 1px solid var(--input-border);
-    border-radius: 6px;
-    font: inherit;
-    font-size: 0.95rem;
+    margin-left: 26px;
   }
 
-  textarea {
-    resize: vertical;
-    line-height: 1.5;
-  }
-
-  .hint,
-  .small {
-    font-size: 0.8rem;
-  }
-
-  .muted,
-  .hint {
-    color: var(--ink-2);
-  }
-
-  .check {
-    display: flex;
-    align-items: center;
-    gap: 0.5rem;
-    margin: 0.4rem 0;
-    cursor: pointer;
-  }
-
-  .indent {
-    margin: 0.25rem 0 0.5rem 1.6rem;
-    width: calc(100% - 1.6rem);
+  .flush {
+    margin: 0;
   }
 
   details summary {
     cursor: pointer;
-    font-size: 0.88rem;
     color: var(--teal-600);
   }
 
   .emails {
     max-height: 14rem;
     overflow-y: auto;
-    margin: 0.5rem 0 0;
-    padding-left: 1.1rem;
-    font-size: 0.85rem;
-  }
-
-  .big {
-    width: 100%;
-    padding: 0.8rem 1rem;
-    font-size: 1rem;
+    margin: 8px 0 0;
+    padding-left: 18px;
+    font-size: 13px;
   }
 
   .notice {
-    background: #fff9ec;
-    border-radius: 8px;
-    padding: 0.75rem 0.9rem;
-    font-size: 0.88rem;
-    color: #6b5a2e;
-    margin: 0 0 0.75rem;
+    margin: 0;
+    padding: 12px 14px;
+    background: var(--warn-bg);
+    border: 1px solid var(--warn-border);
+    border-radius: var(--r-sm);
   }
 
   .fallback {
     display: flex;
     flex-wrap: wrap;
-    gap: 0.5rem;
-    margin-top: 0.75rem;
-  }
-
-  .fallback a {
-    text-decoration: none;
-  }
-
-  .success-message {
-    background: #e3f2e8;
-    color: #1f5c36;
-    padding: 1rem;
-    border-radius: 4px;
-    margin-bottom: 1rem;
+    gap: 8px;
   }
 
   @media (max-width: 1000px) {
