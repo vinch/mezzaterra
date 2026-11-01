@@ -21,7 +21,7 @@
   import Spinner from "$lib/ui/Spinner.svelte";
   import Tabs from "$lib/ui/Tabs.svelte";
   import Combobox, { type ComboOption } from "$lib/ui/Combobox.svelte";
-  import { byVolume, styleByKey, vintageShortLabel, wineRobe, type WineStyleKey, wineTitle, wineTypeLabel, withVolume } from "$lib/wine";
+  import { byVolume, compareWines, styleByKey, vintageShortLabel, wineRobe, type WineStyleKey, wineTitle, wineTypeLabel, withVolume } from "$lib/wine";
   import {
     IconArchive,
     IconArchiveRestore,
@@ -118,21 +118,7 @@
           (a, b) => (a.year ?? a.production_year ?? 0) - (b.year ?? b.production_year ?? 0) || byVolume(a, b),
         );
       }
-      wines = (data || []).sort((a, b) => {
-        // First: sort by winery name
-        const wineryA = a.winery?.name?.toLowerCase() || "";
-        const wineryB = b.winery?.name?.toLowerCase() || "";
-        if (wineryA !== wineryB) {
-          return wineryA.localeCompare(wineryB);
-        }
-
-        // Second: sort by wine name or appellation
-        const wineNameA =
-          a.name?.toLowerCase() || a.appelation?.name?.toLowerCase() || "";
-        const wineNameB =
-          b.name?.toLowerCase() || b.appelation?.name?.toLowerCase() || "";
-        return wineNameA.localeCompare(wineNameB);
-      });
+      wines = (data || []).sort(compareWines);
     }
   }
 

@@ -215,14 +215,20 @@ export function vintageProductLabel(v: VintageLike): string {
   return withVolume(v.year ? `${base} - ${v.year}` : `${base} (${v.production_year})`, v, undefined, " - ");
 }
 
+/** Tri des produits de l'admin : domaine, puis cuvée (ou appellation). */
+export function compareWines(a: WineLike, b: WineLike): number {
+  const wineryA = a?.winery?.name?.toLowerCase() || "";
+  const wineryB = b?.winery?.name?.toLowerCase() || "";
+  if (wineryA !== wineryB) return wineryA.localeCompare(wineryB);
+  const nameA = a?.name?.toLowerCase() || a?.appelation?.name?.toLowerCase() || "";
+  const nameB = b?.name?.toLowerCase() || b?.appelation?.name?.toLowerCase() || "";
+  return nameA.localeCompare(nameB);
+}
+
 /** Tri des sélecteurs de l'admin : domaine, cuvée (ou appellation), année décroissante, puis contenant. */
 export function compareVintages(a: VintageLike, b: VintageLike): number {
-  const wineryA = a.wine?.winery?.name?.toLowerCase() || "";
-  const wineryB = b.wine?.winery?.name?.toLowerCase() || "";
-  if (wineryA !== wineryB) return wineryA.localeCompare(wineryB);
-  const nameA = a.wine?.name?.toLowerCase() || a.wine?.appelation?.name?.toLowerCase() || "";
-  const nameB = b.wine?.name?.toLowerCase() || b.wine?.appelation?.name?.toLowerCase() || "";
-  if (nameA !== nameB) return nameA.localeCompare(nameB);
+  const byWine = compareWines(a.wine, b.wine);
+  if (byWine) return byWine;
   const byYear = (b.year || b.production_year || 0) - (a.year || a.production_year || 0);
   return byYear || byVolume(a, b);
 }
