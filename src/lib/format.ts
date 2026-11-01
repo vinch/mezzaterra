@@ -19,9 +19,10 @@ export function formatDate(iso: string | null | undefined): string {
 
 const dateTime = new Intl.DateTimeFormat("fr-FR", { dateStyle: "short", timeStyle: "short" });
 
-/** « 17/10/2026 19:30 » à partir d'un horodatage ISO (heure locale) ; « — » si vide. */
+/** « 17/10/2026 19:30 » à partir d'un horodatage ISO (heure locale) ; « — » si vide ou illisible. */
 export function formatDateTime(iso: string | null | undefined): string {
-  return iso ? dateTime.format(new Date(iso)) : "—";
+  const d = iso ? new Date(iso) : null;
+  return d && !Number.isNaN(d.getTime()) ? dateTime.format(d) : "—";
 }
 
 /** Montant saisi ou renvoyé par PostgREST (number ou string, virgule décimale FR) ; 0 si invalide. */
