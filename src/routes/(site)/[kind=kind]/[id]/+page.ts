@@ -1,8 +1,8 @@
 import { error, redirect } from "@sveltejs/kit";
 import { isUuid } from "$lib/publicData";
-import { kindBySlug, kindOf, productHref } from "$lib/productKinds";
+import { kindBySlug, kindOf, lotHref } from "$lib/productKinds";
 import { supabase } from "$lib/supabase";
-import { compareProducts, groupFormats, LOT_PUBLIC_SELECT, LOT_PUBLIC_SELECT_BY_PRODUCT } from "$lib/products";
+import { compareLotsByStyle, groupFormats, LOT_PUBLIC_SELECT, LOT_PUBLIC_SELECT_BY_PRODUCT } from "$lib/products";
 import type { PageLoad } from "./$types";
 
 export const load: PageLoad = async ({ params, url }) => {
@@ -19,7 +19,7 @@ export const load: PageLoad = async ({ params, url }) => {
   /* Sans son produit (illisible ou absent), le lot n'a rien à montrer. */
   if (!v?.product) throw error(404, "Produit introuvable");
   /* Une huile ouverte sous /vins (ou l'inverse) : vers la bonne adresse. */
-  if (kindOf(v.product) !== kindBySlug(params.kind)) throw redirect(301, productHref(v) + url.search);
+  if (kindOf(v.product) !== kindBySlug(params.kind)) throw redirect(301, lotHref(v) + url.search);
   const producerId = v.product?.producer_id ?? v.product?.producer?.id;
 
   /* Autres lots du même produit (contenants et années) + autres produits du domaine. */
@@ -56,6 +56,6 @@ export const load: PageLoad = async ({ params, url }) => {
     lot: v,
     formats: current.formats,
     siblings: otherYears.map((g) => g.lot),
-    fromProducer: [...byProduct.values()].sort(compareProducts).slice(0, 6),
+    fromProducer: [...byProduct.values()].sort(compareLotsByStyle).slice(0, 6),
   };
 };

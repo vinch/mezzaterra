@@ -60,13 +60,11 @@ function typePosition(t: TypeLike): number {
   return i < 0 ? order.length : i;
 }
 
-type CompareProduct = { year?: number | null; production_year?: number | null; product?: ProductLike };
-
 /**
  * Tri des lots du site : couleur du plus léger au plus corsé, ordre des types du produit (fruité
  * léger à intense pour les huiles), nom, puis année la plus récente (millésime, sinon mise en bouteille).
  */
-export function compareProducts(a: CompareProduct, b: CompareProduct): number {
+export function compareLotsByStyle(a: LotLike, b: LotLike): number {
   const style = (v: typeof a) => STYLE_ORDER.indexOf(productStyle(v.product?.product_type).key);
   return (
     style(a) - style(b) ||
@@ -212,7 +210,7 @@ export function compareProductsByProducer(a: ProductLike, b: ProductLike): numbe
 }
 
 /** Tri des sélecteurs de l'admin : domaine, cuvée (ou appellation), année décroissante, puis contenant. */
-export function compareLots(a: LotLike, b: LotLike): number {
+export function compareLotsByProducer(a: LotLike, b: LotLike): number {
   const byProduct = compareProductsByProducer(a.product, b.product);
   if (byProduct) return byProduct;
   const byYear = (b.year || b.production_year || 0) - (a.year || a.production_year || 0);

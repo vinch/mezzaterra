@@ -7,7 +7,7 @@
   import { combinedAvailability, fetchAvailability, firstAvailable, type AvailabilityOf } from "$lib/publicData";
   import { MAIN, project } from "$lib/geo/abruzzo";
   import {
-    compareProducts,
+    compareLotsByStyle,
     groupFormats,
     presentStyles,
     producerFlag,
@@ -17,7 +17,7 @@
     producerPlace,
   } from "$lib/products";
   import { IconInstagram, IconMapPin } from "$lib/ui/icons";
-  import { DEFAULT_KIND, kindOf, PRODUCT_KIND_LIST, PRODUCT_KINDS, productHref } from "$lib/productKinds";
+  import { DEFAULT_KIND, kindOf, PRODUCT_KIND_LIST, PRODUCT_KINDS, lotHref } from "$lib/productKinds";
 
   let { data } = $props();
 
@@ -33,7 +33,7 @@
   let mapUrl = $derived(producerMapUrl(producer));
   let instagram = $derived(producerInstagram(producer));
 
-  let lots = $derived([...data.lots].sort(compareProducts));
+  let lots = $derived([...data.lots].sort(compareLotsByStyle));
 
   let cuveeCount = $derived(new Set(lots.map((v) => v.product_id)).size);
   let styles = $derived(presentStyles(lots));
@@ -173,7 +173,7 @@
           <ProductCard
             lot={v}
             {formats}
-            href={productHref(firstAvailable(availability, formats))}
+            href={lotHref(firstAvailable(availability, formats))}
             availability={combinedAvailability(availability, formats)}
           />
         </div>

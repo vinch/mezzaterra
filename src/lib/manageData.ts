@@ -1,6 +1,6 @@
 import { fetchAllRows, supabase } from "./supabase";
 import { sortCustomersByLabel } from "./customerDisplay";
-import { byProductType, compareLots, LOT_LABEL_SELECT } from "./products";
+import { byProductType, compareLotsByProducer, LOT_LABEL_SELECT } from "./products";
 import type { Country, Customer, Region, ProductType } from "./types";
 
 /** Chargements partagés par les pages de l'admin. */
@@ -38,7 +38,7 @@ export async function fetchPickerLots(): Promise<any[]> {
       .order("id")
       .range(from, to),
   );
-  return rows.sort(compareLots);
+  return rows.sort(compareLotsByProducer);
 }
 
 /**

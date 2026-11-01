@@ -7,9 +7,9 @@
   import ProducerLinkCard from "$lib/components/site/ProducerLinkCard.svelte";
   import { combinedAvailability, fetchAvailability, firstAvailable, type AvailabilityOf } from "$lib/publicData";
   import { fold } from "$lib/format";
-  import { kindCount, PRODUCT_KINDS, productHref } from "$lib/productKinds";
+  import { kindCount, PRODUCT_KINDS, lotHref } from "$lib/productKinds";
   import {
-    compareProducts,
+    compareLotsByStyle,
     groupFormats,
     presentStyles,
     type FormatGroup,
@@ -35,7 +35,7 @@
 
   let kind = $derived(PRODUCT_KINDS[data.kind]);
   /* Trié une fois : les filtres gardent l'ordre. */
-  let lots = $derived([...(data.lots as any[])].sort(compareProducts));
+  let lots = $derived([...(data.lots as any[])].sort(compareLotsByStyle));
   let styles = $derived(presentStyles(lots));
 
   let filtered = $derived(lots
@@ -165,7 +165,7 @@
               <ProductCard
                 lot={v}
                 {formats}
-                href={productHref(firstAvailable(availability, formats))}
+                href={lotHref(firstAvailable(availability, formats))}
                 availability={combinedAvailability(availability, formats)}
               />
             </div>

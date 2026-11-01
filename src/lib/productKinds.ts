@@ -250,8 +250,8 @@ export function kindBySlug(slug: string): ProductKind | null {
   return PRODUCT_KIND_LIST.find((k) => k.slug === slug)?.key ?? null;
 }
 
-/** Fiche publique d'un millésime ou d'une récolte : `/vins/…`, `/huiles/…`. */
-export function productHref(lot: { id: string; product?: { kind?: string | null } | null }): string {
+/** Fiche publique d'un lot (millésime d'un vin, récolte d'une huile) : `/vins/…`, `/huiles/…`. */
+export function lotHref(lot: { id: string; product?: { kind?: string | null } | null }): string {
   return `/${kindInfo(lot.product).slug}/${lot.id}`;
 }
 

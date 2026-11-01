@@ -21,7 +21,7 @@
     productTitle,
   } from "$lib/products";
   import { formatEUR } from "$lib/format";
-  import { formatVolume, kindInfo, productHref } from "$lib/productKinds";
+  import { formatVolume, kindInfo, lotHref } from "$lib/productKinds";
 
   let { data } = $props();
 
@@ -184,7 +184,7 @@
       </div>
       <div class="mz-product-grid">
         {#each data.fromProducer as other (other.id)}
-          <div><ProductCard lot={other} href={productHref(other)} availability={availability?.(other.id) ?? null} /></div>
+          <div><ProductCard lot={other} href={lotHref(other)} availability={availability?.(other.id) ?? null} /></div>
         {/each}
       </div>
     </section>

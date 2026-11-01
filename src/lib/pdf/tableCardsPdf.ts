@@ -3,7 +3,7 @@ import { attachRobotoPdf, svgToPng } from "./assets";
 import { qrDataUrl } from "$lib/qr";
 import { formatDateLong } from "$lib/dates";
 import { tastingTitle } from "$lib/publicData";
-import { kindInfo, productHref } from "$lib/productKinds";
+import { kindInfo, lotHref } from "$lib/productKinds";
 import {
   findNote,
   varietiesText,
@@ -154,7 +154,7 @@ export async function downloadTableCardsPdf(tasting: any, lots: any[], origin: s
     /* Pied : prix + QR fiche */
     const qrSize = 30;
     const footY = H - M - qrSize;
-    const qr = await qrDataUrl(`${origin}${productHref(v)}`, { size: 500 });
+    const qr = await qrDataUrl(`${origin}${lotHref(v)}`, { size: 500 });
     doc.addImage(qr, "PNG", W - M - qrSize, footY, qrSize, qrSize);
     doc.setFontSize(8);
     doc.setTextColor(...MUTED);
