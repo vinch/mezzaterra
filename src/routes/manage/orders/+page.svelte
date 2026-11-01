@@ -8,6 +8,7 @@
   import Modal from "$lib/ui/Modal.svelte";
   import Button from "$lib/ui/Button.svelte";
   import IconButton from "$lib/ui/IconButton.svelte";
+  import Spinner from "$lib/ui/Spinner.svelte";
   import StatusBadge from "$lib/ui/StatusBadge.svelte";
   import type { MenuItem } from "$lib/ui/Menu.svelte";
   import StatusMenuBadge from "$lib/ui/StatusMenuBadge.svelte";
@@ -51,6 +52,7 @@
   let detailsOrder = $state<any>(null);
   let detailsOrderItems = $state<any[]>([]);
   let orderIdForPDF = $state<string | null>(null);
+  let exportingPdf = $state(false);
 
   /* Pas de statut : save_order crée la commande « En attente » et garde celui d'une commande modifiée. */
   const emptyForm = () => ({ date: todayIso(), supplier_id: "", note: "" });
@@ -278,12 +280,14 @@
   }
 
   function closeLanguageModal() {
+    if (exportingPdf) return;
     orderIdForPDF = null;
   }
 
   async function exportPdf(lang: OrderPdfLanguage) {
     const orderId = orderIdForPDF;
-    if (!orderId) return;
+    if (!orderId || exportingPdf) return;
+    exportingPdf = true;
     try {
       /* jsPDF n'est chargé qu'au moment de générer le document. */
       const { downloadOrderPdf } = await import("$lib/pdf/purchaseOrderPdf");
@@ -291,6 +295,8 @@
     } catch (err) {
       error = `Erreur lors de la génération du PDF : ${errorMessage(err)}`;
       console.error(err);
+    } finally {
+      exportingPdf = false;
     }
     closeLanguageModal();
   }
@@ -528,11 +534,12 @@
   <p class="flush">Sélectionnez la langue dans laquelle générer le bon de commande :</p>
   <div class="languages">
     {#each LANGUAGES as [lang, label]}
-      <Button onclick={() => exportPdf(lang)}>{label}</Button>
+      <Button disabled={exportingPdf} onclick={() => exportPdf(lang)}>{label}</Button>
     {/each}
   </div>
   {#snippet footer()}
-    <Button variant="ghost" onclick={closeLanguageModal}>Annuler</Button>
+    {#if exportingPdf}<Spinner size={18} inline />{/if}
+    <Button variant="ghost" disabled={exportingPdf} onclick={closeLanguageModal}>Annuler</Button>
   {/snippet}
 </Modal>
 
