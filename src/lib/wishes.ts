@@ -63,6 +63,20 @@ export async function linkCustomerToTasting(tastingId: string, customerId: strin
   if (error && error.code !== "23505") throw new Error(error.message);
 }
 
+type QuantityLine = { wine_vintage_id: string | null; quantity: number | null };
+
+/** Bouteilles par millésime (lignes de demande ou de vente ; une ligne sans millésime est ignorée). */
+export function quantitiesByVintage(items: QuantityLine[]): Map<string, number> {
+  const m = new Map<string, number>();
+  for (const i of items) if (i.wine_vintage_id) m.set(i.wine_vintage_id, (m.get(i.wine_vintage_id) ?? 0) + (i.quantity || 0));
+  return m;
+}
+
+/** Total des bouteilles (lignes sans millésime ignorées). */
+export function totalQuantity(items: QuantityLine[]): number {
+  return items.reduce((n, i) => n + (i.wine_vintage_id ? i.quantity || 0 : 0), 0);
+}
+
 export function wishItems(raw: unknown): WishItem[] {
   if (!Array.isArray(raw)) return [];
   return raw

@@ -118,6 +118,16 @@ export async function pushFeedback(opts: {
 }
 
 /**
+ * Notes à jour : tasting_feedback ne reçoit que des insertions, la plus récente fait foi.
+ * Garde la dernière ligne par (`per`, millésime) ; `rows` triées par created_at croissant.
+ */
+export function latestFeedback<T extends { wine_vintage_id: string }>(rows: T[], per: keyof T): T[] {
+  const m = new Map<string, T>();
+  for (const r of rows) m.set(`${String(r[per])}:${r.wine_vintage_id}`, r);
+  return [...m.values()];
+}
+
+/**
  * Enregistre la pré-commande du téléphone (panier vide : supprimée), ou la confirme.
  * Faux en cas d'échec : le panier reste sur le téléphone.
  */

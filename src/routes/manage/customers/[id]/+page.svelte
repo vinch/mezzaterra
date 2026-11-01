@@ -11,6 +11,7 @@
   import type { Customer } from "$lib/types";
   import { REVENUE_STATUSES, lineTotal, type SaleItemRow } from "$lib/analytics";
   import { daysUntil } from "$lib/dates";
+  import { latestFeedback } from "$lib/live";
   import { MAIN_ROBES, robePreference, styleByKey, vintageLabel, vintageLabelSelect, vintageShortLabel, wineRobe, type WineStyleKey } from "$lib/wine";
   import { KIND_STYLES } from "$lib/productKinds";
   import { formatDate, formatEUR } from "$lib/format";
@@ -99,15 +100,13 @@
           customer.email
             ? supabase
                 .from("tasting_feedback")
-                .select("*")
+                .select("tasting_id, wine_vintage_id, rating, comment")
                 .ilike("guest_email", escapeLike(customer.email))
                 .order("created_at", { ascending: true })
             : null,
         ]);
         sameLastName = namesakeRes.data || [];
-        const latest = new Map<string, any>();
-        for (const f of feedbackRes?.data || []) latest.set(`${f.tasting_id}:${f.wine_vintage_id}`, f);
-        feedback = [...latest.values()].filter((f) => f.rating || f.comment);
+        feedback = latestFeedback(feedbackRes?.data || [], "tasting_id").filter((f) => f.rating || f.comment);
       }
     } catch (e) {
       error = errorMessage(e);

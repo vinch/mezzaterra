@@ -29,14 +29,16 @@
   import Spinner from "$lib/ui/Spinner.svelte";
   import { fetchSeats, fetchTastingWithWines, isParticipantRegistration, onlineSeats, onlineSeatsByCustomer, participantOrigin, placesLabel, tastingTitle, type SeatInfo } from "$lib/publicData";
   import { compareCustomersByLabel, customerDisplayLabel } from "$lib/customerDisplay";
-  import { broadcastPosition, clampPosition, joinLiveChannel } from "$lib/live";
+  import { broadcastPosition, clampPosition, joinLiveChannel, latestFeedback } from "$lib/live";
   import { qrDataUrl } from "$lib/qr";
   import { swatchStyle, vintageShortLabel, wineRobe, wineStyle, wineSubtitle, wineTitle, wineTypeLabel } from "$lib/wine";
   import { kindInfo } from "$lib/productKinds";
   import {
     confirmRegistration,
     createSaleFromWish,
+    quantitiesByVintage,
     setWishStatus,
+    totalQuantity,
     wishItems,
     wishTotal,
     type WishRequest,
@@ -153,7 +155,7 @@
       (async () => {
         const { data } = await supabase
           .from("tasting_feedback")
-          .select("*")
+          .select("id, guest_id, guest_name, wine_vintage_id, rating, comment, created_at")
           .eq("tasting_id", tastingId)
           .order("created_at", { ascending: true });
         feedback = data || [];
@@ -201,21 +203,12 @@
   }
 
   /* Dernière note par (invité, vin). */
-  let latest = $derived((() => {
-    const map = new Map<string, any>();
-    for (const f of feedback) map.set(`${f.guest_id}:${f.wine_vintage_id}`, f);
-    return [...map.values()];
-  })());
+  let latest = $derived(latestFeedback(feedback, "guest_id"));
 
+  let activeWishes = $derived(wishes.filter((w) => w.status !== "dismissed"));
+  let wishedLines = $derived(activeWishes.flatMap((w) => wishItems(w.items)));
   /* Bouteilles demandées par vin (demandes non écartées). */
-  let wantedByWine = $derived((() => {
-    const m = new Map<string, number>();
-    for (const w of wishes) {
-      if (w.status === "dismissed") continue;
-      for (const i of wishItems(w.items)) m.set(i.wine_vintage_id, (m.get(i.wine_vintage_id) ?? 0) + i.quantity);
-    }
-    return m;
-  })());
+  let wantedByWine = $derived(quantitiesByVintage(wishedLines));
 
   let stats = $derived(new Map(
     wines.map((w) => {
@@ -303,18 +296,11 @@
   }
 
   /* ——— Interface (refonte) ——— */
-  let activeWishes = $derived(wishes.filter((w) => w.status !== "dismissed"));
-  let soldBottles = $derived(eveningSales.reduce(
-    (n, x) => n + (x.sale_item || []).filter((i: any) => i.wine_vintage_id).reduce((m: number, i: any) => m + (i.quantity || 0), 0),
-    0,
-  ));
+  let soldLines = $derived(eveningSales.flatMap((x) => x.sale_item || []));
+  let soldBottles = $derived(totalQuantity(soldLines));
   let soldAmount = $derived(eveningSales.reduce((n, x) => n + Number(x.total_price || 0), 0));
-  let soldByWine = $derived((() => {
-    const m = new Map<string, number>();
-    for (const x of eveningSales) for (const i of x.sale_item || []) if (i.wine_vintage_id) m.set(i.wine_vintage_id, (m.get(i.wine_vintage_id) ?? 0) + (i.quantity || 0));
-    return m;
-  })());
-  let orderedBottles = $derived(activeWishes.flatMap((w) => wishItems(w.items)).reduce((n, i) => n + i.quantity, 0));
+  let soldByWine = $derived(quantitiesByVintage(soldLines));
+  let orderedBottles = $derived(totalQuantity(wishedLines));
   let currentOrdered = $derived(current ? (stats.get(current.id)?.wanted ?? 0) : 0);
   /* Absent de la vue : aucun mouvement, donc 0 bouteille (et non « inconnu »). */
   let currentStock = $derived(current && stockMap ? (stockMap.get(current.id) ?? 0) : null);
@@ -324,12 +310,6 @@
   let headerSubtitle = $derived(tasting
     ? [formatDate(tasting.date), tasting.location, tasting.start_time ? `${isLiveDay ? "depuis" : "à"} ${formatTime(tasting.start_time)}` : ""].filter(Boolean).join(" · ")
     : "");
-  function wishFor(w: { items: unknown }, vintageId: string): number {
-    return wishItems(w.items).filter((i) => i.wine_vintage_id === vintageId).reduce((n, i) => n + i.quantity, 0);
-  }
-  function wishBottles(w: { items: unknown }): number {
-    return wishItems(w.items).reduce((n, i) => n + i.quantity, 0);
-  }
 </script>
 
 <svelte:window onkeydown={onKey} />
@@ -540,8 +520,8 @@
                           <span class="t-caption block">{[w.email, w.phone].filter(Boolean).join(" · ")}</span>
                           {#if w.message}<span class="t-caption block">« {w.message} »</span>{/if}
                         </td>
-                        <td class="num">{wishFor(w, current.id) || "—"}</td>
-                        <td class="num"><span class="t-muted">{wishBottles(w)} bt.</span> <strong>{formatEUR(wishTotal(w, prices))}</strong></td>
+                        <td class="num">{quantitiesByVintage(wishItems(w.items)).get(current.id) || "—"}</td>
+                        <td class="num"><span class="t-muted">{totalQuantity(wishItems(w.items))} bt.</span> <strong>{formatEUR(wishTotal(w, prices))}</strong></td>
                         <td class="col-actions">
                           {#if w.status === "new"}
                             <span class="order-actions">
@@ -562,8 +542,8 @@
                           <strong>{p.first_name || "Invité"} {p.last_name || ""}</strong>
                           <span class="t-caption block">{[p.email, p.phone].filter(Boolean).join(" · ")}</span>
                         </td>
-                        <td class="num">{wishFor(p, current.id) || "—"}</td>
-                        <td class="num"><span class="t-muted">{wishBottles(p)} bt.</span> <strong>{formatEUR(wishTotal(p, prices))}</strong></td>
+                        <td class="num">{quantitiesByVintage(wishItems(p.items)).get(current.id) || "—"}</td>
+                        <td class="num"><span class="t-muted">{totalQuantity(wishItems(p.items))} bt.</span> <strong>{formatEUR(wishTotal(p, prices))}</strong></td>
                         <td class="col-actions"><span class="t-caption">Pré-commande, pas encore confirmée</span></td>
                       </tr>
                     {/each}
