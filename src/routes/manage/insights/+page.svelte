@@ -49,8 +49,8 @@
     product: (r: RotationRow) => vintageLabel(r.vintage),
     stock: (r: RotationRow) => r.stock,
     value: (r: RotationRow) => r.value,
-    /* Jamais vendu : le plus « endormi ». */
-    idle: (r: RotationRow) => r.idleDays ?? Number.MAX_SAFE_INTEGER,
+    /* Jamais vendu : le plus « endormi », avant la plus ancienne vente. */
+    lastSale: (r: RotationRow) => r.lastSale ?? "0000",
     monthsLeft: (r: RotationRow) => r.monthsLeft,
   };
   const ROI_SORT = {
@@ -65,7 +65,7 @@
   };
   let marginSort = $state<SortState<keyof typeof MARGIN_SORT>>({ key: "margin", dir: "desc" });
   /* Du plus « endormi » au plus actif. */
-  let rotationSort = $state<SortState<keyof typeof ROTATION_SORT>>({ key: "idle", dir: "desc" });
+  let rotationSort = $state<SortState<keyof typeof ROTATION_SORT>>({ key: "lastSale", dir: "asc" });
   let roiSort = $state<SortState<keyof typeof ROI_SORT>>({ key: "date", dir: "desc" });
 
   onMount(async () => {
@@ -182,7 +182,7 @@
               <SortHeader column="product" label="Produit" bind:sort={rotationSort} />
               <SortHeader column="stock" label="Stock" num bind:sort={rotationSort} />
               <SortHeader column="value" label="Valeur (achat)" num bind:sort={rotationSort} />
-              <SortHeader column="idle" label="Dernière vente" firstDir="desc" bind:sort={rotationSort} />
+              <SortHeader column="lastSale" label="Dernière vente" bind:sort={rotationSort} />
               <SortHeader column="monthsLeft" label="Mois de stock" num bind:sort={rotationSort} />
               <th scope="col">Statut</th>
             </tr>
