@@ -31,6 +31,8 @@
 
   /* Rouge de marque (accents du site). Les couleurs de robe vivent dans STYLES (lib/wine.ts). */
   --mz-wine-red: #7a1f2e;
+  /* Or des étoiles (notes des invités). */
+  --mz-gold: #e0b04a;
 
   /* Mode « cave » (live) */
   --mz-cave-bg: #0e1819;
@@ -39,6 +41,11 @@
   --mz-cave-line: rgba(236, 230, 218, 0.12);
   --mz-cave-text: #ece6da;
   --mz-cave-muted: rgba(236, 230, 218, 0.62);
+  --mz-cave-faint: rgba(236, 230, 218, 0.25); /* vin à venir, anneau du vin affiché */
+  --mz-cave-success: #8fd1a5;
+  --mz-cave-warning: #f0d08a;
+  --mz-cave-danger: #f19a9a;
+  --mz-live: #e4566b; /* pastille « en direct » */
 
   /* Typo */
   --mz-font-display: "Fraunces", "Iowan Old Style", Georgia, serif;

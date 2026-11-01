@@ -511,7 +511,7 @@
             <StarRating value={r?.rating ?? null} readonly size="0.95rem" />
           </button>
         {:else}
-          <span class="recap-locked"><span class="recap-num" style="--c: rgba(236, 230, 218, 0.2)">{i + 1}</span> À venir…</span>
+          <span class="recap-locked"><span class="recap-num" style="--c: var(--mz-cave-faint)">{i + 1}</span> À venir…</span>
         {/if}
         {#if r?.comment}<p class="recap-comment">« {r.comment} »</p>{/if}
       </li>
@@ -620,15 +620,9 @@
   }
 
   .live-state.on .dot {
-    background: #e4566b;
-    box-shadow: 0 0 0 0 rgba(228, 86, 107, 0.6);
-    animation: live 1.8s ease-out infinite;
-  }
-
-  @keyframes live {
-    to {
-      box-shadow: 0 0 0 8px rgba(228, 86, 107, 0);
-    }
+    --mz-pulse: var(--mz-live);
+    background: var(--mz-pulse);
+    animation: mz-pulse 1.8s ease-out infinite;
   }
 
   .avatar {
@@ -763,7 +757,7 @@
   }
 
   .saved {
-    color: #8fd1a5;
+    color: var(--mz-cave-success);
     text-transform: none;
     letter-spacing: 0;
   }
@@ -945,7 +939,7 @@
   }
 
   .wine-dot.locked {
-    border-color: rgba(236, 230, 218, 0.25);
+    border-color: var(--mz-cave-faint);
     cursor: default;
   }
 
@@ -964,7 +958,7 @@
 
   .wine-dot.active {
     transform: scale(1.45);
-    box-shadow: 0 0 0 3px rgba(236, 230, 218, 0.25);
+    box-shadow: 0 0 0 3px var(--mz-cave-faint);
   }
 
   .wine-dot.served::after {
@@ -975,7 +969,7 @@
     width: 0.3rem;
     height: 0.3rem;
     border-radius: 50%;
-    background: #e4566b;
+    background: var(--mz-live);
     transform: translateX(-50%);
   }
 
@@ -1100,14 +1094,14 @@
   .offline {
     padding: 0.8rem 1rem;
     border-radius: 10px;
-    background: rgba(224, 176, 74, 0.15);
-    color: #f0d08a;
+    background: color-mix(in srgb, var(--mz-gold) 15%, transparent);
+    color: var(--mz-cave-warning);
     line-height: 1.45;
   }
 
   .error {
     margin: 0;
-    color: #f19a9a;
+    color: var(--mz-cave-danger);
   }
 
   .contact {

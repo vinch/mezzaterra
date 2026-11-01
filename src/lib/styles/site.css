@@ -220,6 +220,16 @@
   color: var(--mz-muted);
 }
 
+/* Pastille « en direct » : un halo de sa couleur (--mz-pulse) s'élargit et s'efface. */
+@keyframes mz-pulse {
+  from {
+    box-shadow: 0 0 0 0 color-mix(in srgb, var(--mz-pulse) 60%, transparent);
+  }
+  to {
+    box-shadow: 0 0 0 8px transparent;
+  }
+}
+
 /* Apparition douce au scroll / au chargement. */
 @keyframes mz-rise {
   from {

@@ -202,20 +202,12 @@
   }
 
   .pulse {
+    --mz-pulse: var(--mz-wine-red);
     width: 0.55rem;
     height: 0.55rem;
     border-radius: 50%;
-    background: var(--mz-wine-red);
-    animation: pulse 1.6s ease-out infinite;
-  }
-
-  @keyframes pulse {
-    0% {
-      box-shadow: 0 0 0 0 rgba(122, 31, 46, 0.5);
-    }
-    100% {
-      box-shadow: 0 0 0 10px rgba(122, 31, 46, 0);
-    }
+    background: var(--mz-pulse);
+    animation: mz-pulse 1.6s ease-out infinite;
   }
 
   .facts {

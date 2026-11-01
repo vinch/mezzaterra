@@ -86,6 +86,6 @@
 
   .star.on {
     opacity: 1;
-    color: #e0b04a;
+    color: var(--mz-gold);
   }
 </style>
