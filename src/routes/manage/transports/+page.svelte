@@ -165,7 +165,7 @@
   /* La modale s'ouvre une fois ses listes lues (elle suit `selectedTransport`). */
   async function openOrdersModal(transport: any) {
     selectedOrderIds = [];
-    await Promise.all([loadAvailableOrders(), loadAssociatedOrders(transport.id)]);
+    [availableOrders, associatedOrders] = await Promise.all([fetchOrders(null), fetchOrders(transport.id)]);
     selectedTransport = transport;
   }
 
@@ -177,7 +177,7 @@
   }
 
   async function openDetailsModal(transport: any) {
-    await loadDetailsOrders(transport.id);
+    detailsOrders = await fetchOrders(transport.id, `*, supplier (*), order_item ( ${LINE_ITEMS_SELECT} )`);
     detailsTransport = transport;
   }
 
@@ -186,50 +186,18 @@
     detailsOrders = [];
   }
 
-  async function loadDetailsOrders(transportId: string) {
-    const { data: orders, error: ordersError } = await supabase
-      .from("order")
-      .select(`*, supplier (*), order_item ( ${LINE_ITEMS_SELECT} )`)
-      .eq("transport_id", transportId)
-      .order("date", { ascending: false });
-
-    if (ordersError) {
-      error = ordersError.message;
-      return;
-    }
-
-    detailsOrders = orders || [];
-  }
-
-  async function loadAvailableOrders() {
-    const { data, error: fetchError } = await supabase
-      .from("order")
-      .select("*, supplier (*)")
-      .is("transport_id", null)
-      .eq("status", "confirmed")
-      .order("date", { ascending: false });
-
-    if (fetchError) {
-      error = fetchError.message;
-      return;
-    }
-
-    availableOrders = data || [];
-  }
-
-  async function loadAssociatedOrders(transportId: string) {
-    const { data, error: fetchError } = await supabase
-      .from("order")
-      .select("*, supplier (*)")
-      .eq("transport_id", transportId)
-      .order("date", { ascending: false });
-
-    if (fetchError) {
-      error = fetchError.message;
-      return;
-    }
-
-    associatedOrders = data || [];
+  /**
+   * Commandes d'un transport, ou avec `null` les commandes confirmées encore sans transport
+   * (seules associables), les plus récentes d'abord. Échec : liste vide et message affiché.
+   */
+  async function fetchOrders(transportId: string | null, select = "*, supplier (*)"): Promise<any[]> {
+    const query = supabase.from("order").select(select);
+    const { data, error: fetchError } = await (transportId
+      ? query.eq("transport_id", transportId)
+      : query.is("transport_id", null).eq("status", "confirmed")
+    ).order("date", { ascending: false });
+    if (fetchError) error = fetchError.message;
+    return data || [];
   }
 
   async function associateOrders() {
