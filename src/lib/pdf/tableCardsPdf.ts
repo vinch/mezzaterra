@@ -1,5 +1,5 @@
 import jsPDF from "jspdf";
-import { attachRobotoPdf, svgToPng } from "./assets";
+import { attachRobotoPdf, pdfFileSlug, svgToPng } from "./assets";
 import { qrDataUrl } from "$lib/qr";
 import { formatDateLong } from "$lib/dates";
 import { tastingTitle } from "$lib/publicData";
@@ -31,8 +31,7 @@ function hexToRgb(hex: string): [number, number, number] {
 
 export async function downloadTableCardsPdf(tasting: any, wines: any[], origin: string) {
   const doc = new jsPDF({ unit: "mm", format: "a5", orientation: "portrait" });
-  const [hasRoboto, logo] = await Promise.all([attachRobotoPdf(doc), svgToPng("/flyer/logo-text.svg")]);
-  const font = hasRoboto ? "Roboto" : "helvetica";
+  const [font, logo] = await Promise.all([attachRobotoPdf(doc), svgToPng("/flyer/logo-text.svg")]);
   const W = doc.internal.pageSize.getWidth();
   const H = doc.internal.pageSize.getHeight();
   const M = 12;
@@ -173,6 +172,5 @@ export async function downloadTableCardsPdf(tasting: any, wines: any[], origin: 
     }
   }
 
-  const slug = (tasting.name || tasting.date).replace(/[^a-zA-Z0-9]+/g, "_");
-  doc.save(`Fiches_table_${slug}.pdf`);
+  doc.save(`Fiches_table_${pdfFileSlug(tasting.name || tasting.date)}.pdf`);
 }

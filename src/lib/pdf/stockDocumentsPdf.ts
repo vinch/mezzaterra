@@ -1,6 +1,7 @@
 import { base } from "$app/paths";
 import jsPDF from "jspdf";
-import { attachRobotoPdf, svgToPng } from "./assets";
+import { attachRobotoPdf, staticPng, svgToPng } from "./assets";
+import { parseIsoDate } from "$lib/dates";
 import { wineRobe, wineTypeLabel, withVolume } from "$lib/wine";
 import { kindInfo, PRODUCT_KIND_LIST, PRODUCT_KINDS, type ProductKind } from "$lib/productKinds";
 import {
@@ -67,37 +68,6 @@ function fitLine(
   return Array.isArray(lines) ? lines : [lines];
 }
 
-/** PNG statique (ex. QR) pour en-tête PDF. */
-async function loadStaticPngDataUrl(
-  relativePath: string,
-): Promise<{ dataUrl: string; aspect: number } | null> {
-  if (typeof fetch === "undefined") return null;
-  try {
-    const path = relativePath.startsWith("/") ? relativePath : `/${relativePath}`;
-    const res = await fetch(`${base}${path}`);
-    if (!res.ok) return null;
-    const blob = await res.blob();
-    const dataUrl = await new Promise<string>((resolve, reject) => {
-      const fr = new FileReader();
-      fr.onload = () => resolve(String(fr.result));
-      fr.onerror = () => reject(new Error("read"));
-      fr.readAsDataURL(blob);
-    });
-    const img = new Image();
-    await new Promise<void>((resolve, reject) => {
-      img.onload = () => resolve();
-      img.onerror = () => reject(new Error("img"));
-      img.src = dataUrl;
-    });
-    const iw = img.naturalWidth || img.width;
-    const ih = img.naturalHeight || img.height;
-    if (!iw || !ih) return null;
-    return { dataUrl, aspect: ih / iw };
-  } catch {
-    return null;
-  }
-}
-
 function drawFillInLine(
   doc: jsPDF,
   xLeft: number,
@@ -117,6 +87,29 @@ function drawFillInLine(
   doc.setDrawColor(0, 0, 0);
 }
 
+/** En-tête commun : logo à gauche, QR à droite (moitié de la hauteur du logo, centré sur lui). */
+async function drawLogoAndQr(doc: jsPDF, pageW: number, margin: number, top: number) {
+  const [logo, qr] = await Promise.all([svgToPng(`${base}/logo-black.svg`, 3000), staticPng("/qr.png")]);
+  const logoWmm = 48;
+  let logoHmm = 0;
+  let qrHmm = 0;
+  let qrWmm = 0;
+  let qrX = pageW - margin;
+
+  if (logo) {
+    logoHmm = logoWmm * logo.aspect;
+    doc.addImage(logo.dataUrl, "PNG", margin, top, logoWmm, logoHmm);
+  }
+  if (qr) {
+    qrHmm = logoHmm > 0 ? logoHmm / 2 : 12;
+    qrWmm = qrHmm / qr.aspect;
+    qrX = pageW - margin - qrWmm;
+    const qrY = logoHmm > 0 ? top + (logoHmm - qrHmm) / 2 : top;
+    doc.addImage(qr.dataUrl, "PNG", qrX, qrY, qrWmm, qrHmm);
+  }
+  return { logoWmm, logoHmm, qrHmm, qrWmm, qrX };
+}
+
 /** Liste de prix : logo, champs client au centre, QR à droite. */
 async function drawPdfPricesHeader(
   doc: jsPDF,
@@ -126,28 +119,7 @@ async function drawPdfPricesHeader(
   fontFamily: string,
 ): Promise<number> {
   const headerTopY = startY;
-  const [logo, qr] = await Promise.all([
-    svgToPng(`${base}/logo-black.svg`, 3000),
-    loadStaticPngDataUrl("/qr.png"),
-  ]);
-  const logoWmm = 48;
-  let logoHmm = 0;
-  let qrHmm = 0;
-  let qrWmm = 0;
-  let qrX = pageW - margin;
-
-  if (logo) {
-    logoHmm = logoWmm * logo.aspect;
-    doc.addImage(logo.dataUrl, "PNG", margin, headerTopY, logoWmm, logoHmm);
-  }
-  if (qr) {
-    qrHmm = logoHmm > 0 ? logoHmm / 2 : 12;
-    qrWmm = qrHmm / qr.aspect;
-    qrX = pageW - margin - qrWmm;
-    const qrY =
-      logoHmm > 0 ? headerTopY + (logoHmm - qrHmm) / 2 : headerTopY;
-    doc.addImage(qr.dataUrl, "PNG", qrX, qrY, qrWmm, qrHmm);
-  }
+  const { logoWmm, logoHmm, qrHmm, qrWmm, qrX } = await drawLogoAndQr(doc, pageW, margin, headerTopY);
 
   const midLeft = margin + logoWmm + 5;
   const midRight = qrWmm > 0 ? qrX - 4 : pageW - margin;
@@ -188,28 +160,7 @@ async function drawPdfNotesHeader(
   tastingDate: Date,
 ): Promise<number> {
   const headerTopY = startY;
-  const [logo, qr] = await Promise.all([
-    svgToPng(`${base}/logo-black.svg`, 3000),
-    loadStaticPngDataUrl("/qr.png"),
-  ]);
-  const logoWmm = 48;
-  let logoHmm = 0;
-  let qrHmm = 0;
-  let qrWmm = 0;
-  let qrX = pageW - margin;
-
-  if (logo) {
-    logoHmm = logoWmm * logo.aspect;
-    doc.addImage(logo.dataUrl, "PNG", margin, headerTopY, logoWmm, logoHmm);
-  }
-  if (qr) {
-    qrHmm = logoHmm > 0 ? logoHmm / 2 : 12;
-    qrWmm = qrHmm / qr.aspect;
-    qrX = pageW - margin - qrWmm;
-    const qrY =
-      logoHmm > 0 ? headerTopY + (logoHmm - qrHmm) / 2 : headerTopY;
-    doc.addImage(qr.dataUrl, "PNG", qrX, qrY, qrWmm, qrHmm);
-  }
+  const { logoWmm, logoHmm, qrHmm } = await drawLogoAndQr(doc, pageW, margin, headerTopY);
 
   const bandHmm = Math.max(logoHmm, qrHmm, 10);
   const dateStr = tastingDate.toLocaleDateString("fr-CH", {
@@ -248,8 +199,7 @@ export async function downloadPricesPdf(
   const margin = 14;
   let y = margin;
 
-  const useRoboto = await attachRobotoPdf(doc);
-  const fontFamily = useRoboto ? "Roboto" : "helvetica";
+  const fontFamily = await attachRobotoPdf(doc);
   doc.setFont(fontFamily, "normal");
 
   y = await drawPdfPricesHeader(doc, pageW, margin, y, fontFamily);
@@ -346,12 +296,6 @@ export async function downloadPricesPdf(
   doc.save(filename);
 }
 
-function parseTastingDate(isoDate: string): Date {
-  const [y, m, d] = isoDate.split("-").map((x) => parseInt(x, 10));
-  if (!y || !m || !d) return new Date();
-  return new Date(y, m - 1, d);
-}
-
 export type NotesPdfOptions = {
   /** Date de la dégustation (YYYY-MM-DD). */
   tastingDate?: string;
@@ -372,12 +316,11 @@ export async function downloadNotesPdf(
   const textW = pageW - 2 * margin;
   let y = margin;
 
-  const useRoboto = await attachRobotoPdf(doc);
-  const fontFamily = useRoboto ? "Roboto" : "helvetica";
+  const fontFamily = await attachRobotoPdf(doc);
   doc.setFont(fontFamily, "normal");
 
   const tastingDate = options.tastingDate
-    ? parseTastingDate(options.tastingDate)
+    ? parseIsoDate(options.tastingDate)
     : new Date();
   y = await drawPdfNotesHeader(
     doc,

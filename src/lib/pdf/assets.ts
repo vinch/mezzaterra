@@ -42,25 +42,41 @@ function loadRobotoBase64(): Promise<[string, string] | null> {
   return robotoBase64;
 }
 
-/** Roboto (Identity-H) : €, accents, etc. — Helvetica WinAnsi corrompt l’Unicode. */
-export async function attachRobotoPdf(doc: jsPDF): Promise<boolean> {
-  if (typeof fetch === "undefined") return false;
+/**
+ * Roboto (Identity-H) : €, accents, etc. — Helvetica WinAnsi corrompt l’Unicode.
+ * Renvoie la police à utiliser : Roboto si elle a pu être chargée, sinon Helvetica.
+ */
+export async function attachRobotoPdf(doc: jsPDF): Promise<"Roboto" | "helvetica"> {
+  if (typeof fetch === "undefined") return "helvetica";
   const fonts = await loadRobotoBase64();
-  if (!fonts) return false;
+  if (!fonts) return "helvetica";
   const regName = "Roboto-Regular.ttf";
   const boldName = "Roboto-Bold.ttf";
   doc.addFileToVFS(regName, fonts[0]);
   doc.addFont(regName, "Roboto", "normal");
   doc.addFileToVFS(boldName, fonts[1]);
   doc.addFont(boldName, "Roboto", "bold");
-  return true;
+  return "Roboto";
+}
+
+/** Image prête pour `doc.addImage`, avec son ratio hauteur / largeur. */
+export type PdfImage = { dataUrl: string; aspect: number };
+
+/** Charge une image dans le navigateur ; null si elle n’a pas de dimensions. */
+async function loadImage(src: string): Promise<{ img: HTMLImageElement; width: number; height: number } | null> {
+  const img = new Image();
+  await new Promise<void>((resolve, reject) => {
+    img.onload = () => resolve();
+    img.onerror = () => reject(new Error("image"));
+    img.src = src;
+  });
+  const width = img.naturalWidth || img.width;
+  const height = img.naturalHeight || img.height;
+  return width && height ? { img, width, height } : null;
 }
 
 /** jsPDF n’accepte pas le SVG : rasterisation côté navigateur, assez large pour rester net une fois réduit en mm. */
-export async function svgToPng(
-  url: string,
-  widthPx = 1600,
-): Promise<{ dataUrl: string; aspect: number } | null> {
+export async function svgToPng(url: string, widthPx = 1600): Promise<PdfImage | null> {
   if (typeof fetch === "undefined" || typeof document === "undefined") {
     return null;
   }
@@ -72,16 +88,9 @@ export async function svgToPng(
     });
     const objectUrl = URL.createObjectURL(blob);
     try {
-      const img = new Image();
-      await new Promise<void>((resolve, reject) => {
-        img.onload = () => resolve();
-        img.onerror = () => reject(new Error("svg"));
-        img.src = objectUrl;
-      });
-      const iw = img.naturalWidth || img.width;
-      const ih = img.naturalHeight || img.height;
-      if (!iw || !ih) return null;
-      const heightPx = Math.max(1, Math.round(widthPx * (ih / iw)));
+      const loaded = await loadImage(objectUrl);
+      if (!loaded) return null;
+      const heightPx = Math.max(1, Math.round(widthPx * (loaded.height / loaded.width)));
       const canvas = document.createElement("canvas");
       canvas.width = widthPx;
       canvas.height = heightPx;
@@ -89,7 +98,7 @@ export async function svgToPng(
       if (!ctx) return null;
       ctx.imageSmoothingEnabled = true;
       ctx.imageSmoothingQuality = "high";
-      ctx.drawImage(img, 0, 0, widthPx, heightPx);
+      ctx.drawImage(loaded.img, 0, 0, widthPx, heightPx);
       return { dataUrl: canvas.toDataURL("image/png"), aspect: heightPx / widthPx };
     } finally {
       URL.revokeObjectURL(objectUrl);
@@ -97,4 +106,29 @@ export async function svgToPng(
   } catch {
     return null;
   }
+}
+
+/** PNG de `static/` (ex. « /qr.png ») tel quel, en data URL. */
+export async function staticPng(path: string): Promise<PdfImage | null> {
+  if (typeof fetch === "undefined") return null;
+  try {
+    const res = await fetch(`${base}${path}`);
+    if (!res.ok) return null;
+    const blob = await res.blob();
+    const dataUrl = await new Promise<string>((resolve, reject) => {
+      const fr = new FileReader();
+      fr.onload = () => resolve(String(fr.result));
+      fr.onerror = () => reject(new Error("read"));
+      fr.readAsDataURL(blob);
+    });
+    const loaded = await loadImage(dataUrl);
+    return loaded && { dataUrl, aspect: loaded.height / loaded.width };
+  } catch {
+    return null;
+  }
+}
+
+/** Morceau de nom de fichier sûr : tout ce qui n’est pas lettre ou chiffre devient « _ ». */
+export function pdfFileSlug(s: string): string {
+  return s.replace(/[^a-zA-Z0-9]+/g, "_");
 }
