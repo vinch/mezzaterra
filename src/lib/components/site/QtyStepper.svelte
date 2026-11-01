@@ -20,7 +20,7 @@
   .stepper {
     display: inline-flex;
     align-items: center;
-    border-radius: 999px;
+    border-radius: var(--mz-radius-pill);
     background: var(--mz-cave-sunk);
     border: 1px solid var(--mz-cave-line);
   }

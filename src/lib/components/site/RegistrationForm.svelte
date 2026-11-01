@@ -151,7 +151,7 @@
     flex: 1 1 8rem;
     max-width: 12rem;
     height: 6px;
-    border-radius: 999px;
+    border-radius: var(--mz-radius-pill);
     background: var(--mz-paper-sunk);
     overflow: hidden;
   }
@@ -177,7 +177,7 @@
     display: inline-flex;
     align-items: center;
     border: 1px solid var(--mz-line);
-    border-radius: 999px;
+    border-radius: var(--mz-radius-pill);
     background: #fff;
     width: fit-content;
   }

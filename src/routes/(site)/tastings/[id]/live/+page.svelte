@@ -659,7 +659,7 @@
     align-self: center;
     margin: 0.5rem auto 0;
     padding: 0.55rem 1rem;
-    border-radius: 999px;
+    border-radius: var(--mz-radius-pill);
     border: none;
     background: var(--mz-cave-text);
     color: var(--mz-cave-bg);
@@ -867,7 +867,7 @@
 
   .pairings span {
     padding: 0.25rem 0.65rem;
-    border-radius: 999px;
+    border-radius: var(--mz-radius-pill);
     background: var(--mz-cave-surface-2);
     color: var(--mz-cave-text);
     font-size: 0.82rem;
@@ -913,7 +913,7 @@
     min-width: 2.8rem;
     height: 2.8rem;
     padding: 0 0.6rem;
-    border-radius: 999px;
+    border-radius: var(--mz-radius-pill);
     border: 1px solid var(--mz-cave-line);
     background: var(--mz-cave-surface);
     color: var(--mz-cave-text);
@@ -1000,7 +1000,7 @@
     justify-content: space-between;
     align-items: center;
     padding: 0.85rem 1.2rem;
-    border-radius: 999px;
+    border-radius: var(--mz-radius-pill);
     border: none;
     background: var(--mz-cave-text);
     color: var(--mz-cave-bg);
@@ -1047,7 +1047,7 @@
     justify-content: center;
     align-items: center;
     padding: 0.85rem 1.2rem;
-    border-radius: 999px;
+    border-radius: var(--mz-radius-pill);
     font: inherit;
     font-weight: 600;
     text-decoration: none;

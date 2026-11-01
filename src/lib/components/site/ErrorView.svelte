@@ -214,7 +214,7 @@
     align-items: center;
     min-height: 44px;
     padding: 0 20px;
-    border-radius: 999px;
+    border-radius: var(--mz-radius-pill);
     border: 1px solid var(--mz-teal);
     font-weight: 600;
     font-size: 0.95rem;

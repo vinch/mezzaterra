@@ -275,7 +275,7 @@
     top: 50%;
     height: 4px;
     transform: translateY(-50%);
-    border-radius: 999px;
+    border-radius: var(--mz-radius-pill);
     opacity: 0.7;
   }
 

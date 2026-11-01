@@ -227,7 +227,7 @@
     align-items: center;
     gap: 0.4rem;
     padding: 0.45rem 0.9rem;
-    border-radius: 999px;
+    border-radius: var(--mz-radius-pill);
     border: 1px solid var(--mz-line);
     background: transparent;
     color: var(--mz-ink-soft);
@@ -258,7 +258,7 @@
   .search {
     flex: 0 1 18rem;
     padding: 0.55rem 0.9rem;
-    border-radius: 999px;
+    border-radius: var(--mz-radius-pill);
     font-size: 0.92rem;
   }
 
