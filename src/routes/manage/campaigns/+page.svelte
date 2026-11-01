@@ -187,6 +187,7 @@
     }
     return [...map.values()];
   })());
+  let recipientsLabel = $derived(`${recipients.length} destinataire${recipients.length > 1 ? "s" : ""}`);
   let canSend = $derived(!!subject.trim() && !!message.trim() && recipients.length > 0);
   let mailtoHref = $derived(`mailto:?bcc=${encodeURIComponent(recipients.map((r) => r.email).join(","))}&subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(message)}`);
   /* Les clients mail tronquent les URLs trop longues : au-delà, on propose seulement la copie. */
@@ -237,7 +238,7 @@
         </div>
       </Card>
 
-      <Card title="2. Destinataires" subtitle="{recipients.length} destinataire{recipients.length > 1 ? 's' : ''}">
+      <Card title="2. Destinataires" subtitle={recipientsLabel}>
         <div class="stack">
           <label class="checkbox-label"><input type="checkbox" bind:checked={useSubscribers} /> Abonnés newsletter <span class="t-muted">({subscribers.length})</span></label>
           <label class="checkbox-label"><input type="checkbox" bind:checked={useCustomers} /> Clients avec email <span class="t-muted">({customers.length})</span></label>
@@ -265,7 +266,7 @@
           <h3 class="t-card-title send-title">3. Envoi</h3>
           {#if sendEnabled}
             <Button variant="primary" size="lg" block disabled={sending || !canSend} onclick={() => (confirmOpen = true)}>
-              {sending ? "Envoi en cours…" : `Envoyer à ${recipients.length} personne${recipients.length > 1 ? "s" : ""}`}
+              {sending ? "Envoi en cours…" : `Envoyer à ${recipientsLabel}`}
             </Button>
           {:else}
             <p class="warning-message">
@@ -293,7 +294,7 @@
 <ConfirmDialog
   bind:open={confirmOpen}
   title="Envoyer cette campagne ?"
-  message="« {subject} » sera envoyé à {recipients.length} destinataire{recipients.length > 1 ? 's' : ''}."
+  message="« {subject} » sera envoyé à {recipientsLabel}."
   confirmLabel="Oui, envoyer"
   tone="primary"
   action={send}
