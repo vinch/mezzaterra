@@ -17,6 +17,13 @@ export function formatDate(iso: string | null | undefined): string {
   return d && m && y ? `${d}/${m}/${y}` : iso;
 }
 
+const dateTime = new Intl.DateTimeFormat("fr-FR", { dateStyle: "short", timeStyle: "short" });
+
+/** « 17/10/2026 19:30 » à partir d'un horodatage ISO (heure locale) ; « — » si vide. */
+export function formatDateTime(iso: string | null | undefined): string {
+  return iso ? dateTime.format(new Date(iso)) : "—";
+}
+
 /** Montant saisi ou renvoyé par PostgREST (number ou string, virgule décimale FR) ; 0 si invalide. */
 export function toNumber(value: unknown): number {
   if (value == null || value === "") return 0;

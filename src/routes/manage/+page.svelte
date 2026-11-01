@@ -152,7 +152,7 @@
       nextTastingOnline = onlineSeats(nextTasting?.tasting_registration || []);
       newRequests = requestsRes;
     } catch (e) {
-      statsError = e instanceof Error ? e.message : "Impossible de charger les statistiques";
+      statsError = errorMessage(e);
     } finally {
       statsLoading = false;
     }
