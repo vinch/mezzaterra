@@ -4,6 +4,26 @@ export function errorMessage(e: unknown): string {
 }
 
 /**
+ * Action sur une ligne de liste (créer la vente, ignorer…) : `busy(id)` pendant l'action pour
+ * désactiver ses boutons, erreur précédente effacée puis remplacée par celle de l'action ;
+ * `after` (relevé, compteurs) seulement si l'action réussit.
+ */
+export function rowAction(opts: { busy: (id: string) => void; error: (message: string) => void; after?: () => unknown }) {
+  return async (id: string, action: () => Promise<unknown>) => {
+    opts.error("");
+    opts.busy(id);
+    try {
+      await action();
+      await opts.after?.();
+    } catch (e) {
+      opts.error(errorMessage(e));
+    } finally {
+      opts.busy("");
+    }
+  };
+}
+
+/**
  * Garde « la dernière demande gagne » : si l'on ouvre une autre fiche pendant un
  * chargement, la réponse la plus ancienne est ignorée au lieu d'écraser la nouvelle.
  * `onError` reçoit l'erreur de la dernière demande seulement.

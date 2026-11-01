@@ -1,6 +1,6 @@
 <script lang="ts">
   import { getContext, onMount } from "svelte";
-  import { errorMessage } from "$lib/async";
+  import { errorMessage, rowAction } from "$lib/async";
   import { fetchAllRows, supabase } from "$lib/supabase";
   import ManagePageShell from "$lib/components/manage/ManagePageShell.svelte";
   import Button from "$lib/ui/Button.svelte";
@@ -123,18 +123,7 @@
     });
   }
 
-  async function run(id: string, action: () => Promise<unknown>) {
-    error = "";
-    busyId = id;
-    try {
-      await action();
-      refreshCounts();
-    } catch (e) {
-      error = errorMessage(e);
-    } finally {
-      busyId = "";
-    }
-  }
+  const run = rowAction({ busy: (id) => (busyId = id), error: (m) => (error = m), after: refreshCounts });
 </script>
 
 <svelte:head>

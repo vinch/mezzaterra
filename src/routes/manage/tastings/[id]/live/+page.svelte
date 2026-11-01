@@ -1,6 +1,6 @@
 <script lang="ts">
   import { onDestroy, onMount } from "svelte";
-  import { errorMessage } from "$lib/async";
+  import { rowAction } from "$lib/async";
   import { fade } from "svelte/transition";
   import { page } from "$app/stores";
   import type { RealtimeChannel } from "@supabase/supabase-js";
@@ -231,19 +231,8 @@
   /** « Vin 3 », « Huile d’olive 4 » : le produit servi. */
   let currentLabel = $derived(kindInfo(current?.wine).label);
 
-  /** Action sur une ligne (demande, réservation) : bouton occupé pendant l'action, puis relevé à jour. */
-  async function run(id: string, action: () => Promise<unknown>) {
-    actionError = "";
-    busyId = id;
-    try {
-      await action();
-      await refresh();
-    } catch (e) {
-      actionError = errorMessage(e);
-    } finally {
-      busyId = "";
-    }
-  }
+  /** Action sur une ligne (demande, réservation), puis relevé à jour. */
+  const run = rowAction({ busy: (id) => (busyId = id), error: (m) => (actionError = m), after: refresh });
 
   async function copyLink() {
     await navigator.clipboard.writeText(guestUrl);
