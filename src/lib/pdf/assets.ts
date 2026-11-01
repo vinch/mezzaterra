@@ -62,17 +62,21 @@ export async function attachRobotoPdf(doc: jsPDF): Promise<"Roboto" | "helvetica
 /** Image prête pour `doc.addImage`, avec son ratio hauteur / largeur. */
 export type PdfImage = { dataUrl: string; aspect: number };
 
-/** Charge une image dans le navigateur ; null si elle n’a pas de dimensions. */
-async function loadImage(src: string): Promise<{ img: HTMLImageElement; width: number; height: number } | null> {
-  const img = new Image();
-  await new Promise<void>((resolve, reject) => {
-    img.onload = () => resolve();
-    img.onerror = () => reject(new Error("image"));
+/** Charge une image dans le navigateur (PDF, visuel des dégustations). */
+export function loadImage(src: string): Promise<HTMLImageElement> {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    img.onload = () => resolve(img);
+    img.onerror = () => reject(new Error(`Image introuvable : ${src}`));
     img.src = src;
   });
+}
+
+/** Ratio hauteur / largeur ; null si l’image n’a pas de dimensions. */
+function aspectOf(img: HTMLImageElement): number | null {
   const width = img.naturalWidth || img.width;
   const height = img.naturalHeight || img.height;
-  return width && height ? { img, width, height } : null;
+  return width && height ? height / width : null;
 }
 
 /** jsPDF n’accepte pas le SVG : rasterisation côté navigateur, assez large pour rester net une fois réduit en mm. */
@@ -88,9 +92,10 @@ export async function svgToPng(url: string, widthPx = 1600): Promise<PdfImage | 
     });
     const objectUrl = URL.createObjectURL(blob);
     try {
-      const loaded = await loadImage(objectUrl);
-      if (!loaded) return null;
-      const heightPx = Math.max(1, Math.round(widthPx * (loaded.height / loaded.width)));
+      const img = await loadImage(objectUrl);
+      const aspect = aspectOf(img);
+      if (!aspect) return null;
+      const heightPx = Math.max(1, Math.round(widthPx * aspect));
       const canvas = document.createElement("canvas");
       canvas.width = widthPx;
       canvas.height = heightPx;
@@ -98,7 +103,7 @@ export async function svgToPng(url: string, widthPx = 1600): Promise<PdfImage | 
       if (!ctx) return null;
       ctx.imageSmoothingEnabled = true;
       ctx.imageSmoothingQuality = "high";
-      ctx.drawImage(loaded.img, 0, 0, widthPx, heightPx);
+      ctx.drawImage(img, 0, 0, widthPx, heightPx);
       return { dataUrl: canvas.toDataURL("image/png"), aspect: heightPx / widthPx };
     } finally {
       URL.revokeObjectURL(objectUrl);
@@ -121,8 +126,8 @@ export async function staticPng(path: string): Promise<PdfImage | null> {
       fr.onerror = () => reject(new Error("read"));
       fr.readAsDataURL(blob);
     });
-    const loaded = await loadImage(dataUrl);
-    return loaded && { dataUrl, aspect: loaded.height / loaded.width };
+    const aspect = aspectOf(await loadImage(dataUrl));
+    return aspect ? { dataUrl, aspect } : null;
   } catch {
     return null;
   }
