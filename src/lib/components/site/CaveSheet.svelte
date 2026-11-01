@@ -1,0 +1,90 @@
+<script lang="ts">
+  import type { Snippet } from "svelte";
+  import { fade, fly } from "svelte/transition";
+  import { self } from "$lib/ui/events";
+
+  /**
+   * Feuille du mode live (thème cave) : monte du bas sur mobile, centrée sur grand écran.
+   * Un clic sur le fond ferme, comme le bouton × ; `locked` empêche de fermer (envoi en cours).
+   */
+  interface Props {
+    open: boolean;
+    title: string;
+    onclose: () => void;
+    /** Bouton × en haut à droite. */
+    closable?: boolean;
+    locked?: boolean;
+    children: Snippet;
+  }
+
+  let { open, title, onclose, closable = true, locked = false, children }: Props = $props();
+  const titleId = $props.id();
+</script>
+
+{#if open}
+  <div class="backdrop" transition:fade={{ duration: 150 }} onclick={self(() => !locked && onclose())} role="presentation">
+    <div class="sheet" transition:fly={{ y: 40, duration: 250 }} role="dialog" aria-modal="true" aria-labelledby={titleId}>
+      {#if closable}
+        <button type="button" class="close" onclick={onclose} disabled={locked} aria-label="Fermer">×</button>
+      {/if}
+      <h2 id={titleId}>{title}</h2>
+      {@render children()}
+    </div>
+  </div>
+{/if}
+
+<style>
+  .backdrop {
+    position: fixed;
+    inset: 0;
+    z-index: 50;
+    display: flex;
+    align-items: flex-end;
+    justify-content: center;
+    background: rgba(0, 0, 0, 0.55);
+  }
+
+  .sheet {
+    position: relative;
+    width: min(34rem, 100%);
+    max-height: 90dvh;
+    overflow-y: auto;
+    padding: 1.6rem 1.3rem calc(1.5rem + env(safe-area-inset-bottom));
+    border-radius: var(--mz-radius-lg) var(--mz-radius-lg) 0 0;
+    background: var(--mz-cave-surface);
+    color: var(--mz-cave-text);
+    font-family: var(--mz-font-body);
+    border-top: 1px solid var(--mz-cave-line);
+  }
+
+  h2 {
+    margin: 0 0 0.5rem;
+    font-family: var(--mz-font-display);
+    font-weight: 500;
+    font-size: 1.8rem;
+  }
+
+  .close {
+    position: absolute;
+    top: 0.8rem;
+    right: 0.9rem;
+    width: 2.2rem;
+    height: 2.2rem;
+    border-radius: 50%;
+    border: none;
+    background: var(--mz-cave-surface-2);
+    color: var(--mz-cave-text);
+    font-size: 1.4rem;
+    cursor: pointer;
+  }
+
+  @media (min-width: 720px) {
+    .backdrop {
+      align-items: center;
+    }
+
+    .sheet {
+      border-radius: var(--mz-radius-lg);
+    }
+  }
+</style>

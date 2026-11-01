@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { preventDefault, self } from "$lib/ui/events";
+  import { preventDefault } from "$lib/ui/events";
   import { onDestroy, onMount } from "svelte";
   import { fade, fly } from "svelte/transition";
   import type { RealtimeChannel } from "@supabase/supabase-js";
@@ -7,6 +7,8 @@
   import WineBottle from "$lib/components/site/WineBottle.svelte";
   import GlassProgress from "$lib/components/site/GlassProgress.svelte";
   import StarRating from "$lib/components/site/StarRating.svelte";
+  import CaveSheet from "$lib/components/site/CaveSheet.svelte";
+  import QtyStepper from "$lib/components/site/QtyStepper.svelte";
   import { tastingTitle } from "$lib/publicData";
   import { daysUntil, formatDateLong, winesRevealed } from "$lib/dates";
   import {
@@ -378,11 +380,7 @@
                 <span class="want-price">{formatEUR(current.price)} la bouteille</span>
               {/if}
             </div>
-            <div class="stepper" role="group" aria-label="Nombre de bouteilles">
-              <button type="button" onclick={() => setQty(current.id, (cart[current.id] ?? 0) - 1)} disabled={!cart[current.id]} aria-label="Une bouteille de moins">−</button>
-              <output aria-live="polite">{cart[current.id] ?? 0}</output>
-              <button type="button" onclick={() => setQty(current.id, (cart[current.id] ?? 0) + 1)} aria-label="Une bouteille de plus">+</button>
-            </div>
+            <QtyStepper value={cart[current.id] ?? 0} onchange={(q) => setQty(current.id, q)} />
           </div>
         </section>
       {/key}
@@ -426,122 +424,105 @@
   {/if}
 </div>
 
-{#if showWelcome}
-  <div class="sheet-backdrop" transition:fade={{ duration: 150 }} onclick={self(() => saveWelcome())} role="presentation">
-    <div class="sheet" transition:fly={{ y: 40, duration: 250 }} role="dialog" aria-modal="true" aria-labelledby="welcome-title">
-      <h2 id="welcome-title">Bienvenue 🍷</h2>
-      <p class="sheet-lead">
-        Suivez la soirée vin après vin, notez ce que vous goûtez et mettez de côté vos coups de cœur.
+<CaveSheet open={showWelcome} title="Bienvenue 🍷" onclose={saveWelcome} closable={false}>
+  <p class="sheet-lead">
+    Suivez la soirée vin après vin, notez ce que vous goûtez et mettez de côté vos coups de cœur.
+  </p>
+  <form onsubmit={preventDefault(saveWelcome)} class="sheet-form">
+    <label>Prénom<input bind:value={profile.firstName} autocomplete="given-name" /></label>
+    <label>Email <span class="opt">(facultatif)</span>
+      <input type="email" bind:value={profile.email} autocomplete="email" />
+    </label>
+    <button type="submit" class="solid-btn">C’est parti</button>
+  </form>
+</CaveSheet>
+
+<!-- Pas de fermeture pendant la confirmation : un ajout fait entre-temps serait effacé avec le panier. -->
+<CaveSheet
+  open={showCart}
+  title={sendResult === "ok" ? `Merci ${profile.firstName} !` : "Ma pré-commande"}
+  onclose={() => (showCart = false)}
+  locked={sending}
+>
+  {#if sendResult === "ok"}
+    <p class="sheet-lead">Votre commande est confirmée. On prépare vos bouteilles et on revient vers vous très vite.</p>
+    <button type="button" class="solid-btn" onclick={() => { showCart = false; sendResult = null; }}>Continuer la dégustation</button>
+  {:else}
+    <p class="sheet-lead">
+      Rien n’est commandé tant que vous n’avez pas confirmé : ajustez les quantités à votre guise.
+    </p>
+    <ul class="cart-lines">
+      {#each cartLines as l (l.wine.id)}
+        <li>
+          <span class="mz-dot" style="background: {wineStyle(l.wine.wine?.wine_type).color}"></span>
+          <span class="cart-name">{withVolume(`${wineTitle(l.wine.wine)}${l.wine.year ? ` ${l.wine.year}` : ""}`, l.wine)}</span>
+          <QtyStepper value={l.qty} onchange={(q) => setQty(l.wine.id, q)} size="sm" disabled={sending} />
+          <span class="cart-price">{formatEUR(l.qty * Number(l.wine.price ?? 0))}</span>
+        </li>
+      {/each}
+    </ul>
+    <p class="cart-total">Total indicatif <strong>{formatEUR(cartTotal)}</strong></p>
+
+    {#if sendResult === "offline"}
+      <p class="offline">
+        Impossible de confirmer pour l’instant : votre sélection reste enregistrée sur ce téléphone.
+        Montrez cet écran à l’équipe Mezzaterra, on s’en occupe !
       </p>
-      <form onsubmit={preventDefault(saveWelcome)} class="sheet-form">
-        <label>Prénom<input bind:value={profile.firstName} autocomplete="given-name" /></label>
-        <label>Email <span class="opt">(facultatif)</span>
-          <input type="email" bind:value={profile.email} autocomplete="email" />
-        </label>
-        <button type="submit" class="solid-btn">C’est parti</button>
-      </form>
-    </div>
-  </div>
-{/if}
+    {/if}
 
-{#if showCart}
-  <!-- Pas de fermeture pendant la confirmation : un ajout fait entre-temps serait effacé avec le panier. -->
-  <div class="sheet-backdrop" transition:fade={{ duration: 150 }} onclick={self(() => (showCart = sending))} role="presentation">
-    <div class="sheet" transition:fly={{ y: 40, duration: 250 }} role="dialog" aria-modal="true" aria-labelledby="cart-title">
-      <button type="button" class="sheet-close" onclick={() => (showCart = false)} disabled={sending} aria-label="Fermer">×</button>
-      {#if sendResult === "ok"}
-        <h2 id="cart-title">Merci {profile.firstName} !</h2>
-        <p class="sheet-lead">Votre commande est confirmée. On prépare vos bouteilles et on revient vers vous très vite.</p>
-        <button type="button" class="solid-btn" onclick={() => { showCart = false; sendResult = null; }}>Continuer la dégustation</button>
-      {:else}
-        <h2 id="cart-title">Ma pré-commande</h2>
-        <p class="sheet-lead">
-          Rien n’est commandé tant que vous n’avez pas confirmé : ajustez les quantités à votre guise.
-        </p>
-        <ul class="cart-lines">
-          {#each cartLines as l (l.wine.id)}
-            <li>
-              <span class="mz-dot" style="background: {wineStyle(l.wine.wine?.wine_type).color}"></span>
-              <span class="cart-name">{withVolume(`${wineTitle(l.wine.wine)}${l.wine.year ? ` ${l.wine.year}` : ""}`, l.wine)}</span>
-              <div class="stepper small">
-                <button type="button" onclick={() => setQty(l.wine.id, l.qty - 1)} disabled={sending} aria-label={l.qty === 1 ? "Retirer" : "Moins"}>−</button>
-                <output>{l.qty}</output>
-                <button type="button" onclick={() => setQty(l.wine.id, l.qty + 1)} disabled={sending} aria-label="Plus">+</button>
-              </div>
-              <span class="cart-price">{formatEUR(l.qty * Number(l.wine.price ?? 0))}</span>
-            </li>
-          {/each}
-        </ul>
-        <p class="cart-total">Total indicatif <strong>{formatEUR(cartTotal)}</strong></p>
-
-        {#if sendResult === "offline"}
-          <p class="offline">
-            Impossible de confirmer pour l’instant : votre sélection reste enregistrée sur ce téléphone.
-            Montrez cet écran à l’équipe Mezzaterra, on s’en occupe !
-          </p>
-        {/if}
-
-        <form onsubmit={preventDefault(confirmOrder)} class="sheet-form">
-          {#if editingContact}
-            <div class="row">
-              <label>Prénom *<input bind:value={profile.firstName} autocomplete="given-name" required /></label>
-              <label>Nom<input bind:value={profile.lastName} autocomplete="family-name" /></label>
-            </div>
-            <div class="row">
-              <label>Email<input type="email" bind:value={profile.email} autocomplete="email" /></label>
-              <label>Téléphone<input type="tel" bind:value={profile.phone} autocomplete="tel" /></label>
-            </div>
-          {:else}
-            <p class="contact">
-              <span>Au nom de <strong>{guestName(profile)}</strong> · {profile.email || profile.phone}</span>
-              <button type="button" class="link-btn" onclick={() => (editingContact = true)}>Modifier</button>
-            </p>
-          {/if}
-          {#if sendError}<p class="error" role="alert">{sendError}</p>{/if}
-          <button type="submit" class="solid-btn" disabled={sending || cartCount === 0}>
-            {sending ? "Confirmation…" : "Confirmer ma commande"}
-          </button>
-          <p class="fine">Aucun paiement maintenant : nous vous recontactons pour la livraison.</p>
-        </form>
-      {/if}
-    </div>
-  </div>
-{/if}
-
-{#if showRecap}
-  <div class="sheet-backdrop" transition:fade={{ duration: 150 }} onclick={self(() => (showRecap = false))} role="presentation">
-    <div class="sheet" transition:fly={{ y: 40, duration: 250 }} role="dialog" aria-modal="true" aria-labelledby="recap-title">
-      <button type="button" class="sheet-close" onclick={() => (showRecap = false)} aria-label="Fermer">×</button>
-      <h2 id="recap-title">Votre soirée</h2>
-      <p class="sheet-lead">{ratedCount} vin{ratedCount > 1 ? "s" : ""} noté{ratedCount > 1 ? "s" : ""} sur {total}.</p>
-      <ol class="recap">
-        {#each wines as w, i}
-          {@const r = ratings[w.id]}
-          <li>
-            {#if i <= unlocked}
-              <button type="button" onclick={() => { showRecap = false; goTo(i); }}>
-                <span class="recap-num" style="--c: {wineStyle(w.wine?.wine_type).color}">{i + 1}</span>
-                <span class="recap-name">
-                  {wineTitle(w.wine)}
-                  {#if cart[w.id]}<span class="recap-qty">× {cart[w.id]} en pré-commande</span>{/if}
-                </span>
-                <StarRating value={r?.rating ?? null} readonly size="0.95rem" />
-              </button>
-            {:else}
-              <span class="recap-locked"><span class="recap-num" style="--c: rgba(236, 230, 218, 0.2)">{i + 1}</span> À venir…</span>
-            {/if}
-            {#if r?.comment}<p class="recap-comment">« {r.comment} »</p>{/if}
-          </li>
-        {/each}
-      </ol>
-      {#if cartCount > 0}
-        <div class="recap-actions">
-          <button type="button" class="solid-btn" onclick={() => { showRecap = false; openCart(); }}>Voir et confirmer ma pré-commande</button>
+    <form onsubmit={preventDefault(confirmOrder)} class="sheet-form">
+      {#if editingContact}
+        <div class="row">
+          <label>Prénom *<input bind:value={profile.firstName} autocomplete="given-name" required /></label>
+          <label>Nom<input bind:value={profile.lastName} autocomplete="family-name" /></label>
         </div>
+        <div class="row">
+          <label>Email<input type="email" bind:value={profile.email} autocomplete="email" /></label>
+          <label>Téléphone<input type="tel" bind:value={profile.phone} autocomplete="tel" /></label>
+        </div>
+      {:else}
+        <p class="contact">
+          <span>Au nom de <strong>{guestName(profile)}</strong> · {profile.email || profile.phone}</span>
+          <button type="button" class="link-btn" onclick={() => (editingContact = true)}>Modifier</button>
+        </p>
       {/if}
+      {#if sendError}<p class="error" role="alert">{sendError}</p>{/if}
+      <button type="submit" class="solid-btn" disabled={sending || cartCount === 0}>
+        {sending ? "Confirmation…" : "Confirmer ma commande"}
+      </button>
+      <p class="fine">Aucun paiement maintenant : nous vous recontactons pour la livraison.</p>
+    </form>
+  {/if}
+</CaveSheet>
+
+<CaveSheet open={showRecap} title="Votre soirée" onclose={() => (showRecap = false)}>
+  <p class="sheet-lead">{ratedCount} vin{ratedCount > 1 ? "s" : ""} noté{ratedCount > 1 ? "s" : ""} sur {total}.</p>
+  <ol class="recap">
+    {#each wines as w, i}
+      {@const r = ratings[w.id]}
+      <li>
+        {#if i <= unlocked}
+          <button type="button" onclick={() => { showRecap = false; goTo(i); }}>
+            <span class="recap-num" style="--c: {wineStyle(w.wine?.wine_type).color}">{i + 1}</span>
+            <span class="recap-name">
+              {wineTitle(w.wine)}
+              {#if cart[w.id]}<span class="recap-qty">× {cart[w.id]} en pré-commande</span>{/if}
+            </span>
+            <StarRating value={r?.rating ?? null} readonly size="0.95rem" />
+          </button>
+        {:else}
+          <span class="recap-locked"><span class="recap-num" style="--c: rgba(236, 230, 218, 0.2)">{i + 1}</span> À venir…</span>
+        {/if}
+        {#if r?.comment}<p class="recap-comment">« {r.comment} »</p>{/if}
+      </li>
+    {/each}
+  </ol>
+  {#if cartCount > 0}
+    <div class="recap-actions">
+      <button type="button" class="solid-btn" onclick={() => { showRecap = false; openCart(); }}>Voir et confirmer ma pré-commande</button>
     </div>
-  </div>
-{/if}
+  {/if}
+</CaveSheet>
 
 <style>
   .cave {
@@ -901,42 +882,6 @@
     color: var(--mz-cave-muted);
   }
 
-  .stepper {
-    display: inline-flex;
-    align-items: center;
-    border-radius: 999px;
-    background: rgba(0, 0, 0, 0.25);
-    border: 1px solid var(--mz-cave-line);
-  }
-
-  .stepper button {
-    width: 2.6rem;
-    height: 2.6rem;
-    border: none;
-    border-radius: 50%;
-    background: none;
-    color: inherit;
-    font-size: 1.3rem;
-    cursor: pointer;
-  }
-
-  .stepper button:disabled {
-    opacity: 0.3;
-  }
-
-  .stepper output {
-    min-width: 1.6rem;
-    text-align: center;
-    font-weight: 700;
-    font-variant-numeric: tabular-nums;
-  }
-
-  .stepper.small button {
-    width: 2rem;
-    height: 2rem;
-    font-size: 1.05rem;
-  }
-
   .dots {
     position: fixed;
     left: 0;
@@ -1054,55 +999,11 @@
     box-shadow: 0 12px 30px rgba(0, 0, 0, 0.45);
   }
 
-  /* ——— Feuilles (bottom sheets) ——— */
-  .sheet-backdrop {
-    position: fixed;
-    inset: 0;
-    z-index: 50;
-    display: flex;
-    align-items: flex-end;
-    justify-content: center;
-    background: rgba(0, 0, 0, 0.55);
-  }
-
-  .sheet {
-    position: relative;
-    width: min(34rem, 100%);
-    max-height: 90dvh;
-    overflow-y: auto;
-    padding: 1.6rem 1.3rem calc(1.5rem + env(safe-area-inset-bottom));
-    border-radius: var(--mz-radius-lg) var(--mz-radius-lg) 0 0;
-    background: var(--mz-cave-surface);
-    color: var(--mz-cave-text);
-    font-family: var(--mz-font-body);
-    border-top: 1px solid var(--mz-cave-line);
-  }
-
-  .sheet h2 {
-    margin: 0 0 0.5rem;
-    font-family: var(--mz-font-display);
-    font-weight: 500;
-    font-size: 1.8rem;
-  }
-
+  /* ——— Feuilles (CaveSheet) ——— */
   .sheet-lead {
     margin: 0 0 1.1rem;
     color: var(--mz-cave-muted);
     line-height: 1.5;
-  }
-
-  .sheet-close {
-    position: absolute;
-    top: 0.8rem;
-    right: 0.9rem;
-    width: 2.2rem;
-    height: 2.2rem;
-    border-radius: 50%;
-    border: none;
-    background: var(--mz-cave-surface-2);
-    color: var(--mz-cave-text);
-    font-size: 1.4rem;
-    cursor: pointer;
   }
 
   .sheet-form {
@@ -1303,15 +1204,5 @@
     display: flex;
     flex-direction: column;
     gap: 0.6rem;
-  }
-
-  @media (min-width: 720px) {
-    .sheet-backdrop {
-      align-items: center;
-    }
-
-    .sheet {
-      border-radius: var(--mz-radius-lg);
-    }
   }
 </style>
