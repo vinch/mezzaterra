@@ -16,6 +16,7 @@
   import StockBadge from "$lib/ui/StockBadge.svelte";
   import Spinner from "$lib/ui/Spinner.svelte";
   import DataTable from "$lib/ui/DataTable.svelte";
+  import SortHeader, { compareValues, type SortState } from "$lib/ui/SortHeader.svelte";
   import KpiCard from "$lib/ui/KpiCard.svelte";
   import Tabs from "$lib/ui/Tabs.svelte";
   import { IconBox, IconChart, IconEuro, IconSignal } from "$lib/ui/icons";
@@ -32,7 +33,7 @@
     { key: "tastings", label: "Rentabilité des dégustations" },
   ];
   let tab = $state<Tab>("margins");
-  let sortKey = $state<"margin" | "unitMarginPct" | "revenue" | "sold" | "stock">("margin");
+  let sort = $state<SortState<"margin" | "unitMarginPct" | "revenue" | "sold" | "stock">>({ key: "margin", dir: "desc" });
 
   onMount(async () => {
     try {
@@ -47,7 +48,7 @@
     }
   });
 
-  let sorted = $derived([...stats].sort((a, b) => ((b[sortKey] as number) ?? -Infinity) - ((a[sortKey] as number) ?? -Infinity)));
+  let sorted = $derived([...stats].sort((a, b) => compareValues(a[sort.key], b[sort.key], sort.dir)));
   let totals = $derived(stats.reduce(
     (t, s) => ({ revenue: t.revenue + s.revenue, cost: t.cost + s.cost, sold: t.sold + s.sold }),
     { revenue: 0, cost: 0, sold: 0 },
@@ -108,11 +109,11 @@
               <th scope="col">Produit</th>
               <th scope="col" class="num">Achat</th>
               <th scope="col" class="num">Vente</th>
-              <th scope="col" class="num sortable" class:on={sortKey === "unitMarginPct"} onclick={() => (sortKey = "unitMarginPct")}>Marge unit.</th>
-              <th scope="col" class="num sortable" class:on={sortKey === "sold"} onclick={() => (sortKey = "sold")}>Vendues</th>
-              <th scope="col" class="num sortable" class:on={sortKey === "revenue"} onclick={() => (sortKey = "revenue")}>CA</th>
-              <th scope="col" class="num sortable" class:on={sortKey === "margin"} onclick={() => (sortKey = "margin")}>Marge réalisée</th>
-              <th scope="col" class="num sortable" class:on={sortKey === "stock"} onclick={() => (sortKey = "stock")}>Stock</th>
+              <SortHeader column="unitMarginPct" label="Marge unit." num firstDir="desc" bind:sort />
+              <SortHeader column="sold" label="Vendues" num firstDir="desc" bind:sort />
+              <SortHeader column="revenue" label="CA" num firstDir="desc" bind:sort />
+              <SortHeader column="margin" label="Marge réalisée" num firstDir="desc" bind:sort />
+              <SortHeader column="stock" label="Stock" num firstDir="desc" bind:sort />
             </tr>
           </thead>
           <tbody>
@@ -239,15 +240,6 @@
     font-size: 0.88rem;
     color: var(--ink-2);
     max-width: 60rem;
-  }
-
-  .sortable {
-    cursor: pointer;
-    user-select: none;
-  }
-
-  .sortable.on::after {
-    content: " ↓";
   }
 
   td a:not(.row-link) {
