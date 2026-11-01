@@ -130,6 +130,15 @@ pré-commandes déjà enregistrées passe de `wine_vintage_id` à `lot_id`. À a
 déploiement du code : l'ancien code ne marche pas sur le nouveau schéma, ni l'inverse. Script
 inverse : `supabase/rollback/20261101120000_rename_products_down.sql`.
 
+Transition : un onglet ouvert avant la bascule (vente, commande, pré-commande d'un invité, demande
+« J'en veux ») envoie encore ses lignes avec `wine_vintage_id`. La fonction `legacy_lot_items` les lit
+comme `lot_id` : appelée en tête de `save_sale`, `save_order` et `save_live_preorder`
+(`p_items := public.legacy_lot_items(p_items)`), et par les triggers `wish_request_legacy_lot_items` et
+`live_preorder_legacy_lot_items` (fonction `legacy_lot_items_row`) sur `items`. Quelques jours après la
+bascule, une migration de nettoyage la retire : supprimer la ligne `p_items := …` des trois fonctions
+(en les recréant), les deux triggers, puis `legacy_lot_items_row` et `legacy_lot_items`. Elle ne
+demande aucun déploiement de code : l'application n'envoie déjà plus que `lot_id`.
+
 ```sh
 supabase link --project-ref wmerreifcpttrhxwmkmn
 supabase db push
