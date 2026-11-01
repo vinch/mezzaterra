@@ -44,6 +44,7 @@
     globalDiscountAmount,
     itemsSubtotal,
     lineDiscountError,
+    lineDiscountLabel,
     paymentMethodLabel,
     saleItemDescription,
     saleTotal,
@@ -977,9 +978,7 @@
                     </td>
                     <td class="num">{formatEUR(toNumber(item.price))}</td>
                     <td class="num">
-                      {#if toNumber(item.discount) > 0}
-                        {item.discount_type === "percent" ? `−${toNumber(item.discount)} %` : `−${formatEUR(toNumber(item.discount))}`}
-                      {:else}—{/if}
+                      {lineDiscountLabel(item)}
                     </td>
                     <td class="num"><strong>{formatEUR(lineTotal(item))}</strong></td>
                     <td class="col-actions">
@@ -1122,9 +1121,7 @@
               <td class="num">{item.quantity}</td>
               <td class="num">{formatEUR(toNumber(item.price))}</td>
               <td class="num">
-                {#if toNumber(item.discount) > 0}
-                  {item.discount_type === "percent" ? `−${toNumber(item.discount)} %` : `−${formatEUR(toNumber(item.discount))}`}
-                {:else}—{/if}
+                {lineDiscountLabel(item)}
               </td>
               <td class="num"><strong>{formatEUR(lineTotal(item))}</strong></td>
             </tr>
