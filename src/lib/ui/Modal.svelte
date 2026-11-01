@@ -51,7 +51,8 @@
   }
 
   function onClose() {
-    document.body.style.overflow = "";
+    /* Ouverte depuis une autre modale (confirmation) : la page reste bloquée derrière celle-ci. */
+    if (!returnFocus?.closest(".modal")) document.body.style.overflow = "";
     returnFocus?.focus?.();
   }
 
@@ -66,9 +67,11 @@
     onclose?.();
   }
 
-  /* Si le focus a quitté la modale (élément retiré du DOM…), Échap et Tab restent gérés. */
+  /* Si le focus a quitté la modale (élément retiré du DOM…), Échap et Tab restent gérés ; pas s'il
+     est dans une autre modale ouverte par-dessus (confirmation). */
   function onWindowKeydown(e: KeyboardEvent) {
     if (!open || !dialog || dialog.contains(document.activeElement)) return;
+    if ((document.activeElement as HTMLElement | null)?.closest(".modal")) return;
     if (e.key === "Escape") {
       close();
     } else if (e.key === "Tab") {
