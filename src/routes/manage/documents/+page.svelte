@@ -5,10 +5,8 @@
   import ManagePageShell from "$lib/components/manage/ManagePageShell.svelte";
   import Modal from "$lib/ui/Modal.svelte";
   import Button from "$lib/ui/Button.svelte";
-  import IconButton from "$lib/ui/IconButton.svelte";
+  import MoveButtons from "$lib/ui/MoveButtons.svelte";
   import Spinner from "$lib/ui/Spinner.svelte";
-  import { IconArrowDown, IconArrowUp } from "$lib/ui/icons";
-  import { moveItem } from "$lib/list";
   import {
     fetchStockDocVintages,
     sortedStockForDocuments,
@@ -324,12 +322,7 @@
             >
           </div>
           <div class="notes-order-actions">
-            <IconButton label="Monter {row.wineName}" disabled={i === 0} onclick={() => (notesModalRows = moveItem(notesModalRows, i, -1))}>
-              <IconArrowUp size={18} strokeWidth={1.75} />
-            </IconButton>
-            <IconButton label="Descendre {row.wineName}" disabled={i === notesModalRows.length - 1} onclick={() => (notesModalRows = moveItem(notesModalRows, i, 1))}>
-              <IconArrowDown size={18} strokeWidth={1.75} />
-            </IconButton>
+            <MoveButtons bind:list={notesModalRows} index={i} label={row.wineName} />
           </div>
         </li>
       {/each}

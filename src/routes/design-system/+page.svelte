@@ -19,6 +19,7 @@
   import KpiCard from "$lib/ui/KpiCard.svelte";
   import type { MenuItem } from "$lib/ui/Menu.svelte";
   import Modal from "$lib/ui/Modal.svelte";
+  import MoveButtons from "$lib/ui/MoveButtons.svelte";
   import PageHeader from "$lib/ui/PageHeader.svelte";
   import RowMenu from "$lib/ui/RowMenu.svelte";
   import Select from "$lib/ui/Select.svelte";
@@ -151,6 +152,7 @@
   let confirmOpen = $state(false);
   let demoStatus = $state<SaleStatus>("pending");
   let demoTab = $state<ProductKind>(DEFAULT_KIND);
+  let demoOrder = $state(["Trebbiano d’Abruzzo", "Cerasuolo", "Montepulciano d’Abruzzo"]);
 
   const customers: ComboOption[] = [
     { id: "1", label: "Giulia Rossi", searchText: "giulia rossi bruxelles" },
@@ -316,6 +318,14 @@
             <IconButton label="Supprimer" disabled><IconTrash size={18} strokeWidth={1.75} /></IconButton>
             <span class="night-box"><IconButton label="Rechercher" variant="dark"><IconSearch size={18} strokeWidth={1.75} /></IconButton></span>
           </div>
+
+          <h3 class="ds-h3"><code>MoveButtons</code> · ordre d’une liste</h3>
+          <p class="t-muted">« Monter » / « Descendre » d’un élément (ordre de passage d’une dégustation, feuille de notes) : <code>bind:list</code>, <code>index</code>, <code>label</code> (nom de l’élément, lu par les lecteurs d’écran).</p>
+          <ol class="move-demo">
+            {#each demoOrder as wine, i (wine)}
+              <li><span>{i + 1}. {wine}</span><MoveButtons bind:list={demoOrder} index={i} label={wine} /></li>
+            {/each}
+          </ol>
         </section>
 
         <!-- ——— Badges ——— -->
@@ -751,6 +761,23 @@
     color: var(--mz-cave-text);
     border-radius: var(--r-md);
     line-height: 18px;
+  }
+
+  .move-demo {
+    margin: 0;
+    padding: 0;
+    list-style: none;
+    max-width: 24rem;
+  }
+
+  .move-demo li {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+  }
+
+  .move-demo span {
+    flex: 1;
   }
 
   .night-box {

@@ -20,8 +20,6 @@
   import Spinner from "$lib/ui/Spinner.svelte";
   import EmptyState from "$lib/ui/EmptyState.svelte";
   import {
-    IconArrowDown,
-    IconArrowUp,
     IconDownload,
     IconExternal,
     IconGlasses,
@@ -32,7 +30,7 @@
     IconUsers,
     IconX,
   } from "$lib/ui/icons";
-  import { moveItem } from "$lib/list";
+  import MoveButtons from "$lib/ui/MoveButtons.svelte";
   import { compareCustomersByLabel, customerDisplayLabel, namesakeIds } from "$lib/customerDisplay";
   import { fetchCustomers, fetchPickerVintages } from "$lib/manageData";
   import { errorMessage, latestOnly } from "$lib/async";
@@ -577,12 +575,7 @@
             <li class="entry">
               <span class="entry-num" aria-hidden="true">{i + 1}</span>
               <span class="entry-label">{label}</span>
-              <IconButton label="Monter {label}" disabled={i === 0} onclick={() => (modalWines = moveItem(modalWines, i, -1))}>
-                <IconArrowUp size={18} strokeWidth={1.75} />
-              </IconButton>
-              <IconButton label="Descendre {label}" disabled={i === modalWines.length - 1} onclick={() => (modalWines = moveItem(modalWines, i, 1))}>
-                <IconArrowDown size={18} strokeWidth={1.75} />
-              </IconButton>
+              <MoveButtons bind:list={modalWines} index={i} {label} />
               <IconButton label="Retirer {label}" onclick={() => removeWineFromList(i)}>
                 <IconX size={18} strokeWidth={1.75} />
               </IconButton>
