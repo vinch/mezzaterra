@@ -86,6 +86,11 @@ export const localServed = perTasting<number>("mz-served", (v) => Number(v) || 0
 export const localCart = perTasting<Record<string, number>>("mz-cart", (v) => v ?? {});
 /** Panier changé mais pas encore en base (hors ligne, page quittée) : renvoyé à la prochaine occasion. */
 const preorderDirty = perTasting<boolean>("mz-preorder-dirty", (v) => v === true);
+/**
+ * Clé de la confirmation en cours : reprise tant que la confirmation n'a pas abouti (réponse perdue,
+ * nouvel essai), elle évite une seconde demande pour le même panier. Un panier modifié en reçoit une neuve.
+ */
+const confirmKey = perTasting<string | null>("mz-confirm-key", (v) => (typeof v === "string" ? v : null));
 
 /** Position valide dans un déroulé de `count` produits (0 si vide). */
 export function clampPosition(p: number, count: number): number {
@@ -159,6 +164,7 @@ async function savePreorder(opts: {
   cart: Record<string, number>;
   profile: GuestProfile;
   confirm?: boolean;
+  requestKey?: string | null;
 }): Promise<boolean> {
   try {
     const { error } = await supabase.rpc("save_live_preorder", {
@@ -170,6 +176,7 @@ async function savePreorder(opts: {
       p_email: opts.profile.email,
       p_phone: opts.profile.phone,
       p_confirm: opts.confirm ?? false,
+      p_request_key: opts.requestKey ?? undefined,
     });
     return !error;
   } catch {
@@ -196,12 +203,20 @@ export function createPreorderSync(
   function push(confirm = false): Promise<boolean> {
     if (timer) clearTimeout(timer);
     timer = null;
-    const run = queue.then(() => savePreorder({ tastingId, ...snapshot(), confirm }));
+    const requestKey = confirm ? (confirmKey.get(tastingId) ?? newConfirmKey()) : null;
+    const run = queue.then(() => savePreorder({ tastingId, ...snapshot(), confirm, requestKey }));
     queue = run;
     return run;
   }
 
-  function schedule() {
+  function newConfirmKey(): string {
+    const key = uuid();
+    confirmKey.save(tastingId, key);
+    return key;
+  }
+
+  /** Enregistrement différé du panier, tel qu'il sera au moment de l'envoi. */
+  function save() {
     const v = ++version;
     preorderDirty.save(tastingId, true);
     if (timer) clearTimeout(timer);
@@ -211,19 +226,24 @@ export function createPreorderSync(
   }
 
   return {
-    schedule,
+    /** Le panier a changé : enregistré sous peu, et une confirmation future est une nouvelle demande. */
+    schedule() {
+      confirmKey.save(tastingId, null);
+      save();
+    },
     /** Changement pas encore enregistré (hors ligne, page quittée) : on le renvoie. */
     resume() {
-      if (preorderDirty.get(tastingId)) schedule();
+      if (preorderDirty.get(tastingId)) save();
     },
     /** Confirme la pré-commande. En échec, elle reste sur le téléphone et sera renvoyée. */
     async confirm(): Promise<boolean> {
       if (!(await push(true))) {
-        schedule();
+        save();
         return false;
       }
       version++;
       preorderDirty.save(tastingId, false);
+      confirmKey.save(tastingId, null);
       return true;
     },
     /** En quittant la page : un changement de moins de 700 ms est envoyé quand même. */
@@ -251,7 +271,9 @@ export function joinLiveChannel(
   const channel = supabase.channel(liveChannelName(tastingId), {
     config: {
       broadcast: { self: false },
-      presence: { key: role === "guest" ? getGuestId() : `host-${Math.random().toString(36).slice(2)}` },
+      /* Clé aléatoire, jamais l'identifiant de l'invité : la présence est lisible par tous ceux qui suivent la
+         soirée, et cet identifiant suffit à modifier sa pré-commande. Seul le nombre d'invités sert. */
+      presence: { key: uuid() },
     },
   });
 

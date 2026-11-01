@@ -1,11 +1,17 @@
 -- Pré-commandes des invités et demandes « J'en veux » :
--- 1. save_live_preorder sérialise les appels d'un même invité et ne crée pas de seconde demande pour une
---    confirmation reçue deux fois ; un identifiant de lot mal formé est ignoré au lieu de faire échouer
---    tout le panier.
+-- 1. save_live_preorder prend une clé de confirmation (p_request_key) : une confirmation reçue deux fois
+--    (double clic, réponse perdue puis nouvel essai) renvoie la même demande au lieu d'en créer une
+--    seconde ; les appels d'un même invité passent l'un après l'autre ; un identifiant de lot mal formé est
+--    ignoré au lieu de faire échouer tout le panier ; un panier illisible est signalé comme tel.
 -- 2. L'insertion directe dans wish_request, gardée pour les pages live de l'ancien code (20261031200000),
 --    est retirée : tout passe par save_live_preorder (SECURITY DEFINER).
 
-CREATE OR REPLACE FUNCTION "public"."save_live_preorder"("p_tasting_id" "uuid", "p_guest_id" "uuid", "p_items" "jsonb", "p_first_name" "text" DEFAULT NULL::"text", "p_last_name" "text" DEFAULT NULL::"text", "p_email" "text" DEFAULT NULL::"text", "p_phone" "text" DEFAULT NULL::"text", "p_confirm" boolean DEFAULT false) RETURNS "uuid"
+ALTER TABLE public."wish_request" ADD COLUMN "request_key" uuid;
+CREATE UNIQUE INDEX "wish_request_request_key" ON public."wish_request" ("request_key");
+
+-- Nouveau paramètre (avec valeur par défaut) : la fonction est recréée, avec ses droits d'origine.
+DROP FUNCTION public."save_live_preorder"("p_tasting_id" "uuid", "p_guest_id" "uuid", "p_items" "jsonb", "p_first_name" "text", "p_last_name" "text", "p_email" "text", "p_phone" "text", "p_confirm" boolean);
+CREATE FUNCTION "public"."save_live_preorder"("p_tasting_id" "uuid", "p_guest_id" "uuid", "p_items" "jsonb", "p_first_name" "text" DEFAULT NULL::"text", "p_last_name" "text" DEFAULT NULL::"text", "p_email" "text" DEFAULT NULL::"text", "p_phone" "text" DEFAULT NULL::"text", "p_confirm" boolean DEFAULT false, "p_request_key" "uuid" DEFAULT NULL::"uuid") RETURNS "uuid"
     LANGUAGE "plpgsql" SECURITY DEFINER
     SET "search_path" TO 'public'
     AS $_$
@@ -16,17 +22,31 @@ DECLARE
   v_draft live_preorder;
   v_id uuid;
 BEGIN
-  IF jsonb_path_exists(v_raw, '$[*] ? (!(exists(@.lot_id)))') THEN
-    RAISE EXCEPTION 'Cette page date d''une ancienne version : rechargez-la.';
-  END IF;
   IF p_tasting_id IS NULL OR p_guest_id IS NULL THEN
     RAISE EXCEPTION 'Dégustation ou invité manquant.';
   END IF;
   IF jsonb_typeof(v_raw) <> 'array' THEN
     RAISE EXCEPTION 'Pré-commande illisible.';
   END IF;
+  IF jsonb_path_exists(v_raw, '$[*] ? (@.type() != "object")') THEN
+    RAISE EXCEPTION 'Pré-commande illisible.';
+  END IF;
+  IF jsonb_path_exists(v_raw, '$[*] ? (!(exists(@.lot_id)))') THEN
+    RAISE EXCEPTION 'Cette page date d''une ancienne version : rechargez-la.';
+  END IF;
   -- Un invité à la fois : deux appels simultanés (double clic, deux onglets) passent l'un après l'autre.
   PERFORM pg_advisory_xact_lock(hashtextextended(p_tasting_id::text || ':' || p_guest_id::text, 0));
+
+  -- Confirmation déjà reçue avec cette clé (double clic, nouvel essai après une réponse perdue) : la même
+  -- demande, pas une seconde.
+  IF v_confirm AND p_request_key IS NOT NULL THEN
+    SELECT w.id INTO v_id FROM wish_request w
+    WHERE w.request_key = p_request_key AND w.tasting_id = p_tasting_id AND w.guest_id = p_guest_id;
+    IF v_id IS NOT NULL THEN
+      DELETE FROM live_preorder WHERE tasting_id = p_tasting_id AND guest_id = p_guest_id;
+      RETURN v_id;
+    END IF;
+  END IF;
   -- Comme les notes, une pré-commande ne s'enregistre qu'autour de la soirée : pas de lignes laissées
   -- dans Piloter par n'importe qui à n'importe quelle date. La confirmation, elle, reste possible après.
   IF NOT v_confirm AND NOT EXISTS (
@@ -49,18 +69,6 @@ BEGIN
   WHERE EXISTS (
     SELECT 1 FROM tasting_lot tl WHERE tl.tasting_id = p_tasting_id AND tl.lot_id = l.vid
   );
-
-  -- Confirmation déjà reçue (double clic, deuxième onglet) : la même demande, pas une seconde.
-  IF v_confirm THEN
-    SELECT w.id INTO v_id FROM wish_request w
-    WHERE w.tasting_id = p_tasting_id AND w.guest_id = p_guest_id AND w.status = 'new'
-      AND w.items = v_items AND w.created_at > now() - interval '2 minutes'
-    ORDER BY w.created_at DESC LIMIT 1;
-    IF v_id IS NOT NULL THEN
-      DELETE FROM live_preorder WHERE tasting_id = p_tasting_id AND guest_id = p_guest_id;
-      RETURN v_id;
-    END IF;
-  END IF;
 
   IF jsonb_array_length(v_items) = 0 THEN
     IF v_confirm THEN
@@ -95,8 +103,8 @@ BEGIN
   END IF;
 
   -- Sans prénom ni contact, les contraintes de wish_request refusent la demande et tout est annulé.
-  INSERT INTO wish_request (tasting_id, source, guest_id, first_name, last_name, email, phone, items)
-  VALUES (p_tasting_id, 'live', p_guest_id, v_draft.first_name, v_draft.last_name, v_draft.email, v_draft.phone, v_draft.items)
+  INSERT INTO wish_request (tasting_id, source, guest_id, first_name, last_name, email, phone, items, request_key)
+  VALUES (p_tasting_id, 'live', p_guest_id, v_draft.first_name, v_draft.last_name, v_draft.email, v_draft.phone, v_draft.items, p_request_key)
   RETURNING id INTO v_id;
   DELETE FROM live_preorder WHERE tasting_id = p_tasting_id AND guest_id = p_guest_id;
 
@@ -104,6 +112,12 @@ BEGIN
 END;
 $_$;
 
-DROP POLICY "anyone can request" ON public."wish_request";
+ALTER FUNCTION "public"."save_live_preorder"("p_tasting_id" "uuid", "p_guest_id" "uuid", "p_items" "jsonb", "p_first_name" "text", "p_last_name" "text", "p_email" "text", "p_phone" "text", "p_confirm" boolean, "p_request_key" "uuid") OWNER TO "postgres";
+REVOKE ALL ON FUNCTION "public"."save_live_preorder"("p_tasting_id" "uuid", "p_guest_id" "uuid", "p_items" "jsonb", "p_first_name" "text", "p_last_name" "text", "p_email" "text", "p_phone" "text", "p_confirm" boolean, "p_request_key" "uuid") FROM PUBLIC;
+GRANT ALL ON FUNCTION "public"."save_live_preorder"("p_tasting_id" "uuid", "p_guest_id" "uuid", "p_items" "jsonb", "p_first_name" "text", "p_last_name" "text", "p_email" "text", "p_phone" "text", "p_confirm" boolean, "p_request_key" "uuid") TO "anon";
+GRANT ALL ON FUNCTION "public"."save_live_preorder"("p_tasting_id" "uuid", "p_guest_id" "uuid", "p_items" "jsonb", "p_first_name" "text", "p_last_name" "text", "p_email" "text", "p_phone" "text", "p_confirm" boolean, "p_request_key" "uuid") TO "authenticated";
+GRANT ALL ON FUNCTION "public"."save_live_preorder"("p_tasting_id" "uuid", "p_guest_id" "uuid", "p_items" "jsonb", "p_first_name" "text", "p_last_name" "text", "p_email" "text", "p_phone" "text", "p_confirm" boolean, "p_request_key" "uuid") TO "service_role";
+
+DROP POLICY IF EXISTS "anyone can request" ON public."wish_request";
 
 NOTIFY pgrst, 'reload schema';
