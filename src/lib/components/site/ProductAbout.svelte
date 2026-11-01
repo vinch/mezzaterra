@@ -26,14 +26,14 @@
   <section class="about {className}" class:compact>
     {#if description}
       <div class="block">
-        <svelte:element this={heading} class="block-title">{kind.aboutTitle}</svelte:element>
+        <svelte:element this={heading} class="mz-kicker">{kind.aboutTitle}</svelte:element>
         <p class="prose">{description}</p>
       </div>
     {/if}
 
     {#if notes.length}
       <div class="block">
-        <svelte:element this={heading} class="block-title">Notes de dégustation</svelte:element>
+        <svelte:element this={heading} class="mz-kicker">Notes de dégustation</svelte:element>
         <div class="notes">
           {#each notes as note}
             <div class="note">
@@ -47,7 +47,7 @@
 
     {#if pairings.length}
       <div class="block">
-        <svelte:element this={heading} class="block-title">À table avec</svelte:element>
+        <svelte:element this={heading} class="mz-kicker">À table avec</svelte:element>
         <div class="pairings">
           {#each pairings as p}
             <span class="mz-chip">{p}</span>
@@ -67,13 +67,8 @@
     padding-bottom: 1rem;
   }
 
-  .block-title {
-    margin: 0 0 0.75rem;
-    font-size: 0.78rem;
-    font-weight: 600;
-    letter-spacing: 0.12em;
-    text-transform: uppercase;
-    color: var(--mz-teal-soft);
+  .mz-kicker {
+    margin-bottom: 0.75rem;
   }
 
   .block p {
@@ -116,9 +111,8 @@
     padding: 0;
   }
 
-  .compact .block-title {
+  .compact .mz-kicker {
     margin-bottom: 0.5rem;
-    font-size: 0.75rem;
   }
 
   .compact .block p {

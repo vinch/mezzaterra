@@ -81,7 +81,7 @@
             <p class="region">{flag} {region}</p>
           {/if}
 
-          <dl class="facts">
+          <dl class="mz-facts mz-facts--sm facts">
             {#if v.year}
               <div><dt>{kind.yearFact}</dt><dd>{v.year}</dd></div>
             {/if}
@@ -105,7 +105,7 @@
       <div class="content">
         {#if grapes}
           <section>
-            <h3>{kind.ingredients}</h3>
+            <h3 class="mz-kicker">{kind.ingredients}</h3>
             <p>{grapes}</p>
           </section>
         {/if}
@@ -214,30 +214,7 @@
   }
 
   .facts {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 1.5rem;
-    margin: 1rem 0 0;
-  }
-
-  .facts div {
-    display: flex;
-    flex-direction: column;
-  }
-
-  .facts dt {
-    font-size: 0.72rem;
-    font-weight: 600;
-    letter-spacing: 0.1em;
-    text-transform: uppercase;
-    color: var(--mz-muted);
-  }
-
-  .facts dd {
-    margin: 0;
-    font-family: var(--mz-font-display);
-    font-size: 1.35rem;
-    color: var(--mz-ink);
+    margin-top: 1rem;
   }
 
   .organic {
@@ -250,15 +227,6 @@
     display: flex;
     flex-direction: column;
     gap: 1.5rem;
-  }
-
-  section h3 {
-    margin: 0 0 0.5rem;
-    font-size: 0.75rem;
-    font-weight: 600;
-    letter-spacing: 0.12em;
-    text-transform: uppercase;
-    color: var(--mz-teal-soft);
   }
 
   section p {

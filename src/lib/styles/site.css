@@ -59,6 +59,80 @@
   color: var(--mz-muted);
 }
 
+/* Titre de rubrique en petites capitales (« Notes de dégustation », « Cépages »…). */
+.mz-kicker {
+  margin: 0 0 0.5rem;
+  font-family: var(--mz-font-body);
+  font-size: 0.75rem;
+  font-weight: 600;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--mz-teal-soft);
+}
+
+/* Lien de retour discret en tête de fiche (« ← Toute la cave »). */
+.mz-back {
+  width: fit-content;
+  color: var(--mz-muted);
+  font-size: 0.9rem;
+  text-decoration: none;
+}
+
+.mz-back:hover {
+  color: var(--mz-teal);
+}
+
+/* Fiche technique (dl) : intitulés en petites capitales, valeurs en police d'affichage. */
+.mz-facts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1.25rem 2rem;
+  margin: 0;
+}
+
+.mz-facts > div {
+  display: flex;
+  flex-direction: column;
+}
+
+.mz-facts dt {
+  font-size: 0.72rem;
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--mz-muted);
+}
+
+.mz-facts dd {
+  margin: 0;
+  font-family: var(--mz-font-display);
+  font-size: 1.5rem;
+  color: var(--mz-ink);
+}
+
+/* Valeur textuelle (cépages, disponibilité) : plus petite que les chiffres. */
+.mz-facts .mz-facts-text {
+  font-size: 1.15rem;
+  line-height: 1.6;
+}
+
+/* Entre deux filets, sous le titre d'une fiche. */
+.mz-facts--ruled {
+  margin: 1rem 0 0.5rem;
+  padding: 1rem 0;
+  border-top: 1px solid var(--mz-line-soft);
+  border-bottom: 1px solid var(--mz-line-soft);
+}
+
+/* Fiche rapide (modale) : plus serrée. */
+.mz-facts--sm {
+  gap: 1.5rem;
+}
+
+.mz-facts--sm dd {
+  font-size: 1.35rem;
+}
+
 /* ——— Boutons ——— */
 .mz-btn {
   display: inline-flex;
@@ -142,6 +216,17 @@
   border: 1px solid var(--mz-line-soft);
   border-radius: var(--mz-radius);
   box-shadow: var(--mz-shadow-sm);
+}
+
+/* Grille de cartes produit : chaque cellule s'étire à la hauteur de sa rangée. */
+.mz-product-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 340px), 1fr));
+  gap: 1.25rem;
+}
+
+.mz-product-grid > * {
+  display: grid;
 }
 
 .mz-chip {

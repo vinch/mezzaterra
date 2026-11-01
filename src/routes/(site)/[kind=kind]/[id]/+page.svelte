@@ -96,7 +96,7 @@
         <WineBottle src={v.image_url} alt={title} wine={style} height="min(28rem, 60vh)" />
       </div>
       <div class="hero-text mz-rise" style="animation-delay: 80ms">
-        <a href="/{kind.slug}" class="back">← {kind.catalogTitle}</a>
+        <a href="/{kind.slug}" class="mz-back">← {kind.catalogTitle}</a>
         <span class="mz-eyebrow">
           <span class="mz-dot" style="background: {style.color}"></span>
           {styleLabel(wine.wine_type)}
@@ -112,16 +112,16 @@
           </p>
         {/if}
 
-        <dl class="facts">
+        <dl class="mz-facts mz-facts--ruled">
           {#if v.year}<div><dt>{kind.yearFact}</dt><dd>{v.year}</dd></div>{/if}
           {#if v.abv}<div><dt>Alcool</dt><dd>{v.abv} % vol.</dd></div>{/if}
           {#if formatsText(data.formats)}<div><dt>Contenant</dt><dd>{formatVolume(v.volume_ml)}</dd></div>{/if}
           {#if v.price}<div><dt>Prix</dt><dd>{formatEUR(v.price)}</dd></div>{/if}
-          {#if grapes}<div><dt>{kind.ingredients}</dt><dd class="small">{grapes}</dd></div>{/if}
+          {#if grapes}<div><dt>{kind.ingredients}</dt><dd class="mz-facts-text">{grapes}</dd></div>{/if}
           {#if stock}
             <div>
               <dt>Disponibilité</dt>
-              <dd class="small stock" class:out={!stock.in_stock} class:low={stock.low_stock}>
+              <dd class="mz-facts-text stock" class:out={!stock.in_stock} class:low={stock.low_stock}>
                 {!stock.in_stock ? "Épuisé" : stock.low_stock ? "Dernières bouteilles" : "En stock"}
               </dd>
             </div>
@@ -182,7 +182,7 @@
           {/if}
         </div>
       </div>
-      <div class="grid">
+      <div class="mz-product-grid">
         {#each data.fromWinery as other (other.id)}
           <div><ProductCard vintage={other} href={productHref(other)} availability={availability?.(other.id) ?? null} /></div>
         {/each}
@@ -220,16 +220,8 @@
     gap: 0.5rem;
   }
 
-  .back {
-    color: var(--mz-muted);
-    text-decoration: none;
-    font-size: 0.9rem;
-    width: fit-content;
+  .mz-back {
     margin-bottom: 0.5rem;
-  }
-
-  .back:hover {
-    color: var(--mz-teal);
   }
 
   .appellation {
@@ -256,51 +248,15 @@
     text-decoration-color: currentColor;
   }
 
-  .facts {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 1.25rem 2rem;
-    margin: 1rem 0 0.5rem;
-    padding: 1rem 0;
-    border-top: 1px solid var(--mz-line-soft);
-    border-bottom: 1px solid var(--mz-line-soft);
-  }
-
-  .facts div {
-    display: flex;
-    flex-direction: column;
-  }
-
-  .facts dt {
-    font-size: 0.72rem;
-    font-weight: 600;
-    letter-spacing: 0.1em;
-    text-transform: uppercase;
-    color: var(--mz-muted);
-  }
-
-  .facts dd {
-    margin: 0;
-    font-family: var(--mz-font-display);
-    font-size: 1.5rem;
-    color: var(--mz-ink);
-  }
-
-  /* Valeurs textuelles (cépages, disponibilité) : plus petites que les chiffres. */
-  .facts dd.small {
-    font-size: 1.15rem;
-    line-height: 1.6;
-  }
-
-  .facts dd.stock {
+  .stock {
     color: var(--mz-success);
   }
 
-  .facts dd.stock.low {
+  .stock.low {
     color: var(--mz-warning);
   }
 
-  .facts dd.stock.out {
+  .stock.out {
     color: var(--mz-danger);
   }
 
@@ -359,16 +315,6 @@
     display: flex;
     flex-wrap: wrap;
     gap: 0.5rem 1.5rem;
-  }
-
-  .grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(min(100%, 340px), 1fr));
-    gap: 1.25rem;
-  }
-
-  .grid > div {
-    display: grid;
   }
 
   @media (max-width: 820px) {

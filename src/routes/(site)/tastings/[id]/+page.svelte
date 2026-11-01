@@ -71,7 +71,7 @@
 {:else}
   <section class="hero">
     <div class="mz-container hero-inner mz-rise">
-      <a href="/tastings" class="back">← Toutes les dégustations</a>
+      <a href="/tastings" class="mz-back">← Toutes les dégustations</a>
       <span class="mz-eyebrow status" class:live={isLive}>
         {#if isLive}<span class="pulse" aria-hidden="true"></span>{/if}
         {statusLabel}
@@ -100,7 +100,7 @@
 
       {#if wineVintages.length > 1}
         <div class="journey" aria-label="Parcours de la dégustation">
-          <span class="journey-label">Le parcours</span>
+          <span class="mz-kicker journey-label">Le parcours</span>
           <div class="journey-track">
             <span
               class="journey-line"
@@ -121,7 +121,7 @@
 
   <section class="mz-container mz-section">
     {#if wineVintages.length > 0}
-      <div class="grid">
+      <div class="mz-product-grid">
         {#each wineVintages as v, i (v.id)}
           <div class="mz-rise" style="animation-delay: {Math.min(i, 8) * 60}ms">
             <ProductCard
@@ -186,17 +186,6 @@
     gap: 0.9rem;
   }
 
-  .back {
-    color: var(--mz-muted);
-    text-decoration: none;
-    font-size: 0.9rem;
-    width: fit-content;
-  }
-
-  .back:hover {
-    color: var(--mz-teal);
-  }
-
   .status.live {
     color: var(--mz-wine-red);
   }
@@ -253,10 +242,7 @@
   }
 
   .journey-label {
-    font-size: 0.75rem;
-    font-weight: 600;
-    letter-spacing: 0.12em;
-    text-transform: uppercase;
+    margin: 0;
     color: var(--mz-muted);
     white-space: nowrap;
   }
@@ -324,16 +310,6 @@
 
   .secret .mz-btn {
     margin-top: 0.75rem;
-  }
-
-  .grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(min(100%, 340px), 1fr));
-    gap: 1.25rem;
-  }
-
-  .grid > div {
-    display: grid;
   }
 
   .booking {
