@@ -1,11 +1,19 @@
+<script lang="ts" module>
+  /* Feuilles ouvertes, la plus récente en dernier : seule celle du dessus répond à Échap, et la
+     page reste bloquée tant qu'il en reste une. */
+  const openStack: symbol[] = [];
+</script>
+
 <script lang="ts">
-  import type { Snippet } from "svelte";
+  import { tick, untrack, type Snippet } from "svelte";
   import { fade, fly } from "svelte/transition";
   import { self } from "$lib/ui/events";
 
   /**
    * Feuille du mode live (thème cave) : monte du bas sur mobile, centrée sur grand écran.
    * Un clic sur le fond ou Échap ferme, comme le bouton × ; `locked` empêche de fermer (envoi en cours).
+   * Ouverte : page bloquée, focus sur la feuille (pas sur un champ : le clavier du téléphone resterait
+   * fermé), rendu à l'élément d'origine à la fermeture.
    */
   interface Props {
     open: boolean;
@@ -19,9 +27,26 @@
 
   let { open, title, onclose, closable = true, locked = false, children }: Props = $props();
   const titleId = $props.id();
+  const token = Symbol();
+  let sheet = $state<HTMLElement | undefined>();
+
+  $effect(() => {
+    if (!open) return;
+    const returnFocus = document.activeElement as HTMLElement | null;
+    untrack(() => {
+      openStack.push(token);
+      document.body.style.overflow = "hidden";
+      void tick().then(() => sheet?.focus());
+    });
+    return () => {
+      openStack.splice(openStack.indexOf(token), 1);
+      if (!openStack.length) document.body.style.overflow = "";
+      returnFocus?.focus?.();
+    };
+  });
 
   function onkeydown(e: KeyboardEvent) {
-    if (open && !locked && e.key === "Escape") onclose();
+    if (open && !locked && e.key === "Escape" && openStack[openStack.length - 1] === token) onclose();
   }
 </script>
 
@@ -29,7 +54,15 @@
 
 {#if open}
   <div class="backdrop" transition:fade={{ duration: 150 }} onclick={self(() => !locked && onclose())} role="presentation">
-    <div class="sheet" transition:fly={{ y: 40, duration: 250 }} role="dialog" aria-modal="true" aria-labelledby={titleId}>
+    <div
+      bind:this={sheet}
+      class="sheet"
+      transition:fly={{ y: 40, duration: 250 }}
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby={titleId}
+      tabindex="-1"
+    >
       {#if closable}
         <button type="button" class="close" onclick={onclose} disabled={locked} aria-label="Fermer">×</button>
       {/if}
@@ -61,6 +94,7 @@
     color: var(--mz-cave-text);
     font-family: var(--mz-font-body);
     border-top: 1px solid var(--mz-cave-line);
+    outline: none;
   }
 
   h2 {
