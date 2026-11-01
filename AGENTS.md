@@ -16,8 +16,10 @@ menus de ligne, chiffres, accessibilité, textes).
   stylé à la main. De `src/lib/styles/manage-shared.css`, seules les classes
   montrées sur la page (`.error-message`, `.success-message`,
   `.checkbox-label`) servent aux nouveaux écrans ; les autres (`.form-group`,
-  `.table-container`, `.btn-primary`…) sont pour les anciens. Tout chargement
-  s’affiche avec `Spinner`, jamais un texte « Chargement… ».
+  `.table-container`, `.btn-primary`…) sont pour les anciens. Mise en page
+  d’un formulaire ou d’un détail : `.ui-grid-2`, `.ui-facts`, `.ui-row-actions`
+  (`src/app.css`). Tout chargement s’affiche avec `Spinner`, jamais un texte
+  « Chargement… ».
 - **Briques métier** de `src/lib/components/manage/` à réutiliser avant d’en
   écrire : `RefCrudPage` (page de référentiel complète), `CustomerAutocomplete`,
   `ProductVintageAutocomplete`, `ColumnChart`.

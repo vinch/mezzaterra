@@ -287,13 +287,6 @@
   box-shadow: var(--focus-ring);
 }
 
-.app .section-title {
-  margin-bottom: 8px;
-  font-weight: 500;
-  font-size: 13px;
-  color: var(--ink);
-}
-
 .app select option:disabled {
   color: #999;
   font-style: italic;
