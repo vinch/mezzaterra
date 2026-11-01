@@ -78,8 +78,10 @@
     background: var(--mist);
   }
 
+  /* Comme les boutons désactivés : texte secondaire estompé. */
   button:disabled {
-    color: var(--input-border);
+    color: var(--ink-2);
+    opacity: 0.5;
     cursor: not-allowed;
   }
 

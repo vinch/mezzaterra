@@ -13,6 +13,7 @@
   } from "$lib/analytics";
   import { vintageLabel } from "$lib/wine";
   import WineDot from "$lib/ui/WineDot.svelte";
+  import StockBadge from "$lib/ui/StockBadge.svelte";
   import Spinner from "$lib/ui/Spinner.svelte";
   import DataTable from "$lib/ui/DataTable.svelte";
   import KpiCard from "$lib/ui/KpiCard.svelte";
@@ -160,7 +161,7 @@
                 <td class="num">{r.monthsLeft != null ? Math.round(r.monthsLeft) : "—"}</td>
                 <td>
                   {#if r.idleDays == null || r.idleDays >= 180}
-                    <span class="tag bad">Dormant</span>
+                    <StockBadge kind="dormant" />
                   {:else if r.idleDays >= 90}
                     <span class="tag mid">Lent</span>
                   {:else}
@@ -277,19 +278,20 @@
     font-weight: 600;
   }
 
+  /* Tons d'alerte, pas ceux des statuts de vente : bon, à surveiller, faible. */
   .tag.good {
-    background: var(--st-paid-bg);
-    color: var(--st-paid-fg);
+    background: var(--mist);
+    color: var(--teal-700);
   }
 
   .tag.mid {
-    background: var(--st-pending-bg);
-    color: var(--st-pending-fg);
+    background: var(--warn-bg);
+    color: var(--warn);
   }
 
   .tag.bad {
-    background: var(--st-cancelled-bg);
-    color: var(--st-cancelled-fg);
+    background: var(--danger-bg);
+    color: var(--danger);
   }
 
   .pos {
