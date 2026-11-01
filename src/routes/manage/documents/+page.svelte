@@ -135,7 +135,8 @@
 
   function openNotesModal() {
     docError = "";
-    const picked = sortedVisible.filter((r) =>
+    /* Dans l'ordre habituel (domaine, nom, millésime ↓), quel que soit le tri du tableau. */
+    const picked = filteredRows.filter((r) =>
       selectedVintageIds.includes(r.id),
     );
     if (picked.length === 0) {
