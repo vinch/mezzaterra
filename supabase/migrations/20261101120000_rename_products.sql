@@ -62,8 +62,8 @@ ALTER TABLE public."product_pairing" RENAME CONSTRAINT "wines_pairings_wine_id_f
 ALTER TABLE public."product" RENAME CONSTRAINT "wines_wine_type_id_fkey" TO "product_product_type_id_fkey";
 ALTER TABLE public."product" RENAME CONSTRAINT "wines_winery_id_fkey" TO "product_producer_id_fkey";
 ALTER INDEX public."wine_kind_idx" RENAME TO "product_kind_idx";
-ALTER INDEX public."wine_vintage_lot_key" RENAME TO "lot_lot_key";
-ALTER INDEX public."wine_vintage_lot_without_year_key" RENAME TO "lot_lot_without_year_key";
+ALTER INDEX public."wine_vintage_lot_key" RENAME TO "lot_identity_key";
+ALTER INDEX public."wine_vintage_lot_without_year_key" RENAME TO "lot_identity_without_year_key";
 ALTER TABLE public."lot" RENAME CONSTRAINT "wine_vintage_volume_ml_check" TO "lot_volume_ml_check";
 COMMENT ON TABLE public."tasting_feedback" IS 'Notes laissées par les invités ; la dernière ligne par (guest_id, lot_id) fait foi';
 COMMENT ON COLUMN public."tasting"."live_position" IS 'Index (0-based) du produit servi en mode live';
@@ -709,6 +709,16 @@ GRANT ALL ON FUNCTION public."set_transport_status"("p_transport_id" "uuid", "p_
 GRANT ALL ON FUNCTION public."set_transport_status"("p_transport_id" "uuid", "p_status" "text") TO "authenticated";
 GRANT ALL ON FUNCTION public."set_transport_status"("p_transport_id" "uuid", "p_status" "text") TO "service_role";
 
+
+-- 8. Lignes des demandes et pré-commandes enregistrées en JSON : la clé du lot suit le renommage
+UPDATE public."wish_request" SET items = (
+  SELECT jsonb_agg(CASE WHEN e ? 'wine_vintage_id' THEN (e - 'wine_vintage_id') || jsonb_build_object('lot_id', e -> 'wine_vintage_id') ELSE e END ORDER BY i)
+  FROM jsonb_array_elements(items) WITH ORDINALITY AS x(e, i)
+) WHERE jsonb_typeof(items) = 'array' AND items @? '$[*].wine_vintage_id';
+UPDATE public."live_preorder" SET items = (
+  SELECT jsonb_agg(CASE WHEN e ? 'wine_vintage_id' THEN (e - 'wine_vintage_id') || jsonb_build_object('lot_id', e -> 'wine_vintage_id') ELSE e END ORDER BY i)
+  FROM jsonb_array_elements(items) WITH ORDINALITY AS x(e, i)
+) WHERE jsonb_typeof(items) = 'array' AND items @? '$[*].wine_vintage_id';
 
 NOTIFY pgrst, 'reload schema';
 

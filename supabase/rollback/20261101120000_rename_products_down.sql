@@ -29,8 +29,8 @@ ALTER TRIGGER "appellation_kind_locked" ON public."appellation" RENAME TO "appel
 ALTER FUNCTION public."check_lot_variety_kind"() RENAME TO "check_vintage_grape_kind";
 ALTER FUNCTION public."check_lot_kind"() RENAME TO "check_vintage_kind";
 ALTER FUNCTION public."check_product_kind"() RENAME TO "check_wine_kind";
-ALTER INDEX public."lot_lot_without_year_key" RENAME TO "wine_vintage_lot_without_year_key";
-ALTER INDEX public."lot_lot_key" RENAME TO "wine_vintage_lot_key";
+ALTER INDEX public."lot_identity_without_year_key" RENAME TO "wine_vintage_lot_without_year_key";
+ALTER INDEX public."lot_identity_key" RENAME TO "wine_vintage_lot_key";
 ALTER INDEX public."product_kind_idx" RENAME TO "wine_kind_idx";
 ALTER TABLE public."lot" RENAME CONSTRAINT "lot_volume_ml_check" TO "wine_vintage_volume_ml_check";
 ALTER TABLE public."product" RENAME CONSTRAINT "product_producer_id_fkey" TO "wines_winery_id_fkey";
@@ -719,6 +719,16 @@ ALTER FUNCTION "public"."set_transport_status"("p_transport_id" "uuid", "p_statu
 GRANT ALL ON FUNCTION "public"."set_transport_status"("p_transport_id" "uuid", "p_status" "text") TO "anon";
 GRANT ALL ON FUNCTION "public"."set_transport_status"("p_transport_id" "uuid", "p_status" "text") TO "authenticated";
 GRANT ALL ON FUNCTION "public"."set_transport_status"("p_transport_id" "uuid", "p_status" "text") TO "service_role";
+
+-- 4. Lignes JSON des demandes et pré-commandes : l'ancienne clé du lot
+UPDATE public."wish_request" SET items = (
+  SELECT jsonb_agg(CASE WHEN e ? 'lot_id' THEN (e - 'lot_id') || jsonb_build_object('wine_vintage_id', e -> 'lot_id') ELSE e END ORDER BY i)
+  FROM jsonb_array_elements(items) WITH ORDINALITY AS x(e, i)
+) WHERE jsonb_typeof(items) = 'array' AND items @? '$[*].lot_id';
+UPDATE public."live_preorder" SET items = (
+  SELECT jsonb_agg(CASE WHEN e ? 'lot_id' THEN (e - 'lot_id') || jsonb_build_object('wine_vintage_id', e -> 'lot_id') ELSE e END ORDER BY i)
+  FROM jsonb_array_elements(items) WITH ORDINALITY AS x(e, i)
+) WHERE jsonb_typeof(items) = 'array' AND items @? '$[*].lot_id';
 
 NOTIFY pgrst, 'reload schema';
 
