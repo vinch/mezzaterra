@@ -12,7 +12,7 @@
     type VintageStats,
   } from "$lib/analytics";
   import { vintageLabel } from "$lib/wine";
-  import WineDot from "$lib/ui/WineDot.svelte";
+  import StyleDot from "$lib/ui/StyleDot.svelte";
   import StockBadge from "$lib/ui/StockBadge.svelte";
   import Spinner from "$lib/ui/Spinner.svelte";
   import DataTable from "$lib/ui/DataTable.svelte";
@@ -121,7 +121,7 @@
             {#each sorted as s (s.vintage.id)}
               <tr>
                 <td>
-                  <span class="wine-cell"><WineDot type={s.vintage.wine?.wine_type} />
+                  <span class="wine-cell"><StyleDot type={s.vintage.wine?.wine_type} />
                   <a class="row-link" href="/manage/products/{s.vintage.wine_id}/stock/{s.vintage.id}">{vintageLabel(s.vintage)}</a></span>
                 </td>
                 <td class="num">{formatEUR(s.vintage.purchase_price)}</td>

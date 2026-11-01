@@ -1,7 +1,7 @@
 import jsPDF from "jspdf";
 import { attachRobotoPdf, staticPng, svgToPng, type PdfImage } from "./assets";
 import { parseIsoDate } from "$lib/dates";
-import { wineRobe, wineTypeLabel, withVolume } from "$lib/wine";
+import { wineRobe, productTypeLabel, withVolume } from "$lib/wine";
 import { kindInfo, PRODUCT_KIND_LIST, PRODUCT_KINDS, type ProductKind } from "$lib/productKinds";
 import {
   sortedStockForDocuments,
@@ -346,7 +346,7 @@ export async function downloadNotesPdf(
     const grapes = v.grapeNames.length ? v.grapeNames.join(", ") : "—";
     const kind = kindInfo(v.kind);
     const abvStr = kind.hasAbv ? ` / ${v.abv != null ? `${v.abv}%` : "—"}` : "";
-    const detail = `${wineTypeLabel({ name: v.wineTypeName, kind: v.kind })} / ${stockVintageLabel(v)}${abvStr} / ${kind.ingredients} : ${grapes} / ${v.appellationLine || "—"}`;
+    const detail = `${productTypeLabel({ name: v.wineTypeName, kind: v.kind })} / ${stockVintageLabel(v)}${abvStr} / ${kind.ingredients} : ${grapes} / ${v.appellationLine || "—"}`;
 
     const titleLines = fitLine(doc, title, textW - 2, 10.5);
     const detailLines = fitLine(doc, detail, textW, 9);

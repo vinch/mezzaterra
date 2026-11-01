@@ -6,7 +6,7 @@
   import RegistrationForm from "$lib/components/site/RegistrationForm.svelte";
   import { fetchAvailability, isPrivateTasting, TASTING_ADDRESS, tastingTitle, type AvailabilityOf } from "$lib/publicData";
   import { buildIcs, daysAwayLabel, daysUntil, downloadTextFile, formatDateLong, formatTime, isLiveNow } from "$lib/dates";
-  import { wineStyle, wineTitle } from "$lib/wine";
+  import { productStyle, productTitle } from "$lib/wine";
   import { formatEUR } from "$lib/format";
   import type { WineVintage } from "$lib/types";
 
@@ -22,7 +22,7 @@
   let isPrivate = $derived(isPrivateTasting(t));
   /* Adresse seulement quand elle sert à venir ; une dégustation privée a lieu ailleurs. */
   let address = $derived((isUpcoming || isLive) && !isPrivate ? TASTING_ADDRESS : null);
-  let styles = $derived(wineVintages.map((v: any) => wineStyle(v.wine?.wine_type)));
+  let styles = $derived(wineVintages.map((v: any) => productStyle(v.wine?.wine_type)));
 
   let selected = $state<WineVintage | null>(null);
   let availability = $state<AvailabilityOf | null>(null);
@@ -111,7 +111,7 @@
               <span
                 class="journey-stop"
                 style="--c: {styles[i].color}; --l: {styles[i].light}; left: {(i / (wineVintages.length - 1)) * 100}%"
-                title="{i + 1}. {wineTitle(v.wine)}"
+                title="{i + 1}. {productTitle(v.wine)}"
               ></span>
             {/each}
           </div>

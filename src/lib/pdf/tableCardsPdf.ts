@@ -7,10 +7,10 @@ import { kindInfo, productHref } from "$lib/productKinds";
 import {
   findNote,
   grapesText,
-  wineStyle,
-  wineSubtitle,
-  winePairings,
-  wineTitle,
+  productStyle,
+  productSubtitle,
+  productPairings,
+  productTitle,
 } from "$lib/wine";
 import { formatEUR } from "$lib/format";
 
@@ -66,7 +66,7 @@ export async function downloadTableCardsPdf(tasting: any, wines: any[], origin: 
     const v = wines[i];
     const wine = v.wine;
     const kind = kindInfo(wine);
-    const style = wineStyle(wine?.wine_type);
+    const style = productStyle(wine?.wine_type);
     const robe = hexToRgb(style.color);
     doc.addPage("a5", "portrait");
 
@@ -95,15 +95,15 @@ export async function downloadTableCardsPdf(tasting: any, wines: any[], origin: 
     doc.setTextColor(...TEAL);
     doc.setFont(font, "bold");
     doc.setFontSize(22);
-    const titleLines = doc.splitTextToSize(wineTitle(wine), W - 2 * M);
+    const titleLines = doc.splitTextToSize(productTitle(wine), W - 2 * M);
     doc.text(titleLines, M, y);
     y += titleLines.length * 8.5;
 
     doc.setFont(font, "normal");
     doc.setTextColor(...INK);
     doc.setFontSize(11);
-    if (wineSubtitle(wine)) {
-      doc.text(wineSubtitle(wine), M, y);
+    if (productSubtitle(wine)) {
+      doc.text(productSubtitle(wine), M, y);
       y += 5.5;
     }
     if (wine?.winery?.name) {
@@ -140,7 +140,7 @@ export async function downloadTableCardsPdf(tasting: any, wines: any[], origin: 
       if (y > H - 62) break;
     }
 
-    const pairings = winePairings(wine);
+    const pairings = productPairings(wine);
     if (pairings.length && y < H - 58) {
       doc.setFont(font, "bold");
       doc.setFontSize(10);

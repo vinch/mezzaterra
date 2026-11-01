@@ -14,7 +14,7 @@
   import Card from "$lib/ui/Card.svelte";
   import DataTable from "$lib/ui/DataTable.svelte";
   import EmptyState from "$lib/ui/EmptyState.svelte";
-  import WineDot from "$lib/ui/WineDot.svelte";
+  import StyleDot from "$lib/ui/StyleDot.svelte";
   import {
     IconArrowLeft,
     IconArrowRight,
@@ -28,13 +28,13 @@
   } from "$lib/ui/icons";
   import { formatDate, formatEUR } from "$lib/format";
   import { formatTime, isLiveNow, winesRevealed } from "$lib/dates";
-  import WineBottle from "$lib/components/site/WineBottle.svelte";
+  import ProductBottle from "$lib/components/site/ProductBottle.svelte";
   import Spinner from "$lib/ui/Spinner.svelte";
   import { fetchSeats, fetchTastingWithWines, isParticipantRegistration, onlineSeats, onlineSeatsByCustomer, participantOrigin, placesLabel, tastingTitle, type SeatInfo } from "$lib/publicData";
   import { compareCustomersByLabel, customerDisplayLabel } from "$lib/customerDisplay";
   import { broadcastPosition, clampPosition, fetchLatestFeedback, joinLiveChannel, type FeedbackRow } from "$lib/live";
   import { qrDataUrl } from "$lib/qr";
-  import { swatchStyle, vintageShortLabel, wineRobe, wineStyle, wineSubtitle, wineTitle, wineTypeLabel } from "$lib/wine";
+  import { swatchStyle, vintageShortLabel, wineRobe, productStyle, productSubtitle, productTitle, productTypeLabel } from "$lib/wine";
   import { kindInfo } from "$lib/productKinds";
   import {
     confirmRegistration,
@@ -230,7 +230,7 @@
   );
 
   let current = $derived(wines[position]);
-  let style = $derived(wineStyle(current?.wine?.wine_type));
+  let style = $derived(productStyle(current?.wine?.wine_type));
   /** « Vin 3 », « Huile d’olive 4 » : le produit servi. */
   let currentLabel = $derived(kindInfo(current?.wine).label);
 
@@ -426,7 +426,7 @@
                 <li>
                   <button type="button" class="step" class:current={i === position} aria-current={i === position ? (finished ? "true" : "step") : undefined} onclick={() => setPosition(i)}>
                     <span class="step-num">{i + 1}</span>
-                    <WineDot type={w.wine?.wine_type} />
+                    <StyleDot type={w.wine?.wine_type} />
                     <span class="step-main">
                       <strong>{vintageShortLabel(w)}</strong>
                       <span class="t-caption">
@@ -467,7 +467,7 @@
           <section class="now" aria-labelledby="now-title" aria-live="polite">
             <span class="bottle" style={swatchStyle(wineRobe(current?.wine?.wine_type))} aria-hidden="true"></span>
             <div class="now-text">
-              <span class="now-eyebrow">{currentLabel} {position + 1} · {wineTypeLabel(current?.wine?.wine_type)}</span>
+              <span class="now-eyebrow">{currentLabel} {position + 1} · {productTypeLabel(current?.wine?.wine_type)}</span>
               <h2 id="now-title" class="now-title">{vintageShortLabel(current)}</h2>
               <p>{current.wine?.winery?.name ?? ""}{current.price ? " · " : ""}{#if current.price}<strong>{formatEUR(current.price)}</strong> la bouteille{/if}</p>
               <p class="t-caption">
@@ -556,16 +556,16 @@
       {#key position}
         <div class="proj-inner" in:fade={{ duration: 400 }}>
           <span class="proj-num">{currentLabel} {position + 1} <span>/ {wines.length}</span></span>
-          <h1>{wineTitle(current.wine)}</h1>
-          {#if wineSubtitle(current.wine)}<p class="proj-sub">{wineSubtitle(current.wine)}</p>{/if}
+          <h1>{productTitle(current.wine)}</h1>
+          {#if productSubtitle(current.wine)}<p class="proj-sub">{productSubtitle(current.wine)}</p>{/if}
           <p class="proj-winery">{current.wine?.winery?.name}{current.year ? ` · ${current.year}` : ""}</p>
         </div>
       {/key}
-      <WineBottle src={current.image_url} alt="" wine={style} height="58vh" />
+      <ProductBottle src={current.image_url} alt="" {style} height="58vh" />
     </div>
     <div class="proj-dots">
       {#each wines as w, i}
-        <span class:active={i === position} style="--c: {wineStyle(w.wine?.wine_type).color}"></span>
+        <span class:active={i === position} style="--c: {productStyle(w.wine?.wine_type).color}"></span>
       {/each}
     </div>
   </div>

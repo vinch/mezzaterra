@@ -19,7 +19,7 @@
   import type { MenuItem } from "$lib/ui/Menu.svelte";
   import { IconBox, IconPencil, IconPlus, IconTrash } from "$lib/ui/icons";
   import Spinner from "$lib/ui/Spinner.svelte";
-  import { vintageYearLabel, wineTitle } from "$lib/wine";
+  import { vintageYearLabel, productTitle } from "$lib/wine";
 
   interface Props {
     data: PageData;
@@ -161,7 +161,7 @@
     ];
   }
 
-  let title = $derived(`${wineTitle(vintage.wine)} ${vintageYearLabel(vintage)}`);
+  let title = $derived(`${productTitle(vintage.wine)} ${vintageYearLabel(vintage)}`);
   let subtitle = $derived(
     currentStock == null
       ? "Stock indisponible"
@@ -194,7 +194,7 @@
   <title>Stock - {title}</title>
 </svelte:head>
 
-<ManagePageShell {title} {subtitle} back={{ href: `/manage/products/${vintage.wine.id}`, label: wineTitle(vintage.wine) }}>
+<ManagePageShell {title} {subtitle} back={{ href: `/manage/products/${vintage.wine.id}`, label: productTitle(vintage.wine) }}>
   {#snippet badge()}
       {#if currentStock != null && currentStock < 0}<StockBadge kind="out" label="Stock négatif" />{/if}
   {/snippet}

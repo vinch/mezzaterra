@@ -1,7 +1,7 @@
 <script lang="ts">
   import Combobox, { type ComboOption } from "$lib/ui/Combobox.svelte";
   import { fold } from "$lib/format";
-  import WineDot from "$lib/ui/WineDot.svelte";
+  import StyleDot from "$lib/ui/StyleDot.svelte";
   import { vintageShortLabel, vintageVolume, wineRobe } from "$lib/wine";
   import { formatEUR } from "$lib/format";
 
@@ -80,7 +80,7 @@
       {#if option.kind === "tasting"}
         <span class="opt-main"><strong>Dégustation</strong><small>Ligne sans produit (entrée, participation…)</small></span>
       {:else}
-        <WineDot robe={option.robe} />
+        <StyleDot robe={option.robe} />
         <span class="opt-main">
           <strong>{option.name}</strong>
           <small>{option.winery}{option.added ? " · déjà ajouté" : ""}</small>
