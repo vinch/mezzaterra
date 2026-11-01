@@ -36,7 +36,7 @@
   import { countNewRequests } from "$lib/wishes";
   import { fetchSeats, onlineSeats, type SeatInfo } from "$lib/publicData";
   import { isDiscontinued, vintageShortLabel } from "$lib/wine";
-  import { daysUntil, formatDateLong, todayIso } from "$lib/dates";
+  import { daysAwayLabel, daysUntil, formatDateLong, todayIso } from "$lib/dates";
   import { formatDate, formatEUR } from "$lib/format";
 
   const { user: userStore } = getContext<any>("auth");
@@ -321,7 +321,8 @@
           {#if nextTasting}
             <p class="next-name">{nextTasting.name || "Dégustation"}</p>
             <p class="t-muted">{formatDateLong(nextTasting.date)}{nextTasting.location ? ` · ${nextTasting.location}` : ""}</p>
-            <p class="countdown">{daysUntil(nextTasting.date) === 0 ? "C’est aujourd’hui !" : `Dans ${daysUntil(nextTasting.date)} jours`}</p>
+            {@const delta = daysUntil(nextTasting.date)}
+            <p class="countdown">{delta === 0 ? "C’est aujourd’hui !" : daysAwayLabel(delta)}</p>
             <ul class="next-facts">
               <li><strong>{nextTasting.tasting_wine_vintage?.length ?? 0}</strong> au programme</li>
               {#if nextTastingSeats}
