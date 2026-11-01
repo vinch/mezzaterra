@@ -5,7 +5,7 @@
 
   /**
    * Feuille du mode live (thème cave) : monte du bas sur mobile, centrée sur grand écran.
-   * Un clic sur le fond ferme, comme le bouton × ; `locked` empêche de fermer (envoi en cours).
+   * Un clic sur le fond ou Échap ferme, comme le bouton × ; `locked` empêche de fermer (envoi en cours).
    */
   interface Props {
     open: boolean;
@@ -19,7 +19,13 @@
 
   let { open, title, onclose, closable = true, locked = false, children }: Props = $props();
   const titleId = $props.id();
+
+  function onkeydown(e: KeyboardEvent) {
+    if (open && !locked && e.key === "Escape") onclose();
+  }
 </script>
+
+<svelte:window {onkeydown} />
 
 {#if open}
   <div class="backdrop" transition:fade={{ duration: 150 }} onclick={self(() => !locked && onclose())} role="presentation">
