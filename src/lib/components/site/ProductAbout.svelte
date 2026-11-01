@@ -1,6 +1,6 @@
 <script lang="ts">
   import { kindInfo } from "$lib/productKinds";
-  import { vintageNotes, winePairings } from "$lib/wine";
+  import { vintageNotes, productPairings } from "$lib/wine";
 
   /**
    * « Le vin / L'huile », notes de dégustation et accords d'un lot chargé avec `VINTAGE_PUBLIC_SELECT` :
@@ -18,7 +18,7 @@
   let kind = $derived(kindInfo(vintage?.wine));
   let description = $derived((vintage?.wine?.description as string | null | undefined) || "");
   let notes = $derived(vintageNotes(vintage?.note, kind.key));
-  let pairings = $derived(winePairings(vintage?.wine));
+  let pairings = $derived(productPairings(vintage?.wine));
   let heading = $derived(compact ? "h3" : "h2");
 </script>
 

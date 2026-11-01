@@ -17,11 +17,11 @@
   import EmptyState from "$lib/ui/EmptyState.svelte";
   import Field from "$lib/ui/Field.svelte";
   import StockBadge from "$lib/ui/StockBadge.svelte";
-  import WineDot from "$lib/ui/WineDot.svelte";
+  import StyleDot from "$lib/ui/StyleDot.svelte";
   import Spinner from "$lib/ui/Spinner.svelte";
   import Tabs from "$lib/ui/Tabs.svelte";
   import Combobox, { type ComboOption } from "$lib/ui/Combobox.svelte";
-  import { byVolume, compareWines, MAIN_ROBES, styleByKey, vintageShortLabel, wineRobe, type WineStyleKey, wineTitle, wineTypeLabel, withVolume } from "$lib/wine";
+  import { byVolume, compareWines, MAIN_ROBES, styleByKey, vintageShortLabel, wineRobe, type ProductStyleKey, productTitle, productTypeLabel, withVolume } from "$lib/wine";
   import {
     IconArchive,
     IconArchiveRestore,
@@ -54,7 +54,7 @@
   // Pairings modal state
   let showPairingsModal = $state(false);
   let selectedWine = $state<Wine | null>(null);
-  let winePairings = $state<any[]>([]);
+  let productPairings = $state<any[]>([]);
   let allPairings = $state<any[]>([]);
   let selectedPairingId = $state("");
   let pairingError = $state("");
@@ -237,7 +237,7 @@
       )
       .eq("wine_id", selectedWine.id);
 
-    winePairings = data || [];
+    productPairings = data || [];
   }
 
   async function addPairing() {
@@ -246,7 +246,7 @@
     if (!pairingId || !selectedWine || linkedPairingIds.has(pairingId)) return;
 
     /* Affiché tout de suite : l'option est grisée avant la fin de l'insertion, pas de doublon. */
-    winePairings = [...winePairings, { pairing_id: pairingId, pairing: allPairings.find((p) => p.id === pairingId) }];
+    productPairings = [...productPairings, { pairing_id: pairingId, pairing: allPairings.find((p) => p.id === pairingId) }];
     pairingError = "";
 
     const { error: insertError } = await supabase.from("wine_pairing").insert({
@@ -283,7 +283,7 @@
   function closePairingsModal() {
     showPairingsModal = false;
     selectedWine = null;
-    winePairings = [];
+    productPairings = [];
     selectedPairingId = "";
     pairingError = "";
   }
@@ -307,7 +307,7 @@
     }
   }
 
-  let robeFilter = $state<WineStyleKey | "">("");
+  let robeFilter = $state<ProductStyleKey | "">("");
   let inStockOnly = $state(false);
 
   /** Un onglet par type de produit : vins et huiles ne se mélangent pas dans la liste. */
@@ -389,8 +389,8 @@
       return;
     }
     notice = retired
-      ? `« ${wineTitle(wine)} » est marqué plus jamais disponible et n’apparaît plus sur le site.`
-      : `« ${wineTitle(wine)} » est de nouveau au catalogue.`;
+      ? `« ${productTitle(wine)} » est marqué plus jamais disponible et n’apparaît plus sur le site.`
+      : `« ${productTitle(wine)} » est de nouveau au catalogue.`;
     await loadWines();
   }
 
@@ -428,7 +428,7 @@
     await deleteWine(deleteTarget.id);
     confirmOpen = false;
   }
-  let linkedPairingIds = $derived(new Set(winePairings.map((wp) => wp.pairing_id)));
+  let linkedPairingIds = $derived(new Set(productPairings.map((wp) => wp.pairing_id)));
   let pairingOptions = $derived(allPairings.map<ComboOption>((p) => {
     const linked = linkedPairingIds.has(p.id);
     return {
@@ -527,7 +527,7 @@
           <button type="button" class="ui-chip" aria-pressed={!robeFilter} onclick={() => (robeFilter = "")}>Tous</button>
           {#each MAIN_ROBES as r}
             <button type="button" class="ui-chip" aria-pressed={robeFilter === r} onclick={() => (robeFilter = robeFilter === r ? "" : r)}>
-              <WineDot robe={r} />{styleByKey(r).label}
+              <StyleDot robe={r} />{styleByKey(r).label}
             </button>
           {/each}
         </div>
@@ -580,14 +580,14 @@
               <tr class="is-clickable" class:retired onclick={(e) => openRow(wine, e)}>
                 <td>
                   <span class="wine-cell">
-                    <WineDot {robe} />
+                    <StyleDot {robe} />
                     <span class="wine-name">
-                      <a class="row-link" href="/manage/products/{wine.id}">{wineTitle(wine)}</a>
+                      <a class="row-link" href="/manage/products/{wine.id}">{productTitle(wine)}</a>
                       <span class="t-caption">{wine.winery?.name ?? "—"}{wine.name && wine.appelation?.name ? ` · ${wine.appelation.name}` : ""}</span>
                     </span>
                   </span>
                 </td>
-                <td>{wineTypeLabel(wine.wine_type)}</td>
+                <td>{productTypeLabel(wine.wine_type)}</td>
                 <td>
                   <span class="vintages">
                     {#each vintagesOf(wine) as v (v.id)}
@@ -614,7 +614,7 @@
                   </span>
                 </td>
                 <td class="num">{priceText(wine)}</td>
-                <td class="col-actions"><RowMenu items={rowItems(wine)} label="Actions pour {wineTitle(wine)}" /></td>
+                <td class="col-actions"><RowMenu items={rowItems(wine)} label="Actions pour {productTitle(wine)}" /></td>
               </tr>
             {/each}
           </tbody>
@@ -628,7 +628,7 @@
           <li class="wine-card" class:retired={isRetired(wine)}>
             <a class="wine-card-main" href="/manage/products/{wine.id}">
               <span class="wc-top">
-                <span class="wine-cell"><WineDot type={wine.wine_type} /><strong>{wineTitle(wine)}</strong></span>
+                <span class="wine-cell"><StyleDot type={wine.wine_type} /><strong>{productTitle(wine)}</strong></span>
                 <strong>{stock ? `${total} bt.` : "—"}</strong>
               </span>
               <span class="wc-bottom">
@@ -636,7 +636,7 @@
                 {#if badge}<StockBadge kind={badge} />{/if}
               </span>
             </a>
-            <RowMenu items={rowItems(wine)} label="Actions pour {wineTitle(wine)}" />
+            <RowMenu items={rowItems(wine)} label="Actions pour {productTitle(wine)}" />
           </li>
         {/each}
       </ul>
@@ -648,7 +648,7 @@
   bind:open={confirmOpen}
   title="Supprimer {deleteTarget ? kindInfo(deleteTarget).thisLabel : 'ce produit'} ?"
   message={deleteTarget
-    ? `« ${wineTitle(deleteTarget)} » (${deleteTarget.winery?.name ?? ""}) sera supprimé du catalogue, ainsi que ses ${deleteTarget.wine_vintage?.length ?? 0} ${kindInfo(deleteTarget).batchPlural.toLowerCase()} si la base l’autorise. Les ventes passées ne sont pas modifiées.`
+    ? `« ${productTitle(deleteTarget)} » (${deleteTarget.winery?.name ?? ""}) sera supprimé du catalogue, ainsi que ses ${deleteTarget.wine_vintage?.length ?? 0} ${kindInfo(deleteTarget).batchPlural.toLowerCase()} si la base l’autorise. Les ventes passées ne sont pas modifiées.`
     : ""}
   onconfirm={confirmDelete}
 />
@@ -695,7 +695,7 @@
         <select id="wine-type" class="ui-control" bind:value={formData.wine_type_id} required>
           <option value="">Sélectionner…</option>
           {#each formTypes as wineType}
-            <option value={wineType.id}>{wineTypeLabel(wineType)}</option>
+            <option value={wineType.id}>{productTypeLabel(wineType)}</option>
           {/each}
         </select>
       </Field>
@@ -719,13 +719,13 @@
 </Modal>
 
 <Modal open={showPairingsModal} title={kindInfo(selectedWine).pairingsLabel ?? ""} maxWidth={520} onclose={closePairingsModal}>
-  {#if selectedWine}<p class="t-muted pairing-intro">{wineTitle(selectedWine)} · {selectedWine.winery?.name ?? ""}</p>{/if}
+  {#if selectedWine}<p class="t-muted pairing-intro">{productTitle(selectedWine)} · {selectedWine.winery?.name ?? ""}</p>{/if}
   {#if pairingError}<div class="error-message" role="alert">{pairingError}</div>{/if}
-  {#if winePairings.length === 0}
+  {#if productPairings.length === 0}
     <EmptyState icon={IconPlate} title="Aucun accord pour {kindInfo(selectedWine).thisLabel}" compact />
   {:else}
     <ul class="pairings">
-      {#each winePairings as wp}
+      {#each productPairings as wp}
         <li>
           <span>{wp.pairing.description}</span>
           <IconButton label="Retirer {wp.pairing.description}" onclick={() => (pairingToRemove = wp)}>

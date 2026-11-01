@@ -1,7 +1,7 @@
 <script lang="ts">
   import OrganicLogo from "./OrganicLogo.svelte";
-  import WineBottle from "./WineBottle.svelte";
-  import { formatsText, grapesText, styleLabel, wineStyle, wineSubtitle, wineTitle } from "$lib/wine";
+  import ProductBottle from "./ProductBottle.svelte";
+  import { formatsText, grapesText, styleLabel, productStyle, productSubtitle, productTitle } from "$lib/wine";
   import { formatEUR } from "$lib/format";
   import { kindInfo } from "$lib/productKinds";
   import type { Availability } from "$lib/publicData";
@@ -28,9 +28,9 @@
   }: Props = $props();
 
   let wine = $derived(vintage?.wine);
-  let style = $derived(wineStyle(wine?.wine_type));
-  let title = $derived(wineTitle(wine));
-  let subtitle = $derived(wineSubtitle(wine));
+  let style = $derived(productStyle(wine?.wine_type));
+  let title = $derived(productTitle(wine));
+  let subtitle = $derived(productSubtitle(wine));
   let grapes = $derived(grapesText(vintage?.wine_vintage_grape));
   let soldOut = $derived(!!availability && !availability.in_stock);
   let lowStock = $derived(!soldOut && !!availability?.low_stock);
@@ -58,7 +58,7 @@
     {#if position != null}
       <span class="position" aria-label="{kindInfo(wine).label} numéro {position}">{position}</span>
     {/if}
-    <WineBottle src={vintage?.image_url} alt={title} wine={style} height="10.5rem" />
+    <ProductBottle src={vintage?.image_url} alt={title} wine={style} height="10.5rem" />
   </div>
 
   <div class="body">

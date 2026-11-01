@@ -14,7 +14,7 @@
     type StockDocVintage,
   } from "$lib/stockDocuments";
   import { todayIso } from "$lib/dates";
-  import { wineTypeLabel } from "$lib/wine";
+  import { productTypeLabel } from "$lib/wine";
   import { fetchWineTypes } from "$lib/manageData";
   import { errorMessage } from "$lib/async";
   import { formatEUR } from "$lib/format";
@@ -277,7 +277,7 @@
                 </td>
                 <td>{r.wineryName}</td>
                 <td><strong>{r.wineName}</strong></td>
-                <td>{wineTypeLabel({ name: r.wineTypeName, kind: r.kind })}</td>
+                <td>{productTypeLabel({ name: r.wineTypeName, kind: r.kind })}</td>
                 <td>{vintageLabel(r)}</td>
                 <td class="num">
                   {formatEUR(r.price)}
@@ -320,7 +320,7 @@
             <strong>{row.wineryName}</strong>
             <span class="notes-order-wine">{row.wineName}</span>
             <span class="notes-order-meta"
-              >{wineTypeLabel({ name: row.wineTypeName, kind: row.kind })} · {vintageLabel(row)}</span
+              >{productTypeLabel({ name: row.wineTypeName, kind: row.kind })} · {vintageLabel(row)}</span
             >
           </div>
           <div class="notes-order-actions">

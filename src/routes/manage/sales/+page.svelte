@@ -20,7 +20,7 @@
   import Select from "$lib/ui/Select.svelte";
   import AmountTypeInput from "$lib/ui/AmountTypeInput.svelte";
   import Stepper from "$lib/ui/Stepper.svelte";
-  import WineDot from "$lib/ui/WineDot.svelte";
+  import StyleDot from "$lib/ui/StyleDot.svelte";
   import {
     IconClock,
     IconDownload,
@@ -971,7 +971,7 @@
                     <td>
                       <span class="wine-cell">
                         {#if item.wine_vintage_id}
-                          <WineDot type={v?.wine?.wine_type} />
+                          <StyleDot type={v?.wine?.wine_type} />
                         {/if}
                         <span class="wine-name">
                           {#if item.wine_vintage_id && v?.wine}

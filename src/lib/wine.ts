@@ -5,10 +5,10 @@
 
 import { formatVolume, kindInfo, kindOf, PRODUCT_KIND_LIST, type ProductKind } from "./productKinds";
 
-export type WineStyleKey = "red" | "white" | "rose" | "orange" | "sparkling" | "oil" | "other";
+export type ProductStyleKey = "red" | "white" | "rose" | "orange" | "sparkling" | "oil" | "other";
 
-export type WineStyle = {
-  key: WineStyleKey;
+export type ProductStyle = {
+  key: ProductStyleKey;
   label: string;
   /** Couleur de robe principale. */
   color: string;
@@ -18,7 +18,7 @@ export type WineStyle = {
   ring?: string;
 };
 
-const STYLES: Record<WineStyleKey, WineStyle> = {
+const STYLES: Record<ProductStyleKey, ProductStyle> = {
   red: { key: "red", label: "Rouge", color: "#7a1f2e", light: "#b04456" },
   white: { key: "white", label: "Blanc", color: "#d8bf62", light: "#efe2a6", ring: "#a88d2e" },
   rose: { key: "rose", label: "Rosé", color: "#e0879a", light: "#f3c3cb", ring: "#c0627a" },
@@ -29,12 +29,12 @@ const STYLES: Record<WineStyleKey, WineStyle> = {
 };
 
 /** Ordre « du plus léger au plus corsé » pour trier ou dessiner un dégradé. */
-export const STYLE_ORDER: WineStyleKey[] = ["sparkling", "white", "orange", "rose", "red", "oil", "other"];
+export const STYLE_ORDER: ProductStyleKey[] = ["sparkling", "white", "orange", "rose", "red", "oil", "other"];
 
 type TypeLike = { name?: string | null; category?: string | null; kind?: string | null } | null | undefined;
 
 /** Couleur d'un produit d'après son type (`wine_type`) : robe d'un vin, couleur du produit sinon (vert olive). */
-export function wineStyle(type: TypeLike): WineStyle {
+export function productStyle(type: TypeLike): ProductStyle {
   const own = kindInfo(type).style;
   if (own) return STYLES[own];
   const name = (type?.name || "").toLowerCase().trim();
@@ -53,13 +53,13 @@ export function wineStyle(type: TypeLike): WineStyle {
  * Couleur de la robe (rouge, blanc, rosé, orange) d'après le nom du type, sans le caractère pétillant :
  * pastilles, filtres, répartitions et tarifs classent par couleur, un crémant blanc reste blanc.
  */
-export function wineRobe(type: TypeLike): WineStyle {
-  return wineStyle({ name: type?.name, kind: type?.kind });
+export function wineRobe(type: TypeLike): ProductStyle {
+  return productStyle({ name: type?.name, kind: type?.kind });
 }
 
 /** Libellé de la pastille d'un produit : la robe d'un vin (« Rouge », « Pétillant »), le fruité d'une huile. */
 export function styleLabel(type: TypeLike): string {
-  return (kindInfo(type).style && type?.name) || wineStyle(type).label;
+  return (kindInfo(type).style && type?.name) || productStyle(type).label;
 }
 
 /**
@@ -78,46 +78,46 @@ function typePosition(t: TypeLike): number {
   return i < 0 ? order.length : i;
 }
 
-type CompareProduct = { year?: number | null; production_year?: number | null; wine?: WineLike };
+type CompareProduct = { year?: number | null; production_year?: number | null; wine?: ProductLike };
 
 /**
  * Tri des lots du site : couleur du plus léger au plus corsé, ordre des types du produit (fruité
  * léger à intense pour les huiles), nom, puis année la plus récente (millésime, sinon mise en bouteille).
  */
 export function compareProducts(a: CompareProduct, b: CompareProduct): number {
-  const style = (v: typeof a) => STYLE_ORDER.indexOf(wineStyle(v.wine?.wine_type).key);
+  const style = (v: typeof a) => STYLE_ORDER.indexOf(productStyle(v.wine?.wine_type).key);
   return (
     style(a) - style(b) ||
     typePosition(a.wine?.wine_type) - typePosition(b.wine?.wine_type) ||
-    wineTitle(a.wine).localeCompare(wineTitle(b.wine), "fr") ||
+    productTitle(a.wine).localeCompare(productTitle(b.wine), "fr") ||
     (b.year ?? b.production_year ?? 0) - (a.year ?? a.production_year ?? 0)
   );
 }
 
 /** Couleurs présentes dans une liste de lots, dans l'ordre des filtres. */
-export function presentStyles(vintages: { wine?: WineLike }[]): WineStyle[] {
-  const keys = new Set(vintages.map((v) => wineStyle(v.wine?.wine_type).key));
-  return allWineStyles().filter((s) => keys.has(s.key));
+export function presentStyles(vintages: { wine?: ProductLike }[]): ProductStyle[] {
+  const keys = new Set(vintages.map((v) => productStyle(v.wine?.wine_type).key));
+  return allProductStyles().filter((s) => keys.has(s.key));
 }
 
 /** Style CSS d'une pastille ou d'une silhouette à la couleur de la robe (liseré pour les teintes claires). */
-export function swatchStyle(style: WineStyle): string {
+export function swatchStyle(style: ProductStyle): string {
   return `background: ${style.color};${style.ring ? ` box-shadow: inset 0 0 0 1px ${style.ring};` : ""}`;
 }
 
 /** Style par clé (filtres et légendes qui manipulent des clés). */
-export function styleByKey(key: WineStyleKey): WineStyle {
+export function styleByKey(key: ProductStyleKey): ProductStyle {
   return STYLES[key];
 }
 
 /** « Rouge », « Blanc »… ; un type hors de ces couleurs, ou d'un autre produit (« Fruité intense »), garde son nom en base. */
-export function wineTypeLabel(type: TypeLike): string {
+export function productTypeLabel(type: TypeLike): string {
   const style = wineRobe(type);
   return style.key === "other" || kindInfo(type).style ? type?.name ?? "" : style.label;
 }
 
 /** Robes principales du vin : filtres de la liste des produits, goûts d'un client. */
-export const MAIN_ROBES: WineStyleKey[] = ["red", "white", "rose"];
+export const MAIN_ROBES: ProductStyleKey[] = ["red", "white", "rose"];
 
 /**
  * Bouteilles achetées par robe (`wineRobe` du type de produit), robes de `among` de la plus à la
@@ -126,15 +126,15 @@ export const MAIN_ROBES: WineStyleKey[] = ["red", "white", "rose"];
  */
 export function robePreference(
   lines: { type: TypeLike; qty: number }[],
-  among: WineStyleKey[] = MAIN_ROBES,
-): { qty: Record<WineStyleKey, number>; order: WineStyleKey[]; favorite: WineStyleKey | null } {
-  const qty = Object.fromEntries(STYLE_ORDER.map((k) => [k, 0])) as Record<WineStyleKey, number>;
+  among: ProductStyleKey[] = MAIN_ROBES,
+): { qty: Record<ProductStyleKey, number>; order: ProductStyleKey[]; favorite: ProductStyleKey | null } {
+  const qty = Object.fromEntries(STYLE_ORDER.map((k) => [k, 0])) as Record<ProductStyleKey, number>;
   for (const l of lines) qty[wineRobe(l.type).key] += l.qty;
   const order = [...among].sort((a, b) => qty[b] - qty[a]);
   return { qty, order, favorite: order[0] && qty[order[0]] > 0 ? order[0] : null };
 }
 
-export function allWineStyles(): WineStyle[] {
+export function allProductStyles(): ProductStyle[] {
   return STYLE_ORDER.map((k) => STYLES[k]);
 }
 
@@ -143,7 +143,7 @@ type AppellationLike = {
   label?: { name?: string | null } | null;
 } | null;
 
-export type WineLike = {
+export type ProductLike = {
   id?: string;
   kind?: string | null;
   name?: string | null;
@@ -159,13 +159,13 @@ export function appellationText(ap: AppellationLike | undefined): string {
 }
 
 /** Nom principal d'un produit : son nom, sinon son appellation. */
-export function wineTitle(wine: WineLike): string {
+export function productTitle(wine: ProductLike): string {
   if (wine?.name?.trim()) return wine.name.trim();
   return appellationText(wine?.appelation) || kindInfo(wine).untitled;
 }
 
 /** Ligne secondaire : appellation quand le titre est un nom de cuvée. */
-export function wineSubtitle(wine: WineLike): string {
+export function productSubtitle(wine: ProductLike): string {
   if (!wine?.name?.trim()) return "";
   return appellationText(wine?.appelation);
 }
@@ -175,7 +175,7 @@ type VintageLike = {
   year?: number | null;
   production_year?: number | null;
   volume_ml?: number | null;
-  wine?: WineLike;
+  wine?: ProductLike;
 };
 
 /** Contenant d'un lot à afficher (« 5 L », « 1,5 L ») ; vide pour la bouteille standard du vin. */
@@ -209,7 +209,7 @@ export function formatsText(formats: VintageLike[]): string {
 /** « Domaine — Cuvée — 2022 » (« — 1,5 L » hors bouteille standard) : libellé compact pour l'admin, la recherche… */
 export function vintageLabel(v: VintageLike | null | undefined): string {
   if (!v) return "—";
-  const parts = [v.wine?.winery?.name, wineTitle(v.wine)].filter(Boolean);
+  const parts = [v.wine?.winery?.name, productTitle(v.wine)].filter(Boolean);
   const year = v.year ?? v.production_year;
   if (year) parts.push(String(year));
   return withVolume(parts.join(" — "), v, undefined, " — ");
@@ -234,7 +234,7 @@ export function vintageProductLabel(v: VintageLike): string {
 }
 
 /** Tri des produits de l'admin : domaine, puis cuvée (ou appellation). */
-export function compareWines(a: WineLike, b: WineLike): number {
+export function compareWines(a: ProductLike, b: ProductLike): number {
   const wineryA = a?.winery?.name?.toLowerCase() || "";
   const wineryB = b?.winery?.name?.toLowerCase() || "";
   if (wineryA !== wineryB) return wineryA.localeCompare(wineryB);
@@ -304,7 +304,7 @@ export function vintageNotes(
 }
 
 /** Accords mets-vins d'un vin chargé avec `VINTAGE_PUBLIC_SELECT` ; aucun pour un type sans accords (huile). */
-export function winePairings(
+export function productPairings(
   wine:
     | { kind?: string | null; wine_pairing?: { pairing?: { description?: string | null } | null }[] | null }
     | null

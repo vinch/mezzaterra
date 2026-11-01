@@ -4,7 +4,7 @@
   import { fade, fly } from "svelte/transition";
   import type { RealtimeChannel } from "@supabase/supabase-js";
   import { supabase } from "$lib/supabase";
-  import WineBottle from "$lib/components/site/WineBottle.svelte";
+  import ProductBottle from "$lib/components/site/ProductBottle.svelte";
   import GlassProgress from "$lib/components/site/GlassProgress.svelte";
   import StarRating from "$lib/components/site/StarRating.svelte";
   import CaveSheet from "$lib/components/site/CaveSheet.svelte";
@@ -16,10 +16,10 @@
     styleLabel,
     withVolume,
     vintageNotes,
-    winePairings,
-    wineStyle,
-    wineSubtitle,
-    wineTitle,
+    productPairings,
+    productStyle,
+    productSubtitle,
+    productTitle,
   } from "$lib/wine";
   import { kindInfo } from "$lib/productKinds";
   import { formatEUR } from "$lib/format";
@@ -150,11 +150,11 @@
   }
 
   let current = $derived(wines[index]);
-  let style = $derived(wineStyle(current?.wine?.wine_type));
+  let style = $derived(productStyle(current?.wine?.wine_type));
   let currentRating = $derived(current ? ratings[current.id] : undefined);
   let kind = $derived(kindInfo(current?.wine));
   let notes = $derived(vintageNotes(current?.note, kind.key));
-  let pairings = $derived(winePairings(current?.wine));
+  let pairings = $derived(productPairings(current?.wine));
   let cartLines = $derived(wines.filter((w) => (cart[w.id] ?? 0) > 0).map((w) => ({ wine: w, qty: cart[w.id] })));
   let cartCount = $derived(cartLines.reduce((s, l) => s + l.qty, 0));
   let cartTotal = $derived(cartLines.reduce((s, l) => s + l.qty * Number(l.wine.price ?? 0), 0));
@@ -339,15 +339,15 @@
         >
           <div class="bottle-wrap">
             <div class="halo" aria-hidden="true"></div>
-            <WineBottle src={current.image_url} alt={wineTitle(current.wine)} wine={style} height="min(19rem, 38vh)" />
+            <ProductBottle src={current.image_url} alt={productTitle(current.wine)} wine={style} height="min(19rem, 38vh)" />
           </div>
 
           <div class="identity">
             <span class="eyebrow">
               <span class="robe-dot" aria-hidden="true"></span>{styleLabel(current.wine?.wine_type)}{current.year ? ` · ${current.year}` : ""}{current.organic ? " · Bio" : ""}
             </span>
-            <h1>{wineTitle(current.wine)}</h1>
-            {#if wineSubtitle(current.wine)}<p class="sub">{wineSubtitle(current.wine)}</p>{/if}
+            <h1>{productTitle(current.wine)}</h1>
+            {#if productSubtitle(current.wine)}<p class="sub">{productSubtitle(current.wine)}</p>{/if}
             {#if current.wine?.winery?.name}<p class="winery">{current.wine.winery.name}</p>{/if}
             {#if grapesText(current.wine_vintage_grape)}<p class="grapes">{grapesText(current.wine_vintage_grape, true)}</p>{/if}
           </div>
@@ -406,7 +406,7 @@
       <button type="button" class="nav-arrow" onclick={() => goTo(index - 1)} disabled={index === 0} aria-label="Précédent">‹</button>
       <div class="dot-row">
         {#each wines as w, i}
-          {@const s = wineStyle(w.wine?.wine_type)}
+          {@const s = productStyle(w.wine?.wine_type)}
           {#if i <= unlocked}
             <button
               type="button"
@@ -416,7 +416,7 @@
               class:rated={!!ratings[w.id]?.rating}
               style="--c: {s.color}"
               onclick={() => goTo(i)}
-              aria-label="{kindInfo(w.wine).label} {i + 1} : {wineTitle(w.wine)}"
+              aria-label="{kindInfo(w.wine).label} {i + 1} : {productTitle(w.wine)}"
               aria-current={i === index}
             ></button>
           {:else}
@@ -470,8 +470,8 @@
     <ul class="cart-lines">
       {#each cartLines as l (l.wine.id)}
         <li>
-          <span class="mz-dot" style="background: {wineStyle(l.wine.wine?.wine_type).color}"></span>
-          <span class="cart-name">{withVolume(`${wineTitle(l.wine.wine)}${l.wine.year ? ` ${l.wine.year}` : ""}`, l.wine)}</span>
+          <span class="mz-dot" style="background: {productStyle(l.wine.wine?.wine_type).color}"></span>
+          <span class="cart-name">{withVolume(`${productTitle(l.wine.wine)}${l.wine.year ? ` ${l.wine.year}` : ""}`, l.wine)}</span>
           <QtyStepper value={l.qty} onchange={(q) => setQty(l.wine.id, q)} size="sm" disabled={sending} />
           <span class="cart-price">{formatEUR(l.qty * Number(l.wine.price ?? 0))}</span>
         </li>
@@ -519,9 +519,9 @@
       <li>
         {#if i <= unlocked}
           <button type="button" onclick={() => { showRecap = false; goTo(i); }}>
-            <span class="recap-num" style="--c: {wineStyle(w.wine?.wine_type).color}">{i + 1}</span>
+            <span class="recap-num" style="--c: {productStyle(w.wine?.wine_type).color}">{i + 1}</span>
             <span class="recap-name">
-              {wineTitle(w.wine)}
+              {productTitle(w.wine)}
               {#if cart[w.id]}<span class="recap-qty">× {cart[w.id]} en pré-commande</span>{/if}
             </span>
             <StarRating value={r?.rating ?? null} readonly size="0.95rem" />

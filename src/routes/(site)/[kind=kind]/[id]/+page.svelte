@@ -2,7 +2,7 @@
   import { onMount } from "svelte";
   import { page } from "$app/stores";
   import OrganicLogo from "$lib/components/site/OrganicLogo.svelte";
-  import WineBottle from "$lib/components/site/WineBottle.svelte";
+  import ProductBottle from "$lib/components/site/ProductBottle.svelte";
   import ProductAbout from "$lib/components/site/ProductAbout.svelte";
   import ProductCard from "$lib/components/site/ProductCard.svelte";
   import { contactHref } from "$lib/contact";
@@ -16,9 +16,9 @@
     wineryFlag,
     wineryInstagram,
     wineryPlace,
-    wineStyle,
-    wineSubtitle,
-    wineTitle,
+    productStyle,
+    productSubtitle,
+    productTitle,
   } from "$lib/wine";
   import { formatEUR } from "$lib/format";
   import { formatVolume, kindInfo, productHref } from "$lib/productKinds";
@@ -28,15 +28,15 @@
   let v = $derived(data.vintage);
   let wine = $derived(v.wine);
   let kind = $derived(kindInfo(wine));
-  let style = $derived(wineStyle(wine.wine_type));
-  let title = $derived(wineTitle(wine));
+  let style = $derived(productStyle(wine.wine_type));
+  let title = $derived(productTitle(wine));
   let grapes = $derived(grapesText(v.wine_vintage_grape, true));
   let winery = $derived(wine.winery);
   let region = $derived(wineryPlace(winery));
   let flag = $derived(wineryFlag(winery));
   let instagram = $derived(wineryInstagram(winery));
   let ogDescription = $derived([
-    wineSubtitle(wine),
+    productSubtitle(wine),
     winery?.name,
     v.year,
     grapes,
@@ -93,7 +93,7 @@
   <section class="hero">
     <div class="mz-container hero-grid">
       <div class="bottle-stage mz-rise">
-        <WineBottle src={v.image_url} alt={title} wine={style} height="min(28rem, 60vh)" />
+        <ProductBottle src={v.image_url} alt={title} wine={style} height="min(28rem, 60vh)" />
       </div>
       <div class="hero-text mz-rise" style="animation-delay: 80ms">
         <a href="/{kind.slug}" class="mz-back">← {kind.catalogTitle}</a>
@@ -103,8 +103,8 @@
           {#if v.organic}<OrganicLogo height="1.3rem" />{/if}
         </span>
         <h1 class="mz-display mz-h1">{title}</h1>
-        {#if wineSubtitle(wine)}
-          <p class="appellation">{wineSubtitle(wine)}</p>
+        {#if productSubtitle(wine)}
+          <p class="appellation">{productSubtitle(wine)}</p>
         {/if}
         {#if winery?.name}
           <p class="winery">

@@ -13,19 +13,19 @@
     groupFormats,
     presentStyles,
     type FormatGroup,
-    wineStyle,
+    productStyle,
     vintageVolume,
-    wineTitle,
+    productTitle,
     wineryFlag,
     wineryPlace,
-    type WineStyleKey,
+    type ProductStyleKey,
   } from "$lib/wine";
 
   let { data } = $props();
 
   let availability = $state<AvailabilityOf | null>(null);
   /* /vins et /huiles partagent ce composant : les filtres repartent de zéro au changement de catalogue. */
-  let styleFilter = $derived.by<WineStyleKey | "">(() => (data.kind, ""));
+  let styleFilter = $derived.by<ProductStyleKey | "">(() => (data.kind, ""));
   let inStockOnly = $derived.by(() => (data.kind, false));
   let query = $derived.by(() => (data.kind, ""));
 
@@ -39,13 +39,13 @@
   let styles = $derived(presentStyles(vintages));
 
   let filtered = $derived(vintages
-    .filter((v) => !styleFilter || wineStyle(v.wine?.wine_type).key === styleFilter)
+    .filter((v) => !styleFilter || productStyle(v.wine?.wine_type).key === styleFilter)
     .filter((v) => !inStockOnly || !availability || availability(v.id).in_stock)
     .filter((v) => {
       if (!query.trim()) return true;
       const blob = fold(
         [
-          wineTitle(v.wine),
+          productTitle(v.wine),
           v.wine?.appelation?.name,
           v.wine?.winery?.name,
           v.year,

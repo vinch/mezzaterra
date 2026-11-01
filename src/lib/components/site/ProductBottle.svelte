@@ -1,11 +1,11 @@
 <script lang="ts">
-  import type { WineStyle } from "$lib/wine";
+  import type { ProductStyle } from "$lib/wine";
 
   interface Props {
     /** Photo détourée de la bouteille (sinon silhouette teintée à la couleur de la robe). */
     src?: string | null | undefined;
     alt?: string;
-    wine: WineStyle;
+    wine: ProductStyle;
     /** Hauteur CSS de la bouteille. */
     height?: string;
   }
