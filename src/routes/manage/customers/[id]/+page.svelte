@@ -12,7 +12,7 @@
   import { REVENUE_STATUSES, lineTotal, type SaleItemRow } from "$lib/analytics";
   import { daysUntil } from "$lib/dates";
   import { fetchLatestFeedback } from "$lib/live";
-  import { MAIN_ROBES, robePreference, styleByKey, vintageLabel, vintageLabelSelect, vintageShortLabel, wineRobe, type WineStyleKey } from "$lib/wine";
+  import { MAIN_ROBES, robePreference, styleByKey, vintageLabel, vintageLabelSelect, vintageShortLabel, wineRobe, type ProductStyleKey } from "$lib/wine";
   import { KIND_STYLES } from "$lib/productKinds";
   import { formatDate, formatEUR } from "$lib/format";
   import Button from "$lib/ui/Button.svelte";
@@ -27,7 +27,7 @@
   import DataTable from "$lib/ui/DataTable.svelte";
   import EmptyState from "$lib/ui/EmptyState.svelte";
   import StatusBadge from "$lib/ui/StatusBadge.svelte";
-  import WineDot from "$lib/ui/WineDot.svelte";
+  import StyleDot from "$lib/ui/StyleDot.svelte";
   import { IconDownload, IconGlasses, IconMerge, IconPencil, IconPlus, IconReceipt, IconSend, IconSparkle, IconTrash } from "$lib/ui/icons";
   import Spinner from "$lib/ui/Spinner.svelte";
 
@@ -143,7 +143,7 @@
 
   /* Préférences : répartition par robe (toujours rouge / blanc / rosé, les autres produits achetés) et domaine préféré. */
   /* Blanc, rouge, rosé : ordre de cette fiche à égalité (les filtres des produits mettent le rouge d'abord). */
-  const ROBE_ORDER: WineStyleKey[] = ["white", "red", "rose"];
+  const ROBE_ORDER: ProductStyleKey[] = ["white", "red", "rose"];
   let { qty: robeQty, order: allRobes, favorite: favRobe } = $derived(
     robePreference(bought.map((b) => ({ type: b.vintage.wine?.wine_type, qty: b.qty })), [...ROBE_ORDER, ...KIND_STYLES]),
   );
@@ -373,7 +373,7 @@
           <ul class="legend">
             {#each robeOrder as r}
               <li class:muted={!robeQty[r]}>
-                <WineDot robe={r} />
+                <StyleDot robe={r} />
                 <strong>{styleByKey(r).label}</strong>
                 {Math.round((robeQty[r] / totalBottles) * 100)} %
               </li>
@@ -404,7 +404,7 @@
               <li>
                 <label class="suggest">
                   <input type="checkbox" checked={!unchecked.has(sg.vintage.id)} onchange={() => toggleSuggestion(sg.vintage.id)} />
-                  <WineDot type={sg.vintage.wine?.wine_type} />
+                  <StyleDot type={sg.vintage.wine?.wine_type} />
                   <span class="list-main">
                     <span><strong>{vintageShortLabel(sg.vintage)}</strong><span class="t-muted">&nbsp;· {sg.vintage.wine?.winery?.name ?? ""}</span></span>
                     <span class="t-caption" class:t-warn={(stock?.get(sg.vintage.id) ?? 0) <= 3}>
@@ -427,7 +427,7 @@
           <ul class="list">
             {#each bought as b}
               <li>
-                <WineDot type={b.vintage.wine?.wine_type} />
+                <StyleDot type={b.vintage.wine?.wine_type} />
                 <span class="list-main">
                   <span><strong>{vintageShortLabel(b.vintage)}</strong><span class="t-muted">&nbsp;· {b.vintage.wine?.winery?.name ?? ""}</span></span>
                   <span class="t-caption">Dernier achat le {formatDate(b.last)}</span>
@@ -504,7 +504,7 @@
                       {#if i > 0}<span class="t-muted">&nbsp;· </span>{/if}
                       {#if it.wine_vintage_id}
                         {@const v = vintageById.get(it.wine_vintage_id)}
-                        <span class="item"><WineDot type={v?.wine?.wine_type} /> {it.quantity} × {vintageShortLabel(v)}<span class="t-muted">&nbsp;· {v?.wine?.winery?.name ?? ""}</span></span>
+                        <span class="item"><StyleDot type={v?.wine?.wine_type} /> {it.quantity} × {vintageShortLabel(v)}<span class="t-muted">&nbsp;· {v?.wine?.winery?.name ?? ""}</span></span>
                       {:else}
                         <span class="item">{it.quantity} × {it.note || "Dégustation"}</span>
                       {/if}

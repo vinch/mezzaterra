@@ -2,16 +2,16 @@
   import { self } from "$lib/ui/events";
   import { fade, fly } from "svelte/transition";
   import type { WineVintage } from "$lib/types";
-  import WineBottle from "./WineBottle.svelte";
+  import ProductBottle from "./ProductBottle.svelte";
   import ProductAbout from "./ProductAbout.svelte";
   import {
     grapesText,
     styleLabel,
     vintageVolume,
     wineryFlag,
-    wineStyle,
-    wineSubtitle,
-    wineTitle,
+    productStyle,
+    productSubtitle,
+    productTitle,
   } from "$lib/wine";
   import { kindInfo, productHref } from "$lib/productKinds";
   import { formatEUR } from "$lib/format";
@@ -28,7 +28,7 @@
   let wine = $derived(v?.wine);
   let kind = $derived(kindInfo(wine));
   let volume = $derived(v ? vintageVolume(v) : "");
-  let style = $derived(wineStyle(wine?.wine_type));
+  let style = $derived(productStyle(wine?.wine_type));
   let region = $derived(wine?.winery?.region?.name || wine?.winery?.country?.name || "");
   let flag = $derived(wineryFlag(wine?.winery));
   let grapes = $derived(grapesText(v?.wine_vintage_grape, true));
@@ -63,16 +63,16 @@
 
       <header class="hero">
         <div class="hero-bottle">
-          <WineBottle src={v.image_url} alt={wineTitle(wine)} wine={style} height="15rem" />
+          <ProductBottle src={v.image_url} alt={productTitle(wine)} {style} height="15rem" />
         </div>
         <div class="hero-text">
           <span class="mz-eyebrow">
             <span class="mz-dot" style="background: {style.color}"></span>
             {styleLabel(wine.wine_type)}{v.organic ? " · Bio" : ""}
           </span>
-          <h2 id="product-modal-title" class="title">{wineTitle(wine)}</h2>
-          {#if wineSubtitle(wine)}
-            <p class="appellation">{wineSubtitle(wine)}</p>
+          <h2 id="product-modal-title" class="title">{productTitle(wine)}</h2>
+          {#if productSubtitle(wine)}
+            <p class="appellation">{productSubtitle(wine)}</p>
           {/if}
           {#if wine.winery?.name}
             <p class="winery">{wine.winery.name}</p>

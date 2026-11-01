@@ -17,7 +17,7 @@
   import RowMenu from "$lib/ui/RowMenu.svelte";
   import type { MenuItem } from "$lib/ui/Menu.svelte";
   import StockBadge from "$lib/ui/StockBadge.svelte";
-  import WineBottle from "$lib/components/site/WineBottle.svelte";
+  import ProductBottle from "$lib/components/site/ProductBottle.svelte";
   import {
     IconArchive,
     IconArchiveRestore,
@@ -37,9 +37,9 @@
     isDiscontinued,
     vintageNotes,
     vintageYearLabel,
-    wineStyle,
-    wineTitle,
-    wineTypeLabel,
+    productStyle,
+    productTitle,
+    productTypeLabel,
   } from "$lib/wine";
   import { formatVolume, kindInfo, kindListHref, kindOf } from "$lib/productKinds";
 
@@ -283,7 +283,7 @@
     ];
   }
 
-  let subtitle = $derived([wine.winery?.name, appellationText(wine.appelation), wineTypeLabel(wine.wine_type)].filter(Boolean).join(" · "));
+  let subtitle = $derived([wine.winery?.name, appellationText(wine.appelation), productTypeLabel(wine.wine_type)].filter(Boolean).join(" · "));
 
   // Grapes modal functions
   async function openGrapesModal(vintage: any) {
@@ -373,10 +373,10 @@
 </script>
 
 <svelte:head>
-  <title>{wineTitle(wine)} - Gestion</title>
+  <title>{productTitle(wine)} - Gestion</title>
 </svelte:head>
 
-<ManagePageShell title={wineTitle(wine)} {subtitle} back={{ href: kindListHref("/manage/products", kindOf(wine)), label: "Produits" }}>
+<ManagePageShell title={productTitle(wine)} {subtitle} back={{ href: kindListHref("/manage/products", kindOf(wine)), label: "Produits" }}>
   {#snippet actions()}
       <Button variant="primary" onclick={openCreateModal}><IconPlus size={16} strokeWidth={1.75} /> {kind.newBatch}</Button>
   {/snippet}
@@ -394,7 +394,7 @@
       <Button onclick={openCreateModal}><IconPlus size={16} strokeWidth={1.75} /> {kind.newBatch}</Button>
     </EmptyState>
   {:else}
-    <DataTable caption="{kind.batchPlural} de {wineTitle(wine)}">
+    <DataTable caption="{kind.batchPlural} de {productTitle(wine)}">
       <thead>
         <tr>
           <th scope="col">{kind.batch}</th>
@@ -429,7 +429,7 @@
 </ManagePageShell>
 
 <!-- Modal de création / édition -->
-<Modal open={formOpen} title="{editingVintage ? kind.editBatch : kind.newBatch} - {wineTitle(wine)}" onclose={closeForm}>
+<Modal open={formOpen} title="{editingVintage ? kind.editBatch : kind.newBatch} - {productTitle(wine)}" onclose={closeForm}>
   {#if error}<div class="error-message" role="alert">{error}</div>{/if}
   <form id="vintage-form" class="ui-grid-2" onsubmit={preventDefault(submitForm)}>
     {#if !editingVintage && vintages.length}
@@ -445,7 +445,7 @@
             <div class="reuse-items">
               <!-- Aperçu de la bouteille à côté des cases (silhouette du site sans image) : lignes de même hauteur. -->
               <div class="reuse-preview" class:off={!imageReused} aria-hidden="true">
-                <WineBottle src={source.image_url} wine={wineStyle(wine.wine_type)} height="80px" />
+                <ProductBottle src={source.image_url} style={productStyle(wine.wine_type)} height="80px" />
               </div>
               <div class="reuse-checks">
                 <label class="checkbox-label">
@@ -540,7 +540,7 @@
 <!-- Cépages d'un millésime, variétés d'olives d'un lot -->
 <Modal open={showGrapesModal} title={kind.ingredients} maxWidth={520} onclose={closeGrapesModal}>
   {#if error}<div class="error-message" role="alert">{error}</div>{/if}
-  {#if selectedVintage}<p class="t-muted grapes-intro">{wineTitle(wine)} · {vintageYearLabel(selectedVintage, kind.key)}</p>{/if}
+  {#if selectedVintage}<p class="t-muted grapes-intro">{productTitle(wine)} · {vintageYearLabel(selectedVintage, kind.key)}</p>{/if}
   {#if vintageGrapes.length === 0}
     <EmptyState icon={kindIcons.ingredient} title="{kind.noIngredient} pour {kind.thisBatch}" compact />
   {:else}

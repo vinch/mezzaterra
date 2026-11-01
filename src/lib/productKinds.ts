@@ -9,7 +9,7 @@
  * (`wine.ts`) s'il en a une propre, puis créer ses types (`wine_type`).
  */
 
-import type { WineStyleKey } from "./wine";
+import type { ProductStyleKey } from "./wine";
 
 export type ProductKind = "wine" | "olive_oil";
 
@@ -50,7 +50,7 @@ export type ProductKindInfo = {
    * Couleur unique du produit (pastilles, bouteille, liserés) ; `null` : couleur de la robe, propre à
    * chaque type (vin). Un type de produit à couleur unique affiche le nom de son type (« Fruité intense »).
    */
-  style: WineStyleKey | null;
+  style: ProductStyleKey | null;
   /** Lot du produit (une ligne `wine_vintage`, vendue et stockée) : « Millésime », « Lot ». */
   batch: string;
   batchPlural: string;
