@@ -1,13 +1,22 @@
 -- Retour en arrière de 20261101120000_rename_products.sql : rend aux tables, colonnes, contraintes,
 -- index, triggers, fonctions et à la vue leurs anciens noms (fonctions reprises du schéma de production
 -- du 2026-11-01), remet l'ancienne clé dans le JSON des lignes et retire de l'historique le renommage
--- (20261101120000) et la fin de sa transition (20261101130000).
+-- (20261101120000), la fin de sa transition (20261101130000) et la clé de confirmation des pré-commandes
+-- (20261101140000).
 -- À lancer seulement si la bascule échoue, avec le code d'avant la migration :
 --   psql "$DB_URL" -v ON_ERROR_STOP=1 -f supabase/rollback/20261101120000_rename_products_down.sql
 -- (le fichier ouvre et valide sa propre transaction). Les objets de transition sont supprimés « s'ils
 -- existent » : la migration de nettoyage a pu les retirer avant.
 
 BEGIN;
+
+-- 0. Après 20261101140000 : clé de confirmation des pré-commandes et insertion publique directe
+DROP FUNCTION IF EXISTS public."save_live_preorder"("p_tasting_id" "uuid", "p_guest_id" "uuid", "p_items" "jsonb", "p_first_name" "text", "p_last_name" "text", "p_email" "text", "p_phone" "text", "p_confirm" boolean, "p_request_key" "uuid");
+DROP INDEX IF EXISTS public."wish_request_request_key";
+ALTER TABLE public."wish_request" DROP COLUMN IF EXISTS "request_key";
+DROP POLICY IF EXISTS "anyone can request" ON public."wish_request";
+CREATE POLICY "anyone can request" ON public."wish_request" FOR INSERT TO "authenticated", "anon"
+  WITH CHECK ((("status" = 'new'::"text") AND ("sale_id" IS NULL)));
 
 -- 1. Transition et fonctions recréées sous un autre nom ou une autre signature
 DROP TRIGGER IF EXISTS "wish_request_legacy_lot_items" ON public."wish_request";
@@ -698,6 +707,12 @@ $$;
 
 ALTER FUNCTION "public"."set_transport_status"("p_transport_id" "uuid", "p_status" "text") OWNER TO "postgres";
 
+-- save_live_preorder a pu être recréée sans ses droits (étape 0) : ceux de la production.
+REVOKE ALL ON FUNCTION "public"."save_live_preorder"("p_tasting_id" "uuid", "p_guest_id" "uuid", "p_items" "jsonb", "p_first_name" "text", "p_last_name" "text", "p_email" "text", "p_phone" "text", "p_confirm" boolean) FROM PUBLIC;
+GRANT ALL ON FUNCTION "public"."save_live_preorder"("p_tasting_id" "uuid", "p_guest_id" "uuid", "p_items" "jsonb", "p_first_name" "text", "p_last_name" "text", "p_email" "text", "p_phone" "text", "p_confirm" boolean) TO "anon";
+GRANT ALL ON FUNCTION "public"."save_live_preorder"("p_tasting_id" "uuid", "p_guest_id" "uuid", "p_items" "jsonb", "p_first_name" "text", "p_last_name" "text", "p_email" "text", "p_phone" "text", "p_confirm" boolean) TO "authenticated";
+GRANT ALL ON FUNCTION "public"."save_live_preorder"("p_tasting_id" "uuid", "p_guest_id" "uuid", "p_items" "jsonb", "p_first_name" "text", "p_last_name" "text", "p_email" "text", "p_phone" "text", "p_confirm" boolean) TO "service_role";
+
 -- 4. Lignes JSON des demandes et pré-commandes : l'ancienne clé du lot, puis fin de la transition
 CREATE FUNCTION pg_temp.lot_items_back(p_items jsonb) RETURNS jsonb LANGUAGE sql IMMUTABLE AS $$
   SELECT CASE WHEN jsonb_typeof(p_items) = 'array' AND p_items @? '$[*].lot_id' THEN (
@@ -712,7 +727,7 @@ DROP FUNCTION IF EXISTS public."legacy_lot_items"("p_items" "jsonb");
 
 -- 5. Historique des migrations (renommage et fin de transition) : la prochaine « supabase db push »
 -- réappliquera le renommage
-DELETE FROM supabase_migrations.schema_migrations WHERE version IN ('20261101120000', '20261101130000');
+DELETE FROM supabase_migrations.schema_migrations WHERE version IN ('20261101120000', '20261101130000', '20261101140000');
 
 NOTIFY pgrst, 'reload schema';
 

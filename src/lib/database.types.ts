@@ -1327,6 +1327,7 @@ export type Database = {
           last_name: string | null
           message: string | null
           phone: string | null
+          request_key: string | null
           sale_id: string | null
           source: string
           status: string
@@ -1342,6 +1343,7 @@ export type Database = {
           last_name?: string | null
           message?: string | null
           phone?: string | null
+          request_key?: string | null
           sale_id?: string | null
           source?: string
           status?: string
@@ -1357,6 +1359,7 @@ export type Database = {
           last_name?: string | null
           message?: string | null
           phone?: string | null
+          request_key?: string | null
           sale_id?: string | null
           source?: string
           status?: string
@@ -1493,6 +1496,7 @@ export type Database = {
           p_items: Json
           p_last_name?: string
           p_phone?: string
+          p_request_key?: string
           p_tasting_id: string
         }
         Returns: string

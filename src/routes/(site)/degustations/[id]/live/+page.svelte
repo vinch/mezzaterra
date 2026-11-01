@@ -235,7 +235,7 @@
     saveProfile(profile);
     showWelcome = false;
     /* La pré-commande en cours prend le prénom : l'animateur sait à qui elle est. */
-    if (cartCount > 0) preorder?.schedule();
+    if (cartCount > 0) preorder?.sync();
   }
 
   async function confirmOrder() {
