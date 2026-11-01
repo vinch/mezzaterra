@@ -150,6 +150,7 @@
       return;
     }
 
+    error = "";
     /* Objet neuf pour la ligne : la liste ($derived, sans proxy) ne suit pas les mutations. */
     transports = transports.map((t) => (t.id === transportId ? { ...t, status: newStatus } : t));
   }

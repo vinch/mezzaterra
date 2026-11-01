@@ -244,6 +244,7 @@
       return;
     }
 
+    error = "";
     /* Objet neuf pour la ligne : la liste ($derived, sans proxy) ne suit pas les mutations. */
     orders = orders.map((o) => (o.id === orderId ? { ...o, status: newStatus } : o));
   }
