@@ -349,7 +349,7 @@
   </tr>
 {/snippet}
 
-<div class="pilot" class:has-wines={lots.length > 0}>
+<div class="pilot" class:has-lots={lots.length > 0}>
   <ManagePageShell
     title={tasting ? tastingTitle(tasting) : "Piloter la dégustation"}
     subtitle={headerSubtitle}
@@ -552,13 +552,13 @@
       {#if qr}<img src={qr} alt="QR code" />{/if}
       <p>Scannez pour suivre la soirée,<br />noter les vins et commander.</p>
     </div>
-    <div class="proj-wine">
+    <div class="proj-lot">
       {#key position}
         <div class="proj-inner" in:fade={{ duration: 400 }}>
           <span class="proj-num">{currentLabel} {position + 1} <span>/ {lots.length}</span></span>
           <h1>{productTitle(current.product)}</h1>
           {#if productSubtitle(current.product)}<p class="proj-sub">{productSubtitle(current.product)}</p>{/if}
-          <p class="proj-winery">{current.product?.producer?.name}{current.year ? ` · ${current.year}` : ""}</p>
+          <p class="proj-producer">{current.product?.producer?.name}{current.year ? ` · ${current.year}` : ""}</p>
         </div>
       {/key}
       <ProductBottle src={current.image_url} alt="" {style} height="58vh" />
@@ -1028,7 +1028,7 @@
       display: none;
     }
 
-    .pilot.has-wines :global(.page-content) {
+    .pilot.has-lots :global(.page-content) {
       padding-bottom: 96px;
     }
 
@@ -1107,7 +1107,7 @@
     color: var(--mz-cave-muted);
   }
 
-  .proj-wine {
+  .proj-lot {
     display: grid;
     grid-template-columns: 1fr auto;
     align-items: center;
@@ -1125,7 +1125,7 @@
     opacity: 0.6;
   }
 
-  .proj-wine h1 {
+  .proj-lot h1 {
     margin: 1rem 0;
     font-family: var(--mz-font-display);
     font-weight: 500;
@@ -1134,13 +1134,13 @@
   }
 
   .proj-sub,
-  .proj-winery {
+  .proj-producer {
     margin: 0.3rem 0;
     font-size: clamp(1.3rem, 2vw, 2rem);
     color: var(--mz-cave-muted);
   }
 
-  .proj-winery {
+  .proj-producer {
     color: var(--mz-cave-text);
   }
 

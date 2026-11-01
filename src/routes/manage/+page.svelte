@@ -349,7 +349,7 @@
           {/if}
         </Card>
 
-        <Card title="Top 5 des produits" id="top-wines">
+        <Card title="Top 5 des produits" id="top-lots">
           {#snippet actions()}
                     <span class="t-caption">par chiffre d’affaires</span>
                   {/snippet}

@@ -604,9 +604,9 @@
               {@const retired = isRetired(product)}
               <tr class="is-clickable" class:retired onclick={(e) => openRow(product, e)}>
                 <td>
-                  <span class="wine-cell">
+                  <span class="product-cell">
                     <StyleDot {robe} />
-                    <span class="wine-name">
+                    <span class="product-name">
                       <a class="row-link" href="/manage/products/{product.id}">{productTitle(product)}</a>
                       <span class="t-caption">{product.producer?.name ?? "—"}{product.name && product.appellation?.name ? ` · ${product.appellation.name}` : ""}</span>
                     </span>
@@ -619,11 +619,11 @@
                       {@const q = stock?.get(v.id) ?? 0}
                       {@const lot = withVolume(String(v.year ?? v.production_year), v, kindOf(product))}
                       {#if isDiscontinued(v)}
-                        <span class="vintage-chip gone" title="Plus jamais disponible">{lot}</span>
+                        <span class="lot-chip gone" title="Plus jamais disponible">{lot}</span>
                       {:else if !stock}
-                        <span class="vintage-chip">{lot}</span>
+                        <span class="lot-chip">{lot}</span>
                       {:else}
-                        <span class="vintage-chip" class:out={q <= 0}>
+                        <span class="lot-chip" class:out={q <= 0}>
                           {lot} · {q <= 0 ? "rupture" : q}
                         </span>
                       {/if}
@@ -650,10 +650,10 @@
       <ul class="cards mobile-only">
         {#each shownProducts as product (product.id)}
           {@const { total, badge } = stockById.get(product.id) ?? { total: 0, badge: null }}
-          <li class="wine-card" class:retired={isRetired(product)}>
-            <a class="wine-card-main" href="/manage/products/{product.id}">
+          <li class="product-card" class:retired={isRetired(product)}>
+            <a class="product-card-main" href="/manage/products/{product.id}">
               <span class="wc-top">
-                <span class="wine-cell"><StyleDot type={product.product_type} /><strong>{productTitle(product)}</strong></span>
+                <span class="product-cell"><StyleDot type={product.product_type} /><strong>{productTitle(product)}</strong></span>
                 <strong>{stock ? `${total} bt.` : "—"}</strong>
               </span>
               <span class="wc-bottom">
@@ -689,11 +689,11 @@
 />
 
 <Modal open={showModal} title={editingProduct ? formKind.editLabel : formKind.newLabel} onclose={closeModal}>
-  <form id="wine-form" class="wine-form" onsubmit={preventDefault(handleSubmit)}>
+  <form id="product-form" class="product-form" onsubmit={preventDefault(handleSubmit)}>
     <!-- Choisi à la création seulement : la base refuse de changer le type d'un produit qui a des millésimes ou des lots. -->
-    <Field id="wine-kind" label="Type de produit" required help={editingProduct ? "Ne change plus une fois le produit créé." : ""}>
+    <Field id="product-kind" label="Type de produit" required help={editingProduct ? "Ne change plus une fois le produit créé." : ""}>
       <select
-        id="wine-kind"
+        id="product-kind"
         class="ui-control"
         value={formData.kind}
         onchange={(e) => setFormKind(e.currentTarget.value as ProductKind)}
@@ -704,20 +704,20 @@
         {/each}
       </select>
     </Field>
-    <Field id="wine-name" label="Nom" help="Laisser vide pour utiliser le nom de l’appellation.">
-      <input id="wine-name" class="ui-control" type="text" bind:value={formData.name} />
+    <Field id="product-name" label="Nom" help="Laisser vide pour utiliser le nom de l’appellation.">
+      <input id="product-name" class="ui-control" type="text" bind:value={formData.name} />
     </Field>
     <div class="ui-grid-2">
-      <Field id="wine-winery" label="Domaine" required>
-        <select id="wine-winery" class="ui-control" bind:value={formData.producer_id} required>
+      <Field id="product-producer" label="Domaine" required>
+        <select id="product-producer" class="ui-control" bind:value={formData.producer_id} required>
           <option value="">Sélectionner un domaine</option>
           {#each producers as producer}
             <option value={producer.id}>{producer.name}</option>
           {/each}
         </select>
       </Field>
-      <Field id="wine-type" label={formKind.typeLabel} required>
-        <select id="wine-type" class="ui-control" bind:value={formData.product_type_id} required>
+      <Field id="product-type" label={formKind.typeLabel} required>
+        <select id="product-type" class="ui-control" bind:value={formData.product_type_id} required>
           <option value="">Sélectionner…</option>
           {#each formTypes as productType}
             <option value={productType.id}>{productTypeLabel(productType)}</option>
@@ -725,16 +725,16 @@
         </select>
       </Field>
     </div>
-    <Field id="wine-appellation" label="Appellation" optional>
-      <select id="wine-appellation" class="ui-control" bind:value={formData.appellation_id}>
+    <Field id="product-appellation" label="Appellation" optional>
+      <select id="product-appellation" class="ui-control" bind:value={formData.appellation_id}>
         <option value="">Aucune</option>
         {#each formAppellations as appellation}
           <option value={appellation.id}>{appellation.name}{appellation.label?.name ? ` ${appellation.label.name}` : ""}</option>
         {/each}
       </select>
     </Field>
-    <Field id="wine-description" label="Description" optional>
-      <textarea id="wine-description" class="ui-control" rows="3" bind:value={formData.description}></textarea>
+    <Field id="product-description" label="Description" optional>
+      <textarea id="product-description" class="ui-control" rows="3" bind:value={formData.description}></textarea>
     </Field>
   </form>
   {#snippet footer()}
@@ -833,13 +833,13 @@
     border-radius: var(--r-md);
   }
 
-  .wine-cell {
+  .product-cell {
     display: flex;
     align-items: center;
     gap: 10px;
   }
 
-  .wine-name {
+  .product-name {
     display: flex;
     flex-direction: column;
     line-height: 18px;
@@ -851,7 +851,7 @@
     gap: 6px;
   }
 
-  .vintage-chip {
+  .lot-chip {
     padding: 2px 8px;
     border-radius: var(--r-sm);
     background: var(--table-head);
@@ -860,14 +860,14 @@
     white-space: nowrap;
   }
 
-  .vintage-chip.out {
+  .lot-chip.out {
     background: var(--st-cancelled-bg);
     border-color: var(--danger-border);
     color: var(--danger);
   }
 
   /* Millésime retiré : barré, en pointillés. */
-  .vintage-chip.gone {
+  .lot-chip.gone {
     background: transparent;
     border-style: dashed;
     color: var(--ink-2);
@@ -876,7 +876,7 @@
 
   /* Vin retiré : présent mais en retrait. */
   tr.retired > td:not(.col-actions),
-  .wine-card.retired .wine-card-main {
+  .product-card.retired .product-card-main {
     opacity: 0.55;
   }
 
@@ -902,7 +902,7 @@
     gap: 8px;
   }
 
-  .wine-card {
+  .product-card {
     display: flex;
     align-items: center;
     gap: 4px;
@@ -912,7 +912,7 @@
     border-radius: var(--r-md);
   }
 
-  .wine-card-main {
+  .product-card-main {
     flex: 1;
     min-width: 0;
     display: flex;
@@ -931,7 +931,7 @@
     gap: 8px;
   }
 
-  .wine-form {
+  .product-form {
     display: flex;
     flex-direction: column;
     gap: 16px;

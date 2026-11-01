@@ -566,8 +566,8 @@
       {/snippet}
     </Field>
 
-    <section class="block" aria-labelledby="tasting-wines-label">
-      <h3 id="tasting-wines-label" class="t-label">Produits (ordre de passage)</h3>
+    <section class="block" aria-labelledby="tasting-lots-label">
+      <h3 id="tasting-lots-label" class="t-label">Produits (ordre de passage)</h3>
       {#if modalLots.length === 0}
         <EmptyState title="Aucun produit ajouté" compact />
       {:else}

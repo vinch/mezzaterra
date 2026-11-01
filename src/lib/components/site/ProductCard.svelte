@@ -48,7 +48,7 @@
   this={href ? "a" : "button"}
   {href}
   type={href ? undefined : "button"}
-  class="wine-card"
+  class="product-card"
   class:sold-out={soldOut}
   style="--robe: {style.color}; --robe-light: {style.light};"
   onclick={() => !href && onopen?.(lot)}
@@ -102,7 +102,7 @@
 </svelte:element>
 
 <style>
-  .wine-card {
+  .product-card {
     position: relative;
     display: grid;
     grid-template-columns: 6.5rem 1fr;
@@ -126,7 +126,7 @@
   }
 
   /* Liseré couleur de robe. */
-  .wine-card::before {
+  .product-card::before {
     content: "";
     position: absolute;
     inset: 0 auto 0 0;
@@ -134,21 +134,21 @@
     background: linear-gradient(180deg, var(--robe-light), var(--robe));
   }
 
-  .wine-card:hover,
-  .wine-card:focus-visible {
+  .product-card:hover,
+  .product-card:focus-visible {
     transform: translateY(-3px);
     box-shadow: var(--mz-shadow);
     border-color: var(--mz-line);
     outline: none;
   }
 
-  .wine-card:hover :global(.bottle img),
-  .wine-card:hover :global(.bottle svg) {
+  .product-card:hover :global(.bottle img),
+  .product-card:hover :global(.bottle svg) {
     transform: rotate(-3deg) translateY(-2px);
   }
 
-  .wine-card :global(.bottle img),
-  .wine-card :global(.bottle svg) {
+  .product-card :global(.bottle img),
+  .product-card :global(.bottle svg) {
     transition: transform 0.35s var(--mz-ease);
   }
 

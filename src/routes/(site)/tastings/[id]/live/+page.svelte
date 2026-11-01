@@ -410,7 +410,7 @@
           {#if i <= unlocked}
             <button
               type="button"
-              class="wine-dot"
+              class="lot-dot"
               class:active={i === index}
               class:served={hostPosition != null && i === hostPosition}
               class:rated={!!ratings[w.id]?.rating}
@@ -420,7 +420,7 @@
               aria-current={i === index}
             ></button>
           {:else}
-            <span class="wine-dot locked" aria-label="{i + 1} : à venir" role="img"></span>
+            <span class="lot-dot locked" aria-label="{i + 1} : à venir" role="img"></span>
           {/if}
         {/each}
       </div>
@@ -942,7 +942,7 @@
     flex-wrap: wrap;
   }
 
-  .wine-dot {
+  .lot-dot {
     position: relative;
     width: 0.85rem;
     height: 0.85rem;
@@ -954,7 +954,7 @@
     transition: transform 0.25s var(--mz-ease);
   }
 
-  .wine-dot.locked {
+  .lot-dot.locked {
     border-color: var(--mz-cave-faint);
     cursor: default;
   }
@@ -968,16 +968,16 @@
     font-style: italic;
   }
 
-  .wine-dot.rated {
+  .lot-dot.rated {
     background: var(--c);
   }
 
-  .wine-dot.active {
+  .lot-dot.active {
     transform: scale(1.45);
     box-shadow: 0 0 0 3px var(--mz-cave-faint);
   }
 
-  .wine-dot.served::after {
+  .lot-dot.served::after {
     content: "";
     position: absolute;
     left: 50%;

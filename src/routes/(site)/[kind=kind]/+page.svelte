@@ -141,7 +141,7 @@
   {:else}
     {#each groups as group (group.producer?.id || "autres")}
       <section class="producer" id={group.producer?.id ? `domaine-${group.producer.id}` : undefined} transition:fade={{ duration: 150 }}>
-        <header class="winery-head">
+        <header class="producer-head">
           <div>
             <h2 class="mz-display mz-h2">
               {#if group.producer?.id}
@@ -266,7 +266,7 @@
     scroll-margin-top: 9rem;
   }
 
-  .winery-head {
+  .producer-head {
     display: flex;
     flex-wrap: wrap;
     align-items: flex-end;
@@ -277,16 +277,16 @@
     border-bottom: 1px solid var(--mz-line-soft);
   }
 
-  .winery-head p {
+  .producer-head p {
     margin: 0.35rem 0 0;
   }
 
-  .winery-head h2 a {
+  .producer-head h2 a {
     color: inherit;
     text-decoration: none;
   }
 
-  .winery-head h2 a:hover {
+  .producer-head h2 a:hover {
     color: var(--mz-wine-red);
   }
 

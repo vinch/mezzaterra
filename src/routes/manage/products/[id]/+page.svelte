@@ -382,7 +382,7 @@
   {/snippet}
 
   {#if product.description}
-    <p class="wine-description">{product.description}</p>
+    <p class="product-description">{product.description}</p>
   {/if}
 
   {#if error && !formOpen && !showVarietiesModal}
@@ -409,7 +409,7 @@
         {#each lots as lot (lot.id)}
           <tr class:gone={isDiscontinued(lot)}>
             <td>
-              <span class="vintage-cell">
+              <span class="lot-cell">
                 {#if lot.image_url}<img src={lot.image_url} alt="" class="thumb" />{/if}
                 <a class="row-link" href="/manage/products/{product.id}/stock/{lot.id}">{lotYearLabel(lot, kind.key)}</a>
                 {#if lot.organic}<span class="ui-chip organic">Bio</span>{/if}
@@ -431,7 +431,7 @@
 <!-- Modal de création / édition -->
 <Modal open={formOpen} title="{editingLot ? kind.editBatch : kind.newBatch} - {productTitle(product)}" onclose={closeForm}>
   {#if error}<div class="error-message" role="alert">{error}</div>{/if}
-  <form id="vintage-form" class="ui-grid-2" onsubmit={preventDefault(submitForm)}>
+  <form id="lot-form" class="ui-grid-2" onsubmit={preventDefault(submitForm)}>
     {#if !editingLot && lots.length}
       <fieldset class="reuse wide">
         <legend class="t-label">Reprendre les données de</legend>
@@ -533,14 +533,14 @@
   </form>
   {#snippet footer()}
       <Button variant="ghost" onclick={closeForm}>Annuler</Button>
-      <Button variant="primary" type="submit" form="vintage-form" disabled={saving}>{editingLot ? "Mettre à jour" : "Créer"}</Button>
+      <Button variant="primary" type="submit" form="lot-form" disabled={saving}>{editingLot ? "Mettre à jour" : "Créer"}</Button>
   {/snippet}
 </Modal>
 
 <!-- Cépages d'un millésime, variétés d'olives d'un lot -->
 <Modal open={showVarietiesModal} title={kind.ingredients} maxWidth={520} onclose={closeVarietiesModal}>
   {#if error}<div class="error-message" role="alert">{error}</div>{/if}
-  {#if selectedLot}<p class="t-muted grapes-intro">{productTitle(product)} · {lotYearLabel(selectedLot, kind.key)}</p>{/if}
+  {#if selectedLot}<p class="t-muted varieties-intro">{productTitle(product)} · {lotYearLabel(selectedLot, kind.key)}</p>{/if}
   {#if lotVarieties.length === 0}
     <EmptyState icon={kindIcons.ingredient} title="{kind.noIngredient} pour {kind.thisBatch}" compact />
   {:else}
@@ -555,7 +555,7 @@
       {/each}
     </ul>
   {/if}
-  <div class="add-grape">
+  <div class="add-variety">
     <select class="ui-control" bind:value={selectedVarietyId} aria-label="{kind.ingredients} : ajouter">
       <option value="">{kind.chooseIngredient}</option>
       {#each allVarieties as variety (variety.id)}
@@ -602,7 +602,7 @@
 />
 
 <style>
-  .wine-description {
+  .product-description {
     max-width: 72ch;
     margin: 0 0 20px;
     color: var(--ink-2);
@@ -614,7 +614,7 @@
     opacity: 0.55;
   }
 
-  .vintage-cell {
+  .lot-cell {
     display: inline-flex;
     align-items: center;
     gap: 10px;
@@ -681,7 +681,7 @@
     font-size: 12px;
   }
 
-  .grapes-intro {
+  .varieties-intro {
     margin: 0 0 12px;
   }
 
@@ -703,16 +703,16 @@
     border-bottom: none;
   }
 
-  .add-grape {
+  .add-variety {
     display: flex;
     gap: 8px;
   }
 
-  .add-grape select {
+  .add-variety select {
     flex: 1;
   }
 
-  .add-grape .percent {
+  .add-variety .percent {
     width: 84px;
   }
 </style>

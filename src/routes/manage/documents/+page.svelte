@@ -218,8 +218,8 @@
             />
           </div>
           <div class="filter-group">
-            <label for="doc-winery">Domaine</label>
-            <select id="doc-winery" bind:value={filterProducerId}>
+            <label for="doc-producer">Domaine</label>
+            <select id="doc-producer" bind:value={filterProducerId}>
               <option value="">Tous</option>
               {#each producers as w}
                 <option value={w.id}>{w.name}</option>
@@ -318,7 +318,7 @@
           <span class="notes-order-num" aria-hidden="true">{i + 1}</span>
           <div class="notes-order-info">
             <strong>{row.producerName}</strong>
-            <span class="notes-order-wine">{row.productName}</span>
+            <span class="notes-order-product">{row.productName}</span>
             <span class="notes-order-meta"
               >{productTypeLabel({ name: row.productTypeName, kind: row.kind })} · {lotLabel(row)}</span
             >
@@ -483,7 +483,7 @@
     gap: 0.15rem;
   }
 
-  .notes-order-wine {
+  .notes-order-product {
     color: var(--ink);
   }
 

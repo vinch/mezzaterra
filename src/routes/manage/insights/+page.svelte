@@ -121,7 +121,7 @@
             {#each sorted as s (s.lot.id)}
               <tr>
                 <td>
-                  <span class="wine-cell"><StyleDot type={s.lot.product?.product_type} />
+                  <span class="product-cell"><StyleDot type={s.lot.product?.product_type} />
                   <a class="row-link" href="/manage/products/{s.lot.product_id}/stock/{s.lot.id}">{lotLabel(s.lot)}</a></span>
                 </td>
                 <td class="num">{formatEUR(s.lot.purchase_price)}</td>
@@ -223,7 +223,7 @@
 </ManagePageShell>
 
 <style>
-  .wine-cell {
+  .product-cell {
     display: inline-flex;
     align-items: center;
     gap: 6px;

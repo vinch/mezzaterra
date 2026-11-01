@@ -546,10 +546,10 @@
             <RowMenu items={rowItems} label="Menu de démonstration" />
           </div>
           <pre class="code"><code>{`<Modal open={showModal} title="Nouveau vin" onclose={close}>
-  <form id="wine-form" onsubmit={preventDefault(save)}>…</form>
+  <form id="product-form" onsubmit={preventDefault(save)}>…</form>
   {#snippet footer()}
     <Button variant="ghost" onclick={close}>Annuler</Button>
-    <Button type="submit" form="wine-form" variant="primary">Créer le vin</Button>
+    <Button type="submit" form="product-form" variant="primary">Créer le vin</Button>
   {/snippet}
 </Modal>
 

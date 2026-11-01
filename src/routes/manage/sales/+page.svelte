@@ -969,11 +969,11 @@
                   {@const qty = parseInt(String(item.quantity), 10) || 1}
                   <tr>
                     <td>
-                      <span class="wine-cell">
+                      <span class="product-cell">
                         {#if item.lot_id}
                           <StyleDot type={v?.product?.product_type} />
                         {/if}
-                        <span class="wine-name">
+                        <span class="product-name">
                           {#if item.lot_id && v?.product}
                             <strong>{lotShortLabel(v)}</strong>
                             <span class="t-caption">{v.product.producer?.name ?? ""}</span>
@@ -1013,7 +1013,7 @@
         {/if}
 
         <div class="add-row">
-          <div class="add-wine">
+          <div class="add-lot">
             <label class="t-label" for="sale-add-product">Ajouter un produit</label>
             <ProductLotAutocomplete
               id="sale-add-product"
@@ -1384,13 +1384,13 @@
     padding-bottom: 10px;
   }
 
-  .wine-cell {
+  .product-cell {
     display: flex;
     align-items: center;
     gap: 10px;
   }
 
-  .wine-name {
+  .product-name {
     display: flex;
     flex-direction: column;
   }
@@ -1489,7 +1489,7 @@
       grid-template-columns: 1fr 1fr;
     }
 
-    .add-wine,
+    .add-lot,
     .add-discount,
     .add-btn {
       grid-column: 1 / -1;
