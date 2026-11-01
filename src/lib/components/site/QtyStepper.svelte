@@ -26,6 +26,7 @@
   }
 
   button {
+    position: relative;
     width: 2.6rem;
     height: 2.6rem;
     border: none;
@@ -51,5 +52,16 @@
     width: 2rem;
     height: 2rem;
     font-size: 1.05rem;
+  }
+
+  /* Petit visuel, mais une cible de 44 px au doigt. */
+  .small button::before {
+    content: "";
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: 44px;
+    height: 44px;
+    transform: translate(-50%, -50%);
   }
 </style>
