@@ -2,7 +2,6 @@
   import { preventDefault } from "$lib/ui/events";
 
   import { supabase } from "$lib/supabase";
-  import { onMount } from "svelte";
   import { invalidateAll } from "$app/navigation";
   import type { PageData } from "./$types";
   import Modal from "$lib/ui/Modal.svelte";
@@ -10,7 +9,6 @@
   import StatusBadge from "$lib/ui/StatusBadge.svelte";
   import { KIND_META, statusMeta } from "$lib/status";
   import ManagePageShell from "$lib/components/manage/ManagePageShell.svelte";
-  import Spinner from "$lib/ui/Spinner.svelte";
   import { formatDate, formatEUR } from "$lib/format";
   import { vintageProductLabel } from "$lib/wine";
 
@@ -21,9 +19,8 @@
   let { data }: Props = $props();
 
   let transports: any[] = $derived(data.transports);
-  /* Rechargé par invalidateAll() après une création, une modification ou une suppression. */
-  let transporters = $state<any[]>([]);
-  let loading = $state(true);
+  /* Rechargés par invalidateAll() après une création, une modification ou une suppression. */
+  let transporters: any[] = $derived(data.transporters);
   let error = $state("");
   /** Modale unique création / édition (`editingTransport` les distingue). */
   let formOpen = $state(false);
@@ -47,19 +44,6 @@
     price: "",
     note: "",
   });
-
-  onMount(async () => {
-    await loadTransporters();
-    loading = false;
-  });
-
-  async function loadTransporters() {
-    const { data } = await supabase
-      .from("transporter")
-      .select("*")
-      .order("name");
-    if (data) transporters = data;
-  }
 
   function openCreateModal() {
     editingTransport = null;
@@ -343,9 +327,7 @@
       <div class="error-message">{error}</div>
     {/if}
 
-    {#if loading}
-      <Spinner />
-    {:else if transports.length === 0}
+    {#if transports.length === 0}
       <div class="empty-state">
         <p>Aucun transport trouvé</p>
         <button class="btn-primary" onclick={openCreateModal}>
