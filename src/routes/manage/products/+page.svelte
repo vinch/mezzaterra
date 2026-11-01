@@ -14,7 +14,8 @@
   import type { MenuItem } from "$lib/ui/Menu.svelte";
   import ConfirmDialog from "$lib/ui/ConfirmDialog.svelte";
   import DataTable from "$lib/ui/DataTable.svelte";
-  import SortHeader, { compareValues, type SortState } from "$lib/ui/SortHeader.svelte";
+  import SortHeader from "$lib/ui/SortHeader.svelte";
+  import { compareValues, type SortState } from "$lib/sort";
   import EmptyState from "$lib/ui/EmptyState.svelte";
   import Field from "$lib/ui/Field.svelte";
   import StockBadge from "$lib/ui/StockBadge.svelte";
@@ -22,7 +23,7 @@
   import Spinner from "$lib/ui/Spinner.svelte";
   import Tabs from "$lib/ui/Tabs.svelte";
   import Combobox, { type ComboOption } from "$lib/ui/Combobox.svelte";
-  import { byVolume, byWineType, compareWines, MAIN_ROBES, STYLE_ORDER, styleByKey, vintageShortLabel, wineRobe, type WineStyleKey, wineTitle, wineTypeLabel, withVolume } from "$lib/wine";
+  import { byRobe, byVolume, compareWines, MAIN_ROBES, styleByKey, vintageShortLabel, wineRobe, type WineStyleKey, wineTitle, wineTypeLabel, withVolume } from "$lib/wine";
   import {
     IconArchive,
     IconArchiveRestore,
@@ -356,6 +357,10 @@
       .map((v) => (v.price != null ? Number(v.price) : null))
       .filter((p): p is number => p != null);
   }
+  function minPrice(wine: any): number | null {
+    const prices = pricesOf(wine);
+    return prices.length ? Math.min(...prices) : null;
+  }
   function priceText(wine: any): string {
     const prices = pricesOf(wine);
     if (!prices.length) return "—";
@@ -473,31 +478,23 @@
   type SortKey = "name" | "type" | "stock" | "price";
   let sort = $state<SortState<SortKey>>({ key: "name", dir: "asc" });
   /** Rang des types : robe du plus léger au plus corsé (blanc, rosé, rouge), puis ordre propre au produit (fruité d'une huile). */
-  let typeRank = $derived(new Map(
-    [...wineTypes]
-      .sort((a, b) => STYLE_ORDER.indexOf(wineRobe(a).key) - STYLE_ORDER.indexOf(wineRobe(b).key) || byWineType(a, b))
-      .map((t, i) => [t.id, i]),
-  ));
+  let typeRank = $derived(new Map([...wineTypes].sort(byRobe).map((t, i) => [t.id, i])));
   /** Valeur triée d'un produit ; null (sans prix, stock illisible) en fin de liste. */
   function sortValue(wine: any, key: SortKey): string | number | null {
     switch (key) {
       case "name": return wineTitle(wine);
       case "type": return typeRank.get(wine.wine_type_id) ?? null;
       case "stock": return stock ? stockById.get(wine.id)?.total ?? 0 : null;
-      case "price": {
-        const prices = pricesOf(wine);
-        return prices.length ? Math.min(...prices) : null;
-      }
+      case "price": return minPrice(wine);
     }
   }
-  /* Vins retirés en fin de liste : visibles, mais hors du chemin. À égalité : domaine, puis nom. */
+  /* Vins retirés en fin de liste : visibles, mais hors du chemin. À égalité, l'ordre du chargement (domaine, puis nom). */
   let shownWines = $derived(filteredWines
     .filter((w: any) => !robeFilter || wineRobe(w.wine_type).key === robeFilter)
     .filter((w: any) => !inStockOnly || !stock || (stockById.get(w.id)?.total ?? 0) > 0)
     .sort((a: any, b: any) =>
       Number(isRetired(a)) - Number(isRetired(b)) ||
-      compareValues(sortValue(a, sort.key), sortValue(b, sort.key), sort.dir) ||
-      compareWines(a, b)));
+      compareValues(sortValue(a, sort.key), sortValue(b, sort.key), sort.dir)));
   /** « 19 vins (35 millésimes) · 120 bouteilles en stock », pour l'onglet ouvert. */
   let subtitle = $derived.by(() => {
     const batches = tabWines.reduce((n, w: any) => n + (w.wine_vintage?.length ?? 0), 0);

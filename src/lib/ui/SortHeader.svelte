@@ -1,16 +1,5 @@
-<script lang="ts" module>
-  export type SortDir = "asc" | "desc";
-  export type SortState<K extends string = string> = { key: K; dir: SortDir };
-
-  /** Compare deux valeurs dans le sens du tri ; une valeur absente (null) reste en fin de liste dans les deux sens. */
-  export function compareValues(a: string | number | null | undefined, b: string | number | null | undefined, dir: SortDir): number {
-    if (a == null || b == null) return Number(a == null) - Number(b == null);
-    const c = typeof a === "string" || typeof b === "string" ? String(a).localeCompare(String(b), "fr") : a - b;
-    return dir === "asc" ? c : -c;
-  }
-</script>
-
 <script lang="ts" generics="K extends string">
+  import type { SortDir, SortState } from "$lib/sort";
   import { IconArrowDown, IconArrowUp, IconArrowUpDown } from "./icons";
 
   /**
@@ -28,6 +17,7 @@
   let { column, label, sort = $bindable(), num = false, firstDir = "asc" }: Props = $props();
 
   let active = $derived(sort.key === column);
+  let Icon = $derived(!active ? IconArrowUpDown : sort.dir === "asc" ? IconArrowUp : IconArrowDown);
 
   function toggle() {
     sort = { key: column, dir: active ? (sort.dir === "asc" ? "desc" : "asc") : firstDir };
@@ -37,13 +27,7 @@
 <th scope="col" class:num aria-sort={active ? (sort.dir === "asc" ? "ascending" : "descending") : undefined}>
   <button type="button" class="ui-sort" class:on={active} onclick={toggle}>
     {label}
-    {#if !active}
-      <IconArrowUpDown size={14} strokeWidth={1.75} aria-hidden="true" />
-    {:else if sort.dir === "asc"}
-      <IconArrowUp size={14} strokeWidth={1.75} aria-hidden="true" />
-    {:else}
-      <IconArrowDown size={14} strokeWidth={1.75} aria-hidden="true" />
-    {/if}
+    <Icon size={14} strokeWidth={1.75} aria-hidden="true" />
   </button>
 </th>
 

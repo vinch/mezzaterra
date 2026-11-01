@@ -71,6 +71,12 @@ export function byWineType(a: TypeLike, b: TypeLike): number {
   return kind(a) - kind(b) || typePosition(a) - typePosition(b) || (a?.name ?? "").localeCompare(b?.name ?? "", "fr");
 }
 
+/** Tri des types par robe, de la plus légère à la plus corsée (blanc, rosé, rouge), puis comme `byWineType`. */
+export function byRobe(a: TypeLike, b: TypeLike): number {
+  const robe = (t: TypeLike) => STYLE_ORDER.indexOf(wineRobe(t).key);
+  return robe(a) - robe(b) || byWineType(a, b);
+}
+
 /** Rang d'un type dans le `typeOrder` de son produit ; après les autres s'il n'y figure pas (ou sans ordre). */
 function typePosition(t: TypeLike): number {
   const order = kindInfo(t).typeOrder ?? [];

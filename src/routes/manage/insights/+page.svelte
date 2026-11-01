@@ -16,7 +16,8 @@
   import StockBadge from "$lib/ui/StockBadge.svelte";
   import Spinner from "$lib/ui/Spinner.svelte";
   import DataTable from "$lib/ui/DataTable.svelte";
-  import SortHeader, { compareValues, type SortState } from "$lib/ui/SortHeader.svelte";
+  import SortHeader from "$lib/ui/SortHeader.svelte";
+  import { compareValues, type SortState } from "$lib/sort";
   import KpiCard from "$lib/ui/KpiCard.svelte";
   import Tabs from "$lib/ui/Tabs.svelte";
   import { IconBox, IconChart, IconEuro, IconSignal } from "$lib/ui/icons";

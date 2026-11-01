@@ -13,7 +13,8 @@
   import Combobox, { type ComboOption } from "$lib/ui/Combobox.svelte";
   import ConfirmDialog from "$lib/ui/ConfirmDialog.svelte";
   import DataTable from "$lib/ui/DataTable.svelte";
-  import SortHeader, { compareValues, type SortState } from "$lib/ui/SortHeader.svelte";
+  import SortHeader from "$lib/ui/SortHeader.svelte";
+  import { compareValues, type SortState } from "$lib/sort";
   import EmptyState from "$lib/ui/EmptyState.svelte";
   import Field from "$lib/ui/Field.svelte";
   import IconButton from "$lib/ui/IconButton.svelte";
@@ -481,7 +482,7 @@
         <!-- ——— Tableaux ——— -->
         <section id="tableaux" class="ds-section">
           <h2 class="t-card-title">Tableaux</h2>
-          <p class="t-muted"><code>DataTable</code> avec <code>caption</code> ; en-têtes <code>scope="col"</code>, colonnes chiffrées <code>.num</code>, nom cliquable <code>.row-link</code>, actions dans <code>.col-actions</code> avec un <code>RowMenu</code> (précédé d’un bouton icône fréquent : les deux dans <code>.ui-row-actions</code>). Colonne triable : <code>SortHeader</code> (à la place du <code>&lt;th&gt;</code>, <code>bind:sort</code> partagé par les colonnes, second clic pour inverser, <code>firstDir="desc"</code> pour un stock) et <code>compareValues</code> pour trier les lignes, valeurs absentes en fin de liste.</p>
+          <p class="t-muted"><code>DataTable</code> avec <code>caption</code> ; en-têtes <code>scope="col"</code>, colonnes chiffrées <code>.num</code>, nom cliquable <code>.row-link</code>, actions dans <code>.col-actions</code> avec un <code>RowMenu</code> (précédé d’un bouton icône fréquent : les deux dans <code>.ui-row-actions</code>). Colonne triable : <code>SortHeader</code> (à la place du <code>&lt;th&gt;</code>, <code>bind:sort</code> partagé par les colonnes, second clic pour inverser, <code>firstDir="desc"</code> pour un stock) et <code>compareValues</code> (<code>$lib/sort</code>) pour trier les lignes, valeurs absentes en fin de liste.</p>
           <DataTable caption="Exemple de tableau">
             <thead>
               <tr>
