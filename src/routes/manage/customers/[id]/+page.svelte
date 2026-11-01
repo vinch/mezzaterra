@@ -11,7 +11,7 @@
   import type { Customer } from "$lib/types";
   import { REVENUE_STATUSES, lineTotal, type SaleItemRow } from "$lib/analytics";
   import { daysUntil } from "$lib/dates";
-  import { MAIN_ROBES, robePreference, styleByKey, vintageLabel, vintageLabelSelect, vintageShortLabel, wineRobe } from "$lib/wine";
+  import { MAIN_ROBES, robePreference, styleByKey, vintageLabel, vintageLabelSelect, vintageShortLabel, wineRobe, type WineStyleKey } from "$lib/wine";
   import { KIND_STYLES } from "$lib/productKinds";
   import { formatDate, formatEUR } from "$lib/format";
   import Button from "$lib/ui/Button.svelte";
@@ -144,8 +144,10 @@
   let totalBottles = $derived(bought.reduce((s, b) => s + b.qty, 0));
 
   /* Préférences : répartition par robe (toujours rouge / blanc / rosé, les autres produits achetés) et domaine préféré. */
+  /* Blanc, rouge, rosé : ordre de cette fiche à égalité (les filtres des produits mettent le rouge d'abord). */
+  const ROBE_ORDER: WineStyleKey[] = ["white", "red", "rose"];
   let { qty: robeQty, order: allRobes, favorite: favRobe } = $derived(
-    robePreference(bought.map((b) => ({ type: b.vintage.wine?.wine_type, qty: b.qty })), [...MAIN_ROBES, ...KIND_STYLES]),
+    robePreference(bought.map((b) => ({ type: b.vintage.wine?.wine_type, qty: b.qty })), [...ROBE_ORDER, ...KIND_STYLES]),
   );
   let robeOrder = $derived(allRobes.filter((r) => MAIN_ROBES.includes(r) || robeQty[r]));
 
