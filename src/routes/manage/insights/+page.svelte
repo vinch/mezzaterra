@@ -14,13 +14,23 @@
   import { vintageLabel } from "$lib/wine";
   import WineDot from "$lib/ui/WineDot.svelte";
   import Spinner from "$lib/ui/Spinner.svelte";
+  import DataTable from "$lib/ui/DataTable.svelte";
+  import KpiCard from "$lib/ui/KpiCard.svelte";
+  import Tabs from "$lib/ui/Tabs.svelte";
+  import { IconBox, IconChart, IconEuro, IconSignal } from "$lib/ui/icons";
   import { formatDate, formatEUR } from "$lib/format";
 
   let loading = $state(true);
   let error = $state("");
   let stats = $state.raw<VintageStats[]>([]);
   let roi = $state<TastingRoi[]>([]);
-  let tab = $state<"margins" | "rotation" | "tastings">("margins");
+  type Tab = "margins" | "rotation" | "tastings";
+  const TABS: { key: Tab; label: string }[] = [
+    { key: "margins", label: "Marges par produit" },
+    { key: "rotation", label: "Rotation du stock" },
+    { key: "tastings", label: "Rentabilité des dégustations" },
+  ];
+  let tab = $state<Tab>("margins");
   let sortKey = $state<"margin" | "unitMarginPct" | "revenue" | "sold" | "stock">("margin");
 
   onMount(async () => {
@@ -68,22 +78,20 @@
 </svelte:head>
 
 <ManagePageShell title="Analyses">
+  {#snippet tabs()}
+    {#if !loading && !error}<Tabs label="Analyse affichée" items={TABS} bind:value={tab} />{/if}
+  {/snippet}
+
   {#if loading}
     <Spinner />
   {:else if error}
-    <div class="error-message">{error}</div>
+    <div class="error-message" role="alert">{error}</div>
   {:else}
     <div class="kpis">
-      <div class="kpi"><span class="kpi-value">{formatEUR(totals.revenue, true)}</span><span class="kpi-label">CA produits encaissé</span></div>
-      <div class="kpi"><span class="kpi-value">{formatEUR(totals.revenue - totals.cost, true)}</span><span class="kpi-label">Marge brute</span></div>
-      <div class="kpi"><span class="kpi-value">{pct(totals.revenue ? ((totals.revenue - totals.cost) / totals.revenue) * 100 : null)}</span><span class="kpi-label">Taux de marge</span></div>
-      <div class="kpi"><span class="kpi-value">{totals.sold}</span><span class="kpi-label">Bouteilles vendues</span></div>
-    </div>
-
-    <div class="tabs" role="tablist">
-      <button type="button" role="tab" class:active={tab === "margins"} aria-selected={tab === "margins"} onclick={() => (tab = "margins")}>Marges par produit</button>
-      <button type="button" role="tab" class:active={tab === "rotation"} aria-selected={tab === "rotation"} onclick={() => (tab = "rotation")}>Rotation du stock</button>
-      <button type="button" role="tab" class:active={tab === "tastings"} aria-selected={tab === "tastings"} onclick={() => (tab = "tastings")}>Rentabilité des dégustations</button>
+      <KpiCard label="CA produits encaissé" value={formatEUR(totals.revenue, true)} icon={IconEuro} />
+      <KpiCard label="Marge brute" value={formatEUR(totals.revenue - totals.cost, true)} icon={IconChart} />
+      <KpiCard label="Taux de marge" value={pct(totals.revenue ? ((totals.revenue - totals.cost) / totals.revenue) * 100 : null)} icon={IconSignal} />
+      <KpiCard label="Bouteilles vendues" value={String(totals.sold)} icon={IconBox} />
     </div>
 
     {#if tab === "margins"}
@@ -91,18 +99,17 @@
         Marge = CA encaissé (remises et ristournes incluses) − prix d’achat × bouteilles vendues.
         La marge unitaire est calculée au prix catalogue.
       </p>
-      <div class="table-container">
-        <table>
+      <DataTable caption="Marges par produit">
           <thead>
             <tr>
-              <th>Produit</th>
-              <th class="num">Achat</th>
-              <th class="num">Vente</th>
-              <th class="num sortable" class:on={sortKey === "unitMarginPct"} onclick={() => (sortKey = "unitMarginPct")}>Marge unit.</th>
-              <th class="num sortable" class:on={sortKey === "sold"} onclick={() => (sortKey = "sold")}>Vendues</th>
-              <th class="num sortable" class:on={sortKey === "revenue"} onclick={() => (sortKey = "revenue")}>CA</th>
-              <th class="num sortable" class:on={sortKey === "margin"} onclick={() => (sortKey = "margin")}>Marge réalisée</th>
-              <th class="num sortable" class:on={sortKey === "stock"} onclick={() => (sortKey = "stock")}>Stock</th>
+              <th scope="col">Produit</th>
+              <th scope="col" class="num">Achat</th>
+              <th scope="col" class="num">Vente</th>
+              <th scope="col" class="num sortable" class:on={sortKey === "unitMarginPct"} onclick={() => (sortKey = "unitMarginPct")}>Marge unit.</th>
+              <th scope="col" class="num sortable" class:on={sortKey === "sold"} onclick={() => (sortKey = "sold")}>Vendues</th>
+              <th scope="col" class="num sortable" class:on={sortKey === "revenue"} onclick={() => (sortKey = "revenue")}>CA</th>
+              <th scope="col" class="num sortable" class:on={sortKey === "margin"} onclick={() => (sortKey = "margin")}>Marge réalisée</th>
+              <th scope="col" class="num sortable" class:on={sortKey === "stock"} onclick={() => (sortKey = "stock")}>Stock</th>
             </tr>
           </thead>
           <tbody>
@@ -110,7 +117,7 @@
               <tr>
                 <td>
                   <span class="wine-cell"><WineDot type={s.vintage.wine?.wine_type} />
-                  <a href="/manage/products/{s.vintage.wine_id}/stock/{s.vintage.id}">{vintageLabel(s.vintage)}</a></span>
+                  <a class="row-link" href="/manage/products/{s.vintage.wine_id}/stock/{s.vintage.id}">{vintageLabel(s.vintage)}</a></span>
                 </td>
                 <td class="num">{formatEUR(s.vintage.purchase_price)}</td>
                 <td class="num">{formatEUR(s.vintage.price)}</td>
@@ -126,23 +133,21 @@
               </tr>
             {/each}
           </tbody>
-        </table>
-      </div>
+      </DataTable>
     {:else if tab === "rotation"}
       <p class="explain">
         Produits en stock, du plus « endormi » au plus actif. Les mois de stock sont estimés à partir du rythme
         de vente observé.
       </p>
-      <div class="table-container">
-        <table>
+      <DataTable caption="Rotation du stock">
           <thead>
             <tr>
-              <th>Produit</th>
-              <th class="num">Stock</th>
-              <th class="num">Valeur (achat)</th>
-              <th>Dernière vente</th>
-              <th class="num">Mois de stock</th>
-              <th>Statut</th>
+              <th scope="col">Produit</th>
+              <th scope="col" class="num">Stock</th>
+              <th scope="col" class="num">Valeur (achat)</th>
+              <th scope="col">Dernière vente</th>
+              <th scope="col" class="num">Mois de stock</th>
+              <th scope="col">Statut</th>
             </tr>
           </thead>
           <tbody>
@@ -165,26 +170,24 @@
               </tr>
             {/each}
           </tbody>
-        </table>
-      </div>
+      </DataTable>
     {:else}
       <p class="explain">
         Pour chaque soirée : entrées + marge sur les ventes rattachées à la dégustation − coût des
         bouteilles ouvertes ({BOTTLES_PER_TASTED_WINE} par vin servi). Les « relances » sont les achats des
         participants dans les 30 jours suivants, hors soirée.
       </p>
-      <div class="table-container">
-        <table>
+      <DataTable caption="Rentabilité des dégustations">
           <thead>
             <tr>
-              <th>Dégustation</th>
-              <th class="num">Participants</th>
-              <th class="num">Bouteilles ouvertes</th>
-              <th class="num">Entrées</th>
-              <th class="num">Ventes de la soirée</th>
-              <th class="num">Acheteurs</th>
-              <th class="num">Relances 30 j</th>
-              <th class="num">Résultat estimé</th>
+              <th scope="col">Dégustation</th>
+              <th scope="col" class="num">Participants</th>
+              <th scope="col" class="num">Bouteilles ouvertes</th>
+              <th scope="col" class="num">Entrées</th>
+              <th scope="col" class="num">Ventes de la soirée</th>
+              <th scope="col" class="num">Acheteurs</th>
+              <th scope="col" class="num">Relances 30 j</th>
+              <th scope="col" class="num">Résultat estimé</th>
             </tr>
           </thead>
           <tbody>
@@ -209,8 +212,7 @@
               </tr>
             {/each}
           </tbody>
-        </table>
-      </div>
+      </DataTable>
     {/if}
   {/if}
 </ManagePageShell>
@@ -225,51 +227,8 @@
   .kpis {
     display: grid;
     grid-template-columns: repeat(4, minmax(0, 1fr));
-    gap: 1rem;
-    margin-bottom: 1.5rem;
-  }
-
-  .kpi {
-    background: white;
-    border-radius: 12px;
-    padding: 1.1rem 1.25rem;
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
-    display: flex;
-    flex-direction: column;
-  }
-
-  .kpi-value {
-    font-size: 1.7rem;
-    font-weight: 700;
-    color: var(--ink);
-  }
-
-  .kpi-label {
-    font-size: 0.88rem;
-    color: var(--ink-2);
-  }
-
-  .tabs {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 0.4rem;
-    margin-bottom: 1rem;
-  }
-
-  .tabs button {
-    padding: 0.5rem 1rem;
-    border-radius: 999px;
-    border: 1px solid var(--border);
-    background: white;
-    font: inherit;
-    font-size: 0.9rem;
-    cursor: pointer;
-  }
-
-  .tabs button.active {
-    background: var(--teal-600);
-    border-color: var(--teal-600);
-    color: white;
+    gap: 16px;
+    margin-bottom: 24px;
   }
 
   .explain {
@@ -288,12 +247,12 @@
     content: " ↓";
   }
 
-  td a {
+  td a:not(.row-link) {
     color: inherit;
     text-decoration: none;
   }
 
-  td a:hover {
+  td a:not(.row-link):hover {
     color: var(--teal-600);
     text-decoration: underline;
   }
@@ -313,24 +272,24 @@
   .tag {
     display: inline-block;
     padding: 0.1rem 0.45rem;
-    border-radius: 999px;
+    border-radius: var(--r-pill);
     font-size: 0.75rem;
     font-weight: 600;
   }
 
   .tag.good {
-    background: #e3f2e8;
-    color: var(--mz-success);
+    background: var(--st-paid-bg);
+    color: var(--st-paid-fg);
   }
 
   .tag.mid {
-    background: #fff3d6;
-    color: var(--warn);
+    background: var(--st-pending-bg);
+    color: var(--st-pending-fg);
   }
 
   .tag.bad {
-    background: #fbe3e1;
-    color: var(--mz-danger);
+    background: var(--st-cancelled-bg);
+    color: var(--st-cancelled-fg);
   }
 
   .pos {
