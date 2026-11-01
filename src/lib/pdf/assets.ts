@@ -1,5 +1,6 @@
 import { base } from "$app/paths";
 import type jsPDF from "jspdf";
+import { loadImage } from "$lib/images";
 
 /** Polices et images partagées par les générateurs PDF (documents, fiches de table). */
 
@@ -61,16 +62,6 @@ export async function attachRobotoPdf(doc: jsPDF): Promise<"Roboto" | "helvetica
 
 /** Image prête pour `doc.addImage`, avec son ratio hauteur / largeur. */
 export type PdfImage = { dataUrl: string; aspect: number };
-
-/** Charge une image dans le navigateur (PDF, visuel des dégustations). */
-export function loadImage(src: string): Promise<HTMLImageElement> {
-  return new Promise((resolve, reject) => {
-    const img = new Image();
-    img.onload = () => resolve(img);
-    img.onerror = () => reject(new Error(`Image introuvable : ${src}`));
-    img.src = src;
-  });
-}
 
 /** Ratio hauteur / largeur ; null si l’image n’a pas de dimensions. */
 function aspectOf(img: HTMLImageElement): number | null {

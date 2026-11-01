@@ -1,7 +1,7 @@
 import { base } from "$app/paths";
 import { formatTime } from "./dates";
 import { TASTING_ADDRESS } from "./publicData";
-import { loadImage } from "./pdf/assets";
+import { loadImage } from "./images";
 
 /** Visuel « Prochaine dégustation » (format portrait réseaux sociaux / WhatsApp). */
 export const FLYER_WIDTH = 960;
