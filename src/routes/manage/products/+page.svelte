@@ -93,7 +93,7 @@
 
   onMount(async () => {
     void Promise.all([loadProducers(), loadAppellations(), loadProductTypes(), loadAllPairings()]);
-    /* Fin du chargement une fois le stock aussi arrivé : sinon les vins s'affichent en rupture. */
+    /* Fin du chargement une fois le stock aussi arrivé : sinon les produits s'affichent en rupture. */
     try {
       await Promise.all([loadStock(), loadProducts()]);
     } finally {
@@ -118,7 +118,7 @@
     if (fetchError) {
       error = fetchError.message;
     } else {
-      /* Millésimes triés une fois ici (du plus ancien au plus récent) plutôt qu'à chaque rendu. */
+      /* Lots triés une fois ici (du plus ancien au plus récent) plutôt qu'à chaque rendu. */
       for (const w of data || []) {
         w.lots.sort(
           (a, b) => (a.year ?? a.production_year ?? 0) - (b.year ?? b.production_year ?? 0) || byVolume(a, b),
@@ -322,7 +322,7 @@
   let tabProducts = $derived(products.filter((w) => kindOf(w) === tab));
   let tabItems = $derived(kindTabItems(products, loading));
   let tabAppellations = $derived(appellations.filter((a) => kindOf(a) === tab));
-  /** Les filtres propres à un type (robe, appellation, domaine) ne valent pas pour l'autre. */
+  /** Les filtres propres à un type (robe, appellation, producteur) ne valent pas pour l'autre. */
   function setTab(kind: ProductKind) {
     if (kind === tab) return;
     tab = kind;
@@ -332,7 +332,7 @@
     replaceState(kindListHref($page.url.pathname, kind), {});
   }
 
-  /** Dernier millésime qu'on peut encore recommander au fournisseur. */
+  /** Dernier lot qu'on peut encore recommander au fournisseur. */
   function latestLot(product: ProductRow): any | null {
     const list = product.lots.filter((v) => !isDiscontinued(v));
     const last = list[list.length - 1];
@@ -340,12 +340,12 @@
     const sameYear = list.filter((v) => (v.year ?? v.production_year) === (last?.year ?? last?.production_year));
     return sameYear.length === 1 ? last : null;
   }
-  /** Tous les millésimes sont « plus jamais disponibles » : le vin est retiré. */
+  /** Tous les lots sont « plus jamais disponibles » : le produit est retiré. */
   function isRetired(product: ProductRow): boolean {
     const list = product.lots;
     return list.length > 0 && list.every(isDiscontinued);
   }
-  /** Badge de stock d'un vin (aucun si le stock est illisible, sauf pour un vin retiré). */
+  /** Badge de stock d'un produit (aucun si le stock est illisible, sauf pour un produit retiré). */
   function stockBadge(product: ProductRow, total: number, stockKnown: boolean): "gone" | "out" | "low" | null {
     if (isRetired(product)) return "gone";
     if (!stockKnown) return null;
@@ -448,7 +448,7 @@
     };
   }));
   // Filter products based on selected filters
-  /* Recherche sans accents ni casse : domaine, nom, appellation ou son label. */
+  /* Recherche sans accents ni casse : producteur, nom, appellation ou son label. */
   let searchQuery = $derived(fold(searchText));
   let filteredProducts = $derived(tabProducts.filter((product) => {
     // Filter by producer
@@ -468,7 +468,7 @@
 
     return true;
   }));
-  /* Bouteilles en stock et badge par vin, recalculés quand les vins ou le stock arrivent. */
+  /* Bouteilles en stock et badge par produit, recalculés quand les produits ou le stock arrivent. */
   let stockById = $derived(new Map(
     products.map((w) => {
       const total = w.lots.reduce((n, v) => n + Math.max(0, stock?.get(v.id) ?? 0), 0);
@@ -489,7 +489,7 @@
       case "price": return minPrice(product);
     }
   }
-  /* Vins retirés en fin de liste : visibles, mais hors du chemin. À égalité, l'ordre du chargement (domaine, puis nom). */
+  /* Produits retirés en fin de liste : visibles, mais hors du chemin. À égalité, l'ordre du chargement (producteur, puis nom). */
   let shownProducts = $derived(filteredProducts
     .filter((w: any) => !robeFilter || wineRobe(w.product_type).key === robeFilter)
     .filter((w: any) => !inStockOnly || !stock || (stockById.get(w.id)?.total ?? 0) > 0)
@@ -866,7 +866,7 @@
     color: var(--danger);
   }
 
-  /* Millésime retiré : barré, en pointillés. */
+  /* Lot retiré : barré, en pointillés. */
   .lot-chip.gone {
     background: transparent;
     border-style: dashed;
@@ -874,7 +874,7 @@
     text-decoration: line-through;
   }
 
-  /* Vin retiré : présent mais en retrait. */
+  /* Produit retiré : présent mais en retrait. */
   tr.retired > td:not(.col-actions),
   .product-card.retired .product-card-main {
     opacity: 0.55;

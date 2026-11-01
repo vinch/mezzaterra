@@ -62,7 +62,7 @@ function typePosition(t: TypeLike): number {
 
 /**
  * Tri des lots du site : couleur du plus léger au plus corsé, ordre des types du produit (fruité
- * léger à intense pour les huiles), nom, puis année la plus récente (millésime, sinon mise en bouteille).
+ * léger à intense pour les huiles), nom, puis année la plus récente (celle du lot, sinon sa mise en bouteille).
  */
 export function compareLotsByStyle(a: LotLike, b: LotLike): number {
   const style = (v: typeof a) => STYLE_ORDER.indexOf(productStyle(v.product?.product_type).key);
@@ -172,7 +172,7 @@ export function formatsText(formats: LotLike[]): string {
   return formats.map((f) => (f.volume_ml ? formatVolume(f.volume_ml) : "")).filter(Boolean).join(" · ");
 }
 
-/** « Domaine — Cuvée — 2022 » (« — 1,5 L » hors bouteille standard) : libellé compact pour l'admin, la recherche… */
+/** « Producteur — Cuvée — 2022 » (« — 1,5 L » hors bouteille standard) : libellé compact pour l'admin, la recherche… */
 export function lotLabel(v: LotLike | null | undefined): string {
   if (!v) return "—";
   const parts = [v.product?.producer?.name, productTitle(v.product)].filter(Boolean);
@@ -181,7 +181,7 @@ export function lotLabel(v: LotLike | null | undefined): string {
   return withVolume(parts.join(" — "), v, undefined, " — ");
 }
 
-/** « Riserva 2019 », « Olio 2025 · 5 L » : nom court, sans domaine (listes de l'admin). */
+/** « Riserva 2019 », « Olio 2025 · 5 L » : nom court, sans producteur (listes de l'admin). */
 export function lotShortLabel(v: LotLike | null | undefined): string {
   const name = v?.product?.name?.trim() || v?.product?.appellation?.name || kindInfo(v?.product).label;
   const year = v?.year ?? v?.production_year;
@@ -189,7 +189,7 @@ export function lotShortLabel(v: LotLike | null | undefined): string {
 }
 
 /**
- * « Domaine - Cuvée - 2022 » (ou « Domaine - Cuvée (2021) » sans millésime, « - 5 L » hors bouteille
+ * « Producteur - Cuvée - 2022 » (ou « Producteur - Cuvée (2021) » sans année, « - 5 L » hors bouteille
  * standard) : libellé des lignes de vente, de commande et de transport, factures et bons de commande compris.
  */
 export function lotProductLabel(v: LotLike): string {
@@ -199,7 +199,7 @@ export function lotProductLabel(v: LotLike): string {
   return withVolume(v.year ? `${base} - ${v.year}` : `${base} (${v.production_year})`, v, undefined, " - ");
 }
 
-/** Tri des produits de l'admin : domaine, puis cuvée (ou appellation). */
+/** Tri des produits de l'admin : producteur, puis cuvée (ou appellation). */
 export function compareProductsByProducer(a: ProductLike, b: ProductLike): number {
   const producerA = a?.producer?.name?.toLowerCase() || "";
   const producerB = b?.producer?.name?.toLowerCase() || "";
@@ -209,7 +209,7 @@ export function compareProductsByProducer(a: ProductLike, b: ProductLike): numbe
   return nameA.localeCompare(nameB);
 }
 
-/** Tri des sélecteurs de l'admin : domaine, cuvée (ou appellation), année décroissante, puis contenant. */
+/** Tri des sélecteurs de l'admin : producteur, cuvée (ou appellation), année décroissante, puis contenant. */
 export function compareLotsByProducer(a: LotLike, b: LotLike): number {
   const byProduct = compareProductsByProducer(a.product, b.product);
   if (byProduct) return byProduct;
@@ -282,7 +282,7 @@ export function productPairings(
 
 /**
  * Requête Supabase réutilisable : un lot avec tout ce qu'il faut pour l'afficher.
- * `inner` permet de filtrer sur le produit et son domaine (`.eq("product.kind", …)`, `.eq("product.producer.hidden", false)`).
+ * `inner` permet de filtrer sur le produit et son producteur (`.eq("product.kind", …)`, `.eq("product.producer.hidden", false)`).
  */
 const lotPublicSelect = (inner: boolean) => `
   *,
@@ -333,7 +333,7 @@ type ProducerLike = {
   country?: { flag?: string | null } | null;
 } | null | undefined;
 
-/** « Ville, Région » d'un domaine. */
+/** « Ville, Région » d'un producteur. */
 export function producerPlace(w: ProducerLike): string {
   return [w?.city, w?.region?.name].filter(Boolean).join(", ");
 }
@@ -342,7 +342,7 @@ export function producerFlag(w: ProducerLike): string {
   return w?.region?.country?.flag || w?.country?.flag || "";
 }
 
-/** Lien OpenStreetMap centré sur le domaine. */
+/** Lien OpenStreetMap centré sur le producteur. */
 export function producerMapUrl(w: ProducerLike): string | null {
   if (w?.latitude == null || w?.longitude == null) return null;
   return `https://www.openstreetmap.org/?mlat=${w.latitude}&mlon=${w.longitude}#map=12/${w.latitude}/${w.longitude}`;
@@ -360,13 +360,13 @@ export function instagramAccount(input: string): string | null {
   return account;
 }
 
-/** Compte Instagram d'un domaine : « @compte » et lien du profil. */
+/** Compte Instagram d'un producteur : « @compte » et lien du profil. */
 export function producerInstagram(w: ProducerLike): { handle: string; url: string } | null {
   const account = w?.instagram ? instagramAccount(w.instagram) : null;
   return account ? { handle: `@${account}`, url: `https://www.instagram.com/${account}/` } : null;
 }
 
-/** Carte OpenStreetMap intégrable (iframe) centrée sur le domaine. */
+/** Carte OpenStreetMap intégrable (iframe) centrée sur le producteur. */
 export function producerMapEmbedUrl(w: ProducerLike): string | null {
   if (w?.latitude == null || w?.longitude == null) return null;
   const { latitude: lat, longitude: lon } = w;

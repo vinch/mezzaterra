@@ -51,7 +51,7 @@
 
   /** Seuil « stock bas » (aligné sur l'ancien indicateur). */
   const LOW_STOCK = 3;
-  /** Jours sans vente au-delà desquels un vin en stock est « dormant ». */
+  /** Jours sans vente au-delà desquels un lot en stock est « dormant ». */
   const DORMANT_DAYS = 90;
 
   let kpi = $state({
@@ -138,7 +138,7 @@
       const stats = lotStats(ds, lines);
       months = monthlyRevenue(ds);
       topLots = stats.filter((s) => s.sold > 0).sort((a, b) => b.revenue - a.revenue).slice(0, 5);
-      /* Réassort : jamais pour un millésime « plus jamais disponible ». */
+      /* Réassort : jamais pour un lot « plus jamais disponible ». */
       const reorderable = stats.filter((s) => !isDiscontinued(s.lot));
       outOfStock = reorderable.filter((s) => s.stock <= 0 && s.sold > 0).sort((a, b) => b.sold - a.sold);
       lowStock = reorderable.filter((s) => s.stock > 0 && s.stock <= LOW_STOCK).sort((a, b) => a.stock - b.stock || b.sold - a.sold);

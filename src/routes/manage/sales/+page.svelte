@@ -66,7 +66,7 @@
 
   const { refreshCounts } = getContext<{ refreshCounts: () => void }>("manage");
 
-  /** Valeur interne du select « produit » pour une ligne dégustation (sans millésime). */
+  /** Valeur interne du select « produit » pour une ligne dégustation (sans lot). */
   const TASTING_SELECT_VALUE = "__tasting__";
 
   /* Rechargé par invalidateAll() après une création, une modification ou une suppression. */
@@ -168,7 +168,7 @@
   }
 
   /**
-   * Millésimes du sélecteur avec leur stock, relu à chaque ouverture du formulaire (le
+   * Lots du sélecteur avec leur stock, relu à chaque ouverture du formulaire (le
    * catalogue n'est lu qu'une fois). Stock illisible : `stock` vaut null ; on ne peut plus
    * ajouter de bouteilles ni en augmenter, mais une vente reste modifiable (paiement…).
    */
@@ -335,7 +335,7 @@
       return;
     }
 
-    /* Ligne dégustation : sans millésime ni contrôle de stock. */
+    /* Ligne dégustation : sans lot ni contrôle de stock. */
     const tasting = selectedLotId === TASTING_SELECT_VALUE;
     let lot: any = null;
     if (!tasting) {
@@ -965,7 +965,7 @@
               <tbody>
                 {#each saleItems as item, index}
                   {@const v = lotById.get(item.lot_id) ?? item.lot}
-                  <!-- Stock du millésime ; null pour une ligne dégustation ou un stock illisible. -->
+                  <!-- Stock du lot ; null pour une ligne dégustation ou un stock illisible. -->
                   {@const stock = item.lot_id ? (v?.stock ?? null) : null}
                   {@const qty = parseInt(String(item.quantity), 10) || 1}
                   <tr>

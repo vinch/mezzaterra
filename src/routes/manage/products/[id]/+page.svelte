@@ -53,7 +53,7 @@
   /** Vocabulaire du produit : millésime ou lot, cépages ou variétés… */
   const kind = kindInfo(product);
   const kindIcons = KIND_ICONS[kind.key];
-  /* Millésimes déjà chargés par +page.ts ; relus seulement après une modification. */
+  /* Lots déjà chargés par +page.ts ; relus seulement après une modification. */
   let lots = $state<Lot[]>(sortLots(product.lots));
   let error = $state("");
   /** Modale unique création / édition (`editingLot` les distingue). */
@@ -76,14 +76,14 @@
   let lotFormData = $state(emptyForm());
 
   /*
-   * Nouveau millésime d'un vin qui en a déjà : on reprend image, cépages et notes de dégustation
-   * d'un millésime existant (le plus récent par défaut). Les accords sont ceux du vin.
+   * Nouveau lot d'un produit qui en a déjà : on reprend image, cépages ou variétés et notes de
+   * dégustation d'un lot existant (le plus récent par défaut). Les accords sont ceux du produit.
    */
-  /** Millésime repris ; vide : « Ne rien reprendre ». */
+  /** Lot repris ; vide : « Ne rien reprendre ». */
   let sourceId = $state("");
   let copyVarieties = $state(true);
   let copyNotes = $state(true);
-  /** Cépages et notes des millésimes, en texte, lus à l'ouverture de la création. */
+  /** Cépages ou variétés et notes des lots, en texte, lus à l'ouverture de la création. */
   let sourceDetails = $state<Record<string, { varieties: string; notes: string }> | null>(null);
   let source = $derived(editingLot ? null : lots.find((v) => v.id === sourceId));
   let sourceInfo = $derived(source && sourceDetails?.[source.id]);
@@ -104,7 +104,7 @@
   let varietyPercentage = $state("");
 
   onMount(() => {
-    /* Lien « Ajouter un millésime » depuis la liste des vins. */
+    /* Lien `addLot` (« Ajouter un millésime »…) depuis la liste des produits. */
     if (new URLSearchParams(window.location.search).has("nouveau")) openCreateModal();
   });
 
@@ -143,13 +143,13 @@
     );
   }
 
-  /** Changement de millésime repris (ou aucun) : l'image suit, sauf si on en a mis une autre. */
+  /** Changement de lot repris (ou aucun) : l'image suit, sauf si on en a mis une autre. */
   function pickSource(id: string) {
     if (imageReused || !lotFormData.image_url) lotFormData.image_url = lots.find((v) => v.id === id)?.image_url ?? "";
     sourceId = id;
   }
 
-  /** Création via la base : le millésime et ses reprises en une transaction, puis la ligne créée. */
+  /** Création via la base : le lot et ses reprises en une transaction, puis la ligne créée. */
   async function createLot(lotData: Record<string, unknown>) {
     const { data: id, error: rpcError } = await supabase.rpc("create_lot", {
       p_lot: { ...lotData, product_id: product.id },
@@ -159,7 +159,7 @@
     });
     if (rpcError) return { data: null, error: rpcError };
     const read = await supabase.from("lot").select().eq("id", id).single();
-    /* Le millésime existe : on ferme le formulaire, un second clic le créerait en double. */
+    /* Le lot existe : on ferme le formulaire, un second clic le créerait en double. */
     if (read.error) {
       closeForm();
       error = `Enregistré, mais la liste n’a pas pu être relue : rechargez la page (${read.error.message}).`;
@@ -190,7 +190,7 @@
     error = "";
   }
 
-  /** Création ou modification (selon `editingLot`) du millésime. */
+  /** Création ou modification (selon `editingLot`) du lot. */
   /** Valeur d'un champ numérique (bind:value donne un nombre, ou "" / null s'il est vide). */
   function num(v: unknown): number | null {
     return v === "" || v == null ? null : Number(v);
@@ -486,7 +486,7 @@
     {/if}
 
     <Field id="production_year" label="Année de mise en bouteille" required>
-      <!-- Focus à l'ouverture ici, pas sur la liste du millésime repris (la saisie de l'année y changerait le choix). -->
+      <!-- Focus à l'ouverture ici, pas sur la liste du lot repris (la saisie de l'année y changerait le choix). -->
       <!-- svelte-ignore a11y_autofocus -->
       <input id="production_year" class="ui-control" type="number" autofocus bind:value={lotFormData.production_year} min="1900" max={MAX_YEAR} required />
     </Field>
@@ -609,7 +609,7 @@
     line-height: 1.6;
   }
 
-  /* Millésime retiré : ligne en retrait, actions toujours utilisables. */
+  /* Lot retiré : ligne en retrait, actions toujours utilisables. */
   tr.gone td:not(.col-actions) {
     opacity: 0.55;
   }

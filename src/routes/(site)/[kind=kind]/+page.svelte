@@ -62,7 +62,7 @@
 
   type ProducerGroup = { producer: any; items: FormatGroup<any>[] };
 
-  /* Regroupement par domaine, une carte par produit et par année (ses contenants dedans). */
+  /* Regroupement par producteur, une carte par produit et par année (ses contenants dedans). */
   function groupByProducer(list: any[]): ProducerGroup[] {
     const acc = new Map<string, ProducerGroup>();
     for (const v of groupFormats(list)) {
@@ -77,7 +77,7 @@
   }
 
   let groups = $derived(groupByProducer(filtered));
-  /* Tous les domaines de la cave, indépendamment des filtres. */
+  /* Tous les producteurs de la cave, indépendamment des filtres. */
   let producers = $derived(groupByProducer(lots).filter((g) => g.producer?.id));
 </script>
 

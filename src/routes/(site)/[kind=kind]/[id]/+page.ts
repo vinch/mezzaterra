@@ -22,7 +22,7 @@ export const load: PageLoad = async ({ params, url }) => {
   if (kindOf(v.product) !== kindBySlug(params.kind)) throw redirect(301, lotHref(v) + url.search);
   const producerId = v.product?.producer_id ?? v.product?.producer?.id;
 
-  /* Autres lots du même produit (contenants et années) + autres produits du domaine. */
+  /* Autres lots du même produit (contenants et années) + autres produits du producteur. */
   const [siblingsRes, producerRes] = await Promise.all([
     supabase
       .from("lot")
@@ -41,7 +41,7 @@ export const load: PageLoad = async ({ params, url }) => {
       : Promise.resolve({ data: [] }),
   ]);
 
-  /* Un seul lot par produit du domaine : le plus récent, dans son plus petit contenant. */
+  /* Un seul lot par produit du producteur : le plus récent, dans son plus petit contenant. */
   const byProduct = new Map<string, any>();
   for (const row of (producerRes.data || []) as any[]) {
     const prev = byProduct.get(row.product_id);

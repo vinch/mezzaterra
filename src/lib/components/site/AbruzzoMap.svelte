@@ -11,9 +11,9 @@
   } from "$lib/geo/abruzzo";
 
   interface Props {
-    /** Domaines à épingler (coordonnées GPS de la table producer). */
+    /** Producteurs à épingler (coordonnées GPS de la table producer). */
     producers?: { id: string; name: string; latitude: number | null; longitude: number | null }[];
-    /** Domaine mis en avant (page domaine) : les autres épingles passent au second plan. */
+    /** Producteur mis en avant (page domaine) : les autres épingles passent au second plan. */
     current?: string | null;
   }
 
@@ -73,7 +73,7 @@
       e.preventDefault();
       tapped = id;
     } else {
-      /* La page domaine réutilise la carte d'un domaine à l'autre : l'infobulle ne doit pas suivre. */
+      /* La page domaine réutilise la carte d'un producteur à l'autre : l'infobulle ne doit pas suivre. */
       tapped = null;
     }
   };
@@ -370,7 +370,7 @@
     fill: var(--mz-teal);
   }
 
-  /* Page domaine : le domaine affiché en rouge avec son halo, les autres en petits points. */
+  /* Page domaine : le producteur affiché en rouge avec son halo, les autres en petits points. */
   .pin.current .pin-dot {
     r: 7;
   }

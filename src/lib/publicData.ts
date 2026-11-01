@@ -11,15 +11,15 @@ export function isUuid(id: string): boolean {
 }
 
 export type Availability = { in_stock: boolean; low_stock: boolean };
-/** Disponibilité d'un millésime d'après son identifiant. */
+/** Disponibilité d'un lot d'après son identifiant. */
 export type AvailabilityOf = (lotId: string) => Availability;
 
 const SOLD_OUT: Availability = { in_stock: false, low_stock: false };
 
 /**
- * Disponibilité publique par millésime ; `null` si la fonction SQL n'est pas (encore) déployée.
- * Un millésime absent de la vue `inventory` (aucun mouvement de stock) est épuisé, comme
- * dans la liste des vins de l'admin.
+ * Disponibilité publique par lot ; `null` si la fonction SQL n'est pas (encore) déployée.
+ * Un lot absent de la vue `inventory` (aucun mouvement de stock) est épuisé, comme
+ * dans la liste des produits de l'admin.
  */
 export async function fetchAvailability(): Promise<AvailabilityOf | null> {
   try {
@@ -129,7 +129,7 @@ export async function fetchSeats(tastingId: string): Promise<SeatInfo | null> {
   }
 }
 
-/** Dégustation + vins dans l'ordre de passage. */
+/** Dégustation + lots dans l'ordre de passage. */
 export async function fetchTastingWithLots(tastingId: string, opts: { reveal?: (date: string) => boolean } = {}) {
   const fetchLinks = () =>
     supabase
@@ -138,7 +138,7 @@ export async function fetchTastingWithLots(tastingId: string, opts: { reveal?: (
       .eq("tasting_id", tastingId)
       .order("order");
 
-  /* Sans condition de dévoilement, les vins se lisent en même temps que la dégustation. */
+  /* Sans condition de dévoilement, les lots se lisent en même temps que la dégustation. */
   const [{ data: tasting, error }, eagerLinks] = await Promise.all([
     supabase.from("tasting").select("*").eq("id", tastingId).maybeSingle(),
     opts.reveal ? null : fetchLinks(),
@@ -147,7 +147,7 @@ export async function fetchTastingWithLots(tastingId: string, opts: { reveal?: (
   if (error) return { tasting: null, lots: [] as any[], error: error.message };
   if (!tasting) return { tasting: null, lots: [] as any[], error: null };
 
-  /* Vins encore secrets : on ne les charge pas, seulement leur nombre. */
+  /* Lots encore secrets : on ne les charge pas, seulement leur nombre. */
   if (opts.reveal && !opts.reveal(tasting.date)) {
     const { count } = await supabase
       .from("tasting_lot")

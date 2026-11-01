@@ -112,7 +112,7 @@
 
         <ProductAbout lot={v} compact />
 
-        <!-- Millésime retiré : sa fiche publique n'existe plus (404). -->
+        <!-- Lot retiré : sa fiche publique n'existe plus (404). -->
         {#if !v.discontinued_at}
           <footer class="actions">
             <a class="mz-btn mz-btn--ghost mz-btn--sm" href={lotHref(v)}>Fiche complète &amp; partage →</a>

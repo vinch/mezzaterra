@@ -1,5 +1,5 @@
 <script lang="ts">
-  /** Carte « domaine → » vers la fiche d'un domaine (catalogue, autres domaines). */
+  /** Carte « domaine → » vers la page publique d'un producteur (catalogue, autres producteurs). */
   interface Props {
     id: string;
     name: string;

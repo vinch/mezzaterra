@@ -190,7 +190,7 @@ function drawPdfNotesHeader(
   return startY + 4;
 }
 
-/** Espace pour notes manuscrites entre deux vins (entre 17 mm serré et 22 mm d’origine). */
+/** Espace pour notes manuscrites entre deux produits (entre 17 mm serré et 22 mm d’origine). */
 const NOTES_WRITING_GAP_MM = 19;
 const NOTES_BLOCK_EXTRA_MM = 22;
 

@@ -64,7 +64,7 @@
   let projecting = $state(false);
   let copied = $state(false);
 
-  /** Dernière note par (invité, vin). */
+  /** Dernière note par (invité, lot). */
   let feedback = $state.raw<FeedbackRow[]>([]);
   let wishes = $state.raw<WishRequest[]>([]);
   /** Pré-commandes des invités, pas encore confirmées : ni comptées ni transformables en vente. */
@@ -87,7 +87,7 @@
     loading = false;
     if (!tasting) return;
 
-    /* Soirée terminée : plus de vin « en cours », on parcourt le déroulé sans rien diffuser. */
+    /* Soirée terminée : plus de produit « en cours », on parcourt le déroulé sans rien diffuser. */
     position = !finished && typeof tasting.live_position === "number" ? clamp(tasting.live_position) : 0;
     guestUrl = `${window.location.origin}/tastings/${tastingId}/live`;
     qr = await qrDataUrl(guestUrl, { size: 640 });
@@ -204,7 +204,7 @@
 
   let activeWishes = $derived(wishes.filter((w) => w.status !== "dismissed"));
   let wishedLines = $derived(activeWishes.flatMap((w) => wishItems(w.items)));
-  /* Bouteilles demandées par vin (demandes non écartées). */
+  /* Bouteilles demandées par lot (demandes non écartées). */
   let wantedByLot = $derived(quantitiesByLot(wishedLines));
 
   let stats = $derived(new Map(
@@ -930,7 +930,7 @@
       display: none;
     }
 
-    /* Les cartes de la colonne latérale rejoignent le flux : déroulé, vin en cours…, invités en bas. */
+    /* Les cartes de la colonne latérale rejoignent le flux : déroulé, produit en cours…, invités en bas. */
     .side {
       display: contents;
     }

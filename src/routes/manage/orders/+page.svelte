@@ -147,7 +147,7 @@
   /* Lignes sans remise : prix d'achat × quantité, arrondis au centime comme les ventes. */
   let total = $derived(itemsSubtotal(orderItems));
 
-  /* On ne recommande pas un millésime « plus jamais disponible ». */
+  /* On ne recommande pas un lot « plus jamais disponible ». */
   let orderableLots = $derived(lots.filter((v) => !isDiscontinued(v)));
 
   function handleLotChange() {

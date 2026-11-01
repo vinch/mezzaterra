@@ -4,7 +4,7 @@ import { escapeLike, fetchAllRows, supabase } from "./supabase";
 
 /**
  * Mode dégustation live.
- * - La position du vin servi est poussée par l'admin via Realtime Broadcast
+ * - La position du produit servi est poussée par l'admin via Realtime Broadcast
  *   et persistée dans `tasting.live_position` pour les retardataires.
  * - Les notes et le panier des invités vivent d'abord dans le localStorage (ça marche hors-ligne),
  *   puis sont envoyés en base quand c’est possible.
@@ -81,13 +81,13 @@ function perTasting<T>(prefix: string, parse: (stored: any) => T) {
 }
 
 export const localRatings = perTasting<Record<string, LocalRating>>("mz-ratings", (v) => v ?? {});
-/** Dernier vin servi vu sur ce téléphone : un rechargement ne perd pas la progression. */
+/** Dernier produit servi vu sur ce téléphone : un rechargement ne perd pas la progression. */
 export const localServed = perTasting<number>("mz-served", (v) => Number(v) || 0);
 export const localCart = perTasting<Record<string, number>>("mz-cart", (v) => v ?? {});
 /** Panier changé mais pas encore en base (hors ligne, page quittée) : renvoyé à la prochaine occasion. */
 const preorderDirty = perTasting<boolean>("mz-preorder-dirty", (v) => v === true);
 
-/** Position valide dans un déroulé de `count` vins (0 si vide). */
+/** Position valide dans un déroulé de `count` produits (0 si vide). */
 export function clampPosition(p: number, count: number): number {
   return Math.max(0, Math.min(Math.max(0, count - 1), Math.round(p)));
 }
@@ -129,8 +129,8 @@ export type FeedbackRow = {
 };
 
 /**
- * Notes à jour d'une dégustation (une par invité et par vin) ou d'un client, d'après son email
- * (une par dégustation et par vin). tasting_feedback ne reçoit que des insertions : la plus
+ * Notes à jour d'une dégustation (une par invité et par lot) ou d'un client, d'après son email
+ * (une par dégustation et par lot). tasting_feedback ne reçoit que des insertions : la plus
  * récente fait foi. Paginé (au-delà de 1000 lignes, les plus récentes manqueraient) ; lève une
  * erreur si le relevé échoue.
  */

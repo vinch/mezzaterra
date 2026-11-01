@@ -144,7 +144,7 @@ export function isLiveNow(iso: string, now = new Date()): boolean {
   return d === 0 || (d === -1 && now.getHours() < LIVE_GRACE_HOUR);
 }
 
-/** Les vins d'une dégustation ne sont dévoilés sur le site qu'une fois la soirée terminée (après 6 h le lendemain). */
+/** Les produits d'une dégustation ne sont dévoilés sur le site qu'une fois la soirée terminée (après 6 h le lendemain). */
 export function productsRevealed(iso: string, now = new Date()): boolean {
   return daysUntil(iso) < 0 && !isLiveNow(iso, now);
 }

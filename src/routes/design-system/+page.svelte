@@ -696,7 +696,7 @@
     max-width: 52rem;
   }
 
-  /* Cellule à deux lignes (nom, puis domaine), comme le catalogue des produits. */
+  /* Cellule à deux lignes (nom, puis producteur), comme le catalogue des produits. */
   .ds-stack {
     display: flex;
     flex-direction: column;

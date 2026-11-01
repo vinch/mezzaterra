@@ -23,7 +23,7 @@
     return n === 1 ? "1 bouteille" : `${n} bouteilles`;
   }
 
-  /** Même lecture que la page Documents : millésimes en stock, triés domaine → nom → millésime ↓. */
+  /** Même lecture que la page Documents : lots en stock, triés producteur → nom → année ↓. */
   async function loadStockInHand() {
     loading = true;
     error = "";

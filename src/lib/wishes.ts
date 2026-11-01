@@ -71,7 +71,7 @@ export function wishItems(raw: unknown): WishItem[] {
 }
 
 /**
- * Crée une vente « En attente » à partir d'une demande, au prix catalogue du millésime.
+ * Crée une vente « En attente » à partir d'une demande, au prix catalogue du lot.
  * Retourne l'id de la vente.
  */
 export async function createSaleFromWish(

@@ -132,7 +132,7 @@ export async function fetchStockDocLots(): Promise<{ data: StockDocLot[]; error:
     return { data: [], error: null };
   }
 
-  /* Millésimes lus par lots de 100 identifiants : une seule liste ferait une URL trop longue. */
+  /* Lots lus par paquets de 100 identifiants : une seule liste ferait une URL trop longue. */
   const ids = [...qtyByLot.keys()];
   const chunks: string[][] = [];
   for (let i = 0; i < ids.length; i += 100) chunks.push(ids.slice(i, i + 100));
@@ -188,7 +188,7 @@ export async function fetchStockDocLots(): Promise<{ data: StockDocLot[]; error:
   return { data: mapInventoryToDocLots(merged), error: null };
 }
 
-/** Même ordre que les listes Produits / Stock : domaine, nom (ou appellation), millésime ↓. */
+/** Même ordre que les listes Produits / Stock : producteur, nom (ou appellation), année ↓. */
 function sortDocLots(a: StockDocLot, b: StockDocLot): number {
   const producerA = a.producerName.toLowerCase();
   const producerB = b.producerName.toLowerCase();

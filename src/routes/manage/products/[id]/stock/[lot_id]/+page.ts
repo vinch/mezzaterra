@@ -3,7 +3,7 @@ import { lotStock } from "$lib/manageData";
 import type { PageLoad } from "./$types";
 
 export const load: PageLoad = async ({ params }) => {
-  // Millésime (avec son vin), historique des mouvements et stock actuel (vue inventory), en parallèle
+  // Lot (avec son produit), historique des mouvements et stock actuel (vue inventory), en parallèle
   const [
     { data: lot, error: lotError },
     { data: stockMoves, error: stockMovesError },

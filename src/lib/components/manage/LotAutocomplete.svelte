@@ -14,13 +14,13 @@
     tastingValue?: string;
     placeholder?: string;
     /**
-     * Stock ajoutable d'un millésime (ventes) : affiché avec le prix de vente, option désactivée
+     * Stock ajoutable d'un lot (ventes) : affiché avec le prix de vente, option désactivée
      * sans stock (null : stock inconnu, « — »). Absent (commandes, dégustations) : ni stock ni prix.
      */
     getAvailableStock?: (lotId: string) => number | null;
     isLotAlreadyAdded?: (lotId: string) => boolean;
     formatLabel?: (lot: any, availableStock: number | null) => string;
-    /** Option « Dégustation » (lignes de vente sans millésime). */
+    /** Option « Dégustation » (lignes de vente sans lot). */
     includeTastingOption?: boolean;
   }
 

@@ -2,7 +2,7 @@ import { supabase } from "./supabase";
 
 /**
  * « Ajouter à la prochaine commande fournisseur » :
- * on retrouve le dernier fournisseur de ce millésime, puis on complète sa commande
+ * on retrouve le dernier fournisseur de ce lot, puis on complète sa commande
  * « En attente » (ou on en crée une). Le stock n'est jamais touché ici :
  * il n'augmente qu'à la livraison du transport, comme avant.
  */

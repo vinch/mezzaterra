@@ -29,7 +29,7 @@ export async function fetchProductTypes(): Promise<ProductType[]> {
   return (data || []).sort(byProductType);
 }
 
-/** Millésimes des sélecteurs de produit, triés domaine → cuvée → année décroissante. */
+/** Lots des sélecteurs de produit, triés producteur → cuvée → année décroissante. */
 export async function fetchPickerLots(): Promise<any[]> {
   const rows = await fetchAllRows<any>((from, to) =>
     supabase
@@ -42,8 +42,8 @@ export async function fetchPickerLots(): Promise<any[]> {
 }
 
 /**
- * Bouteilles en stock par millésime (vue `inventory`), éventuellement limitées à quelques
- * millésimes. Lève une erreur plutôt que de renvoyer une carte vide : un échec afficherait
+ * Bouteilles en stock par lot (vue `inventory`), éventuellement limitées à quelques
+ * lots. Lève une erreur plutôt que de renvoyer une carte vide : un échec afficherait
  * sinon tout le catalogue en rupture.
  */
 export async function fetchStockMap(lotIds?: string[]): Promise<Map<string, number>> {
@@ -52,7 +52,7 @@ export async function fetchStockMap(lotIds?: string[]): Promise<Map<string, numb
     if (lotIds) query = query.in("lot_id", lotIds);
     return query.order("lot_id").order("quantity_on_hand").range(from, to);
   });
-  /* Plusieurs lignes pour un millésime : quantités additionnées. */
+  /* Plusieurs lignes pour un lot : quantités additionnées. */
   const stock = new Map<string, number>();
   for (const r of rows) {
     if (r.lot_id) stock.set(r.lot_id, (stock.get(r.lot_id) ?? 0) + (r.quantity_on_hand ?? 0));
@@ -60,7 +60,7 @@ export async function fetchStockMap(lotIds?: string[]): Promise<Map<string, numb
   return stock;
 }
 
-/** Stock d'un millésime ; null s'il est illisible (affiché comme tel, pas en rupture). */
+/** Stock d'un lot ; null s'il est illisible (affiché comme tel, pas en rupture). */
 export function lotStock(lotId: string): Promise<number | null> {
   return fetchStockMap([lotId])
     .then((stock) => stock.get(lotId) ?? 0)

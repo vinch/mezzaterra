@@ -17,7 +17,7 @@ async function fetchProducers(): Promise<ProducerPin[]> {
   }
 }
 
-/* Catalogues de la navigation lus avec les domaines, en parallèle (le site les lit dans (site)/+layout.server.ts). */
+/* Catalogues de la navigation lus avec les producteurs, en parallèle (le site les lit dans (site)/+layout.server.ts). */
 export const load: PageLoad = async () => {
   const [producers, catalogKinds] = await Promise.all([fetchProducers(), fetchCatalogKinds()]);
   return { producers, catalogKinds };

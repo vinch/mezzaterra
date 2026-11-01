@@ -168,7 +168,7 @@
     return compareCustomersByLabel(a.customer, b.customer);
   }
 
-  /* Les chargeurs de la modale lèvent leurs erreurs : save_tasting remplace vins et inscrits
+  /* Les chargeurs de la modale lèvent leurs erreurs : save_tasting remplace lots et inscrits
      par ceux de la modale, qui ne doit donc jamais s'ouvrir sans eux. */
   async function loadModalCustomers(tastingId: string): Promise<{ entries: ModalCustomerEntry[]; ids: string[] }> {
     const [{ data, error: fetchError }, { data: regs, error: regError }] = await Promise.all([
@@ -374,7 +374,7 @@
     };
 
     try {
-      /* Dégustation, vins (dans l'ordre) et participants en une transaction (fonction SQL save_tasting). */
+      /* Dégustation, lots (dans l'ordre) et participants en une transaction (fonction SQL save_tasting). */
       const { error: saveError } = await supabase.rpc("save_tasting", {
         p_tasting_id: editingTasting?.id ?? NEW_ROW,
         p_tasting: payload,

@@ -43,9 +43,9 @@
   let lots = $state.raw<any[]>([]);
   /** Clients du même nom de famille (le bandeau « Doublon possible » filtre ensuite les homonymes). */
   let sameLastName = $state.raw<Customer[]>([]);
-  /** Lectures secondaires en échec (millésimes, stock, dégustations) : fiche affichée, incomplète. */
+  /** Lectures secondaires en échec (lots, stock, dégustations) : fiche affichée, incomplète. */
   let warnings = $state<string[]>([]);
-  /** null : stock illisible, les suggestions (vins en stock) ne peuvent pas être calculées. */
+  /** null : stock illisible, les suggestions (lots en stock) ne peuvent pas être calculées. */
   let stock = $state<Map<string, number> | null>(new Map());
 
   onMount(load);
@@ -121,7 +121,7 @@
   let avgBasket = $derived(paidSales.length ? revenue / paidSales.length : 0);
   let lastSale = $derived(sales.find((s) => s.status !== "cancelled") ?? null);
 
-  /* Vins achetés (agrégés par millésime, ventes non annulées). */
+  /* Produits achetés (agrégés par lot, ventes non annulées). */
   let bought = $derived((() => {
     const map = new Map<string, { lot: any; qty: number; spent: number; last: string }>();
     for (const s of sales) {
@@ -142,7 +142,7 @@
 
   let totalBottles = $derived(bought.reduce((s, b) => s + b.qty, 0));
 
-  /* Préférences : répartition par robe (toujours rouge / blanc / rosé, les autres produits achetés) et domaine préféré. */
+  /* Préférences : répartition par robe (toujours rouge / blanc / rosé, les autres produits achetés) et producteur préféré. */
   /* Blanc, rouge, rosé : ordre de cette fiche à égalité (les filtres des produits mettent le rouge d'abord). */
   const ROBE_ORDER: ProductStyleKey[] = ["white", "red", "rose"];
   let { qty: robeQty, order: allRobes, favorite: favRobe } = $derived(

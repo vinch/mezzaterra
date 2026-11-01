@@ -49,7 +49,7 @@
   --mz-cave-line: rgba(236, 230, 218, 0.12);
   --mz-cave-text: #ece6da;
   --mz-cave-muted: rgba(236, 230, 218, 0.62);
-  --mz-cave-faint: rgba(236, 230, 218, 0.25); /* vin à venir, anneau du vin affiché */
+  --mz-cave-faint: rgba(236, 230, 218, 0.25); /* produit à venir, anneau du produit affiché */
   --mz-cave-sunk: rgba(0, 0, 0, 0.25); /* creux (compteur de bouteilles) */
   --mz-cave-success: #8fd1a5;
   --mz-cave-warning: #f0d08a;

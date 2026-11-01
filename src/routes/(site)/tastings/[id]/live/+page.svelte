@@ -50,7 +50,7 @@
   /* ——— Position ——— */
   let index = $state(0);
   let hostPosition = $state<number | null>(null);
-  /** Dernier vin servi par l'animateur : les invités ne voient rien au-delà. */
+  /** Dernier produit servi par l'animateur : les invités ne voient rien au-delà. */
   let maxServed = $state(0);
   let follow = $state(true);
   let direction = $state(1);
@@ -65,7 +65,7 @@
   let showCart = $state(false);
   let showNotes = $state(false);
   let showRecap = $state(false);
-  /* Un délai par vin : commenter le vin suivant n'annule pas l'envoi du précédent. */
+  /* Un délai par produit : commenter le produit suivant n'annule pas l'envoi du précédent. */
   const commentTimers = new Map<string, ReturnType<typeof setTimeout>>();
   let savedFlash = $state(false);
 
@@ -87,7 +87,7 @@
     preorder.resume();
 
     maxServed = localServed.get(tasting.id);
-    /* Soirée terminée : tout est débloqué, plus de vin servi à suivre (live_position est périmée). */
+    /* Soirée terminée : tout est débloqué, plus de produit servi à suivre (live_position est périmée). */
     if (finished) return;
     if (typeof tasting.live_position === "number") {
       hostPosition = clamp(tasting.live_position);
@@ -129,7 +129,7 @@
     localServed.save(tasting.id, p);
   }
 
-  /* Avant la soirée : rien. Pendant : jusqu'au vin servi. Après : tout. */
+  /* Avant la soirée : rien. Pendant : jusqu'au produit servi. Après : tout. */
   let upcoming = $derived(tasting ? daysUntil(tasting.date) > 0 : false);
   let finished = $derived(tasting ? productsRevealed(tasting.date) : false);
   let unlocked = $derived(finished ? Math.max(0, total - 1) : Math.min(maxServed, Math.max(0, total - 1)));

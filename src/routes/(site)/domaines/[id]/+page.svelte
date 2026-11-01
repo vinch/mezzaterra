@@ -37,7 +37,7 @@
 
   let cuveeCount = $derived(new Set(lots.map((v) => v.product_id)).size);
   let styles = $derived(presentStyles(lots));
-  /** Types de produit du domaine (vins, huiles…) avec leurs cépages ou variétés. */
+  /** Types de produit du producteur (vins, huiles…) avec leurs cépages ou variétés. */
   let kinds = $derived((() => {
     const varietiesByKind = new Map<string, Set<string>>();
     for (const v of lots) {

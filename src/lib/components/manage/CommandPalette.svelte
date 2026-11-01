@@ -41,7 +41,7 @@
     if (loaded || loadingData) return;
     loadingData = true;
     let failed = false;
-    /* Millésimes et clients lus en pages : au-delà de 1000, ils manqueraient à la recherche. */
+    /* Lots et clients lus en pages : au-delà de 1000, ils manqueraient à la recherche. */
     const [lots, customers, sales, orders, tastings] = await Promise.all([
       fetchAllRows<any>((from, to) =>
         supabase

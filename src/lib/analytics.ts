@@ -11,7 +11,7 @@ import { fetchStockMap } from "./manageData";
 /** Statuts qui comptent dans le CA (aligné sur le tableau de bord et l'app ventes). */
 export const REVENUE_STATUSES = ["paid", "delivered", "closed"];
 
-/** Hypothèse : une bouteille ouverte par vin servi en dégustation. */
+/** Hypothèse : une bouteille ouverte par lot servi en dégustation. */
 export const BOTTLES_PER_TASTED_LOT = 1;
 
 export type SaleRow = {
@@ -219,13 +219,13 @@ export type TastingRoi = {
   pouredCost: number;
   /** Lignes « Dégustation » (entrées) des ventes de la soirée. */
   fees: number;
-  /** Ventes de vin rattachées à la soirée (sale.tasting_id). */
+  /** Ventes de produits rattachées à la soirée (sale.tasting_id). */
   eveningRevenue: number;
   eveningMargin: number;
   eveningBottles: number;
-  /** Clients ayant acheté du vin pendant la soirée. */
+  /** Clients ayant acheté des produits pendant la soirée. */
   buyers: number;
-  /** Ventes de vin aux participants dans les N jours qui suivent, hors soirée (relances). */
+  /** Ventes de produits aux participants dans les N jours qui suivent, hors soirée (relances). */
   laterRevenue: number;
   /** Entrées + marge des ventes de la soirée − bouteilles ouvertes. */
   result: number;

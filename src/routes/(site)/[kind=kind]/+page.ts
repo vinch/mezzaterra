@@ -10,7 +10,7 @@ export const load: PageLoad = async ({ params }) => {
     .from("lot")
     .select(LOT_PUBLIC_SELECT_BY_PRODUCT)
     .eq("product.kind", kind)
-    /* Domaine masqué : ni lui ni ses produits au catalogue (pages accessibles par lien). */
+    /* Producteur masqué : ni lui ni ses produits au catalogue (pages accessibles par lien). */
     .eq("product.producer.hidden", false)
     .is("discontinued_at", null)
     .order("year", { ascending: false, nullsFirst: false });

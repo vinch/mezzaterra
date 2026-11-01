@@ -15,7 +15,7 @@ import {
 import { formatEUR } from "$lib/format";
 
 /**
- * Fiches de table A5 (une par vin, à poser à côté de la bouteille) + une affiche A4
+ * Fiches de table A5 (une par produit, à poser à côté de la bouteille) + une affiche A4
  * « Suivez la dégustation » avec le QR du mode live.
  */
 
@@ -61,7 +61,7 @@ export async function downloadTableCardsPdf(tasting: any, lots: any[], origin: s
     doc.text(`${lots.length} vins`, PW / 2, 243, { align: "center" });
   }
 
-  /* ——— Une fiche A5 par vin ——— */
+  /* ——— Une fiche A5 par produit ——— */
   for (let i = 0; i < lots.length; i++) {
     const v = lots[i];
     const product = v.product;
