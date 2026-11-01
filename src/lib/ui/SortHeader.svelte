@@ -5,7 +5,8 @@
   /**
    * En-tête de colonne triable d'un DataTable : clic pour trier sur la colonne, second clic pour
    * inverser le sens. `firstDir` : sens du premier clic (« desc » pour un stock, du plus grand au plus petit).
-   * `also` : second tri dans la même colonne, quand la cellule a deux lignes (« Produit · Domaine »).
+   * `also` : second tri dans la même colonne, quand la cellule a deux lignes (« Produit · Domaine ») ;
+   * il partage `num` et `firstDir`, et `aria-pressed` indique lequel des deux trie.
    */
   interface Props {
     column: K;
@@ -28,7 +29,7 @@
 {#snippet sortButton(key: K, text: string)}
   {@const on = sort.key === key}
   {@const Icon = !on ? IconArrowUpDown : sort.dir === "asc" ? IconArrowUp : IconArrowDown}
-  <button type="button" class="ui-sort" class:on onclick={() => toggle(key)}>
+  <button type="button" class="ui-sort" class:on aria-pressed={also ? on : undefined} onclick={() => toggle(key)}>
     {text}
     <Icon size={14} strokeWidth={1.75} aria-hidden="true" />
   </button>
