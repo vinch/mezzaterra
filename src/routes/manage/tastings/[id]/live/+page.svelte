@@ -29,7 +29,7 @@
   import Spinner from "$lib/ui/Spinner.svelte";
   import { fetchSeats, fetchTastingWithWines, isParticipantRegistration, onlineSeats, onlineSeatsByCustomer, participantOrigin, placesLabel, tastingTitle, type SeatInfo } from "$lib/publicData";
   import { compareCustomersByLabel, customerDisplayLabel } from "$lib/customerDisplay";
-  import { broadcastPosition, joinLiveChannel } from "$lib/live";
+  import { broadcastPosition, clampPosition, joinLiveChannel } from "$lib/live";
   import { qrDataUrl } from "$lib/qr";
   import { swatchStyle, vintageShortLabel, wineRobe, wineStyle, wineSubtitle, wineTitle, wineTypeLabel } from "$lib/wine";
   import { kindInfo } from "$lib/productKinds";
@@ -113,7 +113,7 @@
   });
 
   function clamp(p: number): number {
-    return Math.max(0, Math.min(Math.max(0, wines.length - 1), p));
+    return clampPosition(p, wines.length);
   }
 
   async function setPosition(p: number) {

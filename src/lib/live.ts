@@ -72,38 +72,24 @@ export function saveProfile(p: GuestProfile) {
   write(PROFILE_KEY, p);
 }
 
-export function getRatings(tastingId: string): Record<string, LocalRating> {
-  return read(`mz-ratings:${tastingId}`, {});
+/** Valeur rangée par dégustation dans le localStorage, sous la clé `${prefix}:${tastingId}`. */
+function perTasting<T>(prefix: string, parse: (stored: any) => T) {
+  return {
+    get: (tastingId: string): T => parse(read(`${prefix}:${tastingId}`, null)),
+    save: (tastingId: string, value: T) => write(`${prefix}:${tastingId}`, value),
+  };
 }
 
-export function saveRatings(tastingId: string, ratings: Record<string, LocalRating>) {
-  write(`mz-ratings:${tastingId}`, ratings);
-}
-
+export const localRatings = perTasting<Record<string, LocalRating>>("mz-ratings", (v) => v ?? {});
 /** Dernier vin servi vu sur ce téléphone : un rechargement ne perd pas la progression. */
-export function getServed(tastingId: string): number {
-  return Number(read(`mz-served:${tastingId}`, 0)) || 0;
-}
-
-export function saveServed(tastingId: string, position: number) {
-  write(`mz-served:${tastingId}`, position);
-}
-
-export function getCart(tastingId: string): Record<string, number> {
-  return read(`mz-cart:${tastingId}`, {});
-}
-
-export function saveCart(tastingId: string, cart: Record<string, number>) {
-  write(`mz-cart:${tastingId}`, cart);
-}
-
+export const localServed = perTasting<number>("mz-served", (v) => Number(v) || 0);
+export const localCart = perTasting<Record<string, number>>("mz-cart", (v) => v ?? {});
 /** Panier changé mais pas encore en base (hors ligne, page quittée) : renvoyé à la prochaine occasion. */
-export function isPreorderDirty(tastingId: string): boolean {
-  return read<boolean>(`mz-preorder-dirty:${tastingId}`, false) === true;
-}
+export const preorderDirty = perTasting<boolean>("mz-preorder-dirty", (v) => v === true);
 
-export function setPreorderDirty(tastingId: string, dirty: boolean) {
-  write(`mz-preorder-dirty:${tastingId}`, dirty);
+/** Position valide dans un déroulé de `count` vins (0 si vide). */
+export function clampPosition(p: number, count: number): number {
+  return Math.max(0, Math.min(Math.max(0, count - 1), Math.round(p)));
 }
 
 /** Envoie une note en base (insert-only ; la plus récente fait foi). Silencieux en cas d'échec. */
@@ -158,13 +144,13 @@ export async function savePreorder(opts: {
   }
 }
 
-export type LiveEvents = {
+type LiveEvents = {
   onPosition?: (position: number) => void;
   onSyncRequest?: () => void;
   onStatus?: (connected: boolean) => void;
 };
 
-export function liveChannelName(tastingId: string): string {
+function liveChannelName(tastingId: string): string {
   return `tasting-live-${tastingId}`;
 }
 

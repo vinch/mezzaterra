@@ -23,22 +23,19 @@
   import { formatEUR } from "$lib/format";
   import { isValidEmail } from "$lib/contact";
   import {
-    getCart,
+    clampPosition,
     getGuestId,
     getProfile,
-    getRatings,
-    getServed,
     guestName,
-    isPreorderDirty,
     joinLiveChannel,
+    localCart,
+    localRatings,
+    localServed,
+    preorderDirty,
     pushFeedback,
     requestSync,
-    saveCart,
     savePreorder,
     saveProfile,
-    setPreorderDirty,
-    saveRatings,
-    saveServed,
     type GuestProfile,
     type LocalRating,
   } from "$lib/live";
@@ -84,14 +81,14 @@
   onMount(() => {
     if (!tasting) return;
     profile = getProfile();
-    ratings = getRatings(tasting.id);
-    cart = getCart(tasting.id);
+    ratings = localRatings.get(tasting.id);
+    cart = localCart.get(tasting.id);
     getGuestId();
     showWelcome = !profile.firstName;
     /* Changement pas encore enregistré (hors ligne, page quittée) : on le renvoie. */
-    if (isPreorderDirty(tasting.id)) schedulePreorder();
+    if (preorderDirty.get(tasting.id)) schedulePreorder();
 
-    maxServed = getServed(tasting.id);
+    maxServed = localServed.get(tasting.id);
     /* Soirée terminée : tout est débloqué, plus de vin servi à suivre (live_position est périmée). */
     if (finished) return;
     if (typeof tasting.live_position === "number") {
@@ -109,7 +106,7 @@
       onStatus: (ok) => {
         connected = ok;
         if (ok && channel) void requestSync(channel);
-        if (ok && isPreorderDirty(tasting.id)) schedulePreorder();
+        if (ok && preorderDirty.get(tasting.id)) schedulePreorder();
       },
     });
   });
@@ -122,13 +119,13 @@
   });
 
   function clamp(p: number): number {
-    return Math.max(0, Math.min(Math.max(0, total - 1), Math.round(p)));
+    return clampPosition(p, total);
   }
 
   function markServed(p: number) {
     if (p <= maxServed) return;
     maxServed = p;
-    saveServed(tasting.id, p);
+    localServed.save(tasting.id, p);
   }
 
   /* Avant la soirée : rien. Pendant : jusqu'au vin servi. Après : tout. */
@@ -166,7 +163,7 @@
     const prev = ratings[vintage.id] ?? { rating: null, comment: "", updatedAt: "" };
     const next = { ...prev, ...patch, updatedAt: new Date().toISOString() };
     ratings = { ...ratings, [vintage.id]: next };
-    saveRatings(tasting.id, ratings);
+    localRatings.save(tasting.id, ratings);
     return next;
   }
 
@@ -205,7 +202,7 @@
     if (q === 0) delete next[vintageId];
     else next[vintageId] = q;
     cart = next;
-    saveCart(tasting.id, cart);
+    localCart.save(tasting.id, cart);
     schedulePreorder();
   }
 
@@ -220,10 +217,10 @@
 
   function schedulePreorder() {
     const version = ++preorderVersion;
-    setPreorderDirty(tasting.id, true);
+    preorderDirty.save(tasting.id, true);
     if (preorderTimer) clearTimeout(preorderTimer);
     preorderTimer = setTimeout(async () => {
-      if ((await pushPreorder()) && version === preorderVersion) setPreorderDirty(tasting.id, false);
+      if ((await pushPreorder()) && version === preorderVersion) preorderDirty.save(tasting.id, false);
     }, 700);
   }
 
@@ -268,9 +265,9 @@
     }
     sendResult = "ok";
     preorderVersion++;
-    setPreorderDirty(tasting.id, false);
+    preorderDirty.save(tasting.id, false);
     cart = {};
-    saveCart(tasting.id, cart);
+    localCart.save(tasting.id, cart);
   }
 
   /* ——— Swipe ——— */
