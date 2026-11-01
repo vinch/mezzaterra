@@ -1,6 +1,7 @@
 -- Retour en arrière de 20261101120000_rename_products.sql : rend aux tables, colonnes, contraintes,
 -- index, triggers, fonctions et à la vue leurs anciens noms (fonctions reprises du schéma de production
--- du 2026-11-01), remet l'ancienne clé dans le JSON des lignes et retire la migration de l'historique.
+-- du 2026-11-01), remet l'ancienne clé dans le JSON des lignes et retire de l'historique le renommage
+-- (20261101120000) et la fin de sa transition (20261101130000).
 -- À lancer seulement si la bascule échoue, avec le code d'avant la migration :
 --   psql "$DB_URL" -v ON_ERROR_STOP=1 -f supabase/rollback/20261101120000_rename_products_down.sql
 -- (le fichier ouvre et valide sa propre transaction). Les objets de transition sont supprimés « s'ils
@@ -709,8 +710,9 @@ UPDATE public."wish_request" SET items = pg_temp.lot_items_back(items) WHERE ite
 UPDATE public."live_preorder" SET items = pg_temp.lot_items_back(items) WHERE items @? '$[*].lot_id';
 DROP FUNCTION IF EXISTS public."legacy_lot_items"("p_items" "jsonb");
 
--- 5. Historique des migrations : la prochaine « supabase db push » réappliquera le renommage
-DELETE FROM supabase_migrations.schema_migrations WHERE version = '20261101120000';
+-- 5. Historique des migrations (renommage et fin de transition) : la prochaine « supabase db push »
+-- réappliquera le renommage
+DELETE FROM supabase_migrations.schema_migrations WHERE version IN ('20261101120000', '20261101130000');
 
 NOTIFY pgrst, 'reload schema';
 
