@@ -78,10 +78,12 @@
   <title>Analyses - Gestion</title>
 </svelte:head>
 
-<ManagePageShell title="Analyses">
-  {#snippet tabs()}
-    {#if !loading && !error}<Tabs label="Analyse affichée" items={TABS} bind:value={tab} />{/if}
-  {/snippet}
+{#snippet analysisTabs()}
+  <Tabs label="Analyse affichée" items={TABS} bind:value={tab} />
+{/snippet}
+
+<!-- Pas de barre d'onglets pendant le chargement ni en cas d'erreur. -->
+<ManagePageShell title="Analyses" tabs={loading || error ? undefined : analysisTabs}>
 
   {#if loading}
     <Spinner />
