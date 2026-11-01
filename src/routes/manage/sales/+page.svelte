@@ -38,7 +38,8 @@
   import { fold, formatDate, formatEUR, formatPercent, initials, toNumber } from "$lib/format";
   import { isoDateOnly, todayIso } from "$lib/dates";
   import { lineTotal } from "$lib/analytics";
-  import { robePreference, styleByKey, vintageProductLabel, vintageShortLabel } from "$lib/wine";
+  import { robePreference, lotProductLabel, lotShortLabel } from "$lib/products";
+  import { styleByKey } from "$lib/productStyles";
   import {
     PAYMENT_METHOD_OPTIONS,
     SALE_LINE_ITEMS_SELECT,
@@ -52,10 +53,10 @@
     saleItemDescription,
     saleTotal,
   } from "$lib/sales";
-  import { fetchCustomers, fetchLineItems, fetchPickerVintages, fetchStockMap } from "$lib/manageData";
+  import { fetchCustomers, fetchLineItems, fetchPickerLots, fetchStockMap } from "$lib/manageData";
   import { errorMessage, latestOnly } from "$lib/async";
   import { invalidateAll } from "$app/navigation";
-  import ProductVintageAutocomplete from "$lib/components/manage/ProductVintageAutocomplete.svelte";
+  import LotAutocomplete from "$lib/components/manage/LotAutocomplete.svelte";
   import CustomerAutocomplete from "$lib/components/manage/CustomerAutocomplete.svelte";
   import Spinner from "$lib/ui/Spinner.svelte";
   import Tabs from "$lib/ui/Tabs.svelte";
@@ -68,13 +69,13 @@
 
   const { refreshCounts } = getContext<{ refreshCounts: () => void }>("manage");
 
-  /** Valeur interne du select « produit » pour une ligne dégustation (sans millésime). */
+  /** Valeur interne du select « produit » pour une ligne dégustation (sans lot). */
   const TASTING_SELECT_VALUE = "__tasting__";
 
   /* Rechargé par invalidateAll() après une création, une modification ou une suppression. */
   let sales: any[] = $derived(data.sales);
   let customers = $state.raw<any[]>([]);
-  let wineVintages = $state.raw<any[]>([]);
+  let lots = $state.raw<any[]>([]);
   let loading = $state(true);
   let error = $state("");
   /** Modale unique création / édition (`editingSale` les distingue). */
@@ -98,7 +99,7 @@
 
   // Sale items
   let saleItems = $state<any[]>([]);
-  let selectedVintageId = $state("");
+  let selectedLotId = $state("");
   let selectedQuantity = $state("");
   let selectedPrice = $state("");
   let selectedDiscount = $state("");
@@ -116,7 +117,7 @@
       await Promise.all([
         fetchCustomers().then((c) => (customers = c)),
         loadTastings(),
-        formLoad.run(fetchVintagesWithStock).then((v) => v && (wineVintages = v)),
+        formLoad.run(fetchLotsWithStock).then((v) => v && (lots = v)),
       ]);
     } catch (e) {
       error = errorMessage(e);
@@ -125,7 +126,7 @@
     }
     if (params.has("nouvelle")) {
       /* Stock tout juste lu : relu seulement si le chargement a échoué. */
-      if (wineVintages.length && !hasUnknownStock(wineVintages)) showCreateForm();
+      if (lots.length && !hasUnknownStock(lots)) showCreateForm();
       /* Chargement en échec : son message reste affiché plutôt qu'un formulaire incomplet. */
       else if (!error) await openCreateModal();
       const client = params.get("client");
@@ -140,43 +141,43 @@
     if (telecharger) void downloadInvoice(telecharger);
   });
 
-  function getProductDisplayNameWithStock(vintage: any, availableStock: number | null) {
-    return `${vintageProductLabel(vintage)} - Stock : ${availableStock ?? "indisponible"}`;
+  function getProductDisplayNameWithStock(lot: any, availableStock: number | null) {
+    return `${lotProductLabel(lot)} - Stock : ${availableStock ?? "indisponible"}`;
   }
 
   /** Bouteilles encore ajoutables ; null si le stock est illisible (rien d'ajoutable). */
-  function getAvailableStock(vintageId: string): number | null {
-    if (vintageId === TASTING_SELECT_VALUE) {
+  function getAvailableStock(lotId: string): number | null {
+    if (lotId === TASTING_SELECT_VALUE) {
       return 999999;
     }
-    const vintage = vintageById.get(vintageId);
-    if (!vintage) return 0;
-    if (vintage.stock == null) return null;
+    const lot = lotById.get(lotId);
+    if (!lot) return 0;
+    if (lot.stock == null) return null;
 
-    const stock = vintage.stock;
+    const stock = lot.stock;
     // Subtract quantities already in saleItems
     const alreadyAdded = saleItems
-      .filter((item) => item.wine_vintage_id === vintageId)
+      .filter((item) => item.lot_id === lotId)
       .reduce((sum, item) => sum + (item.quantity || 0), 0);
 
     return Math.max(0, stock - alreadyAdded);
   }
 
-  function isVintageAlreadyAdded(vintageId: string): boolean {
-    if (vintageId === TASTING_SELECT_VALUE) {
+  function isLotAlreadyAdded(lotId: string): boolean {
+    if (lotId === TASTING_SELECT_VALUE) {
       return false;
     }
-    return saleItems.some((item) => item.wine_vintage_id === vintageId);
+    return saleItems.some((item) => item.lot_id === lotId);
   }
 
   /**
-   * Millésimes du sélecteur avec leur stock, relu à chaque ouverture du formulaire (le
+   * Lots du sélecteur avec leur stock, relu à chaque ouverture du formulaire (le
    * catalogue n'est lu qu'une fois). Stock illisible : `stock` vaut null ; on ne peut plus
    * ajouter de bouteilles ni en augmenter, mais une vente reste modifiable (paiement…).
    */
-  async function fetchVintagesWithStock(): Promise<any[]> {
+  async function fetchLotsWithStock(): Promise<any[]> {
     const [list, stock] = await Promise.all([
-      wineVintages.length ? wineVintages : fetchPickerVintages(),
+      lots.length ? lots : fetchPickerLots(),
       fetchStockMap().catch((e) => {
         console.error(e);
         return null;
@@ -198,20 +199,20 @@
   async function openCreateModal() {
     error = "";
     /* Stock relu : des ventes ont pu être payées depuis l'ouverture de la page. */
-    const vintages = await formLoad.run(fetchVintagesWithStock);
-    if (!vintages) return;
-    wineVintages = vintages;
+    const fresh = await formLoad.run(fetchLotsWithStock);
+    if (!fresh) return;
+    lots = fresh;
     showCreateForm();
   }
 
   async function openEditModal(sale: any) {
     error = "";
     /* Stock relu : il a pu bouger depuis l'ouverture de la page. */
-    const loaded = await formLoad.run(() => Promise.all([fetchVintagesWithStock(), loadSaleItems(sale.id)]));
+    const loaded = await formLoad.run(() => Promise.all([fetchLotsWithStock(), loadSaleItems(sale.id)]));
     if (!loaded) return;
-    const [vintages, items] = loaded;
+    const [fresh, items] = loaded;
 
-    wineVintages = vintages;
+    lots = fresh;
     editingSale = sale;
     formData = {
       date: isoDateOnly(sale.date),
@@ -226,17 +227,17 @@
       payment_method: sale.payment_method ?? "",
       tasting_id: sale.tasting_id ?? "",
     };
-    /* Le stock d'une ligne est lu dans vintageById (liste tout juste relue). */
+    /* Le stock d'une ligne est lu dans lotById (liste tout juste relue). */
     saleItems = items.map((item: any) => ({
-      wine_vintage: item.wine_vintage,
-      wine_vintage_id: item.wine_vintage_id ?? null,
+      lot: item.lot,
+      lot_id: item.lot_id ?? null,
       quantity: item.quantity,
       /* Plafond si le stock est illisible : on peut revenir à la quantité enregistrée. */
       saved_quantity: item.quantity,
       price: toNumber(item.price),
       discount: toNumber(item.discount),
       discount_type: item.discount_type || null,
-      note: item.note || (item.wine_vintage_id ? "" : TASTING_LINE_NOTE),
+      note: item.note || (item.lot_id ? "" : TASTING_LINE_NOTE),
     }));
     resetLineInput();
     formOpen = true;
@@ -291,22 +292,22 @@
 
   /** Saisie d'une nouvelle ligne remise à zéro (type de remise : « montant » par défaut). */
   function resetLineInput() {
-    selectedVintageId = "";
+    selectedLotId = "";
     selectedQuantity = "";
     selectedPrice = "";
     selectedDiscount = "";
     selectedDiscountType = "amount";
   }
 
-  function handleVintageChange() {
-    if (selectedVintageId === TASTING_SELECT_VALUE) {
+  function handleLotChange() {
+    if (selectedLotId === TASTING_SELECT_VALUE) {
       selectedPrice = "";
       return;
     }
-    if (selectedVintageId) {
-      const vintage = wineVintages.find((v) => v.id === selectedVintageId);
-      if (vintage && vintage.price) {
-        selectedPrice = vintage.price.toString();
+    if (selectedLotId) {
+      const lot = lots.find((v) => v.id === selectedLotId);
+      if (lot && lot.price) {
+        selectedPrice = lot.price.toString();
       }
     }
   }
@@ -337,12 +338,12 @@
       return;
     }
 
-    /* Ligne dégustation : sans millésime ni contrôle de stock. */
-    const tasting = selectedVintageId === TASTING_SELECT_VALUE;
-    let vintage: any = null;
+    /* Ligne dégustation : sans lot ni contrôle de stock. */
+    const tasting = selectedLotId === TASTING_SELECT_VALUE;
+    let lot: any = null;
     if (!tasting) {
-      if (!selectedVintageId) return;
-      const availableStock = getAvailableStock(selectedVintageId);
+      if (!selectedLotId) return;
+      const availableStock = getAvailableStock(selectedLotId);
       if (availableStock == null) {
         error = "Stock indisponible : impossible d’ajouter des bouteilles pour l’instant.";
         return;
@@ -351,15 +352,15 @@
         error = `Stock insuffisant. Stock disponible: ${availableStock}`;
         return;
       }
-      vintage = wineVintages.find((v) => v.id === selectedVintageId);
-      if (!vintage) return;
+      lot = lots.find((v) => v.id === selectedLotId);
+      if (!lot) return;
     }
 
     saleItems = [
       ...saleItems,
       {
-        wine_vintage: vintage,
-        wine_vintage_id: tasting ? null : selectedVintageId,
+        lot,
+        lot_id: tasting ? null : selectedLotId,
         quantity,
         price: toNumber(selectedPrice),
         discount: discountVal,
@@ -374,7 +375,7 @@
   function removeSaleItem(index: number) {
     saleItems = saleItems.filter((_, i) => i !== index);
     // Réinitialise le select (évite bug navigateur quand une option repasse de disabled → enabled)
-    selectedVintageId = "";
+    selectedLotId = "";
   }
 
   /** Création ou modification (selon `editingSale`) de la vente et de ses lignes. */
@@ -425,7 +426,7 @@
         p_sale_id: editingSale?.id ?? NEW_ROW,
         p_sale: saleData,
         p_items: saleItems.map((item) => ({
-          wine_vintage_id: item.wine_vintage_id ?? null,
+          lot_id: item.lot_id ?? null,
           quantity: item.quantity,
           price: toNumber(item.price),
           discount: toNumber(item.discount) > 0 ? toNumber(item.discount) : null,
@@ -679,10 +680,10 @@
     const last = own.map((s) => String(s.date)).sort().pop();
     const { data } = await supabase
       .from("sale_item")
-      .select("quantity, sale_id, wine_vintage ( wine ( wine_type ( name, kind ) ) )")
+      .select("quantity, sale_id, lot ( product ( product_type ( name, kind ) ) )")
       .in("sale_id", own.map((s) => s.id).slice(0, 100));
     /* Robes du vin seulement : « Aime les huiles » n'aide pas à conseiller un vin. */
-    const fav = robePreference(((data || []) as any[]).map((it) => ({ type: it.wine_vintage?.wine?.wine_type, qty: it.quantity || 0 }))).favorite;
+    const fav = robePreference(((data || []) as any[]).map((it) => ({ type: it.lot?.product?.product_type, qty: it.quantity || 0 }))).favorite;
     if (hintFor !== id) return;
     customerHint = [
       fav ? `Aime les ${styleByKey(fav).label.toLowerCase()}s` : "",
@@ -696,7 +697,7 @@
     hintFor = "";
     customerHint = "";
   }
-  let stockUnknown = $derived(hasUnknownStock(wineVintages));
+  let stockUnknown = $derived(hasUnknownStock(lots));
   let total = $derived(saleTotal(saleItems, formData.global_discount, formData.global_discount_type));
   let tastingById = $derived(new Map(tastings.map((t) => [t.id, t])));
   $effect.pre(() => {
@@ -733,8 +734,8 @@
     saleItems.reduce((sum, it) => sum + toNumber(it.price) * (parseInt(String(it.quantity ?? 0), 10) || 0), 0) * 100,
   ) / 100);
   let discountsTotal = $derived(Math.max(0, Math.round((grossTotal - total) * 100) / 100));
-  let bottleCount = $derived(saleItems.reduce((n, it) => n + (it.wine_vintage_id ? parseInt(String(it.quantity), 10) || 0 : 0), 0));
-  let vintageById = $derived(new Map(wineVintages.map((v) => [v.id, v])));
+  let bottleCount = $derived(saleItems.reduce((n, it) => n + (it.lot_id ? parseInt(String(it.quantity), 10) || 0 : 0), 0));
+  let lotById = $derived(new Map(lots.map((v) => [v.id, v])));
   /* Client choisi : puce + aide (goûts, dernier achat). */
   let selectedCustomer = $derived(customers.find((c) => c.id === formData.customer_id) ?? null);
   $effect.pre(() => {
@@ -969,20 +970,20 @@
               </thead>
               <tbody>
                 {#each saleItems as item, index}
-                  {@const v = vintageById.get(item.wine_vintage_id) ?? item.wine_vintage}
-                  <!-- Stock du millésime ; null pour une ligne dégustation ou un stock illisible. -->
-                  {@const stock = item.wine_vintage_id ? (v?.stock ?? null) : null}
+                  {@const v = lotById.get(item.lot_id) ?? item.lot}
+                  <!-- Stock du lot ; null pour une ligne dégustation ou un stock illisible. -->
+                  {@const stock = item.lot_id ? (v?.stock ?? null) : null}
                   {@const qty = parseInt(String(item.quantity), 10) || 1}
                   <tr>
                     <td>
-                      <span class="wine-cell">
-                        {#if item.wine_vintage_id}
-                          <StyleDot type={v?.wine?.wine_type} />
+                      <span class="product-cell">
+                        {#if item.lot_id}
+                          <StyleDot type={v?.product?.product_type} />
                         {/if}
-                        <span class="wine-name">
-                          {#if item.wine_vintage_id && v?.wine}
-                            <strong>{vintageShortLabel(v)}</strong>
-                            <span class="t-caption">{v.wine.winery?.name ?? ""}</span>
+                        <span class="product-name">
+                          {#if item.lot_id && v?.product}
+                            <strong>{lotShortLabel(v)}</strong>
+                            <span class="t-caption">{v.product.producer?.name ?? ""}</span>
                           {:else}
                             <strong>{saleItemDescription(item)}</strong>
                           {/if}
@@ -993,7 +994,7 @@
                       <Stepper
                         value={qty}
                         min={1}
-                        max={item.wine_vintage_id ? (stock ?? item.saved_quantity ?? qty) : 9999}
+                        max={item.lot_id ? (stock ?? item.saved_quantity ?? qty) : 9999}
                         label="Quantité de {saleItemDescription(item)}"
                         onchange={(q) => setItemQuantity(index, q)}
                       />
@@ -1019,17 +1020,17 @@
         {/if}
 
         <div class="add-row">
-          <div class="add-wine">
+          <div class="add-lot">
             <label class="t-label" for="sale-add-product">Ajouter un produit</label>
-            <ProductVintageAutocomplete
+            <LotAutocomplete
               id="sale-add-product"
-              bind:value={selectedVintageId}
-              {wineVintages}
+              bind:value={selectedLotId}
+              {lots}
               tastingValue={TASTING_SELECT_VALUE}
               {getAvailableStock}
-              {isVintageAlreadyAdded}
+              {isLotAlreadyAdded}
               formatLabel={getProductDisplayNameWithStock}
-              onchange={handleVintageChange}
+              onchange={handleLotChange}
             />
           </div>
           <label class="add-qty">
@@ -1390,13 +1391,13 @@
     padding-bottom: 10px;
   }
 
-  .wine-cell {
+  .product-cell {
     display: flex;
     align-items: center;
     gap: 10px;
   }
 
-  .wine-name {
+  .product-name {
     display: flex;
     flex-direction: column;
   }
@@ -1495,7 +1496,7 @@
       grid-template-columns: 1fr 1fr;
     }
 
-    .add-wine,
+    .add-lot,
     .add-discount,
     .add-btn {
       grid-column: 1 / -1;

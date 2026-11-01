@@ -118,6 +118,28 @@ l'ajuste depuis son récap puis la confirme (prénom et email ou téléphone) : 
 la page live appelle `save_live_preorder`. L'insertion publique directe dans `wish_request` (ancien
 code) reste permise jusqu'à une migration de suivi, après le déploiement.
 
+`20261101120000_rename_products.sql` renomme une fois pour toutes le modèle « vin » en modèle
+« produit » : `wine` → `product`, `wine_vintage` → `lot`, `grape` → `variety`, `winery` →
+`producer`, `wine_type` → `product_type`, `wine_pairing` → `product_pairing`, `wine_vintage_grape` →
+`lot_variety`, `appelation` → `appellation`, `tasting_wine_vintage` → `tasting_lot`, avec leurs
+colonnes (`wine_vintage_id` → `lot_id`, `winery_id` → `producer_id`…), la vue `inventory` et les
+fonctions (`create_lot`, `public_lot_availability`, clés `lot_id` des lignes JSON de `save_sale`,
+`save_order`, `save_live_preorder`…). Les migrations plus anciennes ci-dessus gardent les noms de
+leur époque. La valeur `'wine'` de `kind` et le bucket `wines` ne changent pas ; le JSON des demandes et
+pré-commandes déjà enregistrées passe de `wine_vintage_id` à `lot_id`. À appliquer au moment même du
+déploiement du code : l'ancien code ne marche pas sur le nouveau schéma, ni l'inverse. Script
+inverse : `supabase/rollback/20261101120000_rename_products_down.sql`.
+
+Transition : un onglet ouvert avant la bascule (vente, commande, pré-commande d'un invité, demande
+« J'en veux ») envoie encore ses lignes avec `wine_vintage_id`. La fonction `legacy_lot_items` les lit
+comme `lot_id` : appelée en tête de `save_sale` et `save_order` (`p_items := public.legacy_lot_items(p_items)`),
+à la lecture des lignes de `save_live_preorder` (`v_raw`), et par le trigger `wish_request_legacy_lot_items`
+(fonction `legacy_lot_items_row`) pour les demandes insérées directement. Non couverte : la note d'un
+invité envoyée par un onglet d'avant la bascule, d'où une bascule hors de toute dégustation. Quelques
+jours après, une migration de nettoyage retire la transition : recréer les trois fonctions sans l'appel à
+`legacy_lot_items`, supprimer le trigger, puis `legacy_lot_items_row` et `legacy_lot_items`. Elle ne
+demande aucun déploiement de code : l'application n'envoie déjà plus que `lot_id`.
+
 ```sh
 supabase link --project-ref wmerreifcpttrhxwmkmn
 supabase db push
@@ -139,7 +161,7 @@ pnpm update-types
 
 | Gestion | |
 |---|---|
-| `/manage` | Tableau de bord : CA 12 mois, top vins, stock bas (réassort), stock dormant |
+| `/manage` | Tableau de bord : CA 12 mois, top produits, stock bas (réassort), stock dormant |
 | `/manage/tastings/[id]/live` | Pilotage en direct, QR code, mode projection, demandes, réservations en ligne |
 | `/manage/requests` | Messages du formulaire de contact et demandes « J'en veux » (→ ventes « En attente ») |
 | `/manage/insights` | Marges, rotation du stock, rentabilité des dégustations |

@@ -1,6 +1,6 @@
 import { supabase } from "$lib/supabase";
 import { parseIsoDate } from "$lib/dates";
-import { vintageProductLabel } from "$lib/wine";
+import { lotProductLabel } from "$lib/products";
 import { LINE_ITEMS_SELECT } from "$lib/manageData";
 import { pdfFileSlug } from "./assets";
 import { downloadLineItemsPdf, pdfEur, type LineItemsPdf } from "./lineItemsPdf";
@@ -110,7 +110,7 @@ export async function downloadOrderPdf(orderId: string, lang: OrderPdfLanguage):
     descriptionLabel: t.description,
     columns: [t.quantity, t.unitPrice, t.total],
     rows: items.map((item) => ({
-      description: vintageProductLabel(item.wine_vintage!),
+      description: lotProductLabel(item.lot!),
       values: [String(item.quantity), pdfEur(item.price), pdfEur(item.price * item.quantity)],
     })),
     totals: [{ text: `${t.totalLabel}: ${pdfEur(order.total_price)}` }],

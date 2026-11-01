@@ -1,7 +1,7 @@
 <script lang="ts">
   import { supabase } from "$lib/supabase";
   import { onMount } from "svelte";
-  import type { Winery, WineType } from "$lib/types";
+  import type { Producer, ProductType } from "$lib/types";
   import ManagePageShell from "$lib/components/manage/ManagePageShell.svelte";
   import Modal from "$lib/ui/Modal.svelte";
   import Button from "$lib/ui/Button.svelte";
@@ -9,58 +9,58 @@
   import Spinner from "$lib/ui/Spinner.svelte";
   import SortHeader from "$lib/ui/SortHeader.svelte";
   import {
-    fetchStockDocVintages,
+    fetchStockDocLots,
     sortedStockForDocuments,
+    stockLotLabel as lotLabel,
     stockSortValues,
-    stockVintageLabel as vintageLabel,
-    type StockDocVintage,
+    type StockDocLot,
     type StockSortKey,
   } from "$lib/stockDocuments";
   import { sortedBy, type SortState } from "$lib/sort";
   import { todayIso } from "$lib/dates";
-  import { productTypeLabel, robeRanks } from "$lib/wine";
-  import { fetchWineTypes } from "$lib/manageData";
+  import { productTypeLabel, robeRanks } from "$lib/products";
+  import { fetchProductTypes } from "$lib/manageData";
   import { errorMessage } from "$lib/async";
   import { formatEUR } from "$lib/format";
 
-  let rows = $state.raw<StockDocVintage[]>([]);
+  let rows = $state.raw<StockDocLot[]>([]);
   let loading = $state(true);
   let error = $state("");
-  let wineries = $state<Winery[]>([]);
-  let wineTypes = $state<WineType[]>([]);
+  let producers = $state<Producer[]>([]);
+  let productTypes = $state<ProductType[]>([]);
 
-  let filterWineryId = $state("");
-  let filterWineTypeId = $state("");
+  let filterProducerId = $state("");
+  let filterProductTypeId = $state("");
   let searchText = $state("");
 
-  let selectedVintageIds = $state<string[]>([]);
+  let selectedLotIds = $state<string[]>([]);
   let docError = $state("");
 
   let showNotesModal = $state(false);
-  let notesModalRows = $state<StockDocVintage[]>([]);
+  let notesModalRows = $state<StockDocLot[]>([]);
   let notesTastingDate = $state("");
   let notesPdfGenerating = $state(false);
 
   onMount(async () => {
-    await Promise.all([loadStockRows(), loadWineries(), loadWineTypes()]);
+    await Promise.all([loadStockRows(), loadProducers(), loadProductTypes()]);
   });
 
-  async function loadWineries() {
+  async function loadProducers() {
     const { data } = await supabase
-      .from("winery")
+      .from("producer")
       .select("id, name")
       .order("name");
-    if (data) wineries = data as Winery[];
+    if (data) producers = data as Producer[];
   }
 
-  async function loadWineTypes() {
-    wineTypes = await fetchWineTypes();
+  async function loadProductTypes() {
+    productTypes = await fetchProductTypes();
   }
 
   async function loadStockRows() {
     loading = true;
     error = "";
-    const { data, error: fetchError } = await fetchStockDocVintages();
+    const { data, error: fetchError } = await fetchStockDocLots();
     if (fetchError) {
       error = fetchError;
       rows = [];
@@ -71,50 +71,50 @@
   }
 
   let filteredRows = $derived(rows.filter((r) => {
-    if (filterWineTypeId && r.wine_type_id !== filterWineTypeId) {
+    if (filterProductTypeId && r.product_type_id !== filterProductTypeId) {
       return false;
     }
-    if (filterWineryId && r.winery_id !== filterWineryId) {
+    if (filterProducerId && r.producer_id !== filterProducerId) {
       return false;
     }
     if (searchText.trim()) {
       const q = searchText.toLowerCase();
-      const blob = `${r.wineryName} ${r.wineName} ${r.wineTypeName} ${r.appellationLine}`.toLowerCase();
+      const blob = `${r.producerName} ${r.productName} ${r.productTypeName} ${r.appellationLine}`.toLowerCase();
       if (!blob.includes(q)) return false;
     }
     return true;
   }));
 
-  /* Par défaut, par domaine ; à égalité, l'ordre du chargement (nom, puis millésime ↓). */
-  let sort = $state<SortState<StockSortKey>>({ key: "winery", dir: "asc" });
-  let sortValues = $derived(stockSortValues(robeRanks(wineTypes)));
+  /* Par défaut, par producteur ; à égalité, l'ordre du chargement (nom, puis année ↓). */
+  let sort = $state<SortState<StockSortKey>>({ key: "producer", dir: "asc" });
+  let sortValues = $derived(stockSortValues(robeRanks(productTypes)));
   let sortedVisible = $derived(sortedBy(filteredRows, sort, sortValues));
 
   let allVisibleSelected =
     $derived(sortedVisible.length > 0 &&
-    sortedVisible.every((r) => selectedVintageIds.includes(r.id)));
+    sortedVisible.every((r) => selectedLotIds.includes(r.id)));
   let someVisibleSelected = $derived(sortedVisible.some((r) =>
-    selectedVintageIds.includes(r.id),
+    selectedLotIds.includes(r.id),
   ));
 
   function clearFilters() {
-    filterWineryId = "";
-    filterWineTypeId = "";
+    filterProducerId = "";
+    filterProductTypeId = "";
     searchText = "";
   }
 
   function isSelected(id: string): boolean {
-    return selectedVintageIds.includes(id);
+    return selectedLotIds.includes(id);
   }
 
   function onHeaderSelectAllChange(ev: Event) {
     const checked = (ev.currentTarget as HTMLInputElement).checked;
     const visibleIds = sortedVisible.map((r) => r.id);
     if (checked) {
-      selectedVintageIds = [...new Set([...selectedVintageIds, ...visibleIds])];
+      selectedLotIds = [...new Set([...selectedLotIds, ...visibleIds])];
     } else {
       const vis = new Set(visibleIds);
-      selectedVintageIds = selectedVintageIds.filter((id) => !vis.has(id));
+      selectedLotIds = selectedLotIds.filter((id) => !vis.has(id));
     }
   }
 
@@ -127,7 +127,7 @@
     try {
       /* jsPDF n'est chargé qu'au moment de générer un document. */
       const { downloadPricesPdf } = await import("$lib/pdf/stockDocumentsPdf");
-      await downloadPricesPdf(rows, new Set(selectedVintageIds));
+      await downloadPricesPdf(rows, new Set(selectedLotIds));
     } catch (e) {
       docError = errorMessage(e);
     }
@@ -135,9 +135,9 @@
 
   function openNotesModal() {
     docError = "";
-    /* Dans l'ordre habituel (domaine, nom, millésime ↓), quel que soit le tri du tableau. */
+    /* Dans l'ordre habituel (producteur, nom, année ↓), quel que soit le tri du tableau. */
     const picked = filteredRows.filter((r) =>
-      selectedVintageIds.includes(r.id),
+      selectedLotIds.includes(r.id),
     );
     if (picked.length === 0) {
       docError = "Cochez au moins un produit pour la feuille de notes.";
@@ -210,7 +210,7 @@
           </button>
         </div>
         <div class="selection-toolbar">
-          <span class="selection-count">{selectedVintageIds.length} lot(s) coché(s)</span>
+          <span class="selection-count">{selectedLotIds.length} lot(s) coché(s)</span>
         </div>
       </div>
 
@@ -226,19 +226,19 @@
             />
           </div>
           <div class="filter-group">
-            <label for="doc-winery">Domaine</label>
-            <select id="doc-winery" bind:value={filterWineryId}>
+            <label for="doc-producer">Domaine</label>
+            <select id="doc-producer" bind:value={filterProducerId}>
               <option value="">Tous</option>
-              {#each wineries as w}
+              {#each producers as w}
                 <option value={w.id}>{w.name}</option>
               {/each}
             </select>
           </div>
           <div class="filter-group">
             <label for="doc-type">Type</label>
-            <select id="doc-type" bind:value={filterWineTypeId}>
+            <select id="doc-type" bind:value={filterProductTypeId}>
               <option value="">Tous</option>
-              {#each wineTypes as t}
+              {#each productTypes as t}
                 <option value={t.id}>{t.name}</option>
               {/each}
             </select>
@@ -264,7 +264,7 @@
                   aria-label="Tout sélectionner ou tout désélectionner dans la liste affichée"
                 />
               </th>
-              <SortHeader column="winery" label="Domaine" bind:sort />
+              <SortHeader column="producer" label="Domaine" bind:sort />
               <SortHeader column="name" label="Nom" bind:sort />
               <SortHeader column="type" label="Type" bind:sort />
               <SortHeader column="year" label="Mill." firstDir="desc" bind:sort />
@@ -278,15 +278,15 @@
                 <td class="col-check">
                   <input
                     type="checkbox"
-                    bind:group={selectedVintageIds}
+                    bind:group={selectedLotIds}
                     value={r.id}
-                    aria-label="Sélectionner {r.wineryName} {r.wineName} {vintageLabel(r)}"
+                    aria-label="Sélectionner {r.producerName} {r.productName} {lotLabel(r)}"
                   />
                 </td>
-                <td>{r.wineryName}</td>
-                <td><strong>{r.wineName}</strong></td>
-                <td>{productTypeLabel({ name: r.wineTypeName, kind: r.kind })}</td>
-                <td>{vintageLabel(r)}</td>
+                <td>{r.producerName}</td>
+                <td><strong>{r.productName}</strong></td>
+                <td>{productTypeLabel({ name: r.productTypeName, kind: r.kind })}</td>
+                <td>{lotLabel(r)}</td>
                 <td class="num">
                   {formatEUR(r.price)}
                 </td>
@@ -325,14 +325,14 @@
         <li class="notes-order-item">
           <span class="notes-order-num" aria-hidden="true">{i + 1}</span>
           <div class="notes-order-info">
-            <strong>{row.wineryName}</strong>
-            <span class="notes-order-wine">{row.wineName}</span>
+            <strong>{row.producerName}</strong>
+            <span class="notes-order-product">{row.productName}</span>
             <span class="notes-order-meta"
-              >{productTypeLabel({ name: row.wineTypeName, kind: row.kind })} · {vintageLabel(row)}</span
+              >{productTypeLabel({ name: row.productTypeName, kind: row.kind })} · {lotLabel(row)}</span
             >
           </div>
           <div class="notes-order-actions">
-            <MoveButtons bind:list={notesModalRows} index={i} label={row.wineName} />
+            <MoveButtons bind:list={notesModalRows} index={i} label={row.productName} />
           </div>
         </li>
       {/each}
@@ -491,7 +491,7 @@
     gap: 0.15rem;
   }
 
-  .notes-order-wine {
+  .notes-order-product {
     color: var(--ink);
   }
 

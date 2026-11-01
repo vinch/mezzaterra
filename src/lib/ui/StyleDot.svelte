@@ -1,8 +1,9 @@
 <script lang="ts">
-  import { styleByKey, swatchStyle, wineRobe, type ProductStyleKey } from "$lib/wine";
+  import { wineRobe } from "$lib/products";
+  import { styleByKey, swatchStyle, type ProductStyleKey } from "$lib/productStyles";
 
   /**
-   * Pastille de 10 px à la couleur de la robe : d'après le type (`wine_type`, avec `kind` pour une huile), ou une clé (filtres, légendes).
+   * Pastille de 10 px à la couleur de la robe : d'après le type (`product_type`, avec `kind` pour une huile), ou une clé (filtres, légendes).
    * Toujours accompagnée du nom du produit à côté : elle est décorative (aria-hidden).
    */
   interface Props {

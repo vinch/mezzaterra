@@ -8,20 +8,20 @@
   import { IconBox } from "$lib/ui/icons";
   import Spinner from "$lib/ui/Spinner.svelte";
   import {
-    fetchStockDocVintages,
+    fetchStockDocLots,
     sortedStockForDocuments,
+    stockLotLabel,
     stockSortValues,
-    stockVintageLabel,
-    type StockDocVintage,
+    type StockDocLot,
     type StockSortKey,
   } from "$lib/stockDocuments";
   import { sortedBy, type SortState } from "$lib/sort";
 
   let loading = $state(true);
   let error = $state("");
-  let stockInHandList = $state<StockDocVintage[]>([]);
-  /* Par défaut, par domaine ; à égalité, l'ordre du chargement. */
-  let sort = $state<SortState<StockSortKey>>({ key: "winery", dir: "asc" });
+  let stockInHandList = $state<StockDocLot[]>([]);
+  /* Par défaut, par producteur ; à égalité, l'ordre du chargement. */
+  let sort = $state<SortState<StockSortKey>>({ key: "producer", dir: "asc" });
   const sortValues = stockSortValues();
   let sortedStock = $derived(sortedBy(stockInHandList, sort, sortValues));
 
@@ -31,11 +31,11 @@
     return n === 1 ? "1 bouteille" : `${n} bouteilles`;
   }
 
-  /** Même lecture que la page Documents : millésimes en stock, triés domaine → nom → millésime ↓. */
+  /** Même lecture que la page Documents : lots en stock, triés producteur → nom → année ↓. */
   async function loadStockInHand() {
     loading = true;
     error = "";
-    const res = await fetchStockDocVintages();
+    const res = await fetchStockDocLots();
     error = res.error ?? "";
     stockInHandList = sortedStockForDocuments(res.data);
     loading = false;
@@ -61,7 +61,7 @@
     <DataTable caption="Produits en stock">
       <thead>
         <tr>
-          <SortHeader column="winery" label="Domaine" bind:sort />
+          <SortHeader column="producer" label="Domaine" bind:sort />
           <SortHeader column="name" label="Nom" bind:sort />
           <SortHeader column="year" label="Millésime ou lot" firstDir="desc" bind:sort />
           <SortHeader column="stock" label="En stock" num bind:sort />
@@ -71,12 +71,12 @@
       <tbody>
         {#each sortedStock as row (row.id)}
           <tr>
-            <td>{row.wineryName}</td>
-            <td><strong>{row.wineName}</strong></td>
-            <td>{stockVintageLabel(row)}</td>
+            <td>{row.producerName}</td>
+            <td><strong>{row.productName}</strong></td>
+            <td>{stockLotLabel(row)}</td>
             <td class="num">{bottleLabel(row.quantity_on_hand)}</td>
             <td class="col-actions">
-              <Button size="sm" href="/manage/products/{row.wine_id}/stock/{row.id}">Détail</Button>
+              <Button size="sm" href="/manage/products/{row.product_id}/stock/{row.id}">Détail</Button>
             </td>
           </tr>
         {/each}

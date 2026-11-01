@@ -2,23 +2,23 @@ import { fetchCatalogKinds } from "$lib/publicData";
 import { supabase } from "$lib/supabase";
 import type { PageLoad } from "./$types";
 
-type WineryPin = { id: string; name: string; latitude: number | null; longitude: number | null };
+type ProducerPin = { id: string; name: string; latitude: number | null; longitude: number | null };
 
-async function fetchWineries(): Promise<WineryPin[]> {
+async function fetchProducers(): Promise<ProducerPin[]> {
   try {
     const { data } = await supabase
-      .from("winery")
+      .from("producer")
       .select("id, name, latitude, longitude")
       .eq("hidden", false)
       .order("name");
-    return (data || []) as WineryPin[];
+    return (data || []) as ProducerPin[];
   } catch {
     return [];
   }
 }
 
-/* Catalogues de la navigation lus avec les domaines, en parallèle (le site les lit dans (site)/+layout.server.ts). */
+/* Catalogues de la navigation lus avec les producteurs, en parallèle (le site les lit dans (site)/+layout.server.ts). */
 export const load: PageLoad = async () => {
-  const [wineries, catalogKinds] = await Promise.all([fetchWineries(), fetchCatalogKinds()]);
-  return { wineries, catalogKinds };
+  const [producers, catalogKinds] = await Promise.all([fetchProducers(), fetchCatalogKinds()]);
+  return { producers, catalogKinds };
 };

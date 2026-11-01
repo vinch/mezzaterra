@@ -9,37 +9,37 @@
   import { fetchAvailability, type AvailabilityOf } from "$lib/publicData";
   import {
     findNote,
-    grapesText,
+    varietiesText,
     styleLabel,
     formatsText,
-    vintageVolume,
-    wineryFlag,
-    wineryInstagram,
-    wineryPlace,
+    lotVolume,
+    producerFlag,
+    producerInstagram,
+    producerPlace,
     productStyle,
     productSubtitle,
     productTitle,
-  } from "$lib/wine";
+  } from "$lib/products";
   import { formatEUR } from "$lib/format";
-  import { formatVolume, kindInfo, productHref } from "$lib/productKinds";
+  import { formatVolume, kindInfo, lotHref } from "$lib/productKinds";
 
   let { data } = $props();
 
-  let v = $derived(data.vintage);
-  let wine = $derived(v.wine);
-  let kind = $derived(kindInfo(wine));
-  let style = $derived(productStyle(wine.wine_type));
-  let title = $derived(productTitle(wine));
-  let grapes = $derived(grapesText(v.wine_vintage_grape, true));
-  let winery = $derived(wine.winery);
-  let region = $derived(wineryPlace(winery));
-  let flag = $derived(wineryFlag(winery));
-  let instagram = $derived(wineryInstagram(winery));
+  let v = $derived(data.lot);
+  let product = $derived(v.product);
+  let kind = $derived(kindInfo(product));
+  let style = $derived(productStyle(product.product_type));
+  let title = $derived(productTitle(product));
+  let varieties = $derived(varietiesText(v.lot_variety, true));
+  let producer = $derived(product.producer);
+  let region = $derived(producerPlace(producer));
+  let flag = $derived(producerFlag(producer));
+  let instagram = $derived(producerInstagram(producer));
   let ogDescription = $derived([
-    productSubtitle(wine),
-    winery?.name,
+    productSubtitle(product),
+    producer?.name,
     v.year,
-    grapes,
+    varieties,
     findNote(v.note, "mouth") || findNote(v.note, "nose"),
   ]
     .filter(Boolean)
@@ -71,7 +71,7 @@
     setTimeout(() => (shareFeedback = ""), 2500);
   }
 
-  let orderHref = $derived(contactHref("commande", [title, v.year, vintageVolume(v)].filter(Boolean).join(" ")));
+  let orderHref = $derived(contactHref("commande", [title, v.year, lotVolume(v)].filter(Boolean).join(" ")));
 </script>
 
 <svelte:head>
@@ -99,16 +99,16 @@
         <a href="/{kind.slug}" class="mz-back">← {kind.catalogTitle}</a>
         <span class="mz-eyebrow">
           <span class="mz-dot" style="background: {style.color}"></span>
-          {styleLabel(wine.wine_type)}
+          {styleLabel(product.product_type)}
           {#if v.organic}<OrganicLogo height="1.3rem" />{/if}
         </span>
         <h1 class="mz-display mz-h1">{title}</h1>
-        {#if productSubtitle(wine)}
-          <p class="appellation">{productSubtitle(wine)}</p>
+        {#if productSubtitle(product)}
+          <p class="appellation">{productSubtitle(product)}</p>
         {/if}
-        {#if winery?.name}
-          <p class="winery">
-            {#if winery.id}<a href="/domaines/{winery.id}">{winery.name}</a>{:else}{winery.name}{/if}{region ? ` — ${flag} ${region}` : ""}
+        {#if producer?.name}
+          <p class="producer">
+            {#if producer.id}<a href="/domaines/{producer.id}">{producer.name}</a>{:else}{producer.name}{/if}{region ? ` — ${flag} ${region}` : ""}
           </p>
         {/if}
 
@@ -117,7 +117,7 @@
           {#if v.abv}<div><dt>Alcool</dt><dd>{v.abv} % vol.</dd></div>{/if}
           {#if formatsText(data.formats)}<div><dt>Contenant</dt><dd>{formatVolume(v.volume_ml)}</dd></div>{/if}
           {#if v.price}<div><dt>Prix</dt><dd>{formatEUR(v.price)}</dd></div>{/if}
-          {#if grapes}<div><dt>{kind.ingredients}</dt><dd class="mz-facts-text">{grapes}</dd></div>{/if}
+          {#if varieties}<div><dt>{kind.varieties}</dt><dd class="mz-facts-text">{varieties}</dd></div>{/if}
           {#if stock}
             <div>
               <dt>Disponibilité</dt>
@@ -164,18 +164,18 @@
     </div>
   </section>
 
-  <ProductAbout vintage={v} class="mz-container" />
+  <ProductAbout lot={v} class="mz-container" />
 
-  {#if data.fromWinery.length}
+  {#if data.fromProducer.length}
     <section class="mz-container mz-section">
       <div class="more-head">
         <h2 class="mz-display mz-h2">Du même domaine</h2>
         <div class="more-links">
-          {#if winery?.id}
-            <a class="mz-link" href="/domaines/{winery.id}">Découvrir {winery.name} →</a>
+          {#if producer?.id}
+            <a class="mz-link" href="/domaines/{producer.id}">Découvrir {producer.name} →</a>
           {/if}
-          {#if winery?.url}
-            <a class="mz-link" href={winery.url} target="_blank" rel="noopener noreferrer">Site du domaine ↗</a>
+          {#if producer?.url}
+            <a class="mz-link" href={producer.url} target="_blank" rel="noopener noreferrer">Site du domaine ↗</a>
           {/if}
           {#if instagram}
             <a class="mz-link" href={instagram.url} target="_blank" rel="noopener noreferrer">Instagram {instagram.handle} ↗</a>
@@ -183,8 +183,8 @@
         </div>
       </div>
       <div class="mz-product-grid">
-        {#each data.fromWinery as other (other.id)}
-          <div><ProductCard vintage={other} href={productHref(other)} availability={availability?.(other.id) ?? null} /></div>
+        {#each data.fromProducer as other (other.id)}
+          <div><ProductCard lot={other} href={lotHref(other)} availability={availability?.(other.id) ?? null} /></div>
         {/each}
       </div>
     </section>
@@ -230,20 +230,20 @@
     color: var(--mz-ink-soft);
   }
 
-  .winery {
+  .producer {
     margin: 0;
     font-weight: 600;
     color: var(--mz-ink-soft);
   }
 
-  .winery a {
+  .producer a {
     color: inherit;
     text-decoration: underline;
     text-decoration-color: var(--mz-line);
     text-underline-offset: 3px;
   }
 
-  .winery a:hover {
+  .producer a:hover {
     color: var(--mz-teal);
     text-decoration-color: currentColor;
   }

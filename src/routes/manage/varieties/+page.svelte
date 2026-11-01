@@ -9,12 +9,12 @@
 <!-- Même table pour les cépages des vins et les variétés d'olives des huiles (colonne kind), un onglet chacun. -->
 <RefCrudPage
   title="Cépages et variétés"
-  table="grape"
-  newLabel={(k) => k.newIngredient}
+  table="variety"
+  newLabel={(k) => k.newVariety}
   editLabel="Modifier"
   thisLabel="ce cépage ou cette variété"
   emptyText="Les cépages s’associent ensuite aux millésimes, les variétés d’olives aux lots d’huile."
-  kindTabs={(k) => k.ingredients}
+  kindTabs={(k) => k.varieties}
   fields={[
     { key: "name", label: "Nom", required: true },
     { key: "description", label: "Description", type: "textarea" },

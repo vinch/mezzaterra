@@ -3,15 +3,15 @@
   import { errorMessage } from "$lib/async";
   import ManagePageShell from "$lib/components/manage/ManagePageShell.svelte";
   import {
-    BOTTLES_PER_TASTED_WINE,
+    BOTTLES_PER_TASTED_LOT,
     loadDataset,
     revenueLines,
     tastingRoi,
-    vintageStats,
+    lotStats,
     type TastingRoi,
-    type VintageStats,
+    type LotStats,
   } from "$lib/analytics";
-  import { vintageLabel } from "$lib/wine";
+  import { lotLabel } from "$lib/products";
   import StyleDot from "$lib/ui/StyleDot.svelte";
   import StockBadge from "$lib/ui/StockBadge.svelte";
   import Spinner from "$lib/ui/Spinner.svelte";
@@ -25,7 +25,7 @@
 
   let loading = $state(true);
   let error = $state("");
-  let stats = $state.raw<VintageStats[]>([]);
+  let stats = $state.raw<LotStats[]>([]);
   let roi = $state<TastingRoi[]>([]);
   type Tab = "margins" | "rotation" | "tastings";
   const TABS: { key: Tab; label: string }[] = [
@@ -35,18 +35,18 @@
   ];
   let tab = $state<Tab>("margins");
   const MARGIN_SORT = {
-    product: (s: VintageStats) => vintageLabel(s.vintage),
-    purchase: (s: VintageStats) => toNumberOrNull(s.vintage.purchase_price),
-    price: (s: VintageStats) => toNumberOrNull(s.vintage.price),
-    unitMarginPct: (s: VintageStats) => s.unitMarginPct,
-    sold: (s: VintageStats) => s.sold,
-    revenue: (s: VintageStats) => s.revenue,
-    margin: (s: VintageStats) => s.margin,
-    stock: (s: VintageStats) => s.stock,
+    product: (s: LotStats) => lotLabel(s.lot),
+    purchase: (s: LotStats) => toNumberOrNull(s.lot.purchase_price),
+    price: (s: LotStats) => toNumberOrNull(s.lot.price),
+    unitMarginPct: (s: LotStats) => s.unitMarginPct,
+    sold: (s: LotStats) => s.sold,
+    revenue: (s: LotStats) => s.revenue,
+    margin: (s: LotStats) => s.margin,
+    stock: (s: LotStats) => s.stock,
   };
-  type RotationRow = VintageStats & { value: number; monthsLeft: number | null };
+  type RotationRow = LotStats & { value: number; monthsLeft: number | null };
   const ROTATION_SORT = {
-    product: (r: RotationRow) => vintageLabel(r.vintage),
+    product: (r: RotationRow) => lotLabel(r.lot),
     stock: (r: RotationRow) => r.stock,
     value: (r: RotationRow) => r.value,
     /* Jamais vendu : le plus « endormi », avant la plus ancienne vente. */
@@ -56,7 +56,7 @@
   const ROI_SORT = {
     date: (r: TastingRoi) => r.tasting.date,
     participants: (r: TastingRoi) => r.participants,
-    poured: (r: TastingRoi) => r.winesPoured,
+    poured: (r: TastingRoi) => r.lotsPoured,
     fees: (r: TastingRoi) => r.fees,
     evening: (r: TastingRoi) => r.eveningRevenue,
     buyers: (r: TastingRoi) => r.buyers,
@@ -72,7 +72,7 @@
     try {
       const ds = await loadDataset();
       const lines = revenueLines(ds);
-      stats = vintageStats(ds, lines);
+      stats = lotStats(ds, lines);
       roi = await tastingRoi(ds, lines);
     } catch (e) {
       error = errorMessage(e);
@@ -90,7 +90,7 @@
     .filter((s) => s.stock > 0)
     .map((s): RotationRow => ({
       ...s,
-      value: s.stock * Number(s.vintage.purchase_price || 0),
+      value: s.stock * Number(s.lot.purchase_price || 0),
       /* Ventes mensuelles moyennes sur la période observée → mois de stock restants. */
       monthsLeft: s.sold > 0 && s.lastSale ? s.stock / Math.max(0.25, s.sold / 12) : null,
     })), rotationSort, ROTATION_SORT));
@@ -150,14 +150,14 @@
             </tr>
           </thead>
           <tbody>
-            {#each sorted as s (s.vintage.id)}
+            {#each sorted as s (s.lot.id)}
               <tr>
                 <td>
-                  <span class="wine-cell"><StyleDot type={s.vintage.wine?.wine_type} />
-                  <a class="row-link" href="/manage/products/{s.vintage.wine_id}/stock/{s.vintage.id}">{vintageLabel(s.vintage)}</a></span>
+                  <span class="product-cell"><StyleDot type={s.lot.product?.product_type} />
+                  <a class="row-link" href="/manage/products/{s.lot.product_id}/stock/{s.lot.id}">{lotLabel(s.lot)}</a></span>
                 </td>
-                <td class="num">{formatEUR(s.vintage.purchase_price)}</td>
-                <td class="num">{formatEUR(s.vintage.price)}</td>
+                <td class="num">{formatEUR(s.lot.purchase_price)}</td>
+                <td class="num">{formatEUR(s.lot.price)}</td>
                 <td class="num">
                   {#if s.unitMargin != null}
                     {formatEUR(s.unitMargin)} <span class="tag {marginClass(s.unitMarginPct)}">{pct(s.unitMarginPct)}</span>
@@ -188,9 +188,9 @@
             </tr>
           </thead>
           <tbody>
-            {#each rotation as r (r.vintage.id)}
+            {#each rotation as r (r.lot.id)}
               <tr>
-                <td>{vintageLabel(r.vintage)}</td>
+                <td>{lotLabel(r.lot)}</td>
                 <td class="num">{r.stock}</td>
                 <td class="num">{formatEUR(r.value, true)}</td>
                 <td>{r.lastSale ? `${formatDate(r.lastSale)} (${r.idleDays} j)` : "Jamais vendu"}</td>
@@ -211,7 +211,7 @@
     {:else}
       <p class="explain">
         Pour chaque soirée : entrées + marge sur les ventes rattachées à la dégustation − coût des
-        bouteilles ouvertes ({BOTTLES_PER_TASTED_WINE} par vin servi). Les « relances » sont les achats des
+        bouteilles ouvertes ({BOTTLES_PER_TASTED_LOT} par produit servi). Les « relances » sont les achats des
         participants dans les 30 jours suivants, hors soirée.
       </p>
       <DataTable caption="Rentabilité des dégustations">
@@ -235,7 +235,7 @@
                   <small class="muted">{formatDate(r.tasting.date)}{r.tasting.location ? ` · ${r.tasting.location}` : ""}</small>
                 </td>
                 <td class="num">{r.participants}</td>
-                <td class="num">{r.winesPoured} <small class="muted">({formatEUR(r.pouredCost, true)})</small></td>
+                <td class="num">{r.lotsPoured} <small class="muted">({formatEUR(r.pouredCost, true)})</small></td>
                 <td class="num">{formatEUR(r.fees, true)}</td>
                 <td class="num">
                   <a href="/manage/sales?degustation={r.tasting.id}">{formatEUR(r.eveningRevenue, true)}</a>
@@ -255,7 +255,7 @@
 </ManagePageShell>
 
 <style>
-  .wine-cell {
+  .product-cell {
     display: inline-flex;
     align-items: center;
     gap: 6px;

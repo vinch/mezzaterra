@@ -3,7 +3,7 @@
 
   import { supabase } from "$lib/supabase";
   import { onMount } from "svelte";
-  import type { Wine, Winery, Appelation, WineType } from "$lib/types";
+  import type { Lot, Product, Producer, Appellation, ProductType } from "$lib/types";
   import { goto, replaceState } from "$app/navigation";
   import { page } from "$app/stores";
   import ManagePageShell from "$lib/components/manage/ManagePageShell.svelte";
@@ -23,7 +23,8 @@
   import Spinner from "$lib/ui/Spinner.svelte";
   import Tabs from "$lib/ui/Tabs.svelte";
   import Combobox, { type ComboOption } from "$lib/ui/Combobox.svelte";
-  import { byVolume, robeRanks, compareProductsByProducer, MAIN_ROBES, styleByKey, vintageShortLabel, wineRobe, type ProductStyleKey, productTitle, productTypeLabel, withVolume } from "$lib/wine";
+  import { byVolume, robeRanks, compareProductsByProducer, MAIN_ROBES, lotShortLabel, wineRobe, productTitle, productTypeLabel, withVolume } from "$lib/products";
+  import { styleByKey, type ProductStyleKey } from "$lib/productStyles";
   import {
     IconArchive,
     IconArchiveRestore,
@@ -39,31 +40,34 @@
   import { KIND_ICONS } from "$lib/ui/kindIcons";
   import { fold, formatEUR } from "$lib/format";
   import { promptReorder } from "$lib/reorder";
-  import { isDiscontinued } from "$lib/wine";
+  import { isDiscontinued } from "$lib/products";
   import { DEFAULT_KIND, kindCount, kindFromUrl, kindInfo, kindListHref, kindOf, kindTabItems, PRODUCT_KIND_OPTIONS, type ProductKind } from "$lib/productKinds";
-  import { fetchStockMap, fetchWineTypes } from "$lib/manageData";
+  import { fetchStockMap, fetchProductTypes } from "$lib/manageData";
   import { errorMessage } from "$lib/async";
 
-  let wines = $state.raw<Wine[]>([]);
-  let wineries = $state<Winery[]>([]);
-  let appellations = $state<Appelation[]>([]);
-  let wineTypes = $state<WineType[]>([]);
+  /** Produit de la liste, avec ses lots du plus ancien au plus récent (triés au chargement). */
+  type ProductRow = Product & { lots: Lot[] };
+
+  let products = $state.raw<ProductRow[]>([]);
+  let producers = $state<Producer[]>([]);
+  let appellations = $state<Appellation[]>([]);
+  let productTypes = $state<ProductType[]>([]);
   let loading = $state(true);
   let error = $state("");
   let showModal = $state(false);
-  let editingWine = $state<Wine | null>(null);
+  let editingProduct = $state<Product | null>(null);
 
   // Pairings modal state
   let showPairingsModal = $state(false);
-  let selectedWine = $state<Wine | null>(null);
+  let selectedProduct = $state<Product | null>(null);
   let linkedPairings = $state<any[]>([]);
   let allPairings = $state<any[]>([]);
   let selectedPairingId = $state("");
   let pairingError = $state("");
 
   // Filter state
-  let filterWineryId = $state("");
-  let filterAppelationId = $state("");
+  let filterProducerId = $state("");
+  let filterAppellationId = $state("");
   let searchText = $state("");
 
   // Form fields
@@ -71,27 +75,27 @@
     kind: DEFAULT_KIND,
     name: "",
     description: "",
-    winery_id: "",
-    appelation_id: "",
-    wine_type_id: "",
+    producer_id: "",
+    appellation_id: "",
+    product_type_id: "",
   });
   /* Types et appellations du type de produit choisi (un vin n'a pas de fruité, une huile pas de robe). */
   let formKind = $derived(kindInfo(formData.kind));
-  let formTypes = $derived(wineTypes.filter((t) => kindOf(t) === formData.kind));
+  let formTypes = $derived(productTypes.filter((t) => kindOf(t) === formData.kind));
   let formAppellations = $derived(appellations.filter((a) => kindOf(a) === formData.kind));
 
   /** Changement de type de produit : son type et son appellation ne valent plus. */
   function setFormKind(kind: ProductKind) {
     formData.kind = kind;
-    formData.wine_type_id = "";
-    formData.appelation_id = "";
+    formData.product_type_id = "";
+    formData.appellation_id = "";
   }
 
   onMount(async () => {
-    void Promise.all([loadWineries(), loadAppellations(), loadWineTypes(), loadAllPairings()]);
-    /* Fin du chargement une fois le stock aussi arrivé : sinon les vins s'affichent en rupture. */
+    void Promise.all([loadProducers(), loadAppellations(), loadProductTypes(), loadAllPairings()]);
+    /* Fin du chargement une fois le stock aussi arrivé : sinon les produits s'affichent en rupture. */
     try {
-      await Promise.all([loadStock(), loadWines()]);
+      await Promise.all([loadStock(), loadProducts()]);
     } finally {
       loading = false;
     }
@@ -105,61 +109,61 @@
     if (data) allPairings = data;
   }
 
-  async function loadWines() {
+  async function loadProducts() {
     const { data, error: fetchError } = await supabase
-      .from("wine")
-      .select("*, winery (*), appelation ( *, label (*) ), wine_type (*), wine_vintage (*)")
+      .from("product")
+      .select("*, producer (*), appellation ( *, label (*) ), product_type (*), lots:lot (*)")
       .order("created_at", { ascending: false });
 
     if (fetchError) {
       error = fetchError.message;
     } else {
-      /* Millésimes triés une fois ici (du plus ancien au plus récent) plutôt qu'à chaque rendu. */
+      /* Lots triés une fois ici (du plus ancien au plus récent) plutôt qu'à chaque rendu. */
       for (const w of data || []) {
-        w.wine_vintage.sort(
+        w.lots.sort(
           (a, b) => (a.year ?? a.production_year ?? 0) - (b.year ?? b.production_year ?? 0) || byVolume(a, b),
         );
       }
-      wines = (data || []).sort(compareProductsByProducer);
+      products = (data || []).sort(compareProductsByProducer);
     }
   }
 
-  async function loadWineries() {
-    const { data } = await supabase.from("winery").select("*").order("name");
-    if (data) wineries = data;
+  async function loadProducers() {
+    const { data } = await supabase.from("producer").select("*").order("name");
+    if (data) producers = data;
   }
 
   async function loadAppellations() {
-    const { data } = await supabase.from("appelation").select("*, label (*)").order("name");
+    const { data } = await supabase.from("appellation").select("*, label (*)").order("name");
     if (data) appellations = data;
   }
 
-  async function loadWineTypes() {
-    wineTypes = await fetchWineTypes();
+  async function loadProductTypes() {
+    productTypes = await fetchProductTypes();
   }
 
   function openCreateModal() {
-    editingWine = null;
+    editingProduct = null;
     resetForm();
     showModal = true;
   }
 
-  function openEditModal(wine: Wine) {
-    editingWine = wine;
+  function openEditModal(product: Product) {
+    editingProduct = product;
     formData = {
-      kind: kindOf(wine),
-      name: wine.name || "",
-      description: wine.description || "",
-      winery_id: wine.winery_id || "",
-      appelation_id: wine.appelation_id || "",
-      wine_type_id: wine.wine_type_id || "",
+      kind: kindOf(product),
+      name: product.name || "",
+      description: product.description || "",
+      producer_id: product.producer_id || "",
+      appellation_id: product.appellation_id || "",
+      product_type_id: product.product_type_id || "",
     };
     showModal = true;
   }
 
   function closeModal() {
     showModal = false;
-    editingWine = null;
+    editingProduct = null;
     resetForm();
   }
 
@@ -168,31 +172,31 @@
       kind: tab,
       name: "",
       description: "",
-      winery_id: "",
-      appelation_id: "",
-      wine_type_id: "",
+      producer_id: "",
+      appellation_id: "",
+      product_type_id: "",
     };
   }
 
   async function handleSubmit() {
-    if (!formData.winery_id || !formData.wine_type_id) {
+    if (!formData.producer_id || !formData.product_type_id) {
       error = `Domaine et ${formKind.typeLabel.toLowerCase()} sont obligatoires`;
       return;
     }
 
-    const wineData: any = {
+    const productData: any = {
       kind: formData.kind,
       name: formData.name || null,
       description: formData.description || null,
-      winery_id: formData.winery_id,
-      wine_type_id: formData.wine_type_id,
+      producer_id: formData.producer_id,
+      product_type_id: formData.product_type_id,
       /* Vide : aucune appellation (null efface celle d'un produit modifié). */
-      appelation_id: formData.appelation_id || null,
+      appellation_id: formData.appellation_id || null,
     };
 
-    const { error: saveError } = editingWine
-      ? await supabase.from("wine").update(wineData).eq("id", editingWine.id)
-      : await supabase.from("wine").insert(wineData);
+    const { error: saveError } = editingProduct
+      ? await supabase.from("product").update(productData).eq("id", editingProduct.id)
+      : await supabase.from("product").insert(productData);
     if (saveError) {
       error = saveError.message;
       return;
@@ -201,13 +205,13 @@
     /* Montre le produit, même enregistré sous un autre type que l'onglet ouvert. */
     setTab(formData.kind);
     closeModal();
-    await loadWines();
+    await loadProducts();
   }
 
   /** Appelée après confirmation via le ConfirmDialog. */
-  async function deleteWine(id: string) {
+  async function deleteProduct(id: string) {
     const { error: deleteError } = await supabase
-      .from("wine")
+      .from("product")
       .delete()
       .eq("id", id);
 
@@ -216,28 +220,28 @@
       return;
     }
 
-    await loadWines();
+    await loadProducts();
   }
 
   // Pairings modal functions
-  async function openPairingsModal(wine: Wine) {
-    selectedWine = wine;
-    await loadWinePairings();
+  async function openPairingsModal(product: Product) {
+    selectedProduct = product;
+    await loadProductPairings();
     showPairingsModal = true;
   }
 
-  async function loadWinePairings() {
-    if (!selectedWine) return;
+  async function loadProductPairings() {
+    if (!selectedProduct) return;
 
     const { data } = await supabase
-      .from("wine_pairing")
+      .from("product_pairing")
       .select(
         `
         pairing_id,
         pairing (*)
       `
       )
-      .eq("wine_id", selectedWine.id);
+      .eq("product_id", selectedProduct.id);
 
     linkedPairings = data || [];
   }
@@ -245,19 +249,19 @@
   async function addPairing() {
     const pairingId = selectedPairingId;
     selectedPairingId = "";
-    if (!pairingId || !selectedWine || linkedPairingIds.has(pairingId)) return;
+    if (!pairingId || !selectedProduct || linkedPairingIds.has(pairingId)) return;
 
     /* Affiché tout de suite : l'option est grisée avant la fin de l'insertion, pas de doublon. */
     linkedPairings = [...linkedPairings, { pairing_id: pairingId, pairing: allPairings.find((p) => p.id === pairingId) }];
     pairingError = "";
 
-    const { error: insertError } = await supabase.from("wine_pairing").insert({
-      wine_id: selectedWine.id,
+    const { error: insertError } = await supabase.from("product_pairing").insert({
+      product_id: selectedProduct.id,
       pairing_id: pairingId,
     });
 
     if (insertError) pairingError = insertError.message;
-    await loadWinePairings();
+    await loadProductPairings();
   }
 
   /** Accord à retirer, en attente de confirmation. */
@@ -265,12 +269,12 @@
 
   /** Appelée après confirmation via le ConfirmDialog. */
   async function removePairing(pairingId: string) {
-    if (!selectedWine) return;
+    if (!selectedProduct) return;
 
     const { error: deleteError } = await supabase
-      .from("wine_pairing")
+      .from("product_pairing")
       .delete()
-      .eq("wine_id", selectedWine.id)
+      .eq("product_id", selectedProduct.id)
       .eq("pairing_id", pairingId);
 
     if (deleteError) {
@@ -279,20 +283,20 @@
     }
 
     pairingError = "";
-    await loadWinePairings();
+    await loadProductPairings();
   }
 
   function closePairingsModal() {
     showPairingsModal = false;
-    selectedWine = null;
+    selectedProduct = null;
     linkedPairings = [];
     selectedPairingId = "";
     pairingError = "";
   }
 
   function clearFilters() {
-    filterWineryId = "";
-    filterAppelationId = "";
+    filterProducerId = "";
+    filterAppellationId = "";
     searchText = "";
   }
 
@@ -315,54 +319,50 @@
   /** Un onglet par type de produit : vins et huiles ne se mélangent pas dans la liste. */
   let tab = $state<ProductKind>(kindFromUrl($page.url));
   let tabKind = $derived(kindInfo(tab));
-  let tabWines = $derived(wines.filter((w) => kindOf(w) === tab));
-  let tabItems = $derived(kindTabItems(wines, loading));
+  let tabProducts = $derived(products.filter((w) => kindOf(w) === tab));
+  let tabItems = $derived(kindTabItems(products, loading));
   let tabAppellations = $derived(appellations.filter((a) => kindOf(a) === tab));
-  /** Les filtres propres à un type (robe, appellation, domaine) ne valent pas pour l'autre. */
+  /** Les filtres propres à un type (robe, appellation, producteur) ne valent pas pour l'autre. */
   function setTab(kind: ProductKind) {
     if (kind === tab) return;
     tab = kind;
     robeFilter = "";
-    filterAppelationId = "";
-    filterWineryId = "";
+    filterAppellationId = "";
+    filterProducerId = "";
     replaceState(kindListHref($page.url.pathname, kind), {});
   }
 
-  /** Millésimes du plus ancien au plus récent (triés au chargement). */
-  function vintagesOf(wine: any): any[] {
-    return wine.wine_vintage || [];
-  }
-  /** Dernier millésime qu'on peut encore recommander au fournisseur. */
-  function latestVintage(wine: any): any | null {
-    const list = vintagesOf(wine).filter((v) => !isDiscontinued(v));
+  /** Dernier lot qu'on peut encore recommander au fournisseur. */
+  function latestLot(product: ProductRow): any | null {
+    const list = product.lots.filter((v) => !isDiscontinued(v));
     const last = list[list.length - 1];
     /* Plusieurs contenants pour la dernière année : le réassort se fait lot par lot (fiche du produit). */
     const sameYear = list.filter((v) => (v.year ?? v.production_year) === (last?.year ?? last?.production_year));
     return sameYear.length === 1 ? last : null;
   }
-  /** Tous les millésimes sont « plus jamais disponibles » : le vin est retiré. */
-  function isRetired(wine: any): boolean {
-    const list = vintagesOf(wine);
+  /** Tous les lots sont « plus jamais disponibles » : le produit est retiré. */
+  function isRetired(product: ProductRow): boolean {
+    const list = product.lots;
     return list.length > 0 && list.every(isDiscontinued);
   }
-  /** Badge de stock d'un vin (aucun si le stock est illisible, sauf pour un vin retiré). */
-  function stockBadge(wine: any, total: number, stockKnown: boolean): "gone" | "out" | "low" | null {
-    if (isRetired(wine)) return "gone";
+  /** Badge de stock d'un produit (aucun si le stock est illisible, sauf pour un produit retiré). */
+  function stockBadge(product: ProductRow, total: number, stockKnown: boolean): "gone" | "out" | "low" | null {
+    if (isRetired(product)) return "gone";
     if (!stockKnown) return null;
-    if (vintagesOf(wine).length && total <= 0) return "out";
+    if (product.lots.length && total <= 0) return "out";
     return total > 0 && total <= 3 ? "low" : null;
   }
-  function pricesOf(wine: any): number[] {
-    return vintagesOf(wine)
+  function pricesOf(product: ProductRow): number[] {
+    return product.lots
       .map((v) => (v.price != null ? Number(v.price) : null))
       .filter((p): p is number => p != null);
   }
-  function minPrice(wine: any): number | null {
-    const prices = pricesOf(wine);
+  function minPrice(product: ProductRow): number | null {
+    const prices = pricesOf(product);
     return prices.length ? Math.min(...prices) : null;
   }
-  function priceText(wine: any): string {
-    const prices = pricesOf(wine);
+  function priceText(product: ProductRow): string {
+    const prices = pricesOf(product);
     if (!prices.length) return "—";
     const min = Math.min(...prices);
     const max = Math.max(...prices);
@@ -376,21 +376,21 @@
   }
 
   let notice = $state("");
-  async function reorder(wine: any) {
-    const v = latestVintage(wine);
+  async function reorder(product: ProductRow) {
+    const v = latestLot(product);
     if (!v) return;
     try {
-      notice = (await promptReorder(vintageShortLabel({ ...v, wine }), v)) ?? notice;
+      notice = (await promptReorder(lotShortLabel({ ...v, product }), v)) ?? notice;
     } catch (e) {
       error = errorMessage(e);
     }
   }
 
-  async function setRetired(wine: any, retired: boolean) {
-    const ids = vintagesOf(wine).map((v) => v.id);
+  async function setRetired(product: ProductRow, retired: boolean) {
+    const ids = product.lots.map((v) => v.id);
     if (!ids.length) return;
     const { error: updateError } = await supabase
-      .from("wine_vintage")
+      .from("lot")
       .update({ discontinued_at: retired ? new Date().toISOString() : null })
       .in("id", ids);
     if (updateError) {
@@ -398,43 +398,43 @@
       return;
     }
     notice = retired
-      ? `« ${productTitle(wine)} » est marqué plus jamais disponible et n’apparaît plus sur le site.`
-      : `« ${productTitle(wine)} » est de nouveau au catalogue.`;
-    await loadWines();
+      ? `« ${productTitle(product)} » est marqué plus jamais disponible et n’apparaît plus sur le site.`
+      : `« ${productTitle(product)} » est de nouveau au catalogue.`;
+    await loadProducts();
   }
 
-  function rowItems(wine: any): MenuItem[] {
-    const kind = kindInfo(wine);
+  function rowItems(product: ProductRow): MenuItem[] {
+    const kind = kindInfo(product);
     const items: MenuItem[] = [
-      { label: "Ouvrir la fiche", icon: IconEye, href: `/manage/products/${wine.id}` },
-      { label: "Modifier", icon: IconPencil, onSelect: () => openEditModal(wine) },
-      { label: kind.addBatch, icon: IconPlus, href: `/manage/products/${wine.id}?nouveau=1` },
+      { label: "Ouvrir la fiche", icon: IconEye, href: `/manage/products/${product.id}` },
+      { label: "Modifier", icon: IconPencil, onSelect: () => openEditModal(product) },
+      { label: kind.addLot, icon: IconPlus, href: `/manage/products/${product.id}?nouveau=1` },
     ];
-    if (kind.pairingsLabel) items.push({ label: kind.pairingsLabel, icon: IconPlate, onSelect: () => openPairingsModal(wine) });
-    if (latestVintage(wine)) items.push({ label: "Commander (réassort)", icon: IconClipboard, onSelect: () => reorder(wine) });
-    if (isRetired(wine)) {
-      items.push({ label: "Remettre au catalogue", icon: IconArchiveRestore, onSelect: () => setRetired(wine, false) });
-    } else if (vintagesOf(wine).length) {
-      items.push({ label: "Plus jamais disponible", icon: IconArchive, onSelect: () => setRetired(wine, true) });
+    if (kind.pairingsLabel) items.push({ label: kind.pairingsLabel, icon: IconPlate, onSelect: () => openPairingsModal(product) });
+    if (latestLot(product)) items.push({ label: "Commander (réassort)", icon: IconClipboard, onSelect: () => reorder(product) });
+    if (isRetired(product)) {
+      items.push({ label: "Remettre au catalogue", icon: IconArchiveRestore, onSelect: () => setRetired(product, false) });
+    } else if (product.lots.length) {
+      items.push({ label: "Plus jamais disponible", icon: IconArchive, onSelect: () => setRetired(product, true) });
     }
-    items.push({ label: "Supprimer…", icon: IconTrash, danger: true, separator: true, onSelect: () => askDelete(wine) });
+    items.push({ label: "Supprimer…", icon: IconTrash, danger: true, separator: true, onSelect: () => askDelete(product) });
     return items;
   }
 
-  function openRow(wine: any, e: MouseEvent) {
+  function openRow(product: ProductRow, e: MouseEvent) {
     if ((e.target as HTMLElement).closest("button, a, input, select, [role=menu]")) return;
-    void goto(`/manage/products/${wine.id}`);
+    void goto(`/manage/products/${product.id}`);
   }
 
   let deleteTarget = $state<any>(null);
   let confirmOpen = $state(false);
-  function askDelete(wine: any) {
-    deleteTarget = wine;
+  function askDelete(product: ProductRow) {
+    deleteTarget = product;
     confirmOpen = true;
   }
   async function confirmDelete() {
     if (!deleteTarget) return;
-    await deleteWine(deleteTarget.id);
+    await deleteProduct(deleteTarget.id);
     confirmOpen = false;
   }
   let linkedPairingIds = $derived(new Set(linkedPairings.map((wp) => wp.pairing_id)));
@@ -447,62 +447,62 @@
       disabled: linked,
     };
   }));
-  // Filter wines based on selected filters
-  /* Recherche sans accents ni casse : domaine, nom, appellation ou son label. */
+  // Filter products based on selected filters
+  /* Recherche sans accents ni casse : producteur, nom, appellation ou son label. */
   let searchQuery = $derived(fold(searchText));
-  let filteredWines = $derived(tabWines.filter((wine) => {
-    // Filter by winery
-    if (filterWineryId && wine.winery_id !== filterWineryId) {
+  let filteredProducts = $derived(tabProducts.filter((product) => {
+    // Filter by producer
+    if (filterProducerId && product.producer_id !== filterProducerId) {
       return false;
     }
 
     // Filter by appellation
-    if (filterAppelationId && wine.appelation_id !== filterAppelationId) {
+    if (filterAppellationId && product.appellation_id !== filterAppellationId) {
       return false;
     }
 
     if (searchQuery) {
-      const fields = [wine.winery?.name, wine.name, wine.appelation?.name, wine.appelation?.label?.name];
+      const fields = [product.producer?.name, product.name, product.appellation?.name, product.appellation?.label?.name];
       if (!fields.some((f) => fold(f || "").includes(searchQuery))) return false;
     }
 
     return true;
   }));
-  /* Bouteilles en stock et badge par vin, recalculés quand les vins ou le stock arrivent. */
+  /* Bouteilles en stock et badge par produit, recalculés quand les produits ou le stock arrivent. */
   let stockById = $derived(new Map(
-    wines.map((w: any) => {
-      const total = vintagesOf(w).reduce((n, v) => n + Math.max(0, stock?.get(v.id) ?? 0), 0);
+    products.map((w) => {
+      const total = w.lots.reduce((n, v) => n + Math.max(0, stock?.get(v.id) ?? 0), 0);
       return [w.id, { total, badge: stockBadge(w, total, !!stock) }];
     }),
   ));
   /** Rang des types : robe du plus léger au plus corsé (blanc, rosé, rouge), puis ordre propre au produit (fruité d'une huile). */
-  let typeRank = $derived(robeRanks(wineTypes));
+  let typeRank = $derived(robeRanks(productTypes));
   /** Valeur triée d'un produit ; null (sans prix, stock illisible) en fin de liste. */
   let sortValues = $derived({
-    name: (wine: any) => productTitle(wine),
-    winery: (wine: any) => wine.winery?.name,
-    type: (wine: any) => typeRank.get(wine.wine_type_id),
-    stock: (wine: any) => (stock ? stockById.get(wine.id)?.total ?? 0 : null),
-    price: (wine: any) => minPrice(wine),
+    name: (product: ProductRow) => productTitle(product),
+    producer: (product: ProductRow) => product.producer?.name,
+    type: (product: ProductRow) => typeRank.get(product.product_type_id),
+    stock: (product: ProductRow) => (stock ? stockById.get(product.id)?.total ?? 0 : null),
+    price: (product: ProductRow) => minPrice(product),
   });
-  let sort = $state<SortState<keyof typeof sortValues>>({ key: "winery", dir: "asc" });
-  /* Vins retirés en fin de liste : visibles, mais hors du chemin. À égalité, l'ordre du chargement (domaine, puis nom). */
-  let shownWines = $derived.by(() => {
-    const list = sortedBy(filteredWines
-      .filter((w: any) => !robeFilter || wineRobe(w.wine_type).key === robeFilter)
-      .filter((w: any) => !inStockOnly || !stock || (stockById.get(w.id)?.total ?? 0) > 0), sort, sortValues);
-    return [...list.filter((w: any) => !isRetired(w)), ...list.filter(isRetired)];
+  let sort = $state<SortState<keyof typeof sortValues>>({ key: "producer", dir: "asc" });
+  /* Produits retirés en fin de liste : visibles, mais hors du chemin. À égalité, l'ordre du chargement (producteur, puis nom). */
+  let shownProducts = $derived.by(() => {
+    const list = sortedBy(filteredProducts
+      .filter((w) => !robeFilter || wineRobe(w.product_type).key === robeFilter)
+      .filter((w) => !inStockOnly || !stock || (stockById.get(w.id)?.total ?? 0) > 0), sort, sortValues);
+    return [...list.filter((w) => !isRetired(w)), ...list.filter(isRetired)];
   });
   /** « 19 vins (35 millésimes) · 120 bouteilles en stock », pour l'onglet ouvert. */
   let subtitle = $derived.by(() => {
-    const batches = tabWines.reduce((n, w: any) => n + (w.wine_vintage?.length ?? 0), 0);
-    const bottles = tabWines.reduce((n, w) => n + (stockById.get(w.id)?.total ?? 0), 0);
+    const lotCount = tabProducts.reduce((n, w: any) => n + w.lots.length, 0);
+    const bottles = tabProducts.reduce((n, w) => n + (stockById.get(w.id)?.total ?? 0), 0);
     return [
-      `${kindCount(tabKind, tabWines.length)} (${batches} ${(batches > 1 ? tabKind.batchPlural : tabKind.batch).toLowerCase()})`,
+      `${kindCount(tabKind, tabProducts.length)} (${lotCount} ${(lotCount > 1 ? tabKind.lotPlural : tabKind.lot).toLowerCase()})`,
       stock ? `${bottles} bouteille${bottles > 1 ? "s" : ""} en stock` : "stock indisponible",
     ].join(" · ");
   });
-  let filtersActive = $derived(!!(searchText || filterWineryId || filterAppelationId || robeFilter || inStockOnly));
+  let filtersActive = $derived(!!(searchText || filterProducerId || filterAppellationId || robeFilter || inStockOnly));
 </script>
 
 <svelte:head>
@@ -530,9 +530,9 @@
 
   {#if loading}
     <Spinner />
-  {:else if tabWines.length === 0}
+  {:else if tabProducts.length === 0}
     <div class="empty-card">
-      <EmptyState icon={KIND_ICONS[tab].product} title={tabKind.noProduct} text="Créez le produit, puis ses {tabKind.batchPlural.toLowerCase()} (un par contenant).">
+      <EmptyState icon={KIND_ICONS[tab].product} title={tabKind.noProduct} text="Créez le produit, puis ses {tabKind.lotPlural.toLowerCase()} (un par contenant).">
         <Button onclick={openCreateModal}><IconPlus size={16} strokeWidth={1.75} /> {tabKind.newLabel}</Button>
       </EmptyState>
     </div>
@@ -554,16 +554,16 @@
           {/each}
         </div>
       {/if}
-      <select class="ui-control filter-select" bind:value={filterWineryId} aria-label="Domaine">
+      <select class="ui-control filter-select" bind:value={filterProducerId} aria-label="Domaine">
         <option value="">Tous les domaines</option>
-        {#each wineries as winery}
-          <option value={winery.id}>{winery.name}</option>
+        {#each producers as producer}
+          <option value={producer.id}>{producer.name}</option>
         {/each}
       </select>
-      <select class="ui-control filter-select" bind:value={filterAppelationId} aria-label="Appellation">
+      <select class="ui-control filter-select" bind:value={filterAppellationId} aria-label="Appellation">
         <option value="">Toutes les appellations</option>
-        {#each tabAppellations as appelation}
-          <option value={appelation.id}>{appelation.name}{appelation.label?.name ? ` ${appelation.label.name}` : ""}</option>
+        {#each tabAppellations as appellation}
+          <option value={appellation.id}>{appellation.name}{appellation.label?.name ? ` ${appellation.label.name}` : ""}</option>
         {/each}
       </select>
       <label class="check">
@@ -575,7 +575,7 @@
       {/if}
     </div>
 
-    {#if shownWines.length === 0}
+    {#if shownProducts.length === 0}
       <div class="empty-card">
         <EmptyState icon={IconSearch} title="Aucun produit ne correspond" text="Modifiez la recherche ou les filtres." compact>
           <Button onclick={resetAll}>Réinitialiser les filtres</Button>
@@ -586,46 +586,46 @@
         <DataTable caption="Catalogue des produits">
           <thead>
             <tr>
-              <SortHeader column="name" label="Produit" also={{ column: "winery", label: "Domaine" }} bind:sort />
+              <SortHeader column="name" label="Produit" also={{ column: "producer", label: "Domaine" }} bind:sort />
               <SortHeader column="type" label={tabKind.typeLabel} bind:sort />
-              <th scope="col">{tabKind.batchPlural} · stock</th>
+              <th scope="col">{tabKind.lotPlural} · stock</th>
               <SortHeader column="stock" label="Stock" num bind:sort />
               <SortHeader column="price" label="Prix de vente" num firstDir="asc" bind:sort />
               <th scope="col" class="col-actions"><span class="sr-only">Actions</span></th>
             </tr>
           </thead>
           <tbody>
-            {#each shownWines as wine (wine.id)}
-              {@const { total, badge } = stockById.get(wine.id) ?? { total: 0, badge: null }}
-              {@const robe = wineRobe(wine.wine_type).key}
-              {@const retired = isRetired(wine)}
-              <tr class="is-clickable" class:retired onclick={(e) => openRow(wine, e)}>
+            {#each shownProducts as product (product.id)}
+              {@const { total, badge } = stockById.get(product.id) ?? { total: 0, badge: null }}
+              {@const robe = wineRobe(product.product_type).key}
+              {@const retired = isRetired(product)}
+              <tr class="is-clickable" class:retired onclick={(e) => openRow(product, e)}>
                 <td>
-                  <span class="wine-cell">
+                  <span class="product-cell">
                     <StyleDot {robe} />
-                    <span class="wine-name">
-                      <a class="row-link" href="/manage/products/{wine.id}">{productTitle(wine)}</a>
-                      <span class="t-caption">{wine.winery?.name ?? "—"}{wine.name && wine.appelation?.name ? ` · ${wine.appelation.name}` : ""}</span>
+                    <span class="product-name">
+                      <a class="row-link" href="/manage/products/{product.id}">{productTitle(product)}</a>
+                      <span class="t-caption">{product.producer?.name ?? "—"}{product.name && product.appellation?.name ? ` · ${product.appellation.name}` : ""}</span>
                     </span>
                   </span>
                 </td>
-                <td>{productTypeLabel(wine.wine_type)}</td>
+                <td>{productTypeLabel(product.product_type)}</td>
                 <td>
-                  <span class="vintages">
-                    {#each vintagesOf(wine) as v (v.id)}
+                  <span class="lots">
+                    {#each product.lots as v (v.id)}
                       {@const q = stock?.get(v.id) ?? 0}
-                      {@const lot = withVolume(String(v.year ?? v.production_year), v, kindOf(wine))}
+                      {@const lot = withVolume(String(v.year ?? v.production_year), v, kindOf(product))}
                       {#if isDiscontinued(v)}
-                        <span class="vintage-chip gone" title="Plus jamais disponible">{lot}</span>
+                        <span class="lot-chip gone" title="Plus jamais disponible">{lot}</span>
                       {:else if !stock}
-                        <span class="vintage-chip">{lot}</span>
+                        <span class="lot-chip">{lot}</span>
                       {:else}
-                        <span class="vintage-chip" class:out={q <= 0}>
+                        <span class="lot-chip" class:out={q <= 0}>
                           {lot} · {q <= 0 ? "rupture" : q}
                         </span>
                       {/if}
                     {:else}
-                      <span class="t-muted">{kindInfo(wine).noBatch}</span>
+                      <span class="t-muted">{kindInfo(product).noLot}</span>
                     {/each}
                   </span>
                 </td>
@@ -635,8 +635,8 @@
                     <strong>{stock ? `${total} bt.` : "—"}</strong>
                   </span>
                 </td>
-                <td class="num">{priceText(wine)}</td>
-                <td class="col-actions"><RowMenu items={rowItems(wine)} label="Actions pour {productTitle(wine)}" /></td>
+                <td class="num">{priceText(product)}</td>
+                <td class="col-actions"><RowMenu items={rowItems(product)} label="Actions pour {productTitle(product)}" /></td>
               </tr>
             {/each}
           </tbody>
@@ -645,20 +645,20 @@
       </div>
 
       <ul class="cards mobile-only">
-        {#each shownWines as wine (wine.id)}
-          {@const { total, badge } = stockById.get(wine.id) ?? { total: 0, badge: null }}
-          <li class="wine-card" class:retired={isRetired(wine)}>
-            <a class="wine-card-main" href="/manage/products/{wine.id}">
+        {#each shownProducts as product (product.id)}
+          {@const { total, badge } = stockById.get(product.id) ?? { total: 0, badge: null }}
+          <li class="product-card" class:retired={isRetired(product)}>
+            <a class="product-card-main" href="/manage/products/{product.id}">
               <span class="wc-top">
-                <span class="wine-cell"><StyleDot type={wine.wine_type} /><strong>{productTitle(wine)}</strong></span>
+                <span class="product-cell"><StyleDot type={product.product_type} /><strong>{productTitle(product)}</strong></span>
                 <strong>{stock ? `${total} bt.` : "—"}</strong>
               </span>
               <span class="wc-bottom">
-                <span class="t-muted">{wine.winery?.name ?? ""}</span>
+                <span class="t-muted">{product.producer?.name ?? ""}</span>
                 {#if badge}<StockBadge kind={badge} />{/if}
               </span>
             </a>
-            <RowMenu items={rowItems(wine)} label="Actions pour {productTitle(wine)}" />
+            <RowMenu items={rowItems(product)} label="Actions pour {productTitle(product)}" />
           </li>
         {/each}
       </ul>
@@ -670,7 +670,7 @@
   bind:open={confirmOpen}
   title="Supprimer {deleteTarget ? kindInfo(deleteTarget).thisLabel : 'ce produit'} ?"
   message={deleteTarget
-    ? `« ${productTitle(deleteTarget)} » (${deleteTarget.winery?.name ?? ""}) sera supprimé du catalogue, ainsi que ses ${deleteTarget.wine_vintage?.length ?? 0} ${kindInfo(deleteTarget).batchPlural.toLowerCase()} si la base l’autorise. Les ventes passées ne sont pas modifiées.`
+    ? `« ${productTitle(deleteTarget)} » (${deleteTarget.producer?.name ?? ""}) sera supprimé du catalogue, ainsi que ses ${deleteTarget.lots.length} ${kindInfo(deleteTarget).lotPlural.toLowerCase()} si la base l’autorise. Les ventes passées ne sont pas modifiées.`
     : ""}
   onconfirm={confirmDelete}
 />
@@ -685,66 +685,66 @@
   ondone={() => (pairingToRemove = null)}
 />
 
-<Modal open={showModal} title={editingWine ? formKind.editLabel : formKind.newLabel} onclose={closeModal}>
-  <form id="wine-form" class="wine-form" onsubmit={preventDefault(handleSubmit)}>
+<Modal open={showModal} title={editingProduct ? formKind.editLabel : formKind.newLabel} onclose={closeModal}>
+  <form id="product-form" class="product-form" onsubmit={preventDefault(handleSubmit)}>
     <!-- Choisi à la création seulement : la base refuse de changer le type d'un produit qui a des millésimes ou des lots. -->
-    <Field id="wine-kind" label="Type de produit" required help={editingWine ? "Ne change plus une fois le produit créé." : ""}>
+    <Field id="product-kind" label="Type de produit" required help={editingProduct ? "Ne change plus une fois le produit créé." : ""}>
       <select
-        id="wine-kind"
+        id="product-kind"
         class="ui-control"
         value={formData.kind}
         onchange={(e) => setFormKind(e.currentTarget.value as ProductKind)}
-        disabled={!!editingWine}
+        disabled={!!editingProduct}
       >
         {#each PRODUCT_KIND_OPTIONS as o (o.value)}
           <option value={o.value}>{o.label}</option>
         {/each}
       </select>
     </Field>
-    <Field id="wine-name" label="Nom" help="Laisser vide pour utiliser le nom de l’appellation.">
-      <input id="wine-name" class="ui-control" type="text" bind:value={formData.name} />
+    <Field id="product-name" label="Nom" help="Laisser vide pour utiliser le nom de l’appellation.">
+      <input id="product-name" class="ui-control" type="text" bind:value={formData.name} />
     </Field>
     <div class="ui-grid-2">
-      <Field id="wine-winery" label="Domaine" required>
-        <select id="wine-winery" class="ui-control" bind:value={formData.winery_id} required>
+      <Field id="product-producer" label="Domaine" required>
+        <select id="product-producer" class="ui-control" bind:value={formData.producer_id} required>
           <option value="">Sélectionner un domaine</option>
-          {#each wineries as winery}
-            <option value={winery.id}>{winery.name}</option>
+          {#each producers as producer}
+            <option value={producer.id}>{producer.name}</option>
           {/each}
         </select>
       </Field>
-      <Field id="wine-type" label={formKind.typeLabel} required>
-        <select id="wine-type" class="ui-control" bind:value={formData.wine_type_id} required>
+      <Field id="product-type" label={formKind.typeLabel} required>
+        <select id="product-type" class="ui-control" bind:value={formData.product_type_id} required>
           <option value="">Sélectionner…</option>
-          {#each formTypes as wineType}
-            <option value={wineType.id}>{productTypeLabel(wineType)}</option>
+          {#each formTypes as productType}
+            <option value={productType.id}>{productTypeLabel(productType)}</option>
           {/each}
         </select>
       </Field>
     </div>
-    <Field id="wine-appellation" label="Appellation" optional>
-      <select id="wine-appellation" class="ui-control" bind:value={formData.appelation_id}>
+    <Field id="product-appellation" label="Appellation" optional>
+      <select id="product-appellation" class="ui-control" bind:value={formData.appellation_id}>
         <option value="">Aucune</option>
-        {#each formAppellations as appelation}
-          <option value={appelation.id}>{appelation.name}{appelation.label?.name ? ` ${appelation.label.name}` : ""}</option>
+        {#each formAppellations as appellation}
+          <option value={appellation.id}>{appellation.name}{appellation.label?.name ? ` ${appellation.label.name}` : ""}</option>
         {/each}
       </select>
     </Field>
-    <Field id="wine-description" label="Description" optional>
-      <textarea id="wine-description" class="ui-control" rows="3" bind:value={formData.description}></textarea>
+    <Field id="product-description" label="Description" optional>
+      <textarea id="product-description" class="ui-control" rows="3" bind:value={formData.description}></textarea>
     </Field>
   </form>
   {#snippet footer()}
       <Button variant="ghost" onclick={closeModal}>Annuler</Button>
-      <Button variant="primary" onclick={handleSubmit}>{editingWine ? "Enregistrer" : "Créer"}</Button>
+      <Button variant="primary" onclick={handleSubmit}>{editingProduct ? "Enregistrer" : "Créer"}</Button>
   {/snippet}
 </Modal>
 
-<Modal open={showPairingsModal} title={kindInfo(selectedWine).pairingsLabel ?? ""} maxWidth={520} onclose={closePairingsModal}>
-  {#if selectedWine}<p class="t-muted pairing-intro">{productTitle(selectedWine)} · {selectedWine.winery?.name ?? ""}</p>{/if}
+<Modal open={showPairingsModal} title={kindInfo(selectedProduct).pairingsLabel ?? ""} maxWidth={520} onclose={closePairingsModal}>
+  {#if selectedProduct}<p class="t-muted pairing-intro">{productTitle(selectedProduct)} · {selectedProduct.producer?.name ?? ""}</p>{/if}
   {#if pairingError}<div class="error-message" role="alert">{pairingError}</div>{/if}
   {#if linkedPairings.length === 0}
-    <EmptyState icon={IconPlate} title="Aucun accord pour {kindInfo(selectedWine).thisLabel}" compact />
+    <EmptyState icon={IconPlate} title="Aucun accord pour {kindInfo(selectedProduct).thisLabel}" compact />
   {:else}
     <ul class="pairings">
       {#each linkedPairings as wp}
@@ -830,25 +830,25 @@
     border-radius: var(--r-md);
   }
 
-  .wine-cell {
+  .product-cell {
     display: flex;
     align-items: center;
     gap: 10px;
   }
 
-  .wine-name {
+  .product-name {
     display: flex;
     flex-direction: column;
     line-height: 18px;
   }
 
-  .vintages {
+  .lots {
     display: flex;
     flex-wrap: wrap;
     gap: 6px;
   }
 
-  .vintage-chip {
+  .lot-chip {
     padding: 2px 8px;
     border-radius: var(--r-sm);
     background: var(--table-head);
@@ -857,23 +857,23 @@
     white-space: nowrap;
   }
 
-  .vintage-chip.out {
+  .lot-chip.out {
     background: var(--st-cancelled-bg);
     border-color: var(--danger-border);
     color: var(--danger);
   }
 
-  /* Millésime retiré : barré, en pointillés. */
-  .vintage-chip.gone {
+  /* Lot retiré : barré, en pointillés. */
+  .lot-chip.gone {
     background: transparent;
     border-style: dashed;
     color: var(--ink-2);
     text-decoration: line-through;
   }
 
-  /* Vin retiré : présent mais en retrait. */
+  /* Produit retiré : présent mais en retrait. */
   tr.retired > td:not(.col-actions),
-  .wine-card.retired .wine-card-main {
+  .product-card.retired .product-card-main {
     opacity: 0.55;
   }
 
@@ -899,7 +899,7 @@
     gap: 8px;
   }
 
-  .wine-card {
+  .product-card {
     display: flex;
     align-items: center;
     gap: 4px;
@@ -909,7 +909,7 @@
     border-radius: var(--r-md);
   }
 
-  .wine-card-main {
+  .product-card-main {
     flex: 1;
     min-width: 0;
     display: flex;
@@ -928,7 +928,7 @@
     gap: 8px;
   }
 
-  .wine-form {
+  .product-form {
     display: flex;
     flex-direction: column;
     gap: 16px;

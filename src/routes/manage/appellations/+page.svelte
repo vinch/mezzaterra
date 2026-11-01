@@ -23,7 +23,7 @@
 
 <RefCrudPage
   title="Appellations"
-  table="appelation"
+  table="appellation"
   select="*, region ( *, country (*) ), label (*)"
   newLabel="Nouvelle appellation"
   editLabel="Modifier l’appellation"

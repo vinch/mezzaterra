@@ -240,7 +240,7 @@
         </IconButton>
       </header>
       <main class="main-content">
-        <!-- Une page par chemin : sans ce key, aller d'un client, d'un millésime ou d'une
+        <!-- Une page par chemin : sans ce key, aller d'un client, d'un lot ou d'une
              dégustation à un autre (⌘K) réutilisait la page, encore liée au précédent. -->
         {#key $page.url.pathname}
           {@render children?.()}

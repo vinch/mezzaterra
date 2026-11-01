@@ -1,25 +1,25 @@
 <script lang="ts">
   import OrganicLogo from "./OrganicLogo.svelte";
   import ProductBottle from "./ProductBottle.svelte";
-  import { formatsText, grapesText, styleLabel, productStyle, productSubtitle, productTitle } from "$lib/wine";
+  import { formatsText, varietiesText, styleLabel, productStyle, productSubtitle, productTitle } from "$lib/products";
   import { formatEUR } from "$lib/format";
   import { kindInfo } from "$lib/productKinds";
   import type { Availability } from "$lib/publicData";
 
   interface Props {
-    onopen?: (vintage: any) => void;
-    vintage: any;
+    onopen?: (lot: any) => void;
+    lot: any;
     /** Numéro de passage (1-based) dans une dégustation. */
     position?: number | null;
     /** Lien vers la fiche ; sinon la carte émet `open`. */
     href?: string | null;
     availability?: Availability | null;
-    /** Contenants présentés sur cette carte (dont `vintage`, le plus petit) : « 50 cl · 1 L · 5 L », prix « dès ». */
+    /** Contenants présentés sur cette carte (dont `lot`, le plus petit) : « 50 cl · 1 L · 5 L », prix « dès ». */
     formats?: any[] | null;
   }
 
   let {
-    vintage,
+    lot,
     position = null,
     href = null,
     availability = null,
@@ -27,14 +27,14 @@
     onopen
   }: Props = $props();
 
-  let wine = $derived(vintage?.wine);
-  let style = $derived(productStyle(wine?.wine_type));
-  let title = $derived(productTitle(wine));
-  let subtitle = $derived(productSubtitle(wine));
-  let grapes = $derived(grapesText(vintage?.wine_vintage_grape));
+  let product = $derived(lot?.product);
+  let style = $derived(productStyle(product?.product_type));
+  let title = $derived(productTitle(product));
+  let subtitle = $derived(productSubtitle(product));
+  let varieties = $derived(varietiesText(lot?.lot_variety));
   let soldOut = $derived(!!availability && !availability.in_stock);
   let lowStock = $derived(!soldOut && !!availability?.low_stock);
-  let lots = $derived(formats?.length ? formats : [vintage]);
+  let lots = $derived(formats?.length ? formats : [lot]);
   /* Contenants affichés dès qu'il y en a plusieurs, ou qu'il ne s'agit pas de la bouteille standard. */
   let volumes = $derived(formatsText(lots));
   /* Un prix à 0 (bouteille réservée aux dégustations…) n'est pas affiché, comme avant. */
@@ -48,23 +48,23 @@
   this={href ? "a" : "button"}
   {href}
   type={href ? undefined : "button"}
-  class="wine-card"
+  class="product-card"
   class:sold-out={soldOut}
   style="--robe: {style.color}; --robe-light: {style.light};"
-  onclick={() => !href && onopen?.(vintage)}
+  onclick={() => !href && onopen?.(lot)}
   role={href ? undefined : "button"}
 >
   <div class="visual">
     {#if position != null}
-      <span class="position" aria-label="{kindInfo(wine).label} numéro {position}">{position}</span>
+      <span class="position" aria-label="{kindInfo(product).label} numéro {position}">{position}</span>
     {/if}
-    <ProductBottle src={vintage?.image_url} alt={title} {style} height="10.5rem" />
+    <ProductBottle src={lot?.image_url} alt={title} {style} height="10.5rem" />
   </div>
 
   <div class="body">
     <div class="meta-top">
-      <span class="style"><span class="mz-dot" style="background: {style.color}"></span>{styleLabel(wine?.wine_type)}</span>
-      {#if vintage?.organic}
+      <span class="style"><span class="mz-dot" style="background: {style.color}"></span>{styleLabel(product?.product_type)}</span>
+      {#if lot?.organic}
         <span class="organic"><OrganicLogo /></span>
       {/if}
     </div>
@@ -73,11 +73,11 @@
     {#if subtitle}
       <p class="subtitle">{subtitle}</p>
     {/if}
-    {#if wine?.winery?.name}
-      <p class="winery">{wine.winery.name}</p>
+    {#if product?.producer?.name}
+      <p class="producer">{product.producer.name}</p>
     {/if}
-    {#if grapes}
-      <p class="grapes">{grapes}</p>
+    {#if varieties}
+      <p class="varieties">{varieties}</p>
     {/if}
     {#if volumes}
       <p class="volumes">{volumes}</p>
@@ -90,8 +90,8 @@
         <span class="stock low">Dernières bouteilles</span>
       {/if}
       <div class="meta-bottom">
-        {#if vintage?.year}
-          <span class="year">{vintage.year}</span>
+        {#if lot?.year}
+          <span class="year">{lot.year}</span>
         {/if}
         {#if priceText}
           <span class="price">{priceText}</span>
@@ -102,7 +102,7 @@
 </svelte:element>
 
 <style>
-  .wine-card {
+  .product-card {
     position: relative;
     display: grid;
     grid-template-columns: 6.5rem 1fr;
@@ -126,7 +126,7 @@
   }
 
   /* Liseré couleur de robe. */
-  .wine-card::before {
+  .product-card::before {
     content: "";
     position: absolute;
     inset: 0 auto 0 0;
@@ -134,21 +134,21 @@
     background: linear-gradient(180deg, var(--robe-light), var(--robe));
   }
 
-  .wine-card:hover,
-  .wine-card:focus-visible {
+  .product-card:hover,
+  .product-card:focus-visible {
     transform: translateY(-3px);
     box-shadow: var(--mz-shadow);
     border-color: var(--mz-line);
     outline: none;
   }
 
-  .wine-card:hover :global(.bottle img),
-  .wine-card:hover :global(.bottle svg) {
+  .product-card:hover :global(.bottle img),
+  .product-card:hover :global(.bottle svg) {
     transform: rotate(-3deg) translateY(-2px);
   }
 
-  .wine-card :global(.bottle img),
-  .wine-card :global(.bottle svg) {
+  .product-card :global(.bottle img),
+  .product-card :global(.bottle svg) {
     transition: transform 0.35s var(--mz-ease);
   }
 
@@ -217,18 +217,18 @@
   }
 
   .subtitle,
-  .winery,
-  .grapes {
+  .producer,
+  .varieties {
     margin: 0;
     font-size: 0.9rem;
     color: var(--mz-ink-soft);
   }
 
-  .winery {
+  .producer {
     font-weight: 600;
   }
 
-  .grapes {
+  .varieties {
     color: var(--mz-muted);
     font-style: italic;
   }

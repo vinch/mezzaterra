@@ -1,24 +1,24 @@
 <script lang="ts">
   import { kindInfo } from "$lib/productKinds";
-  import { vintageNotes, productPairings } from "$lib/wine";
+  import { lotNotes, productPairings } from "$lib/products";
 
   /**
-   * « Le vin / L'huile », notes de dégustation et accords d'un lot chargé avec `VINTAGE_PUBLIC_SELECT` :
+   * « Le vin / L'huile », notes de dégustation et accords d'un lot chargé avec `LOT_PUBLIC_SELECT` :
    * fiche publique et fiche rapide (`ProductModal`, `compact` : notes sur fond). Rien s'il n'y a rien à dire.
    * La couleur du liseré des notes vient de `--robe`, posée par le parent.
    */
   interface Props {
-    vintage: any;
+    lot: any;
     compact?: boolean;
     class?: string;
   }
 
-  let { vintage, compact = false, class: className = "" }: Props = $props();
+  let { lot, compact = false, class: className = "" }: Props = $props();
 
-  let kind = $derived(kindInfo(vintage?.wine));
-  let description = $derived((vintage?.wine?.description as string | null | undefined) || "");
-  let notes = $derived(vintageNotes(vintage?.note, kind.key));
-  let pairings = $derived(productPairings(vintage?.wine));
+  let kind = $derived(kindInfo(lot?.product));
+  let description = $derived((lot?.product?.description as string | null | undefined) || "");
+  let notes = $derived(lotNotes(lot?.note, kind.key));
+  let pairings = $derived(productPairings(lot?.product));
   let heading = $derived(compact ? "h3" : "h2");
 </script>
 

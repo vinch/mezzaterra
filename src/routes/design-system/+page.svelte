@@ -57,7 +57,7 @@
     type SaleStatus,
     type StatusKind,
   } from "$lib/status";
-  import { allProductStyles } from "$lib/wine";
+  import { allProductStyles } from "$lib/productStyles";
   import { formatEUR } from "$lib/format";
   import { DEFAULT_KIND, PRODUCT_KIND_LIST, type ProductKind } from "$lib/productKinds";
 
@@ -178,18 +178,18 @@
   ];
 
   const rows = [
-    { id: "a", wine: "Montepulciano d’Abruzzo", robe: "red", winery: "Filomusi Guelfi", stock: 0, price: 14.5 },
-    { id: "b", wine: "Trebbiano d’Abruzzo", robe: "white", winery: "Tiberio", stock: 4, price: 18 },
-    { id: "c", wine: "Cerasuolo", robe: "rose", winery: "Praesidium", stock: 36, price: 16.9 },
+    { id: "a", product: "Montepulciano d’Abruzzo", robe: "red", producer: "Filomusi Guelfi", stock: 0, price: 14.5 },
+    { id: "b", product: "Trebbiano d’Abruzzo", robe: "white", producer: "Tiberio", stock: 4, price: 18 },
+    { id: "c", product: "Cerasuolo", robe: "rose", producer: "Praesidium", stock: 36, price: 16.9 },
   ] as const;
   type Row = (typeof rows)[number];
   const ROW_SORT = {
-    wine: (r: Row) => r.wine,
-    winery: (r: Row) => r.winery,
+    product: (r: Row) => r.product,
+    producer: (r: Row) => r.producer,
     stock: (r: Row) => r.stock,
     price: (r: Row) => r.price,
   };
-  let rowSort = $state<SortState<keyof typeof ROW_SORT>>({ key: "wine", dir: "asc" });
+  let rowSort = $state<SortState<keyof typeof ROW_SORT>>({ key: "product", dir: "asc" });
   let sortedRows = $derived(sortedBy(rows, rowSort, ROW_SORT));
 
   const sidebarSections: NavSection[] = [
@@ -240,7 +240,7 @@
             <li><strong>Chiffres</strong> alignés à droite (<code>.num</code>, y compris l’en-tête de colonne), montants avec <code>formatEUR</code>, dates avec <code>formatDate</code>.</li>
             <li><strong>Accessibilité</strong> : chaque champ a un libellé (<code>Field</code>), chaque bouton icône un <code>label</code>, cibles de 44 px sur mobile (déjà géré par les composants).</li>
             <li><strong>Textes en français</strong>, phrases courtes, guillemets « » et apostrophe typographique ’.</li>
-            <li><strong>Vocabulaire produit</strong> : un écran qui montre des vins peut montrer des huiles. Millésime ou lot, cépages ou variétés, « ce vin » ou « cette huile » viennent de <code>kindInfo()</code> (<code>src/lib/productKinds.ts</code>), pas de « vin » en dur. Idem pour les icônes : <code>KIND_ICONS</code> (<code>src/lib/ui/kindIcons.ts</code>) donne celle du produit (verre ou goutte) et de sa composition (grappe ou feuille) ; un état vide qui mêle les types prend une icône neutre (<code>IconReceipt</code>, <code>IconBox</code>…) ; la navigation et le tableau de bord, communs à tous les types, prennent aussi des icônes neutres : <code>IconProduct</code> (amphore) pour les produits, <code>IconVariety</code> (pousse) pour les cépages et variétés.</li>
+            <li><strong>Vocabulaire produit</strong> : un écran qui montre des vins peut montrer des huiles. Millésime ou lot, cépages ou variétés, « ce vin » ou « cette huile » viennent de <code>kindInfo()</code> (<code>src/lib/productKinds.ts</code>), pas de « vin » en dur. Idem pour les icônes : <code>KIND_ICONS</code> (<code>src/lib/ui/kindIcons.ts</code>) donne celle du produit (verre ou goutte) et de sa composition (grappe ou feuille) ; un état vide qui mêle les types prend une icône neutre (<code>IconReceipt</code>, <code>IconBox</code>…) ; la navigation et le tableau de bord, communs à tous les types, prennent aussi des icônes neutres : <code>IconProduct</code> (amphore) pour les produits, <code>IconVariety</code> (pousse) pour les cépages et variétés. Dans le code, les noms sont neutres comme les tables : <code>product</code>, <code>lot</code>, <code>variety</code>, <code>producer</code>, et les libellés <code>lotLabel()</code>, <code>lotVolume()</code>… de <code>src/lib/products.ts</code> ; « wine » ne reste que pour la valeur <code>'wine'</code> de <code>kind</code> et la robe (<code>wineRobe()</code>).</li>
           </ul>
         </section>
 
@@ -275,7 +275,7 @@
           </div>
 
           <h3 class="ds-h3">Robes et produits</h3>
-          <p class="t-muted">Dans <code>STYLES</code> (<code>src/lib/wine.ts</code>) : passer par <code>StyleDot</code>, <code>wineRobe()</code> ou <code>swatchStyle()</code>. Une huile d’olive prend le vert olive, d’après le <code>kind</code> de son type.</p>
+          <p class="t-muted">Dans <code>STYLES</code> (<code>src/lib/productStyles.ts</code>) : passer par <code>StyleDot</code>, <code>wineRobe()</code> ou <code>swatchStyle()</code>. Une huile d’olive prend le vert olive, d’après le <code>kind</code> de son type.</p>
           <div class="row">
             {#each PRODUCT_STYLES as s}
               <span class="inline"><StyleDot robe={s.key} size={14} />{s.label}</span>
@@ -345,8 +345,8 @@
           <h3 class="ds-h3"><code>MoveButtons</code> · ordre d’une liste</h3>
           <p class="t-muted">« Monter » / « Descendre » d’un élément (ordre de passage d’une dégustation, feuille de notes) : <code>bind:list</code>, <code>index</code>, <code>label</code> (nom de l’élément, lu par les lecteurs d’écran).</p>
           <ol class="move-demo">
-            {#each demoOrder as wine, i (wine)}
-              <li><span>{i + 1}. {wine}</span><MoveButtons bind:list={demoOrder} index={i} label={wine} /></li>
+            {#each demoOrder as product, i (product)}
+              <li><span>{i + 1}. {product}</span><MoveButtons bind:list={demoOrder} index={i} label={product} /></li>
             {/each}
           </ol>
         </section>
@@ -494,7 +494,7 @@
           <DataTable caption="Exemple de tableau">
             <thead>
               <tr>
-                <SortHeader column="wine" label="Vin" also={{ column: "winery", label: "Domaine" }} bind:sort={rowSort} />
+                <SortHeader column="product" label="Vin" also={{ column: "producer", label: "Domaine" }} bind:sort={rowSort} />
                 <SortHeader column="stock" label="Stock" num bind:sort={rowSort} />
                 <SortHeader column="price" label="Prix" num firstDir="asc" bind:sort={rowSort} />
                 <th scope="col" class="col-actions"><span class="sr-only">Actions</span></th>
@@ -503,7 +503,7 @@
             <tbody>
               {#each sortedRows as row (row.id)}
                 <tr>
-                  <td><span class="inline"><StyleDot robe={row.robe} /><span class="ds-stack"><a class="row-link" href="#tableaux">{row.wine}</a><span class="t-caption">{row.winery}</span></span></span></td>
+                  <td><span class="inline"><StyleDot robe={row.robe} /><span class="ds-stack"><a class="row-link" href="#tableaux">{row.product}</a><span class="t-caption">{row.producer}</span></span></span></td>
                   <td class="num">
                     <span class="inline">
                       {#if row.stock === 0}<StockBadge kind="out" />{:else if row.stock < 6}<StockBadge kind="low" />{/if}
@@ -513,8 +513,8 @@
                   <td class="num">{formatEUR(row.price)}</td>
                   <td class="col-actions">
                     <div class="ui-row-actions">
-                      <IconButton label="Télécharger la fiche de {row.wine}"><IconDownload size={18} strokeWidth={1.75} /></IconButton>
-                      <RowMenu items={rowItems} label="Actions pour {row.wine}" />
+                      <IconButton label="Télécharger la fiche de {row.product}"><IconDownload size={18} strokeWidth={1.75} /></IconButton>
+                      <RowMenu items={rowItems} label="Actions pour {row.product}" />
                     </div>
                   </td>
                 </tr>
@@ -554,10 +554,10 @@
             <RowMenu items={rowItems} label="Menu de démonstration" />
           </div>
           <pre class="code"><code>{`<Modal open={showModal} title="Nouveau vin" onclose={close}>
-  <form id="wine-form" onsubmit={preventDefault(save)}>…</form>
+  <form id="product-form" onsubmit={preventDefault(save)}>…</form>
   {#snippet footer()}
     <Button variant="ghost" onclick={close}>Annuler</Button>
-    <Button type="submit" form="wine-form" variant="primary">Créer le vin</Button>
+    <Button type="submit" form="product-form" variant="primary">Créer le vin</Button>
   {/snippet}
 </Modal>
 
@@ -609,7 +609,7 @@
         <!-- ——— Site public ——— -->
         <section id="site" class="ds-section">
           <h2 class="t-card-title">Site public</h2>
-          <p class="t-muted">Le site public a ses primitives préfixées <code>mz-</code> dans <code>src/lib/styles/site.css</code> (<code>.mz-container</code>, <code>.mz-display</code>, <code>.mz-btn</code> (<code>--ghost</code>, <code>--sm</code>, <code>--icon</code> : bouton rond réduit à une icône, toujours avec un <code>aria-label</code>), <code>.mz-field</code>, <code>.mz-card</code>, <code>.mz-eyebrow</code> (<code>--heading</code> en titre de rubrique), <code>.mz-back</code> (lien de retour en tête de fiche), <code>.mz-facts</code> (fiche technique en <code>dl</code>, avec <code>--ruled</code> et <code>.mz-facts-text</code> pour une valeur textuelle), <code>.mz-product-grid</code>…) et les tokens <code>--mz-*</code> de <code>tokens.css</code> (rayons <code>--mz-radius-sm</code>, <code>--mz-radius</code>, <code>-lg</code>, <code>-pill</code> pour les formes en gélule ; un rond reste à 50 % ; <code>--mz-on-brand</code> (avec <code>-success</code> / <code>-danger</code>) pour le texte sur un aplat teal ou rouge, <code>--mz-white</code> pour le fond des champs, <code>--mz-wine-red-deep</code> au survol du rouge, <code>--mz-shadow-lg</code> et <code>--mz-backdrop</code> pour les modales et les feuilles du mode live, <code>--mz-map-sea</code> et <code>--mz-map-label</code> pour la carte des Abruzzes (le reste reprend les surfaces) ; une transparence s’écrit <code>color-mix(in srgb, var(--mz-…) 35%, transparent)</code>). Ne pas mélanger : les composants de <code>src/lib/ui/</code> sont pour la gestion, les <code>mz-</code> pour le site. Le mode live utilise les tokens <code>--mz-cave-*</code> (thème sombre, avec <code>--mz-cave-success</code>, <code>-warning</code>, <code>-danger</code>, <code>-faint</code>, <code>-sunk</code>), <code>--mz-live</code> pour la pastille « en direct » (animation <code>mz-pulse</code>, couleur dans <code>--mz-pulse</code>), <code>--mz-gold</code> pour les étoiles, et ses composants de <code>src/lib/components/site/</code> (<code>CaveSheet</code>, <code>QtyStepper</code>, <code>StarRating</code>). Les cartes « domaine → » passent par <code>WineryLinkCard</code>.</p>
+          <p class="t-muted">Le site public a ses primitives préfixées <code>mz-</code> dans <code>src/lib/styles/site.css</code> (<code>.mz-container</code>, <code>.mz-display</code>, <code>.mz-btn</code> (<code>--ghost</code>, <code>--sm</code>, <code>--icon</code> : bouton rond réduit à une icône, toujours avec un <code>aria-label</code>), <code>.mz-field</code>, <code>.mz-card</code>, <code>.mz-eyebrow</code> (<code>--heading</code> en titre de rubrique), <code>.mz-back</code> (lien de retour en tête de fiche), <code>.mz-facts</code> (fiche technique en <code>dl</code>, avec <code>--ruled</code> et <code>.mz-facts-text</code> pour une valeur textuelle), <code>.mz-product-grid</code>…) et les tokens <code>--mz-*</code> de <code>tokens.css</code> (rayons <code>--mz-radius-sm</code>, <code>--mz-radius</code>, <code>-lg</code>, <code>-pill</code> pour les formes en gélule ; un rond reste à 50 % ; <code>--mz-on-brand</code> (avec <code>-success</code> / <code>-danger</code>) pour le texte sur un aplat teal ou rouge, <code>--mz-white</code> pour le fond des champs, <code>--mz-wine-red-deep</code> au survol du rouge, <code>--mz-shadow-lg</code> et <code>--mz-backdrop</code> pour les modales et les feuilles du mode live, <code>--mz-map-sea</code> et <code>--mz-map-label</code> pour la carte des Abruzzes (le reste reprend les surfaces) ; une transparence s’écrit <code>color-mix(in srgb, var(--mz-…) 35%, transparent)</code>). Ne pas mélanger : les composants de <code>src/lib/ui/</code> sont pour la gestion, les <code>mz-</code> pour le site. Le mode live utilise les tokens <code>--mz-cave-*</code> (thème sombre, avec <code>--mz-cave-success</code>, <code>-warning</code>, <code>-danger</code>, <code>-faint</code>, <code>-sunk</code>), <code>--mz-live</code> pour la pastille « en direct » (animation <code>mz-pulse</code>, couleur dans <code>--mz-pulse</code>), <code>--mz-gold</code> pour les étoiles, et ses composants de <code>src/lib/components/site/</code> (<code>CaveSheet</code>, <code>QtyStepper</code>, <code>StarRating</code>). Les cartes « domaine → » passent par <code>ProducerLinkCard</code>.</p>
         </section>
       </div>
     </div>
@@ -704,7 +704,7 @@
     max-width: 52rem;
   }
 
-  /* Cellule à deux lignes (nom, puis domaine), comme le catalogue des produits. */
+  /* Cellule à deux lignes (nom, puis producteur), comme le catalogue des produits. */
   .ds-stack {
     display: flex;
     flex-direction: column;

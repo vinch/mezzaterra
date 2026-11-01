@@ -2,26 +2,25 @@ import { supabase } from "./supabase";
 import { LINE_ITEMS_SELECT } from "./manageData";
 import { lineTotal } from "./analytics";
 import { formatEUR, formatPercent, toNumber } from "./format";
+import { lotProductLabel } from "./products";
 import { statusRank } from "./status";
-import { vintageProductLabel } from "./wine";
 
 /** Règles des ventes partagées par la page Ventes et la facture PDF. */
 
-type QuantityLine = { wine_vintage_id: string | null; quantity: number | null };
+type QuantityLine = { lot_id: string | null; quantity: number | null };
 
-/** Bouteilles par millésime (lignes de vente ou de demande ; une ligne sans millésime est ignorée). */
-export function quantitiesByVintage(items: QuantityLine[]): Map<string, number> {
+/** Bouteilles par lot (lignes de vente ou de demande ; une ligne sans lot est ignorée). */
+export function quantitiesByLot(items: QuantityLine[]): Map<string, number> {
   const m = new Map<string, number>();
-  for (const i of items) if (i.wine_vintage_id) m.set(i.wine_vintage_id, (m.get(i.wine_vintage_id) ?? 0) + (i.quantity || 0));
+  for (const i of items) if (i.lot_id) m.set(i.lot_id, (m.get(i.lot_id) ?? 0) + (i.quantity || 0));
   return m;
 }
 
-/** Total des bouteilles (lignes sans millésime ignorées, comme dans quantitiesByVintage). */
+/** Total des bouteilles (lignes sans lot ignorées, comme dans quantitiesByLot). */
 export function totalQuantity(items: QuantityLine[]): number {
-  return items.reduce((n, i) => n + (i.wine_vintage_id ? i.quantity || 0 : 0), 0);
+  return items.reduce((n, i) => n + (i.lot_id ? i.quantity || 0 : 0), 0);
 }
 
-/** Libellé par défaut d'une ligne « Dégustation » (sans millésime). */
 /** Colonnes triables communes aux listes de ventes (page Ventes, historique d'un client). */
 export const SALE_SORT_VALUES = {
   date: (s: any) => s.date,
@@ -29,6 +28,7 @@ export const SALE_SORT_VALUES = {
   total: (s: any) => toNumber(s.total_price),
 };
 
+/** Libellé par défaut d'une ligne « Dégustation » (sans lot). */
 export const TASTING_LINE_NOTE = "Dégustation";
 
 export const PAYMENT_METHOD_OPTIONS: { value: string; label: string }[] = [
@@ -44,10 +44,10 @@ export function paymentMethodLabel(value: string | null | undefined): string {
   return o ? o.label : String(value);
 }
 
-/** Libellé d'une ligne de vente : le millésime, sinon la note (ligne dégustation). */
+/** Libellé d'une ligne de vente : le lot, sinon la note (ligne dégustation). */
 export function saleItemDescription(item: any): string {
-  if (item.wine_vintage_id && item.wine_vintage) {
-    return vintageProductLabel(item.wine_vintage);
+  if (item.lot_id && item.lot) {
+    return lotProductLabel(item.lot);
   }
   const n = item.note != null ? String(item.note).trim() : "";
   return n || TASTING_LINE_NOTE;

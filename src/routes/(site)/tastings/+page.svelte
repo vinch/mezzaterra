@@ -3,6 +3,7 @@
   import { tastingTitle } from "$lib/publicData";
   import { formatEUR } from "$lib/format";
   import { contactHref } from "$lib/contact";
+  import { productsCount } from "$lib/productKinds";
 
   let { data } = $props();
 
@@ -13,8 +14,10 @@
   let upcoming = $derived(tastings.filter(isCurrent).reverse());
   let past = $derived(tastings.filter((t: any) => !isCurrent(t)));
 
-  function wineCount(t: any): number {
-    return t.tasting_wine_vintage?.length ?? 0;
+  /* « 8 vins », vide sans produit au programme. */
+  function countLabel(t: any): string {
+    const lots = t.tasting_lot ?? [];
+    return lots.length ? productsCount(lots.map((l: any) => l.lot?.product)) : "";
   }
 </script>
 
@@ -64,7 +67,7 @@
                   {formatDateLong(t.date)}{t.start_time ? ` · ${formatTime(t.start_time)}` : ""}
                 </p>
                 <p class="meta">
-                  {#if wineCount(t)}{wineCount(t)} vins{/if}{#if t.price}{wineCount(t) ? " · " : ""}{formatEUR(t.price)} / pers.{/if}
+                  {countLabel(t)}{#if t.price}{countLabel(t) ? " · " : ""}{formatEUR(t.price)} / pers.{/if}
                 </p>
               </div>
               <span class="go" aria-hidden="true">→</span>
@@ -85,7 +88,7 @@
                 <span class="past-date">{d.day} {d.month} {d.year}</span>
                 <span class="past-name">{tastingTitle(t)}</span>
                 <span class="past-meta">
-                  {wineCount(t) ? `${wineCount(t)} vins` : ""}
+                  {countLabel(t)}
                 </span>
                 <span class="go" aria-hidden="true">→</span>
               </a>

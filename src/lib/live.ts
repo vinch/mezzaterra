@@ -4,7 +4,7 @@ import { escapeLike, fetchAllRows, supabase } from "./supabase";
 
 /**
  * Mode dégustation live.
- * - La position du vin servi est poussée par l'admin via Realtime Broadcast
+ * - La position du produit servi est poussée par l'admin via Realtime Broadcast
  *   et persistée dans `tasting.live_position` pour les retardataires.
  * - Les notes et le panier des invités vivent d'abord dans le localStorage (ça marche hors-ligne),
  *   puis sont envoyés en base quand c’est possible.
@@ -81,13 +81,13 @@ function perTasting<T>(prefix: string, parse: (stored: any) => T) {
 }
 
 export const localRatings = perTasting<Record<string, LocalRating>>("mz-ratings", (v) => v ?? {});
-/** Dernier vin servi vu sur ce téléphone : un rechargement ne perd pas la progression. */
+/** Dernier produit servi vu sur ce téléphone : un rechargement ne perd pas la progression. */
 export const localServed = perTasting<number>("mz-served", (v) => Number(v) || 0);
 export const localCart = perTasting<Record<string, number>>("mz-cart", (v) => v ?? {});
 /** Panier changé mais pas encore en base (hors ligne, page quittée) : renvoyé à la prochaine occasion. */
 const preorderDirty = perTasting<boolean>("mz-preorder-dirty", (v) => v === true);
 
-/** Position valide dans un déroulé de `count` vins (0 si vide). */
+/** Position valide dans un déroulé de `count` produits (0 si vide). */
 export function clampPosition(p: number, count: number): number {
   return Math.max(0, Math.min(Math.max(0, count - 1), Math.round(p)));
 }
@@ -95,7 +95,7 @@ export function clampPosition(p: number, count: number): number {
 /** Envoie une note en base (insert-only ; la plus récente fait foi). Silencieux en cas d'échec. */
 export async function pushFeedback(opts: {
   tastingId: string;
-  vintageId: string;
+  lotId: string;
   rating: number | null;
   comment: string;
   profile: GuestProfile;
@@ -104,7 +104,7 @@ export async function pushFeedback(opts: {
     const name = guestName(opts.profile);
     const { error } = await supabase.from("tasting_feedback").insert({
       tasting_id: opts.tastingId,
-      wine_vintage_id: opts.vintageId,
+      lot_id: opts.lotId,
       guest_id: getGuestId(),
       guest_name: name || null,
       guest_email: opts.profile.email.trim().toLowerCase() || null,
@@ -122,15 +122,15 @@ export type FeedbackRow = {
   tasting_id: string;
   guest_id: string;
   guest_name: string | null;
-  wine_vintage_id: string;
+  lot_id: string;
   rating: number | null;
   comment: string | null;
   created_at: string;
 };
 
 /**
- * Notes à jour d'une dégustation (une par invité et par vin) ou d'un client, d'après son email
- * (une par dégustation et par vin). tasting_feedback ne reçoit que des insertions : la plus
+ * Notes à jour d'une dégustation (une par invité et par lot) ou d'un client, d'après son email
+ * (une par dégustation et par lot). tasting_feedback ne reçoit que des insertions : la plus
  * récente fait foi. Paginé (au-delà de 1000 lignes, les plus récentes manqueraient) ; lève une
  * erreur si le relevé échoue.
  */
@@ -139,14 +139,14 @@ export async function fetchLatestFeedback(filter: { tastingId: string } | { gues
   const rows = await fetchAllRows<FeedbackRow>((from, to) => {
     const query = supabase
       .from("tasting_feedback")
-      .select("id, tasting_id, guest_id, guest_name, wine_vintage_id, rating, comment, created_at");
+      .select("id, tasting_id, guest_id, guest_name, lot_id, rating, comment, created_at");
     return (byTasting ? query.eq("tasting_id", filter.tastingId) : query.ilike("guest_email", escapeLike(filter.guestEmail)))
       .order("created_at", { ascending: true })
       .order("id")
       .range(from, to);
   });
   const latest = new Map<string, FeedbackRow>();
-  for (const f of rows) latest.set(`${byTasting ? f.guest_id : f.tasting_id}:${f.wine_vintage_id}`, f);
+  for (const f of rows) latest.set(`${byTasting ? f.guest_id : f.tasting_id}:${f.lot_id}`, f);
   return [...latest.values()];
 }
 
@@ -164,7 +164,7 @@ async function savePreorder(opts: {
     const { error } = await supabase.rpc("save_live_preorder", {
       p_tasting_id: opts.tastingId,
       p_guest_id: getGuestId(),
-      p_items: Object.entries(opts.cart).map(([wine_vintage_id, quantity]) => ({ wine_vintage_id, quantity })),
+      p_items: Object.entries(opts.cart).map(([lot_id, quantity]) => ({ lot_id, quantity })),
       p_first_name: opts.profile.firstName,
       p_last_name: opts.profile.lastName,
       p_email: opts.profile.email,

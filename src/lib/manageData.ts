@@ -1,7 +1,7 @@
 import { fetchAllRows, supabase } from "./supabase";
 import { sortCustomersByLabel } from "./customerDisplay";
-import { byProductType, compareVintages, VINTAGE_LABEL_SELECT } from "./wine";
-import type { Country, Customer, Region, WineType } from "./types";
+import { byProductType, compareLotsByProducer, LOT_LABEL_SELECT } from "./products";
+import type { Country, Customer, Region, ProductType } from "./types";
 
 /** Chargements partagés par les pages de l'admin. */
 
@@ -24,51 +24,51 @@ export async function fetchRegions(): Promise<Region[]> {
 }
 
 /** Types de produit (robes, fruités) dans l'ordre des listes : vins puis huiles, du fruité léger à l'intense. */
-export async function fetchWineTypes(): Promise<WineType[]> {
-  const { data } = await supabase.from("wine_type").select("*");
+export async function fetchProductTypes(): Promise<ProductType[]> {
+  const { data } = await supabase.from("product_type").select("*");
   return (data || []).sort(byProductType);
 }
 
-/** Millésimes des sélecteurs de produit, triés domaine → cuvée → année décroissante. */
-export async function fetchPickerVintages(): Promise<any[]> {
+/** Lots des sélecteurs de produit, triés producteur → cuvée → année décroissante. */
+export async function fetchPickerLots(): Promise<any[]> {
   const rows = await fetchAllRows<any>((from, to) =>
     supabase
-      .from("wine_vintage")
-      .select("*, wine ( *, winery (*), appelation (*), wine_type (*) )")
+      .from("lot")
+      .select("*, product ( *, producer (*), appellation (*), product_type (*) )")
       .order("id")
       .range(from, to),
   );
-  return rows.sort(compareVintages);
+  return rows.sort(compareLotsByProducer);
 }
 
 /**
- * Bouteilles en stock par millésime (vue `inventory`), éventuellement limitées à quelques
- * millésimes. Lève une erreur plutôt que de renvoyer une carte vide : un échec afficherait
+ * Bouteilles en stock par lot (vue `inventory`), éventuellement limitées à quelques
+ * lots. Lève une erreur plutôt que de renvoyer une carte vide : un échec afficherait
  * sinon tout le catalogue en rupture.
  */
-export async function fetchStockMap(vintageIds?: string[]): Promise<Map<string, number>> {
-  const rows = await fetchAllRows<{ wine_vintage_id: string | null; quantity_on_hand: number | null }>((from, to) => {
-    let query = supabase.from("inventory").select("wine_vintage_id, quantity_on_hand");
-    if (vintageIds) query = query.in("wine_vintage_id", vintageIds);
-    return query.order("wine_vintage_id").order("quantity_on_hand").range(from, to);
+export async function fetchStockMap(lotIds?: string[]): Promise<Map<string, number>> {
+  const rows = await fetchAllRows<{ lot_id: string | null; quantity_on_hand: number | null }>((from, to) => {
+    let query = supabase.from("inventory").select("lot_id, quantity_on_hand");
+    if (lotIds) query = query.in("lot_id", lotIds);
+    return query.order("lot_id").order("quantity_on_hand").range(from, to);
   });
-  /* Plusieurs lignes pour un millésime : quantités additionnées. */
+  /* Plusieurs lignes pour un lot : quantités additionnées. */
   const stock = new Map<string, number>();
   for (const r of rows) {
-    if (r.wine_vintage_id) stock.set(r.wine_vintage_id, (stock.get(r.wine_vintage_id) ?? 0) + (r.quantity_on_hand ?? 0));
+    if (r.lot_id) stock.set(r.lot_id, (stock.get(r.lot_id) ?? 0) + (r.quantity_on_hand ?? 0));
   }
   return stock;
 }
 
-/** Stock d'un millésime ; null s'il est illisible (affiché comme tel, pas en rupture). */
-export function vintageStock(vintageId: string): Promise<number | null> {
-  return fetchStockMap([vintageId])
-    .then((stock) => stock.get(vintageId) ?? 0)
+/** Stock d'un lot ; null s'il est illisible (affiché comme tel, pas en rupture). */
+export function lotStock(lotId: string): Promise<number | null> {
+  return fetchStockMap([lotId])
+    .then((stock) => stock.get(lotId) ?? 0)
     .catch(() => null);
 }
 
 /** Lignes d'articles (vente ou commande) : de quoi les libeller et les chiffrer. */
-export const LINE_ITEMS_SELECT = `price, quantity, wine_vintage_id, wine_vintage ( ${VINTAGE_LABEL_SELECT} )` as const;
+export const LINE_ITEMS_SELECT = `price, quantity, lot_id, lot ( ${LOT_LABEL_SELECT} )` as const;
 
 /**
  * Lignes d'une vente ou d'une commande (`select` : LINE_ITEMS_SELECT, SALE_LINE_ITEMS_SELECT…).

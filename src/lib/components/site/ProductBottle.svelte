@@ -1,5 +1,5 @@
 <script lang="ts">
-  import type { ProductStyle } from "$lib/wine";
+  import type { ProductStyle } from "$lib/productStyles";
 
   interface Props {
     /** Photo détourée de la bouteille (sinon silhouette teintée à la couleur de la robe). */
@@ -36,7 +36,7 @@
           <stop offset="0.55" stop-color="#1c3335" />
           <stop offset="1" stop-color="#0e1c1e" />
         </linearGradient>
-        <linearGradient id="{gid}-wine" x1="0" x2="1" y1="0" y2="0">
+        <linearGradient id="{gid}-liquid" x1="0" x2="1" y1="0" y2="0">
           <stop offset="0" stop-color={style.color} stop-opacity="0.96" />
           <stop offset="0.38" stop-color={style.light} stop-opacity="0.92" />
           <stop offset="1" stop-color={style.color} stop-opacity="0.96" />
@@ -47,7 +47,7 @@
         d="M27 14h17v30c0 10 3 15 9 21 7 7 10 14 10 26v94a10 10 0 0 1-10 10H18a10 10 0 0 1-10-10V91c0-12 3-19 10-26 6-6 9-11 9-21z"
         fill="url(#{gid}-glass)"
       />
-      <path d="M9 100h53v85a9 9 0 0 1-9 9H18a9 9 0 0 1-9-9z" fill="url(#{gid}-wine)" opacity="0.88" />
+      <path d="M9 100h53v85a9 9 0 0 1-9 9H18a9 9 0 0 1-9-9z" fill="url(#{gid}-liquid)" opacity="0.88" />
       <rect x="26" y="3" width="19" height="15" rx="3" fill={style.color} />
       <rect x="26" y="15" width="19" height="3" fill="rgba(0,0,0,0.25)" />
       <rect class="label" x="15" y="112" width="41" height="50" rx="3.5" />

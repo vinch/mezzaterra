@@ -26,7 +26,7 @@
   import { errorMessage, latestOnly } from "$lib/async";
   import { formatDate, formatEUR, toNumberOrNull } from "$lib/format";
   import { lineTotal } from "$lib/analytics";
-  import { vintageProductLabel } from "$lib/wine";
+  import { lotProductLabel } from "$lib/products";
 
   interface Props {
     data: PageData;
@@ -487,7 +487,7 @@
               <tbody>
                 {#each order.order_item as item}
                   <tr>
-                    <td>{vintageProductLabel(item.wine_vintage)}</td>
+                    <td>{lotProductLabel(item.lot)}</td>
                     <td class="num">{item.quantity}</td>
                     <td class="num">{formatEUR(item.price)}</td>
                     <td class="num"><strong>{formatEUR(item.price ? lineTotal(item) : null)}</strong></td>

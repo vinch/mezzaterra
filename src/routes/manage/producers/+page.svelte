@@ -4,7 +4,7 @@
   import { COUNTRY_COLUMN, countryOptions, regionOptions } from "$lib/components/manage/refCrud";
   import { fetchCountries, fetchRegions } from "$lib/manageData";
   import type { Country, Region } from "$lib/types";
-  import { instagramAccount, wineryInstagram } from "$lib/wine";
+  import { instagramAccount, producerInstagram } from "$lib/products";
 
   let countries = $state<Country[]>([]);
   let regions = $state<Region[]>([]);
@@ -19,7 +19,7 @@
 
 <RefCrudPage
   title="Domaines"
-  table="winery"
+  table="producer"
   select="*, country (*), region (*)"
   newLabel="Nouveau domaine"
   editLabel="Modifier le domaine"
@@ -60,7 +60,7 @@
     { label: "Région", value: (w) => w.region?.name },
     COUNTRY_COLUMN,
     { label: "Site web", value: (w) => w.url && "Visiter", href: (w) => w.url },
-    { label: "Instagram", value: (w) => wineryInstagram(w)?.handle, href: (w) => wineryInstagram(w)?.url },
+    { label: "Instagram", value: (w) => producerInstagram(w)?.handle, href: (w) => producerInstagram(w)?.url },
     { label: "Site public", value: (w) => (w.hidden ? "Masqué" : "Visible") },
   ]}
 />

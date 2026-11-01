@@ -22,22 +22,24 @@ menus de ligne, chiffres, accessibilité, textes).
   « Chargement… ».
 - **Briques métier** de `src/lib/components/manage/` à réutiliser avant d’en
   écrire : `RefCrudPage` (page de référentiel complète), `CustomerAutocomplete`,
-  `ProductVintageAutocomplete`, `ColumnChart`.
+  `LotAutocomplete`, `ColumnChart`.
 - **Site public** : primitives `mz-` de `src/lib/styles/site.css` et tokens
   `--mz-*` ; ne pas y importer les composants de la gestion.
 - **Tokens uniquement** : couleurs, rayons, ombres et polices viennent des
   variables CSS (`src/app.css`, `src/lib/styles/tokens.css`), jamais de valeur
-  en dur. Statuts : `src/lib/status.ts` ; robes : `src/lib/wine.ts` ; icônes :
+  en dur. Statuts : `src/lib/status.ts` ; robes : `src/lib/productStyles.ts` ; icônes :
   `$lib/ui/icons` (y ajouter celle qui manque).
-- **Types de produit** : vins et huiles d’olive partagent les tables `wine`,
-  `wine_vintage`, `grape`… (colonne `kind`). Le vocabulaire propre à chacun
+- **Types de produit** : vins et huiles d’olive partagent les tables `product`,
+  `lot`, `variety`, `producer`, `product_type`… (colonne `kind`). Le code
+  suit ces noms (`Product`, `Lot`, `lotLabel`…) : « wine » ne désigne que la
+  valeur `'wine'` de `kind` et la robe (`wineRobe`). Le vocabulaire propre à chacun
   (millésime ou lot, cépages ou variétés…) vient de `src/lib/productKinds.ts`,
   ses icônes de `KIND_ICONS` (`src/lib/ui/kindIcons.ts`) ; un nouveau type
   s’ajoute à ces deux endroits, au domaine SQL `product_kind` et à sa TVA
   (`product_kind_vat_rate`, sinon 21 % par défaut), avec sa couleur dans
-  `STYLES` (`src/lib/wine.ts`) s’il en a une propre. Un lot
-  (`wine_vintage`) = une année et un contenant (`volume_ml`) : prix et stock
-  sont par contenant ; libellés via `vintageLabel`, `vintageVolume`…
+  `STYLES` (`src/lib/productStyles.ts`) s’il en a une propre. Un lot
+  (`lot`) = une année et un contenant (`volume_ml`) : prix et stock
+  sont par contenant ; libellés via `lotLabel`, `lotVolume`…
 - **Nouveau composant** : seulement si rien d’existant ne convient. Il utilise
   les tokens et est ajouté à la page `/design-system` dans la même pull request
   (idem pour une nouvelle variante, un nouveau token ou une nouvelle règle).

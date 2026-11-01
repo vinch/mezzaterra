@@ -4,22 +4,22 @@
   import { fade } from "svelte/transition";
   import { page } from "$app/stores";
   import ProductCard from "$lib/components/site/ProductCard.svelte";
-  import WineryLinkCard from "$lib/components/site/WineryLinkCard.svelte";
+  import ProducerLinkCard from "$lib/components/site/ProducerLinkCard.svelte";
   import { combinedAvailability, fetchAvailability, firstAvailable, type AvailabilityOf } from "$lib/publicData";
   import { fold } from "$lib/format";
-  import { kindCount, PRODUCT_KINDS, productHref } from "$lib/productKinds";
+  import { kindCount, PRODUCT_KINDS, lotHref } from "$lib/productKinds";
   import {
-    compareProducts,
+    compareLotsByStyle,
     groupFormats,
     presentStyles,
     type FormatGroup,
     productStyle,
-    vintageVolume,
+    lotVolume,
     productTitle,
-    wineryFlag,
-    wineryPlace,
-    type ProductStyleKey,
-  } from "$lib/wine";
+    producerFlag,
+    producerPlace,
+  } from "$lib/products";
+  import type { ProductStyleKey } from "$lib/productStyles";
 
   let { data } = $props();
 
@@ -35,22 +35,22 @@
 
   let kind = $derived(PRODUCT_KINDS[data.kind]);
   /* Trié une fois : les filtres gardent l'ordre. */
-  let vintages = $derived([...(data.vintages as any[])].sort(compareProducts));
-  let styles = $derived(presentStyles(vintages));
+  let lots = $derived([...(data.lots as any[])].sort(compareLotsByStyle));
+  let styles = $derived(presentStyles(lots));
 
-  let filtered = $derived(vintages
-    .filter((v) => !styleFilter || productStyle(v.wine?.wine_type).key === styleFilter)
+  let filtered = $derived(lots
+    .filter((v) => !styleFilter || productStyle(v.product?.product_type).key === styleFilter)
     .filter((v) => !inStockOnly || !availability || availability(v.id).in_stock)
     .filter((v) => {
       if (!query.trim()) return true;
       const blob = fold(
         [
-          productTitle(v.wine),
-          v.wine?.appelation?.name,
-          v.wine?.winery?.name,
+          productTitle(v.product),
+          v.product?.appellation?.name,
+          v.product?.producer?.name,
           v.year,
-          vintageVolume(v),
-          ...(v.wine_vintage_grape || []).map((g: any) => g.grape?.name),
+          lotVolume(v),
+          ...(v.lot_variety || []).map((g: any) => g.variety?.name),
         ]
           .filter(Boolean)
           .join(" "),
@@ -60,25 +60,25 @@
         .every((w) => blob.includes(w));
     }));
 
-  type WineryGroup = { winery: any; items: FormatGroup<any>[] };
+  type ProducerGroup = { producer: any; items: FormatGroup<any>[] };
 
-  /* Regroupement par domaine, une carte par produit et par année (ses contenants dedans). */
-  function groupByWinery(list: any[]): WineryGroup[] {
-    const acc = new Map<string, WineryGroup>();
+  /* Regroupement par producteur, une carte par produit et par année (ses contenants dedans). */
+  function groupByProducer(list: any[]): ProducerGroup[] {
+    const acc = new Map<string, ProducerGroup>();
     for (const v of groupFormats(list)) {
-      const w = v.vintage.wine?.winery;
+      const w = v.lot.product?.producer;
       const key = w?.id || "autres";
-      if (!acc.has(key)) acc.set(key, { winery: w, items: [] });
+      if (!acc.has(key)) acc.set(key, { producer: w, items: [] });
       acc.get(key)!.items.push(v);
     }
     return [...acc.values()].sort((a, b) =>
-      (a.winery?.name || "").localeCompare(b.winery?.name || "", "fr"),
+      (a.producer?.name || "").localeCompare(b.producer?.name || "", "fr"),
     );
   }
 
-  let groups = $derived(groupByWinery(filtered));
-  /* Tous les domaines de la cave, indépendamment des filtres. */
-  let wineries = $derived(groupByWinery(vintages).filter((g) => g.winery?.id));
+  let groups = $derived(groupByProducer(filtered));
+  /* Tous les producteurs de la cave, indépendamment des filtres. */
+  let producers = $derived(groupByProducer(lots).filter((g) => g.producer?.id));
 </script>
 
 <svelte:head>
@@ -92,13 +92,13 @@
   <div class="mz-container mz-rise">
     <h1 class="mz-display mz-h1">{kind.catalogTitle}</h1>
     <p class="mz-lead">{kind.catalogLead}</p>
-    {#if wineries.length}
-      <nav class="wineries" aria-label="Les domaines">
-        {#each wineries as g (g.winery.id)}
-          <WineryLinkCard
-            id={g.winery.id}
-            name={g.winery.name}
-            detail={[g.winery.city, kindCount(kind, g.items.length)].filter(Boolean).join(" · ")}
+    {#if producers.length}
+      <nav class="producers" aria-label="Les domaines">
+        {#each producers as g (g.producer.id)}
+          <ProducerLinkCard
+            id={g.producer.id}
+            name={g.producer.name}
+            detail={[g.producer.city, kindCount(kind, g.items.length)].filter(Boolean).join(" · ")}
           />
         {/each}
       </nav>
@@ -137,35 +137,35 @@
   {#if data.error}
     <p class="mz-empty">{data.error}</p>
   {:else if groups.length === 0}
-    <p class="mz-empty">{vintages.length ? "Aucun produit ne correspond à ces critères." : "Bientôt à la cave."}</p>
+    <p class="mz-empty">{lots.length ? "Aucun produit ne correspond à ces critères." : "Bientôt à la cave."}</p>
   {:else}
-    {#each groups as group (group.winery?.id || "autres")}
-      <section class="winery" id={group.winery?.id ? `domaine-${group.winery.id}` : undefined} transition:fade={{ duration: 150 }}>
-        <header class="winery-head">
+    {#each groups as group (group.producer?.id || "autres")}
+      <section class="producer" id={group.producer?.id ? `domaine-${group.producer.id}` : undefined} transition:fade={{ duration: 150 }}>
+        <header class="producer-head">
           <div>
             <h2 class="mz-display mz-h2">
-              {#if group.winery?.id}
-                <a href="/domaines/{group.winery.id}">{group.winery.name}</a>
+              {#if group.producer?.id}
+                <a href="/domaines/{group.producer.id}">{group.producer.name}</a>
               {:else}
                 Autres
               {/if}
             </h2>
             <p class="mz-muted">
-              {wineryFlag(group.winery)}
-              {wineryPlace(group.winery)}
+              {producerFlag(group.producer)}
+              {producerPlace(group.producer)}
             </p>
           </div>
-          {#if group.winery?.id}
-            <a class="mz-btn mz-btn--ghost mz-btn--sm" href="/domaines/{group.winery.id}">Découvrir le domaine →</a>
+          {#if group.producer?.id}
+            <a class="mz-btn mz-btn--ghost mz-btn--sm" href="/domaines/{group.producer.id}">Découvrir le domaine →</a>
           {/if}
         </header>
         <div class="mz-product-grid">
-          {#each group.items as { vintage: v, formats } (v.id)}
+          {#each group.items as { lot: v, formats } (v.id)}
             <div animate:flip={{ duration: 250 }}>
               <ProductCard
-                vintage={v}
+                lot={v}
                 {formats}
-                href={productHref(firstAvailable(availability, formats))}
+                href={lotHref(firstAvailable(availability, formats))}
                 availability={combinedAvailability(availability, formats)}
               />
             </div>
@@ -261,12 +261,12 @@
     font-size: 0.92rem;
   }
 
-  .winery {
+  .producer {
     padding: 2rem 0 1rem;
     scroll-margin-top: 9rem;
   }
 
-  .winery-head {
+  .producer-head {
     display: flex;
     flex-wrap: wrap;
     align-items: flex-end;
@@ -277,20 +277,20 @@
     border-bottom: 1px solid var(--mz-line-soft);
   }
 
-  .winery-head p {
+  .producer-head p {
     margin: 0.35rem 0 0;
   }
 
-  .winery-head h2 a {
+  .producer-head h2 a {
     color: inherit;
     text-decoration: none;
   }
 
-  .winery-head h2 a:hover {
+  .producer-head h2 a:hover {
     color: var(--mz-wine-red);
   }
 
-  .wineries {
+  .producers {
     display: grid;
     grid-template-columns: repeat(auto-fill, minmax(min(100%, 260px), 1fr));
     gap: 1rem;

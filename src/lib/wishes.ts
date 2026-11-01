@@ -15,7 +15,7 @@ export type ContactInput = {
   phone?: string | null;
 };
 
-export type WishItem = { wine_vintage_id: string; quantity: number };
+export type WishItem = { lot_id: string; quantity: number };
 
 export type WishRequest = {
   id: string;
@@ -34,7 +34,7 @@ export type WishRequest = {
 
 /** Montant d'une demande (ou d'une pré-commande du mode dégustation) au prix catalogue. */
 export function wishTotal(w: { items: unknown }, prices: Map<string, number>): number {
-  return wishItems(w.items).reduce((s, i) => s + i.quantity * (prices.get(i.wine_vintage_id) ?? 0), 0);
+  return wishItems(w.items).reduce((s, i) => s + i.quantity * (prices.get(i.lot_id) ?? 0), 0);
 }
 
 /**
@@ -66,12 +66,12 @@ export async function linkCustomerToTasting(tastingId: string, customerId: strin
 export function wishItems(raw: unknown): WishItem[] {
   if (!Array.isArray(raw)) return [];
   return raw
-    .map((r: any) => ({ wine_vintage_id: String(r?.wine_vintage_id || ""), quantity: Number(r?.quantity) || 0 }))
-    .filter((r) => r.wine_vintage_id && r.quantity > 0);
+    .map((r: any) => ({ lot_id: String(r?.lot_id || ""), quantity: Number(r?.quantity) || 0 }))
+    .filter((r) => r.lot_id && r.quantity > 0);
 }
 
 /**
- * Crée une vente « En attente » à partir d'une demande, au prix catalogue du millésime.
+ * Crée une vente « En attente » à partir d'une demande, au prix catalogue du lot.
  * Retourne l'id de la vente.
  */
 export async function createSaleFromWish(
@@ -80,15 +80,15 @@ export async function createSaleFromWish(
   tastingName?: string | null,
 ): Promise<string> {
   const items = wishItems(wish.items);
-  if (!items.length) throw new Error("La demande ne contient aucun vin.");
+  if (!items.length) throw new Error("La demande ne contient aucun produit.");
 
   const customerId = await findOrCreateCustomer(wish);
   if (wish.tasting_id) await linkCustomerToTasting(wish.tasting_id, customerId);
 
   const lines = items.map((i) => ({
-    wine_vintage_id: i.wine_vintage_id,
+    lot_id: i.lot_id,
     quantity: i.quantity,
-    price: prices.get(i.wine_vintage_id) ?? 0,
+    price: prices.get(i.lot_id) ?? 0,
   }));
   const total = itemsSubtotal(lines);
 

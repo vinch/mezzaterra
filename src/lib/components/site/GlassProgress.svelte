@@ -33,7 +33,7 @@
     </clipPath>
   </defs>
   <g clip-path="url(#{gid}-bowl)">
-    <rect class="wine" x="0" y={level} width="40" height="60" style:fill={color} />
+    <rect class="product" x="0" y={level} width="40" height="60" style:fill={color} />
     <path
       class="wave"
       d="M-20 {level} q5 -2 10 0 t10 0 t10 0 t10 0 t10 0 t10 0 t10 0 v4 h-70z"
@@ -57,7 +57,7 @@
     overflow: visible;
   }
 
-  .wine {
+  .product {
     transition: y 0.9s var(--mz-ease);
   }
 
