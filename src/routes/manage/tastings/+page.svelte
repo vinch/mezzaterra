@@ -15,7 +15,7 @@
   import Card from "$lib/ui/Card.svelte";
   import Field from "$lib/ui/Field.svelte";
   import ManagePageShell from "$lib/components/manage/ManagePageShell.svelte";
-  import ProductLotAutocomplete from "$lib/components/manage/ProductLotAutocomplete.svelte";
+  import LotAutocomplete from "$lib/components/manage/LotAutocomplete.svelte";
   import CustomerAutocomplete from "$lib/components/manage/CustomerAutocomplete.svelte";
   import Spinner from "$lib/ui/Spinner.svelte";
   import EmptyState from "$lib/ui/EmptyState.svelte";
@@ -587,7 +587,7 @@
       {/if}
 
       <div class="add-row">
-        <ProductLotAutocomplete
+        <LotAutocomplete
           bind:value={selectedLotId}
           lots={pickableLots}
           includeTastingOption={false}

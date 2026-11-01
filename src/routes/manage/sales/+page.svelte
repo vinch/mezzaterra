@@ -53,7 +53,7 @@
   import { fetchCustomers, fetchLineItems, fetchPickerLots, fetchStockMap } from "$lib/manageData";
   import { errorMessage, latestOnly } from "$lib/async";
   import { invalidateAll } from "$app/navigation";
-  import ProductLotAutocomplete from "$lib/components/manage/ProductLotAutocomplete.svelte";
+  import LotAutocomplete from "$lib/components/manage/LotAutocomplete.svelte";
   import CustomerAutocomplete from "$lib/components/manage/CustomerAutocomplete.svelte";
   import Spinner from "$lib/ui/Spinner.svelte";
   import Tabs from "$lib/ui/Tabs.svelte";
@@ -1016,7 +1016,7 @@
         <div class="add-row">
           <div class="add-lot">
             <label class="t-label" for="sale-add-product">Ajouter un produit</label>
-            <ProductLotAutocomplete
+            <LotAutocomplete
               id="sale-add-product"
               bind:value={selectedLotId}
               {lots}

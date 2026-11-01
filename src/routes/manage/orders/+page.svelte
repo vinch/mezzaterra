@@ -22,7 +22,7 @@
   import { IconClipboard, IconDownload, IconEye, IconPencil, IconPlus, IconTrash } from "$lib/ui/icons";
   import { isEditable } from "$lib/status";
   import ManagePageShell from "$lib/components/manage/ManagePageShell.svelte";
-  import ProductLotAutocomplete from "$lib/components/manage/ProductLotAutocomplete.svelte";
+  import LotAutocomplete from "$lib/components/manage/LotAutocomplete.svelte";
   import { fetchLineItems, fetchPickerLots, LINE_ITEMS_SELECT } from "$lib/manageData";
   import { errorMessage, latestOnly } from "$lib/async";
   import { isoDateOnly, todayIso } from "$lib/dates";
@@ -476,7 +476,7 @@
       <div class="add-row">
         <div class="add-product">
           <label class="t-label" for="order-add-product">Ajouter un produit</label>
-          <ProductLotAutocomplete
+          <LotAutocomplete
             id="order-add-product"
             bind:value={selectedLotId}
             lots={orderableLots}

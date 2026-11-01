@@ -22,7 +22,7 @@ menus de ligne, chiffres, accessibilité, textes).
   « Chargement… ».
 - **Briques métier** de `src/lib/components/manage/` à réutiliser avant d’en
   écrire : `RefCrudPage` (page de référentiel complète), `CustomerAutocomplete`,
-  `ProductLotAutocomplete`, `ColumnChart`.
+  `LotAutocomplete`, `ColumnChart`.
 - **Site public** : primitives `mz-` de `src/lib/styles/site.css` et tokens
   `--mz-*` ; ne pas y importer les composants de la gestion.
 - **Tokens uniquement** : couleurs, rayons, ombres et polices viennent des
