@@ -487,10 +487,12 @@
   });
   let sort = $state<SortState<keyof typeof sortValues>>({ key: "winery", dir: "asc" });
   /* Vins retirés en fin de liste : visibles, mais hors du chemin. À égalité, l'ordre du chargement (domaine, puis nom). */
-  let shownWines = $derived(sortedBy(filteredWines
-    .filter((w: any) => !robeFilter || wineRobe(w.wine_type).key === robeFilter)
-    .filter((w: any) => !inStockOnly || !stock || (stockById.get(w.id)?.total ?? 0) > 0), sort, sortValues)
-    .sort((a: any, b: any) => Number(isRetired(a)) - Number(isRetired(b))));
+  let shownWines = $derived.by(() => {
+    const list = sortedBy(filteredWines
+      .filter((w: any) => !robeFilter || wineRobe(w.wine_type).key === robeFilter)
+      .filter((w: any) => !inStockOnly || !stock || (stockById.get(w.id)?.total ?? 0) > 0), sort, sortValues);
+    return [...list.filter((w: any) => !isRetired(w)), ...list.filter(isRetired)];
+  });
   /** « 19 vins (35 millésimes) · 120 bouteilles en stock », pour l'onglet ouvert. */
   let subtitle = $derived.by(() => {
     const batches = tabWines.reduce((n, w: any) => n + (w.wine_vintage?.length ?? 0), 0);
