@@ -1020,8 +1020,9 @@
 
         <div class="add-row">
           <div class="add-wine">
-            <span class="t-label" id="add-wine-label">Ajouter un produit</span>
+            <label class="t-label" for="sale-add-product">Ajouter un produit</label>
             <ProductVintageAutocomplete
+              id="sale-add-product"
               bind:value={selectedVintageId}
               {wineVintages}
               tastingValue={TASTING_SELECT_VALUE}

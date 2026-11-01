@@ -451,8 +451,9 @@
 
       <div class="add-row">
         <div class="add-product">
-          <span class="t-label">Ajouter un produit</span>
+          <label class="t-label" for="order-add-product">Ajouter un produit</label>
           <ProductVintageAutocomplete
+            id="order-add-product"
             bind:value={selectedVintageId}
             wineVintages={orderableVintages}
             includeTastingOption={false}
@@ -585,7 +586,7 @@
   }
 
   .add-product,
-  .add-row label {
+  .add-row > label {
     display: flex;
     flex-direction: column;
     gap: 6px;

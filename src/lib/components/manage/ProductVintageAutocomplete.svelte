@@ -8,6 +8,8 @@
   interface Props {
     onchange?: () => void;
     value?: string;
+    /** Id du champ, pour un <label for> (sinon généré). */
+    id?: string;
     wineVintages?: any[];
     tastingValue?: string;
     placeholder?: string;
@@ -24,6 +26,7 @@
 
   let {
     value = $bindable(""),
+    id = undefined,
     wineVintages = [],
     tastingValue = "__tasting__",
     placeholder = "Rechercher un produit…",
@@ -72,7 +75,7 @@
   let options = $derived(buildOptions(wineVintages));
 </script>
 
-<Combobox bind:value {options} {placeholder} emptyText="Aucun produit trouvé" {onchange}>
+<Combobox bind:value {id} {options} {placeholder} emptyText="Aucun produit trouvé" {onchange}>
   {#snippet option({ option })}
       {#if option.kind === "tasting"}
         <span class="opt-main"><strong>Dégustation</strong><small>Ligne sans produit (entrée, participation…)</small></span>
