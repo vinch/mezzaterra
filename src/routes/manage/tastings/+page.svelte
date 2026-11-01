@@ -495,7 +495,7 @@
               {/if}
             </td>
             <td class="col-actions">
-              <div class="row-actions">
+              <div class="ui-row-actions">
                 <!-- Fiches de table en cours de génération pour cette dégustation. -->
                 {#if cardsBusyId === tasting.id}<Spinner size={18} inline />{/if}
                 <IconButton href="/manage/tastings/{tasting.id}/live" label="Piloter {tastingTitle(tasting)}">
@@ -526,7 +526,7 @@
       <div class="error-message" role="alert">{error}</div>
     {/if}
 
-    <div class="grid-2">
+    <div class="ui-grid-2">
       <Field id="tasting-date" label="Date" required>
         <input id="tasting-date" class="ui-control" type="date" bind:value={formData.date} required />
       </Field>
@@ -661,11 +661,6 @@
 </Modal>
 
 <style>
-  .row-actions {
-    display: inline-flex;
-    align-items: center;
-    gap: 4px;
-  }
 
   .private-badge {
     display: inline-flex;
@@ -685,12 +680,6 @@
     display: flex;
     flex-direction: column;
     gap: 20px;
-  }
-
-  .grid-2 {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 16px;
   }
 
   .checkbox-field {
@@ -768,11 +757,5 @@
 
   .participants li:last-child {
     border-bottom: none;
-  }
-
-  @media (max-width: 767px) {
-    .grid-2 {
-      grid-template-columns: 1fr;
-    }
   }
 </style>

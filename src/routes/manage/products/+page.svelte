@@ -721,7 +721,7 @@
     <Field id="wine-name" label="Nom" help="Laisser vide pour utiliser le nom de l’appellation.">
       <input id="wine-name" class="ui-control" type="text" bind:value={formData.name} />
     </Field>
-    <div class="grid-2">
+    <div class="ui-grid-2">
       <Field id="wine-winery" label="Domaine" required>
         <select id="wine-winery" class="ui-control" bind:value={formData.winery_id} required>
           <option value="">Sélectionner un domaine</option>
@@ -859,8 +859,6 @@
     line-height: 18px;
   }
 
-
-
   .vintages {
     display: flex;
     flex-wrap: wrap;
@@ -953,12 +951,6 @@
     gap: 16px;
   }
 
-  .grid-2 {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 16px;
-  }
-
   .pairing-intro {
     margin: 0 0 12px;
   }
@@ -1003,8 +995,5 @@
       flex-wrap: nowrap;
     }
 
-    .grid-2 {
-      grid-template-columns: 1fr;
-    }
   }
 </style>

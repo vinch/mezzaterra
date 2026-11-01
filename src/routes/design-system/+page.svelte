@@ -452,12 +452,24 @@
               <p class="flush padded-text t-muted"><code>padded={"{false}"}</code> pour coller un tableau ou une liste aux bords.</p>
             </Card>
           </div>
+
+          <h3 class="ds-h3"><code>.ui-grid-2</code> · <code>.ui-facts</code> · détail</h3>
+          <p class="t-muted"><code>.ui-grid-2</code> range des champs sur deux colonnes (une sur mobile). <code>.ui-facts</code> sur un <code>&lt;dl&gt;</code> : fiche de détail d’une modale (vente, commande, transport), <code>.wide</code> pour une ligne pleine largeur.</p>
+          <Card>
+            <dl class="ui-facts">
+              <div><dt>Date</dt><dd>17/10/2026</dd></div>
+              <div><dt>Client</dt><dd>Giulia Rossi</dd></div>
+              <div><dt>Facture</dt><dd>2026-0042</dd></div>
+              <div><dt>Mode de paiement</dt><dd>Virement</dd></div>
+              <div class="wide"><dt>Note</dt><dd>Livraison le samedi matin.</dd></div>
+            </dl>
+          </Card>
         </section>
 
         <!-- ——— Tableaux ——— -->
         <section id="tableaux" class="ds-section">
           <h2 class="t-card-title">Tableaux</h2>
-          <p class="t-muted"><code>DataTable</code> avec <code>caption</code> ; en-têtes <code>scope="col"</code>, colonnes chiffrées <code>.num</code>, nom cliquable <code>.row-link</code>, actions dans <code>.col-actions</code> avec un <code>RowMenu</code>.</p>
+          <p class="t-muted"><code>DataTable</code> avec <code>caption</code> ; en-têtes <code>scope="col"</code>, colonnes chiffrées <code>.num</code>, nom cliquable <code>.row-link</code>, actions dans <code>.col-actions</code> avec un <code>RowMenu</code> (précédé d’un bouton icône fréquent : les deux dans <code>.ui-row-actions</code>).</p>
           <DataTable caption="Exemple de tableau">
             <thead>
               <tr>
@@ -480,7 +492,12 @@
                     </span>
                   </td>
                   <td class="num">{formatEUR(row.price)}</td>
-                  <td class="col-actions"><RowMenu items={rowItems} label="Actions pour {row.wine}" /></td>
+                  <td class="col-actions">
+                    <div class="ui-row-actions">
+                      <IconButton label="Télécharger la fiche de {row.wine}"><IconDownload size={18} strokeWidth={1.75} /></IconButton>
+                      <RowMenu items={rowItems} label="Actions pour {row.wine}" />
+                    </div>
+                  </td>
                 </tr>
               {/each}
             </tbody>

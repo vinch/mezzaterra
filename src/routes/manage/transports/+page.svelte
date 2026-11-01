@@ -345,7 +345,7 @@
         {/each}
       </Select>
     </Field>
-    <div class="grid-2">
+    <div class="ui-grid-2">
       <Field id="transport-departure" label="Date de départ">
         <input id="transport-departure" class="ui-control" type="date" bind:value={formData.departure_date} />
       </Field>
@@ -436,7 +436,7 @@
     <div class="error-message" role="alert">{error}</div>
   {/if}
   {#if detailsTransport}
-    <dl class="facts">
+    <dl class="ui-facts">
       <div><dt>Transporteur</dt><dd><strong>{detailsTransport.transporter.name}</strong></dd></div>
       <div><dt>Prix</dt><dd>{formatEUR(detailsTransport.price)}</dd></div>
       <div><dt>Date de départ</dt><dd>{formatDate(detailsTransport.departure_date)}</dd></div>
@@ -494,12 +494,6 @@
     display: flex;
     flex-direction: column;
     gap: 20px;
-  }
-
-  .grid-2 {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 16px;
   }
 
   .intro {
@@ -567,26 +561,6 @@
     margin: 0;
   }
 
-  .facts {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 12px 24px;
-    margin: 0 0 20px;
-  }
-
-  .facts .wide {
-    grid-column: 1 / -1;
-  }
-
-  .facts dt {
-    font-size: 12px;
-    color: var(--ink-2);
-  }
-
-  .facts dd {
-    margin: 2px 0 0;
-  }
-
   .detail-order {
     display: flex;
     flex-direction: column;
@@ -596,12 +570,5 @@
 
   .detail-order p {
     margin: 0;
-  }
-
-  @media (max-width: 767px) {
-    .grid-2,
-    .facts {
-      grid-template-columns: 1fr;
-    }
   }
 </style>

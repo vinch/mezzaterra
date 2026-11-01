@@ -743,7 +743,6 @@
   });
 </script>
 
-
 <svelte:head>
   <title>Ventes - Gestion</title>
 </svelte:head>
@@ -833,7 +832,7 @@
                 {/if}
               </td>
               <td class="col-actions">
-                <div class="row-actions">
+                <div class="ui-row-actions">
                   {#if sale.status === "closed"}
                     <IconButton label="Télécharger la facture" onclick={() => downloadInvoice(sale.id)}>
                       <IconDownload size={18} strokeWidth={1.75} />
@@ -918,7 +917,7 @@
       <div class="error-message" role="alert">Stock indisponible : impossible d’ajouter des bouteilles pour l’instant.</div>
     {/if}
 
-    <div class="grid-2">
+    <div class="ui-grid-2">
       <Field id="sale-date" label="Date" required>
         <input id="sale-date" class="ui-control" type="date" bind:value={formData.date} required />
       </Field>
@@ -1051,7 +1050,7 @@
       </div>
     </section>
 
-    <div class="grid-2">
+    <div class="ui-grid-2">
       <Field id="sale-payment" label="Mode de paiement" help="Sinon, demandé au passage en « Payée ».">
         {#snippet children({ describedby })}
                 <select id="sale-payment" class="ui-control" bind:value={formData.payment_method} aria-describedby={describedby}>
@@ -1108,7 +1107,7 @@
     {#if detailsSale}<StatusBadge status={detailsSale.status} />{/if}
   {/snippet}
   {#if detailsSale}
-    <dl class="facts">
+    <dl class="ui-facts">
       <div><dt>Date</dt><dd>{formatDate(detailsSale.date)}</dd></div>
       <div>
         <dt>Client</dt>
@@ -1248,12 +1247,6 @@
     text-decoration: underline;
   }
 
-  .row-actions {
-    display: inline-flex;
-    align-items: center;
-    gap: 4px;
-  }
-
   .label-short {
     display: none;
   }
@@ -1327,12 +1320,6 @@
     display: flex;
     flex-direction: column;
     gap: 20px;
-  }
-
-  .grid-2 {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 16px;
   }
 
   .chip {
@@ -1459,25 +1446,6 @@
   }
 
   /* ——— Détail ——— */
-  .facts {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 12px 24px;
-    margin: 0 0 20px;
-  }
-
-  .facts .wide {
-    grid-column: 1 / -1;
-  }
-
-  .facts dt {
-    font-size: 12px;
-    color: var(--ink-2);
-  }
-
-  .facts dd {
-    margin: 2px 0 0;
-  }
 
   .detail-totals {
     margin-top: 12px;
@@ -1520,11 +1488,6 @@
     .search,
     .period {
       flex: 1 1 auto;
-    }
-
-    .grid-2,
-    .facts {
-      grid-template-columns: 1fr;
     }
 
     .add-row {
