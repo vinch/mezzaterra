@@ -1,4 +1,5 @@
 import { browser } from "$app/environment";
+import { updated } from "$app/state";
 import type { RealtimeChannel } from "@supabase/supabase-js";
 import { escapeLike, fetchAllRows, supabase } from "./supabase";
 
@@ -17,6 +18,7 @@ export type LocalRating = { rating: number | null; comment: string; updatedAt: s
 
 
 const GUEST_ID_KEY = "mz-guest-id";
+const PRESENCE_ID_KEY = "mz-presence-id";
 const PROFILE_KEY = "mz-guest-profile";
 
 function read<T>(key: string, fallback: T): T {
@@ -57,6 +59,32 @@ export function getGuestId(): string {
     write(GUEST_ID_KEY, guestId);
   }
   return guestId;
+}
+
+/* Identifiant de présence du téléphone (Realtime) : stable, pour qu'un invité ouvert dans deux onglets
+   compte une fois, mais distinct de l'identifiant d'invité, que la présence rendrait public. */
+let presenceId: string | null = null;
+
+function getPresenceId(): string {
+  if (!browser) return uuid();
+  presenceId ??= read<string | null>(PRESENCE_ID_KEY, null);
+  if (!presenceId) {
+    presenceId = uuid();
+    write(PRESENCE_ID_KEY, presenceId);
+  }
+  return presenceId;
+}
+
+/**
+ * Un envoi a échoué : si une nouvelle version du site est en ligne, la page se recharge pour la prendre
+ * (le panier et les notes sont dans le localStorage). Sinon, rien : c'est le réseau.
+ */
+async function reloadIfOutdated() {
+  try {
+    if (browser && (await updated.check())) location.reload();
+  } catch {
+    /* Hors ligne : on réessaiera. */
+  }
 }
 
 export function getProfile(): GuestProfile {
@@ -116,6 +144,7 @@ export async function pushFeedback(opts: {
       rating: opts.rating,
       comment: opts.comment.trim().slice(0, 1000) || null,
     });
+    if (error) void reloadIfOutdated();
     return !error;
   } catch {
     return false;
@@ -164,7 +193,7 @@ async function savePreorder(opts: {
   cart: Record<string, number>;
   profile: GuestProfile;
   confirm?: boolean;
-  requestKey?: string | null;
+  requestKey?: string;
 }): Promise<boolean> {
   try {
     const { error } = await supabase.rpc("save_live_preorder", {
@@ -176,8 +205,9 @@ async function savePreorder(opts: {
       p_email: opts.profile.email,
       p_phone: opts.profile.phone,
       p_confirm: opts.confirm ?? false,
-      p_request_key: opts.requestKey ?? undefined,
+      p_request_key: opts.requestKey,
     });
+    if (error) void reloadIfOutdated();
     return !error;
   } catch {
     return false;
@@ -198,21 +228,22 @@ export function createPreorderSync(
   let queue: Promise<unknown> = Promise.resolve();
   /** Numéro du dernier changement : seul son envoi réussi marque le panier comme enregistré. */
   let version = 0;
+  /** Clé de confirmation du panier (aussi en mémoire : sans localStorage, elle survit aux nouveaux essais). */
+  let key: string | null = confirmKey.get(tastingId);
 
   /** Envoie le panier tel qu'il est au moment de l'envoi, après les envois précédents. */
   function push(confirm = false): Promise<boolean> {
     if (timer) clearTimeout(timer);
     timer = null;
-    const requestKey = confirm ? (confirmKey.get(tastingId) ?? newConfirmKey()) : null;
+    if (confirm && !key) {
+      key = uuid();
+      confirmKey.save(tastingId, key);
+    }
+    /* Envoyée aussi sans confirmer : si la confirmation est déjà en base, pas de brouillon recréé. */
+    const requestKey = key ?? undefined;
     const run = queue.then(() => savePreorder({ tastingId, ...snapshot(), confirm, requestKey }));
     queue = run;
     return run;
-  }
-
-  function newConfirmKey(): string {
-    const key = uuid();
-    confirmKey.save(tastingId, key);
-    return key;
   }
 
   /** Enregistrement différé du panier, tel qu'il sera au moment de l'envoi. */
@@ -228,9 +259,14 @@ export function createPreorderSync(
   return {
     /** Le panier a changé : enregistré sous peu, et une confirmation future est une nouvelle demande. */
     schedule() {
-      confirmKey.save(tastingId, null);
+      if (key) {
+        key = null;
+        confirmKey.save(tastingId, null);
+      }
       save();
     },
+    /** Coordonnées changées, panier identique : enregistré sous peu, même demande s'il est déjà confirmé. */
+    sync: save,
     /** Changement pas encore enregistré (hors ligne, page quittée) : on le renvoie. */
     resume() {
       if (preorderDirty.get(tastingId)) save();
@@ -243,6 +279,7 @@ export function createPreorderSync(
       }
       version++;
       preorderDirty.save(tastingId, false);
+      key = null;
       confirmKey.save(tastingId, null);
       return true;
     },
@@ -271,9 +308,9 @@ export function joinLiveChannel(
   const channel = supabase.channel(liveChannelName(tastingId), {
     config: {
       broadcast: { self: false },
-      /* Clé aléatoire, jamais l'identifiant de l'invité : la présence est lisible par tous ceux qui suivent la
-         soirée, et cet identifiant suffit à modifier sa pré-commande. Seul le nombre d'invités sert. */
-      presence: { key: uuid() },
+      /* Jamais l'identifiant de l'invité : la présence est lisible par tous ceux qui suivent la soirée, et
+         cet identifiant suffit à modifier sa pré-commande. Seul le nombre d'invités sert. */
+      presence: { key: role === "guest" ? getPresenceId() : `host-${uuid()}` },
     },
   });
 

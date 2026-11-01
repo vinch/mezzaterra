@@ -11,10 +11,13 @@
   let { children }: Props = $props();
 
   /* Nouvelle version en ligne : la navigation suivante devient un chargement complet, qui prend le nouveau
-     code. Pas de rechargement imposé ailleurs (saisie, mode hors ligne d'une soirée) : une page restée sur
-     l'ancienne version qui envoie un format périmé reçoit une erreur claire de la base. */
-  beforeNavigate(({ willUnload, to }) => {
-    if (updated.current && !willUnload && to) location.href = to.url.href;
+     code. Pas de rechargement imposé ailleurs (saisie, mode hors ligne d'une soirée) ; la soirée en direct se
+     recharge seule quand un envoi échoue et qu'une nouvelle version est en ligne (src/lib/live.ts). */
+  beforeNavigate(({ willUnload, to, type }) => {
+    if (!updated.current || willUnload || !to) return;
+    /* Retour / Suivant : remplacer l'entrée où le navigateur se trouve déjà, sans en ajouter une. */
+    if (type === "popstate") location.replace(to.url.href);
+    else location.href = to.url.href;
   });
 </script>
 

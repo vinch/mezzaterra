@@ -1,7 +1,9 @@
 -- Pré-commandes des invités et demandes « J'en veux » :
--- 1. save_live_preorder prend une clé de confirmation (p_request_key) : une confirmation reçue deux fois
---    (double clic, réponse perdue puis nouvel essai) renvoie la même demande au lieu d'en créer une
---    seconde ; les appels d'un même invité passent l'un après l'autre ; un identifiant de lot mal formé est
+-- 1. save_live_preorder prend une clé de confirmation (p_request_key), tirée par le téléphone pour un
+--    panier donné et renvoyée tant qu'il ne change pas : une confirmation reçue deux fois (double clic,
+--    réponse perdue puis nouvel essai) renvoie la même demande au lieu d'en créer une seconde, et un simple
+--    enregistrement qui suit une confirmation déjà reçue ne recrée pas de brouillon (les coordonnées
+--    corrigées entre-temps sont reportées sur la demande) ; les appels d'un même invité passent l'un après l'autre ; un identifiant de lot mal formé est
 --    ignoré au lieu de faire échouer tout le panier ; un panier illisible est signalé comme tel.
 -- 2. L'insertion directe dans wish_request, gardée pour les pages live de l'ancien code (20261031200000),
 --    est retirée : tout passe par save_live_preorder (SECURITY DEFINER).
@@ -21,6 +23,8 @@ DECLARE
   v_items jsonb;
   v_draft live_preorder;
   v_id uuid;
+  v_same_guest boolean;
+  v_key uuid := p_request_key;
 BEGIN
   IF p_tasting_id IS NULL OR p_guest_id IS NULL THEN
     RAISE EXCEPTION 'Dégustation ou invité manquant.';
@@ -28,7 +32,7 @@ BEGIN
   IF jsonb_typeof(v_raw) <> 'array' THEN
     RAISE EXCEPTION 'Pré-commande illisible.';
   END IF;
-  IF jsonb_path_exists(v_raw, '$[*] ? (@.type() != "object")') THEN
+  IF jsonb_path_exists(v_raw, 'strict $[*] ? (@.type() != "object")') THEN
     RAISE EXCEPTION 'Pré-commande illisible.';
   END IF;
   IF jsonb_path_exists(v_raw, '$[*] ? (!(exists(@.lot_id)))') THEN
@@ -37,15 +41,26 @@ BEGIN
   -- Un invité à la fois : deux appels simultanés (double clic, deux onglets) passent l'un après l'autre.
   PERFORM pg_advisory_xact_lock(hashtextextended(p_tasting_id::text || ':' || p_guest_id::text, 0));
 
-  -- Confirmation déjà reçue avec cette clé (double clic, nouvel essai après une réponse perdue) : la même
-  -- demande, pas une seconde.
-  IF v_confirm AND p_request_key IS NOT NULL THEN
-    SELECT w.id INTO v_id FROM wish_request w
-    WHERE w.request_key = p_request_key AND w.tasting_id = p_tasting_id AND w.guest_id = p_guest_id;
-    IF v_id IS NOT NULL THEN
+  -- Confirmation déjà reçue pour ce panier (double clic, réponse perdue puis nouvel essai, enregistrement
+  -- qui la suit) : la même demande, sans second brouillon ; les coordonnées corrigées y sont reportées.
+  IF v_key IS NOT NULL THEN
+    SELECT w.id, (w.tasting_id = p_tasting_id AND w.guest_id = p_guest_id) INTO v_id, v_same_guest
+    FROM wish_request w WHERE w.request_key = v_key;
+    IF v_id IS NOT NULL AND v_same_guest THEN
+      UPDATE wish_request SET
+        first_name = coalesce(nullif(left(trim(coalesce(p_first_name, '')), 120), ''), first_name),
+        last_name = coalesce(nullif(left(trim(coalesce(p_last_name, '')), 120), ''), last_name),
+        email = coalesce(nullif(left(lower(trim(coalesce(p_email, ''))), 200), ''), email),
+        phone = coalesce(nullif(left(trim(coalesce(p_phone, '')), 60), ''), phone)
+      WHERE id = v_id AND status = 'new';
       DELETE FROM live_preorder WHERE tasting_id = p_tasting_id AND guest_id = p_guest_id;
       RETURN v_id;
     END IF;
+    -- Clé déjà prise ailleurs (cas anormal) : ignorée plutôt que de bloquer toutes les confirmations.
+    IF v_id IS NOT NULL THEN
+      v_key := NULL;
+    END IF;
+    v_id := NULL;
   END IF;
   -- Comme les notes, une pré-commande ne s'enregistre qu'autour de la soirée : pas de lignes laissées
   -- dans Piloter par n'importe qui à n'importe quelle date. La confirmation, elle, reste possible après.
@@ -61,7 +76,7 @@ BEGIN
   FROM (
     SELECT (e ->> 'lot_id')::uuid AS vid, least(sum((e ->> 'quantity')::int), 60) AS qty
     FROM jsonb_array_elements(v_raw) e
-    WHERE (e ->> 'lot_id') ~* '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$'
+    WHERE pg_input_is_valid(e ->> 'lot_id', 'uuid')
       AND (e ->> 'quantity') ~ '^[0-9]{1,3}$'
       AND (e ->> 'quantity')::int > 0
     GROUP BY 1
@@ -104,7 +119,7 @@ BEGIN
 
   -- Sans prénom ni contact, les contraintes de wish_request refusent la demande et tout est annulé.
   INSERT INTO wish_request (tasting_id, source, guest_id, first_name, last_name, email, phone, items, request_key)
-  VALUES (p_tasting_id, 'live', p_guest_id, v_draft.first_name, v_draft.last_name, v_draft.email, v_draft.phone, v_draft.items, p_request_key)
+  VALUES (p_tasting_id, 'live', p_guest_id, v_draft.first_name, v_draft.last_name, v_draft.email, v_draft.phone, v_draft.items, v_key)
   RETURNING id INTO v_id;
   DELETE FROM live_preorder WHERE tasting_id = p_tasting_id AND guest_id = p_guest_id;
 
