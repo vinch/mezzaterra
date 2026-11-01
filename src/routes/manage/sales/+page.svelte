@@ -869,6 +869,7 @@
   title={statusPrompt?.title}
   message={statusPrompt?.message}
   confirmLabel={statusPrompt?.confirmLabel}
+  tone="primary"
   onconfirm={() => answerStatus(true)}
   oncancel={() => answerStatus(false)}
 />

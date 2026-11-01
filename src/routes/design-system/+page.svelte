@@ -156,6 +156,7 @@
   let robeFilter = $state("");
   let modalOpen = $state(false);
   let confirmOpen = $state(false);
+  let primaryConfirmOpen = $state(false);
   let demoStatus = $state<SaleStatus>("pending");
   let demoTab = $state<ProductKind>(DEFAULT_KIND);
   let demoOrder = $state(["Trebbiano d’Abruzzo", "Cerasuolo", "Montepulciano d’Abruzzo"]);
@@ -218,6 +219,7 @@
             <li><strong>Réutiliser avant de créer.</strong> Un composant de <code>src/lib/ui/</code> existe pour les boutons, champs, tableaux, badges, modales, menus, cartes, états vides et chargements (<code>Spinner</code>).</li>
             <li><strong>Tokens uniquement.</strong> Couleurs, rayons et ombres viennent des variables CSS : jamais de hex en dur dans une page.</li>
             <li><strong>Un seul bouton <code>primary</code></strong> par écran ou par modale. <code>danger-solid</code> est réservé à <code>ConfirmDialog</code>.</li>
+            <li><strong>Confirmations</strong> par <code>ConfirmDialog</code>, jamais <code>confirm()</code> : rouge pour une suppression, <code>tone="primary"</code> pour une action irréversible non destructive (envoi d’une campagne, vente payée, transport livré).</li>
             <li><strong>Pages de gestion</strong> : <code>ManagePageShell</code> (titre, contexte, actions à droite), puis le contenu.</li>
             <li><strong>Actions d’une ligne</strong> dans un <code>RowMenu</code> « … » : seulement celles permises par l’état, « Supprimer… » en dernier, qui ouvre un <code>ConfirmDialog</code>.</li>
             <li><strong>Icônes</strong> importées depuis <code>$lib/ui/icons</code>, jamais directement depuis <code>@lucide/svelte</code>.</li>
@@ -530,6 +532,7 @@
           <div class="row">
             <Button onclick={() => (modalOpen = true)}>Ouvrir une modale</Button>
             <Button variant="danger" onclick={() => (confirmOpen = true)}>Supprimer…</Button>
+            <Button onclick={() => (primaryConfirmOpen = true)}>Envoyer…</Button>
             <RowMenu items={rowItems} label="Menu de démonstration" />
           </div>
           <pre class="code"><code>{`<Modal open={showModal} title="Nouveau vin" onclose={close}>
@@ -540,7 +543,8 @@
   {/snippet}
 </Modal>
 
-<ConfirmDialog bind:open={confirmOpen} title="Supprimer ce vin ?" message="…" action={remove} ondone={reload} />`}</code></pre>
+<ConfirmDialog bind:open={confirmOpen} title="Supprimer ce vin ?" message="…" action={remove} ondone={reload} />
+<ConfirmDialog bind:open={sendOpen} title="Envoyer cette campagne ?" confirmLabel="Oui, envoyer" tone="primary" action={send} />`}</code></pre>
         </section>
 
         <!-- ——— Navigation ——— -->
@@ -618,6 +622,15 @@
     title="Supprimer ce vin ?"
     message="« Montepulciano d’Abruzzo » sera supprimé du catalogue. Les ventes passées ne sont pas modifiées."
     onconfirm={() => (confirmOpen = false)}
+  />
+
+  <ConfirmDialog
+    bind:open={primaryConfirmOpen}
+    title="Envoyer cette campagne ?"
+    message="« Dégustation d’automne » sera envoyé à 128 destinataires."
+    confirmLabel="Oui, envoyer"
+    tone="primary"
+    onconfirm={() => (primaryConfirmOpen = false)}
   />
 </div>
 

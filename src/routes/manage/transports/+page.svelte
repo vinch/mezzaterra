@@ -321,6 +321,7 @@
   title="Marquer ce transport comme livré ?"
   message="Cette action va créer des mouvements de stock pour tous les produits des commandes associées."
   confirmLabel="Oui, marquer comme livré"
+  tone="primary"
   action={() => setTransportStatus(deliverTarget.id, "delivered")}
 />
 

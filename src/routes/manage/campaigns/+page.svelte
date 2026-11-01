@@ -295,6 +295,7 @@
   title="Envoyer cette campagne ?"
   message="« {subject} » sera envoyé à {recipients.length} destinataire{recipients.length > 1 ? 's' : ''}."
   confirmLabel="Oui, envoyer"
+  tone="primary"
   action={send}
 />
 
