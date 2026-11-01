@@ -290,7 +290,7 @@
   }
 
   let menuItems = $derived([
-    { label: "Modifier", icon: IconPencil, href: `/manage/customers?modifier=${customerId}` },
+    { label: "Modifier", icon: IconPencil, href: `/manage/customers?edit=${customerId}` },
     { label: "Fusionner avec un autre client…", icon: IconMerge, onSelect: () => openMerge() },
     { label: "Supprimer…", icon: IconTrash, danger: true, separator: true, onSelect: () => (confirmOpen = true) },
   ]);

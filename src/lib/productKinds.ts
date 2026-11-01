@@ -244,14 +244,15 @@ export function kindTabItems(
   return PRODUCT_KIND_LIST.map((k) => ({ key: k.key, label: label(k), count: loading ? undefined : (counts.get(k.key) ?? 0) }));
 }
 
-/** Onglet de type ouvert d'une liste de la gestion, gardé dans l'URL (`?type=huiles`) : retour depuis une fiche, rechargement. */
+/** Onglet de type ouvert d'une liste de la gestion, gardé dans l'URL par sa clé (`?type=olive_oil`) : retour depuis une fiche, rechargement. */
 export function kindFromUrl(url: URL): ProductKind {
-  return kindBySlug(url.searchParams.get("type") ?? "") ?? DEFAULT_KIND;
+  const type = url.searchParams.get("type");
+  return PRODUCT_KIND_LIST.find((k) => k.key === type)?.key ?? DEFAULT_KIND;
 }
 
 /** Lien vers une liste de la gestion ouverte sur l'onglet d'un type ; sans paramètre pour le type par défaut. */
 export function kindListHref(path: string, kind: ProductKind): string {
-  return kind === DEFAULT_KIND ? path : `${path}?type=${PRODUCT_KINDS[kind].slug}`;
+  return kind === DEFAULT_KIND ? path : `${path}?type=${kind}`;
 }
 
 /** Type de produit d'après son segment d'URL public (`vins`, `huiles`). */
