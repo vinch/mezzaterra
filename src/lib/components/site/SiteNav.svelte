@@ -12,7 +12,7 @@
 
   let links = $derived<{ href: string; label: string; also?: string[] }[]>([
     { href: "/", label: "Accueil" },
-    { href: "/tastings", label: "Dégustations" },
+    { href: "/degustations", label: "Dégustations" },
     ...kinds.map((k) => ({
       href: `/${PRODUCT_KINDS[k].slug}`,
       label: PRODUCT_KINDS[k].catalogTitle,

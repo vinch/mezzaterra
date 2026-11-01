@@ -73,7 +73,7 @@
   }
 
   function tastingUrl(t: any, hash = ""): string {
-    return `${window.location.origin}/tastings/${t.id}${hash}`;
+    return `${window.location.origin}/degustations/${t.id}${hash}`;
   }
 
   function applyTemplate() {

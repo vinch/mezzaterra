@@ -46,6 +46,12 @@ menus de ligne, chiffres, accessibilité, textes).
   Gestion : dans `src/lib/ui/`. Site public : dans `src/lib/components/site/`,
   cité sur `/design-system` avec les primitives `mz-`.
 
+## URLs
+
+- **Gestion (`/manage`)** : chemins et paramètres en anglais
+  (`/manage/customers?edit=…`, `/manage/products?type=olive_oil`).
+- **Site public** : en français, pour les visiteurs (`/vins`, `/domaines`…).
+
 ## Avant de pousser du code
 
 Avant tout commit poussé ou toute pull request qui touche du code :
