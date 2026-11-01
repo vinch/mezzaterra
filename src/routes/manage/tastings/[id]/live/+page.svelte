@@ -6,6 +6,7 @@
   import type { RealtimeChannel } from "@supabase/supabase-js";
   import { supabase } from "$lib/supabase";
   import { fetchStockMap } from "$lib/manageData";
+  import { quantitiesByVintage, totalQuantity } from "$lib/sales";
   import ManagePageShell from "$lib/components/manage/ManagePageShell.svelte";
   import Button from "$lib/ui/Button.svelte";
   import IconButton from "$lib/ui/IconButton.svelte";
@@ -37,9 +38,7 @@
   import {
     confirmRegistration,
     createSaleFromWish,
-    quantitiesByVintage,
     setWishStatus,
-    totalQuantity,
     wishItems,
     wishTotal,
     type WishRequest,
