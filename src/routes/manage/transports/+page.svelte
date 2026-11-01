@@ -57,12 +57,14 @@
   let formData = $state(emptyForm());
 
   function openCreateModal() {
+    error = "";
     editingTransport = null;
     formData = emptyForm();
     formOpen = true;
   }
 
   function openEditModal(transport: any) {
+    error = "";
     editingTransport = transport;
     formData = {
       transporter_id: transport.transporter_id || "",
