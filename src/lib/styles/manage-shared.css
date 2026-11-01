@@ -37,16 +37,14 @@
   margin-bottom: 16px;
 }
 
+/* Texte courant (liens, <code>) : pas de flex, qui couperait la phrase en colonnes. */
 .app .warning-message {
-  display: flex;
-  align-items: center;
-  gap: 8px;
   background: var(--warn-bg);
   color: var(--ink);
   border: 1px solid var(--warn-border);
   padding: 12px 16px;
   border-radius: var(--r-sm);
-  margin-bottom: 16px;
+  margin: 0 0 16px;
 }
 
 .app .empty-state {

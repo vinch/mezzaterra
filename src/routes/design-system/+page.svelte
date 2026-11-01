@@ -527,7 +527,7 @@
               <div class="t-muted">Fiches en cours <Spinner size={16} inline /></div>
               <div class="error-message" role="alert">Impossible d’enregistrer la vente.</div>
               <div class="success-message"><IconCheck size={16} strokeWidth={1.75} /> Vente enregistrée.</div>
-              <div class="warning-message">L’envoi direct des campagnes n’est pas configuré.</div>
+              <p class="warning-message">L’envoi direct n’est pas configuré : ajoutez <code>RESEND_API_KEY</code> aux variables d’environnement.</p>
             </div>
           </div>
         </section>
