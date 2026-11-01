@@ -9,11 +9,16 @@
   import { productStyle, productTitle } from "$lib/products";
   import { formatEUR } from "$lib/format";
   import type { Lot } from "$lib/types";
+  import { productsCount } from "$lib/productKinds";
 
   let { data } = $props();
 
   let { tasting, lots, error } = $derived(data);
   let hiddenCount = $derived((data as any).hiddenCount ?? 0);
+  /* « 8 vins », « 6 produits » si la soirée mêle vins et huiles ; types des lots encore secrets compris. */
+  let countLabel = $derived(
+    productsCount(lots.length ? lots.map((v: any) => v.product) : ((data as any).hiddenProducts ?? []), lots.length || hiddenCount),
+  );
   let t = $derived(tasting as any);
   let delta = $derived(t ? daysUntil(t.date) : 0);
   let isUpcoming = $derived(delta > 0);
@@ -58,7 +63,7 @@
     <meta property="og:title" content="{tastingTitle(t)} — Mezzaterra" />
     <meta
       property="og:description"
-      content="{formatDateLong(t.date)} — {lots.length || hiddenCount} vins des Abruzzes à découvrir."
+      content="{formatDateLong(t.date)} — {countLabel} des Abruzzes à découvrir."
     />
   {/if}
 </svelte:head>
@@ -83,7 +88,7 @@
         {#if isPrivate}<li>Dégustation privée</li>{/if}
         {#if address}<li>{address}</li>{/if}
         {#if t.price}<li>{formatEUR(t.price)} / personne</li>{/if}
-        {#if lots.length || hiddenCount}<li>{lots.length || hiddenCount} vins</li>{/if}
+        {#if lots.length || hiddenCount}<li>{countLabel}</li>{/if}
       </ul>
       {#if t.description}
         <p class="mz-lead description">{t.description}</p>
@@ -139,7 +144,7 @@
         <div class="secret-bottles" aria-hidden="true">
           {#each Array(Math.min(hiddenCount, 8)) as _, i}<span style="animation-delay: {i * 90}ms"></span>{/each}
         </div>
-        <p class="secret-title">{hiddenCount} vins à découvrir</p>
+        <p class="secret-title">{countLabel} à découvrir</p>
         <p class="mz-muted">
           {isLive ? "Ils se dévoilent un à un pendant la soirée." : "La sélection reste une surprise jusqu’au soir de la dégustation."}
         </p>
@@ -148,7 +153,7 @@
         {/if}
       </div>
     {:else}
-      <p class="mz-empty">La sélection des vins sera bientôt dévoilée…</p>
+      <p class="mz-empty">La sélection sera bientôt dévoilée…</p>
     {/if}
   </section>
 

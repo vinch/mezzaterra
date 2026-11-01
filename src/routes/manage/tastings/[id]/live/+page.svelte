@@ -455,7 +455,7 @@
             <div class="qr-row">
               {#if qr}<img src={qr} alt="QR code vers la vue invité" class="qr" />{/if}
               <div class="qr-text">
-                <p class="t-caption">Les invités scannent ce code pour suivre la soirée, noter les vins et commander.</p>
+                <p class="t-caption">Les invités scannent ce code pour suivre la soirée, noter les produits et commander.</p>
                 <Button size="sm" onclick={copyLink}>
                   {#if copied}<IconCheck size={14} strokeWidth={1.75} /> Lien copié{:else}<IconCopy size={14} strokeWidth={1.75} /> Copier le lien{/if}
                 </Button>
@@ -551,7 +551,7 @@
     <button type="button" class="proj-close" onclick={() => (projecting = false)} aria-label="Quitter la projection">×</button>
     <div class="proj-qr">
       {#if qr}<img src={qr} alt="QR code" />{/if}
-      <p>Scannez pour suivre la soirée,<br />noter les vins et commander.</p>
+      <p>Scannez pour suivre la soirée,<br />noter les produits et commander.</p>
     </div>
     <div class="proj-lot">
       {#key position}

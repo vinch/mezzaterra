@@ -97,7 +97,7 @@
       message = [
         "Bonjour,",
         `Petit rappel : nous vous attendons ${when}${t.location ? `, à ${t.location}` : ""}.`,
-        `Le soir même, scannez le QR code sur la table pour suivre les vins, les noter et mettre vos coups de cœur de côté :\n${tastingUrl(t, "/live")}`,
+        `Le soir même, scannez le QR code sur la table pour suivre la dégustation, noter ce que vous goûtez et mettre vos coups de cœur de côté :\n${tastingUrl(t, "/live")}`,
         "À demain,\nL’équipe Mezzaterra",
       ].join("\n\n");
       useSubscribers = false;

@@ -80,7 +80,7 @@ export async function createSaleFromWish(
   tastingName?: string | null,
 ): Promise<string> {
   const items = wishItems(wish.items);
-  if (!items.length) throw new Error("La demande ne contient aucun vin.");
+  if (!items.length) throw new Error("La demande ne contient aucun produit.");
 
   const customerId = await findOrCreateCustomer(wish);
   if (wish.tasting_id) await linkCustomerToTasting(wish.tasting_id, customerId);

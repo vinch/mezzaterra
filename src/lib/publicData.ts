@@ -147,18 +147,16 @@ export async function fetchTastingWithLots(tastingId: string, opts: { reveal?: (
   if (error) return { tasting: null, lots: [] as any[], error: error.message };
   if (!tasting) return { tasting: null, lots: [] as any[], error: null };
 
-  /* Lots encore secrets : on ne les charge pas, seulement leur nombre. */
+  /* Lots encore secrets : on ne les charge pas, seulement le type de chacun (« 8 vins à découvrir »). */
   if (opts.reveal && !opts.reveal(tasting.date)) {
-    const { count } = await supabase
-      .from("tasting_lot")
-      .select("lot_id", { count: "exact", head: true })
-      .eq("tasting_id", tastingId);
-    return { tasting, lots: [] as any[], hiddenCount: count ?? 0, error: null };
+    const { data: hidden } = await supabase.from("tasting_lot").select("lot ( product ( kind ) )").eq("tasting_id", tastingId);
+    const hiddenProducts = (hidden || []).map((h: any) => h.lot?.product ?? null);
+    return { tasting, lots: [] as any[], hiddenCount: hiddenProducts.length, hiddenProducts, error: null };
   }
 
   const { data: links, error: linksError } = eagerLinks ?? (await fetchLinks());
 
-  if (linksError) console.error("Erreur chargement des vins :", linksError);
+  if (linksError) console.error("Erreur chargement des produits :", linksError);
 
   const lots = ((links || []) as any[])
     .map((l) => l.lot)

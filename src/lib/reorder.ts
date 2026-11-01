@@ -36,7 +36,7 @@ export async function addToNextSupplierOrder(
 ): Promise<ReorderResult> {
   const supplier = await lastSupplierFor(lotId);
   if (!supplier) {
-    throw new Error("Aucune commande précédente pour ce vin : créez la première depuis Commandes.");
+    throw new Error("Aucune commande précédente pour ce produit : créez la première depuis Commandes.");
   }
   const price = supplier.lastPrice ?? fallbackPrice;
 

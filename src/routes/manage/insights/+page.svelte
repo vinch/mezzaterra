@@ -179,7 +179,7 @@
     {:else}
       <p class="explain">
         Pour chaque soirée : entrées + marge sur les ventes rattachées à la dégustation − coût des
-        bouteilles ouvertes ({BOTTLES_PER_TASTED_LOT} par vin servi). Les « relances » sont les achats des
+        bouteilles ouvertes ({BOTTLES_PER_TASTED_LOT} par produit servi). Les « relances » sont les achats des
         participants dans les 30 jours suivants, hors soirée.
       </p>
       <DataTable caption="Rentabilité des dégustations">

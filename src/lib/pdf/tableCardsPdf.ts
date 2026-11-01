@@ -3,7 +3,7 @@ import { attachRobotoPdf, svgToPng } from "./assets";
 import { qrDataUrl } from "$lib/qr";
 import { formatDateLong } from "$lib/dates";
 import { tastingTitle } from "$lib/publicData";
-import { kindInfo, lotHref } from "$lib/productKinds";
+import { kindInfo, lotHref, productsCount } from "$lib/productKinds";
 import {
   findNote,
   varietiesText,
@@ -52,13 +52,13 @@ export async function downloadTableCardsPdf(tasting: any, lots: any[], origin: s
     doc.setFont(font, "normal");
     doc.setFontSize(14);
     doc.setTextColor(...INK);
-    doc.text("Scannez, notez chaque vin et mettez vos coups de cœur de côté.", PW / 2, 98, { align: "center" });
+    doc.text("Scannez, notez ce que vous goûtez et mettez vos coups de cœur de côté.", PW / 2, 98, { align: "center" });
     const liveQr = await qrDataUrl(`${origin}/tastings/${tasting.id}/live`, { size: 900 });
     doc.addImage(liveQr, "PNG", (PW - 110) / 2, 112, 110, 110);
     doc.setFontSize(12);
     doc.setTextColor(...MUTED);
     doc.text(`${tastingTitle(tasting)} — ${formatDateLong(tasting.date)}`, PW / 2, 236, { align: "center" });
-    doc.text(`${lots.length} vins`, PW / 2, 243, { align: "center" });
+    doc.text(productsCount(lots.map((v) => v.product)), PW / 2, 243, { align: "center" });
   }
 
   /* ——— Une fiche A5 par produit ——— */

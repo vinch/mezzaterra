@@ -221,6 +221,15 @@ export function kindCount(kind: ProductKindInfo, n: number): string {
   return `${n} ${(n > 1 ? kind.plural : kind.label).toLowerCase()}`;
 }
 
+/**
+ * « 8 vins », « 3 huiles d’olive », ou « 5 produits » quand les types se mêlent (dégustation, affiche) :
+ * nombre de produits d'une liste, au vocabulaire de leur type quand il n'y en a qu'un.
+ */
+export function productsCount(products: KindRow[], n = products.length): string {
+  const kinds = new Set(products.map(kindOf));
+  return kinds.size === 1 ? kindCount(PRODUCT_KINDS[[...kinds][0]], n) : `${n} produit${n > 1 ? "s" : ""}`;
+}
+
 /** Onglets « un par type de produit » (composant `Tabs`) : libellé et nombre de lignes de chaque type, sans compte pendant le chargement. */
 export function kindTabItems(
   rows: KindRow[],

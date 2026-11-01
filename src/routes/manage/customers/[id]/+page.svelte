@@ -391,7 +391,7 @@
 
       <Card title="À lui proposer" id="suggest">
         {#snippet actions()}
-                        <span class="t-caption">{selectedSuggestions.length} vin{selectedSuggestions.length > 1 ? "s" : ""} sélectionné{selectedSuggestions.length > 1 ? "s" : ""} pour l’envoi</span>
+                        <span class="t-caption">{selectedSuggestions.length} produit{selectedSuggestions.length > 1 ? "s" : ""} sélectionné{selectedSuggestions.length > 1 ? "s" : ""} pour l’envoi</span>
                       {/snippet}
         {#if suggestions.length === 0}
           <EmptyState
