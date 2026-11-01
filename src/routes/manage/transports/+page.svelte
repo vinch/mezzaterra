@@ -46,6 +46,7 @@
   let availableOrders = $state<any[]>([]);
   let associatedOrders = $state<any[]>([]);
   let selectedOrderIds = $state<string[]>([]);
+  let associating = $state(false);
 
   const emptyForm = () => ({
     transporter_id: "",
@@ -213,16 +214,19 @@
   }
 
   async function associateOrders() {
+    if (associating) return;
     if (!selectedTransport || selectedOrderIds.length === 0) {
       error = "Veuillez sélectionner au moins une commande";
       return;
     }
 
     /* Tout ou rien, transport verrouillé (fonction SQL attach_orders_to_transport). */
+    associating = true;
     const { error: attachError } = await supabase.rpc("attach_orders_to_transport", {
       p_transport_id: selectedTransport.id,
       p_order_ids: selectedOrderIds,
     });
+    associating = false;
 
     if (attachError) {
       error = attachError.message;
@@ -418,7 +422,7 @@
   {/if}
   {#snippet footer()}
     <Button variant="ghost" onclick={closeOrdersModal}>Annuler</Button>
-    <Button variant="primary" onclick={associateOrders} disabled={selectedOrderIds.length === 0}>Associer {selectedOrderIds.length > 0 ? `(${selectedOrderIds.length})` : ""}</Button>
+    <Button variant="primary" onclick={associateOrders} disabled={associating || selectedOrderIds.length === 0}>Associer {selectedOrderIds.length > 0 ? `(${selectedOrderIds.length})` : ""}</Button>
   {/snippet}
 </Modal>
 
