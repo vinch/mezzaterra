@@ -2,8 +2,8 @@
   import { onMount } from "svelte";
   import { page } from "$app/stores";
   import RefCrudPage from "$lib/components/manage/RefCrudPage.svelte";
-  import { customerDisplayLabel, sortCustomersByLabel } from "$lib/customerDisplay";
-  import { addressFields, countryLabel, countryOptions } from "$lib/components/manage/refCrud";
+  import { customerDisplayLabel } from "$lib/customerDisplay";
+  import { addressFields, COUNTRY_COLUMN, countryOptions } from "$lib/components/manage/refCrud";
   import { fetchCountries } from "$lib/manageData";
   import type { Country } from "$lib/types";
 
@@ -26,7 +26,6 @@
   emptyText="Les clients se créent aussi depuis une vente, une inscription ou une demande « J’en veux »."
   rowLabel={customerDisplayLabel}
   rowHref={(c) => `/manage/customers/${c.id}`}
-  sortRows={sortCustomersByLabel}
   editId={$page.url.searchParams.get("modifier")}
   fields={[
     { key: "first_name", label: "Prénom", required: true },
@@ -37,10 +36,10 @@
   ]}
   columns={[
     { label: "Nom", value: (c) => `${c.first_name} ${c.last_name}`.trim() },
-    { label: "Email", value: (c) => c.email },
+    { label: "Email", value: (c) => c.email, sort: false },
     { label: "Entreprise", value: (c) => c.company_name },
-    { label: "Téléphone", value: (c) => c.phone_number },
+    { label: "Téléphone", value: (c) => c.phone_number, sort: false },
     { label: "Ville", value: (c) => c.city },
-    { label: "Pays", value: (c) => countryLabel(c.country) },
+    COUNTRY_COLUMN,
   ]}
 />

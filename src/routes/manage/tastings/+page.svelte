@@ -12,6 +12,8 @@
   import RowMenu from "$lib/ui/RowMenu.svelte";
   import ConfirmDialog from "$lib/ui/ConfirmDialog.svelte";
   import DataTable from "$lib/ui/DataTable.svelte";
+  import SortHeader from "$lib/ui/SortHeader.svelte";
+  import { sortedBy, type SortState } from "$lib/sort";
   import Card from "$lib/ui/Card.svelte";
   import Field from "$lib/ui/Field.svelte";
   import ManagePageShell from "$lib/components/manage/ManagePageShell.svelte";
@@ -60,6 +62,16 @@
   };
 
   let tastings = $state<TastingRow[]>([]);
+  const SORT_VALUES = {
+    date: (t: TastingRow) => t.date,
+    name: (t: TastingRow) => t.name,
+    location: (t: TastingRow) => t.location,
+    products: (t: TastingRow) => wineCount(t),
+    participants: (t: TastingRow) => participantPlaces(t),
+  };
+  /* Par défaut, la plus récente d'abord (ordre du chargement). */
+  let sort = $state<SortState<keyof typeof SORT_VALUES>>({ key: "date", dir: "desc" });
+  let sortedTastings = $derived(sortedBy(tastings, sort, SORT_VALUES));
   let customers = $state.raw<Customer[]>([]);
   /** Participants signalés « Doublon possible » (une autre fiche porte leur nom). */
   let duplicateIds = $derived(namesakeIds(customers));
@@ -468,16 +480,16 @@
     <DataTable caption="Liste des dégustations">
       <thead>
         <tr>
-          <th scope="col">Date</th>
-          <th scope="col">Nom</th>
-          <th scope="col">Lieu</th>
-          <th scope="col" class="num">Produits</th>
-          <th scope="col" class="num">Participants</th>
+          <SortHeader column="date" label="Date" firstDir="desc" bind:sort />
+          <SortHeader column="name" label="Nom" bind:sort />
+          <SortHeader column="location" label="Lieu" bind:sort />
+          <SortHeader column="products" label="Produits" num bind:sort />
+          <SortHeader column="participants" label="Participants" num bind:sort />
           <th scope="col" class="col-actions"><span class="sr-only">Actions</span></th>
         </tr>
       </thead>
       <tbody>
-        {#each tastings as tasting (tasting.id)}
+        {#each sortedTastings as tasting (tasting.id)}
           {@const count = participantPlaces(tasting)}
           <tr>
             <td>{formatDate(tasting.date)}</td>

@@ -4,7 +4,8 @@
 
   /**
    * En-tête de colonne triable d'un DataTable : clic pour trier sur la colonne, second clic pour
-   * inverser le sens. `firstDir` : sens du premier clic (« desc » pour un stock, du plus grand au plus petit).
+   * inverser le sens. `firstDir` : sens du premier clic ; par défaut du plus grand au plus petit pour une
+   * colonne chiffrée (`num` : stock, montant), alphabétique sinon.
    * `also` : second tri dans la même colonne, quand la cellule a deux lignes (« Produit · Domaine ») ;
    * il partage `num` et `firstDir`, et `aria-pressed` indique lequel des deux trie.
    */
@@ -17,7 +18,7 @@
     firstDir?: SortDir;
   }
 
-  let { column, label, sort = $bindable(), also, num = false, firstDir = "asc" }: Props = $props();
+  let { column, label, sort = $bindable(), also, num = false, firstDir = num ? "desc" : "asc" }: Props = $props();
 
   let active = $derived(sort.key === column || sort.key === also?.column);
 

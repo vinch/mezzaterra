@@ -3,19 +3,27 @@
   import ManagePageShell from "$lib/components/manage/ManagePageShell.svelte";
   import Button from "$lib/ui/Button.svelte";
   import DataTable from "$lib/ui/DataTable.svelte";
+  import SortHeader from "$lib/ui/SortHeader.svelte";
   import EmptyState from "$lib/ui/EmptyState.svelte";
   import { IconBox } from "$lib/ui/icons";
   import Spinner from "$lib/ui/Spinner.svelte";
   import {
     fetchStockDocVintages,
     sortedStockForDocuments,
+    stockSortValues,
     stockVintageLabel,
     type StockDocVintage,
+    type StockSortKey,
   } from "$lib/stockDocuments";
+  import { sortedBy, type SortState } from "$lib/sort";
 
   let loading = $state(true);
   let error = $state("");
   let stockInHandList = $state<StockDocVintage[]>([]);
+  /* Par défaut, par domaine ; à égalité, l'ordre du chargement. */
+  let sort = $state<SortState<StockSortKey>>({ key: "winery", dir: "asc" });
+  const sortValues = stockSortValues();
+  let sortedStock = $derived(sortedBy(stockInHandList, sort, sortValues));
 
   onMount(() => loadStockInHand());
 
@@ -53,15 +61,15 @@
     <DataTable caption="Produits en stock">
       <thead>
         <tr>
-          <th scope="col">Domaine</th>
-          <th scope="col">Nom</th>
-          <th scope="col">Millésime ou lot</th>
-          <th scope="col" class="num">En stock</th>
+          <SortHeader column="winery" label="Domaine" bind:sort />
+          <SortHeader column="name" label="Nom" bind:sort />
+          <SortHeader column="year" label="Millésime ou lot" firstDir="desc" bind:sort />
+          <SortHeader column="stock" label="En stock" num bind:sort />
           <th scope="col" class="col-actions"><span class="sr-only">Actions</span></th>
         </tr>
       </thead>
       <tbody>
-        {#each stockInHandList as row (row.id)}
+        {#each sortedStock as row (row.id)}
           <tr>
             <td>{row.wineryName}</td>
             <td><strong>{row.wineName}</strong></td>

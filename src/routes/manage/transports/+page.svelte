@@ -12,17 +12,19 @@
   import RowMenu from "$lib/ui/RowMenu.svelte";
   import ConfirmDialog from "$lib/ui/ConfirmDialog.svelte";
   import DataTable from "$lib/ui/DataTable.svelte";
+  import SortHeader from "$lib/ui/SortHeader.svelte";
+  import { sortedBy, type SortState } from "$lib/sort";
   import EmptyState from "$lib/ui/EmptyState.svelte";
   import Card from "$lib/ui/Card.svelte";
   import Field from "$lib/ui/Field.svelte";
   import Select from "$lib/ui/Select.svelte";
   import { IconClipboard, IconEye, IconPencil, IconPlus, IconRoute, IconTrash } from "$lib/ui/icons";
-  import { isEditable } from "$lib/status";
+  import { isEditable, statusRank } from "$lib/status";
   import ManagePageShell from "$lib/components/manage/ManagePageShell.svelte";
   import { LINE_ITEMS_SELECT } from "$lib/manageData";
   import { isoDateOnly } from "$lib/dates";
   import { errorMessage, latestOnly } from "$lib/async";
-  import { formatDate, formatEUR } from "$lib/format";
+  import { formatDate, formatEUR, toNumberOrNull } from "$lib/format";
   import { lineTotal } from "$lib/analytics";
   import { vintageProductLabel } from "$lib/wine";
 
@@ -33,6 +35,18 @@
   let { data }: Props = $props();
 
   let transports: any[] = $derived(data.transports);
+  const SORT_VALUES = {
+    transporter: (t: any) => t.transporter?.name,
+    departure: (t: any) => t.departure_date,
+    arrival: (t: any) => t.arrival_date,
+    status: (t: any) => statusRank("transport", t.status),
+    orders: (t: any) => t.order_count || 0,
+    pallets: (t: any) => t.pallets_number || null,
+    price: (t: any) => toNumberOrNull(t.price),
+  };
+  /* Par défaut, le départ le plus récent d'abord ; sans date de départ, en fin de liste. */
+  let sort = $state<SortState<keyof typeof SORT_VALUES>>({ key: "departure", dir: "desc" });
+  let sortedTransports = $derived(sortedBy(transports, sort, SORT_VALUES));
   /* Rechargés par invalidateAll() après une création, une modification ou une suppression. */
   let transporters: any[] = $derived(data.transporters);
   let error = $state("");
@@ -282,18 +296,18 @@
     <DataTable caption="Liste des transports">
       <thead>
         <tr>
-          <th scope="col">Transporteur</th>
-          <th scope="col">Départ</th>
-          <th scope="col">Arrivée</th>
-          <th scope="col">Statut</th>
-          <th scope="col" class="num">Commandes</th>
-          <th scope="col" class="num">Palettes</th>
-          <th scope="col" class="num">Prix</th>
+          <SortHeader column="transporter" label="Transporteur" bind:sort />
+          <SortHeader column="departure" label="Départ" firstDir="desc" bind:sort />
+          <SortHeader column="arrival" label="Arrivée" firstDir="desc" bind:sort />
+          <SortHeader column="status" label="Statut" bind:sort />
+          <SortHeader column="orders" label="Commandes" num bind:sort />
+          <SortHeader column="pallets" label="Palettes" num bind:sort />
+          <SortHeader column="price" label="Prix" num bind:sort />
           <th scope="col" class="col-actions"><span class="sr-only">Actions</span></th>
         </tr>
       </thead>
       <tbody>
-        {#each transports as transport (transport.id)}
+        {#each sortedTransports as transport (transport.id)}
           <tr>
             <td><strong>{transport.transporter.name}</strong></td>
             <td>{formatDate(transport.departure_date)}</td>

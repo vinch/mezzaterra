@@ -31,6 +31,13 @@ export const KIND_META: Record<StatusKind, Record<string, StatusMeta>> = {
   },
 };
 
+/** Rang d'un statut dans l'ordre de son type (tri d'une colonne Statut) ; un statut inconnu vient en dernier. */
+export function statusRank(kind: StatusKind, status: string | null | undefined): number {
+  const order = Object.keys(KIND_META[kind]);
+  const i = order.indexOf(status ?? "pending");
+  return i < 0 ? order.length : i;
+}
+
 export function statusMeta(kind: StatusKind, status: string | null | undefined): StatusMeta {
   return KIND_META[kind][status ?? "pending"] ?? { label: status ?? "", tone: "closed", icon: IconLock };
 }

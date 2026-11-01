@@ -14,7 +14,7 @@
   import ConfirmDialog from "$lib/ui/ConfirmDialog.svelte";
   import DataTable from "$lib/ui/DataTable.svelte";
   import SortHeader from "$lib/ui/SortHeader.svelte";
-  import { compareValues, type SortState } from "$lib/sort";
+  import { sortedBy, type SortState } from "$lib/sort";
   import EmptyState from "$lib/ui/EmptyState.svelte";
   import Field from "$lib/ui/Field.svelte";
   import IconButton from "$lib/ui/IconButton.svelte";
@@ -182,8 +182,15 @@
     { id: "b", wine: "Trebbiano d’Abruzzo", robe: "white", winery: "Tiberio", stock: 4, price: 18 },
     { id: "c", wine: "Cerasuolo", robe: "rose", winery: "Praesidium", stock: 36, price: 16.9 },
   ] as const;
-  let rowSort = $state<SortState<"wine" | "winery" | "stock" | "price">>({ key: "wine", dir: "asc" });
-  let sortedRows = $derived([...rows].sort((a, b) => compareValues(a[rowSort.key], b[rowSort.key], rowSort.dir)));
+  type Row = (typeof rows)[number];
+  const ROW_SORT = {
+    wine: (r: Row) => r.wine,
+    winery: (r: Row) => r.winery,
+    stock: (r: Row) => r.stock,
+    price: (r: Row) => r.price,
+  };
+  let rowSort = $state<SortState<keyof typeof ROW_SORT>>({ key: "wine", dir: "asc" });
+  let sortedRows = $derived(sortedBy(rows, rowSort, ROW_SORT));
 
   const sidebarSections: NavSection[] = [
     { title: null, links: [{ href: "#navigation", label: "Tableau de bord", icon: IconHome }] },
@@ -229,6 +236,7 @@
             <li><strong>Pages de gestion</strong> : <code>ManagePageShell</code> (titre, contexte, actions à droite), puis le contenu.</li>
             <li><strong>Actions d’une ligne</strong> dans un <code>RowMenu</code> « … » : seulement celles permises par l’état, « Supprimer… » en dernier, qui ouvre un <code>ConfirmDialog</code>.</li>
             <li><strong>Icônes</strong> importées depuis <code>$lib/ui/icons</code>, jamais directement depuis <code>@lucide/svelte</code>.</li>
+            <li><strong>Tableaux triables</strong> : toute colonne qu’on a une raison de trier (nom, date, statut, montant, stock…) a un <code>SortHeader</code> ; pas les colonnes de détail (email, téléphone, description, liens). Le tri par défaut reproduit l’ordre habituel de la liste (la plus récente d’abord, ou par nom). Les lignes d’une vente ou d’une commande gardent l’ordre de saisie.</li>
             <li><strong>Chiffres</strong> alignés à droite (<code>.num</code>, y compris l’en-tête de colonne), montants avec <code>formatEUR</code>, dates avec <code>formatDate</code>.</li>
             <li><strong>Accessibilité</strong> : chaque champ a un libellé (<code>Field</code>), chaque bouton icône un <code>label</code>, cibles de 44 px sur mobile (déjà géré par les composants).</li>
             <li><strong>Textes en français</strong>, phrases courtes, guillemets « » et apostrophe typographique ’.</li>
@@ -482,13 +490,13 @@
         <!-- ——— Tableaux ——— -->
         <section id="tableaux" class="ds-section">
           <h2 class="t-card-title">Tableaux</h2>
-          <p class="t-muted"><code>DataTable</code> avec <code>caption</code> ; en-têtes <code>scope="col"</code>, colonnes chiffrées <code>.num</code>, nom cliquable <code>.row-link</code>, actions dans <code>.col-actions</code> avec un <code>RowMenu</code> (précédé d’un bouton icône fréquent : les deux dans <code>.ui-row-actions</code>). Colonne triable : <code>SortHeader</code> (à la place du <code>&lt;th&gt;</code>, <code>bind:sort</code> partagé par les colonnes, second clic pour inverser, <code>firstDir="desc"</code> pour un stock, <code>also</code> pour un second tri dans une cellule à deux lignes) et <code>compareValues</code> (<code>$lib/sort</code>) pour trier les lignes, valeurs absentes en fin de liste.</p>
+          <p class="t-muted"><code>DataTable</code> avec <code>caption</code> ; en-têtes <code>scope="col"</code>, colonnes chiffrées <code>.num</code>, nom cliquable <code>.row-link</code>, actions dans <code>.col-actions</code> avec un <code>RowMenu</code> (précédé d’un bouton icône fréquent : les deux dans <code>.ui-row-actions</code>). Colonne triable : <code>SortHeader</code> (à la place du <code>&lt;th&gt;</code>, <code>bind:sort</code> partagé par les colonnes, second clic pour inverser ; premier clic du plus grand au plus petit sur une colonne <code>num</code>, sinon croissant, à forcer avec <code>firstDir</code> : <code>"desc"</code> pour une date, <code>"asc"</code> pour un prix de vente ; <code>also</code> pour un second tri dans une cellule à deux lignes) et <code>sortedBy</code> (<code>$lib/sort</code>, une fonction de valeur par colonne) pour trier les lignes, valeurs absentes en fin de liste ; dans un référentiel, <code>RefCrudPage</code> trie seul ses colonnes (<code>sort</code> d’une colonne : une autre valeur de tri, ou <code>false</code> pour l’exclure).</p>
           <DataTable caption="Exemple de tableau">
             <thead>
               <tr>
                 <SortHeader column="wine" label="Vin" also={{ column: "winery", label: "Domaine" }} bind:sort={rowSort} />
-                <SortHeader column="stock" label="Stock" num firstDir="desc" bind:sort={rowSort} />
-                <SortHeader column="price" label="Prix" num bind:sort={rowSort} />
+                <SortHeader column="stock" label="Stock" num bind:sort={rowSort} />
+                <SortHeader column="price" label="Prix" num firstDir="asc" bind:sort={rowSort} />
                 <th scope="col" class="col-actions"><span class="sr-only">Actions</span></th>
               </tr>
             </thead>

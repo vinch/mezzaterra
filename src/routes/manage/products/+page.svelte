@@ -15,7 +15,7 @@
   import ConfirmDialog from "$lib/ui/ConfirmDialog.svelte";
   import DataTable from "$lib/ui/DataTable.svelte";
   import SortHeader from "$lib/ui/SortHeader.svelte";
-  import { compareValues, type SortState } from "$lib/sort";
+  import { sortedBy, type SortState } from "$lib/sort";
   import EmptyState from "$lib/ui/EmptyState.svelte";
   import Field from "$lib/ui/Field.svelte";
   import StockBadge from "$lib/ui/StockBadge.svelte";
@@ -23,7 +23,7 @@
   import Spinner from "$lib/ui/Spinner.svelte";
   import Tabs from "$lib/ui/Tabs.svelte";
   import Combobox, { type ComboOption } from "$lib/ui/Combobox.svelte";
-  import { byRobe, byVolume, compareProductsByProducer, MAIN_ROBES, styleByKey, vintageShortLabel, wineRobe, type ProductStyleKey, productTitle, productTypeLabel, withVolume } from "$lib/wine";
+  import { byVolume, robeRanks, compareProductsByProducer, MAIN_ROBES, styleByKey, vintageShortLabel, wineRobe, type ProductStyleKey, productTitle, productTypeLabel, withVolume } from "$lib/wine";
   import {
     IconArchive,
     IconArchiveRestore,
@@ -475,27 +475,22 @@
       return [w.id, { total, badge: stockBadge(w, total, !!stock) }];
     }),
   ));
-  type SortKey = "name" | "winery" | "type" | "stock" | "price";
-  let sort = $state<SortState<SortKey>>({ key: "winery", dir: "asc" });
   /** Rang des types : robe du plus léger au plus corsé (blanc, rosé, rouge), puis ordre propre au produit (fruité d'une huile). */
-  let typeRank = $derived(new Map([...wineTypes].sort(byRobe).map((t, i) => [t.id, i])));
+  let typeRank = $derived(robeRanks(wineTypes));
   /** Valeur triée d'un produit ; null (sans prix, stock illisible) en fin de liste. */
-  function sortValue(wine: any, key: SortKey): string | number | null {
-    switch (key) {
-      case "name": return productTitle(wine);
-      case "winery": return wine.winery?.name ?? null;
-      case "type": return typeRank.get(wine.wine_type_id) ?? null;
-      case "stock": return stock ? stockById.get(wine.id)?.total ?? 0 : null;
-      case "price": return minPrice(wine);
-    }
-  }
+  let sortValues = $derived({
+    name: (wine: any) => productTitle(wine),
+    winery: (wine: any) => wine.winery?.name,
+    type: (wine: any) => typeRank.get(wine.wine_type_id),
+    stock: (wine: any) => (stock ? stockById.get(wine.id)?.total ?? 0 : null),
+    price: (wine: any) => minPrice(wine),
+  });
+  let sort = $state<SortState<keyof typeof sortValues>>({ key: "winery", dir: "asc" });
   /* Vins retirés en fin de liste : visibles, mais hors du chemin. À égalité, l'ordre du chargement (domaine, puis nom). */
-  let shownWines = $derived(filteredWines
+  let shownWines = $derived(sortedBy(filteredWines
     .filter((w: any) => !robeFilter || wineRobe(w.wine_type).key === robeFilter)
-    .filter((w: any) => !inStockOnly || !stock || (stockById.get(w.id)?.total ?? 0) > 0)
-    .sort((a: any, b: any) =>
-      Number(isRetired(a)) - Number(isRetired(b)) ||
-      compareValues(sortValue(a, sort.key), sortValue(b, sort.key), sort.dir)));
+    .filter((w: any) => !inStockOnly || !stock || (stockById.get(w.id)?.total ?? 0) > 0), sort, sortValues)
+    .sort((a: any, b: any) => Number(isRetired(a)) - Number(isRetired(b))));
   /** « 19 vins (35 millésimes) · 120 bouteilles en stock », pour l'onglet ouvert. */
   let subtitle = $derived.by(() => {
     const batches = tabWines.reduce((n, w: any) => n + (w.wine_vintage?.length ?? 0), 0);
@@ -592,8 +587,8 @@
               <SortHeader column="name" label="Produit" also={{ column: "winery", label: "Domaine" }} bind:sort />
               <SortHeader column="type" label={tabKind.typeLabel} bind:sort />
               <th scope="col">{tabKind.batchPlural} · stock</th>
-              <SortHeader column="stock" label="Stock" num firstDir="desc" bind:sort />
-              <SortHeader column="price" label="Prix de vente" num bind:sort />
+              <SortHeader column="stock" label="Stock" num bind:sort />
+              <SortHeader column="price" label="Prix de vente" num firstDir="asc" bind:sort />
               <th scope="col" class="col-actions"><span class="sr-only">Actions</span></th>
             </tr>
           </thead>

@@ -1,7 +1,7 @@
 <script lang="ts">
   import { onMount } from "svelte";
   import RefCrudPage from "$lib/components/manage/RefCrudPage.svelte";
-  import { countryLabel, countryOptions } from "$lib/components/manage/refCrud";
+  import { COUNTRY_COLUMN, countryOptions } from "$lib/components/manage/refCrud";
   import { fetchCountries } from "$lib/manageData";
   import type { Country } from "$lib/types";
 
@@ -27,6 +27,6 @@
   ]}
   columns={[
     { label: "Nom", value: (l) => l.name },
-    { label: "Pays", value: (l) => countryLabel(l.country) },
+    COUNTRY_COLUMN,
   ]}
 />

@@ -14,7 +14,9 @@
   import { fetchLatestFeedback } from "$lib/live";
   import { MAIN_ROBES, robePreference, styleByKey, vintageLabel, vintageLabelSelect, vintageShortLabel, wineRobe, type ProductStyleKey } from "$lib/wine";
   import { KIND_STYLES } from "$lib/productKinds";
-  import { formatDate, formatEUR } from "$lib/format";
+  import { formatDate, formatEUR, toNumber } from "$lib/format";
+  import { statusRank } from "$lib/status";
+  import { sortedBy, type SortState } from "$lib/sort";
   import Button from "$lib/ui/Button.svelte";
   import IconButton from "$lib/ui/IconButton.svelte";
   import Card from "$lib/ui/Card.svelte";
@@ -25,6 +27,7 @@
   import Select from "$lib/ui/Select.svelte";
   import CustomerAutocomplete from "$lib/components/manage/CustomerAutocomplete.svelte";
   import DataTable from "$lib/ui/DataTable.svelte";
+  import SortHeader from "$lib/ui/SortHeader.svelte";
   import EmptyState from "$lib/ui/EmptyState.svelte";
   import StatusBadge from "$lib/ui/StatusBadge.svelte";
   import StyleDot from "$lib/ui/StyleDot.svelte";
@@ -37,6 +40,14 @@
   let error = $state("");
   let customer = $state<any>(null);
   let sales = $state<any[]>([]);
+  const SALE_SORT = {
+    date: (s: any) => s.date,
+    status: (s: any) => statusRank("sale", s.status),
+    total: (s: any) => toNumber(s.total_price),
+  };
+  /* Par défaut, la plus récente d'abord (ordre du chargement). */
+  let saleSort = $state<SortState<keyof typeof SALE_SORT>>({ key: "date", dir: "desc" });
+  let sortedSales = $derived(sortedBy(sales, saleSort, SALE_SORT));
   let tastings = $state<any[]>([]);
   let feedback = $state<any[]>([]);
   let vintages = $state.raw<any[]>([]);
@@ -483,16 +494,16 @@
           <DataTable caption="Historique des ventes">
             <thead>
               <tr>
-                <th scope="col">Date</th>
+                <SortHeader column="date" label="Date" firstDir="desc" bind:sort={saleSort} />
                 <th scope="col">Facture</th>
-                <th scope="col">Statut</th>
+                <SortHeader column="status" label="Statut" bind:sort={saleSort} />
                 <th scope="col">Articles</th>
-                <th scope="col" class="num">Total</th>
+                <SortHeader column="total" label="Total" num bind:sort={saleSort} />
                 <th scope="col" class="col-actions"><span class="sr-only">Facture</span></th>
               </tr>
             </thead>
             <tbody>
-              {#each sales as s (s.id)}
+              {#each sortedSales as s (s.id)}
                 <tr>
                   <td>{formatDate(s.date)}</td>
                   <td>
