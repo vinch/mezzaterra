@@ -33,7 +33,7 @@
     IconTrash,
     IconX,
   } from "$lib/ui/icons";
-  import { fold, formatDate, formatEUR, initials, toNumber } from "$lib/format";
+  import { fold, formatDate, formatEUR, formatPercent, initials, toNumber } from "$lib/format";
   import { isoDateOnly, todayIso } from "$lib/dates";
   import { lineTotal } from "$lib/analytics";
   import { robePreference, styleByKey, vintageProductLabel, vintageShortLabel } from "$lib/wine";
@@ -1148,7 +1148,7 @@
         {#if toNumber(detailsSale.global_discount) > 0}
           <p><span>Sous-total articles (TTC)</span><span>{formatEUR(itemsSubtotal(detailsSaleItems))}</span></p>
           <p>
-            <span>Ristourne globale {detailsSale.global_discount_type === "percent" ? `(${toNumber(detailsSale.global_discount)} %)` : "(montant)"}</span>
+            <span>Ristourne globale {detailsSale.global_discount_type === "percent" ? `(${formatPercent(toNumber(detailsSale.global_discount))})` : "(montant)"}</span>
             <span>−{formatEUR(globalDiscountAmount(detailsSaleItems, detailsSale.total_price))}</span>
           </p>
         {/if}

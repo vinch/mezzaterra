@@ -1,7 +1,7 @@
 import { supabase } from "./supabase";
 import { LINE_ITEMS_SELECT } from "./manageData";
 import { lineTotal } from "./analytics";
-import { formatEUR, toNumber } from "./format";
+import { formatEUR, formatPercent, toNumber } from "./format";
 import { vintageProductLabel } from "./wine";
 
 /** Règles des ventes partagées par la page Ventes et la facture PDF. */
@@ -54,7 +54,7 @@ export function lineDiscountError(item: { price: unknown; quantity: unknown; dis
 export function lineDiscountLabel(item: { discount: unknown; discount_type?: string | null }): string {
   const discount = toNumber(item.discount);
   if (discount <= 0) return "—";
-  return item.discount_type === "percent" ? `−${discount} %` : `−${formatEUR(discount)}`;
+  return item.discount_type === "percent" ? `−${formatPercent(discount)}` : `−${formatEUR(discount)}`;
 }
 
 /** Lignes de vente : remises et note (ligne dégustation) en plus des lignes d'articles. */
