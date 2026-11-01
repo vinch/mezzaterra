@@ -21,6 +21,7 @@
   import ManagePageShell from "$lib/components/manage/ManagePageShell.svelte";
   import { LINE_ITEMS_SELECT } from "$lib/manageData";
   import { isoDateOnly } from "$lib/dates";
+  import { errorMessage, latestOnly } from "$lib/async";
   import { formatDate, formatEUR } from "$lib/format";
   import { lineTotal } from "$lib/analytics";
   import { vintageProductLabel } from "$lib/wine";
@@ -164,10 +165,15 @@
     void setTransportStatus(transport.id, next);
   }
 
-  /* La modale s'ouvre une fois ses listes lues (elle suit `selectedTransport`). */
+  /* Chargements des modales : le dernier clic gagne ; une modale s'ouvre une fois ses listes lues (elle suit sa cible). */
+  const modalLoad = latestOnly((e) => (error = errorMessage(e)));
+
   async function openOrdersModal(transport: any) {
+    error = "";
+    const loaded = await modalLoad.run(() => Promise.all([fetchOrders(null), fetchOrders(transport.id)]));
+    if (!loaded) return;
+    [availableOrders, associatedOrders] = loaded;
     selectedOrderIds = [];
-    [availableOrders, associatedOrders] = await Promise.all([fetchOrders(null), fetchOrders(transport.id)]);
     selectedTransport = transport;
   }
 
@@ -179,7 +185,10 @@
   }
 
   async function openDetailsModal(transport: any) {
-    detailsOrders = await fetchOrders(transport.id, `*, supplier (*), order_item ( ${LINE_ITEMS_SELECT} )`);
+    error = "";
+    const orders = await modalLoad.run(() => fetchOrders(transport.id, `*, supplier (*), order_item ( ${LINE_ITEMS_SELECT} )`));
+    if (!orders) return;
+    detailsOrders = orders;
     detailsTransport = transport;
   }
 
@@ -190,7 +199,8 @@
 
   /**
    * Commandes d'un transport, ou avec `null` les commandes confirmées encore sans transport
-   * (seules associables), les plus récentes d'abord. Échec : liste vide et message affiché.
+   * (seules associables), les plus récentes d'abord. Lève une erreur : une modale ne s'ouvre pas
+   * avec une liste vide trompeuse (« aucune commande disponible »).
    */
   async function fetchOrders(transportId: string | null, select = "*, supplier (*)"): Promise<any[]> {
     const query = supabase.from("order").select(select);
@@ -198,7 +208,7 @@
       ? query.eq("transport_id", transportId)
       : query.is("transport_id", null).eq("status", "confirmed")
     ).order("date", { ascending: false });
-    if (fetchError) error = fetchError.message;
+    if (fetchError) throw new Error(fetchError.message);
     return data || [];
   }
 
