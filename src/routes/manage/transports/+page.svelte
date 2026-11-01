@@ -377,6 +377,9 @@
 
 <!-- Association de commandes -->
 <Modal open={selectedTransport != null} title="Associer des commandes au transport" onclose={closeOrdersModal}>
+  {#if error}
+    <div class="error-message" role="alert">{error}</div>
+  {/if}
   {#if selectedTransport}
     <p class="intro t-muted">
       Sélectionnez les commandes à associer au transport <strong>{selectedTransport.transporter.name}</strong>.
@@ -424,6 +427,9 @@
   {#snippet titleExtra()}
     {#if detailsTransport}<StatusBadge kind="transport" status={detailsTransport.status} />{/if}
   {/snippet}
+  {#if error}
+    <div class="error-message" role="alert">{error}</div>
+  {/if}
   {#if detailsTransport}
     <dl class="facts">
       <div><dt>Transporteur</dt><dd><strong>{detailsTransport.transporter.name}</strong></dd></div>
