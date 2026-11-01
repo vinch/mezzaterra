@@ -234,11 +234,7 @@
       discount_type: item.discount_type || null,
       note: item.note || (item.wine_vintage_id ? "" : TASTING_LINE_NOTE),
     }));
-    selectedVintageId = "";
-    selectedQuantity = "";
-    selectedPrice = "";
-    selectedDiscount = "";
-    selectedDiscountType = "amount";
+    resetLineInput();
     formOpen = true;
   }
 
@@ -286,6 +282,11 @@
       tasting_id: tastingOnDate(todayIso()),
     };
     saleItems = [];
+    resetLineInput();
+  }
+
+  /** Saisie d'une nouvelle ligne remise à zéro (type de remise : « montant » par défaut). */
+  function resetLineInput() {
     selectedVintageId = "";
     selectedQuantity = "";
     selectedPrice = "";
@@ -332,62 +333,38 @@
       return;
     }
 
-    if (selectedVintageId === TASTING_SELECT_VALUE) {
-      saleItems = [
-        ...saleItems,
-        {
-          wine_vintage: null,
-          wine_vintage_id: null,
-          quantity,
-          price: toNumber(selectedPrice),
-          discount: discountVal,
-          discount_type: discountVal > 0 ? selectedDiscountType || null : null,
-          note: TASTING_LINE_NOTE,
-        },
-      ];
-      selectedVintageId = "";
-      selectedQuantity = "";
-      selectedPrice = "";
-      selectedDiscount = "";
-      selectedDiscountType = "amount";
-      error = "";
-      return;
+    /* Ligne dégustation : sans millésime ni contrôle de stock. */
+    const tasting = selectedVintageId === TASTING_SELECT_VALUE;
+    let vintage: any = null;
+    if (!tasting) {
+      if (!selectedVintageId) return;
+      const availableStock = getAvailableStock(selectedVintageId);
+      if (availableStock == null) {
+        error = "Stock indisponible : impossible d’ajouter des bouteilles pour l’instant.";
+        return;
+      }
+      if (quantity > availableStock) {
+        error = `Stock insuffisant. Stock disponible: ${availableStock}`;
+        return;
+      }
+      vintage = wineVintages.find((v) => v.id === selectedVintageId);
+      if (!vintage) return;
     }
 
-    if (!selectedVintageId) return;
-
-    const availableStock = getAvailableStock(selectedVintageId);
-
-    if (availableStock == null) {
-      error = "Stock indisponible : impossible d’ajouter des bouteilles pour l’instant.";
-      return;
-    }
-    if (quantity > availableStock) {
-      error = `Stock insuffisant. Stock disponible: ${availableStock}`;
-      return;
-    }
-
-    const vintage = wineVintages.find((v) => v.id === selectedVintageId);
-    if (vintage) {
-      saleItems = [
-        ...saleItems,
-        {
-          wine_vintage: vintage,
-          wine_vintage_id: selectedVintageId,
-          quantity: quantity,
-          price: toNumber(selectedPrice),
-          discount: discountVal,
-          discount_type: discountVal > 0 ? selectedDiscountType || null : null,
-          note: "",
-        },
-      ];
-      selectedVintageId = "";
-      selectedQuantity = "";
-      selectedPrice = "";
-      selectedDiscount = "";
-      selectedDiscountType = "amount";
-      error = ""; // Clear any previous errors
-    }
+    saleItems = [
+      ...saleItems,
+      {
+        wine_vintage: vintage,
+        wine_vintage_id: tasting ? null : selectedVintageId,
+        quantity,
+        price: toNumber(selectedPrice),
+        discount: discountVal,
+        discount_type: discountVal > 0 ? selectedDiscountType || null : null,
+        note: tasting ? TASTING_LINE_NOTE : "",
+      },
+    ];
+    resetLineInput();
+    error = "";
   }
 
   function removeSaleItem(index: number) {
