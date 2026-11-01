@@ -483,7 +483,7 @@
         <!-- ——— États ——— -->
         <section id="etats" class="ds-section">
           <h2 class="t-card-title">États</h2>
-          <p class="t-muted"><code>Spinner</code> pour tout chargement, sans texte visible (« Chargement… » est lu par les lecteurs d’écran), taille réglable avec <code>size</code>. <code>EmptyState</code> quand il n’y a rien, <code>.error-message</code> et <code>.success-message</code> pour le retour d’une action.</p>
+          <p class="t-muted"><code>Spinner</code> pour tout chargement, sans texte visible (« Chargement… » est lu par les lecteurs d’écran), taille réglable avec <code>size</code> ; <code>inline</code> pour une action en cours dans une ligne (fiches de table d’une dégustation). <code>EmptyState</code> quand il n’y a rien, <code>.error-message</code> et <code>.success-message</code> pour le retour d’une action.</p>
           <div class="cards">
             <Card padded={false}>
               <EmptyState icon={IconReceipt} title="Aucune vente pour l’instant" text="Créez la première vente : elle sera enregistrée « En attente ».">
@@ -492,6 +492,7 @@
             </Card>
             <div class="states">
               <Spinner />
+              <div class="t-muted">Fiches en cours <Spinner size={16} inline /></div>
               <div class="error-message" role="alert">Impossible d’enregistrer la vente.</div>
               <div class="success-message"><IconCheck size={16} strokeWidth={1.75} /> Vente enregistrée.</div>
             </div>

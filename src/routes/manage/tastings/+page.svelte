@@ -110,6 +110,7 @@
   });
 
   async function downloadCards(tasting: TastingRow) {
+    if (cardsBusyId) return;
     cardsBusyId = tasting.id;
     error = "";
     try {
@@ -425,12 +426,11 @@
   }
 
   function rowItems(tasting: TastingRow): MenuItem[] {
-    const busy = cardsBusyId === tasting.id;
     return [
       { label: "Modifier", icon: IconPencil, onSelect: () => openEditModal(tasting) },
       /* Page publique dans un nouvel onglet, comme l'ancien lien « Voir ». */
       { label: "Voir sur le site", icon: IconExternal, onSelect: () => window.open(`/tastings/${tasting.id}`, "_blank", "noopener,noreferrer") },
-      { label: busy ? "Fiches de table…" : "Fiches de table", icon: IconDownload, disabled: busy, onSelect: () => downloadCards(tasting) },
+      { label: "Fiches de table", icon: IconDownload, disabled: !!cardsBusyId, onSelect: () => downloadCards(tasting) },
       { label: "Supprimer…", icon: IconTrash, danger: true, separator: true, onSelect: () => askDelete(tasting) },
     ];
   }
@@ -496,6 +496,8 @@
             </td>
             <td class="col-actions">
               <div class="row-actions">
+                <!-- Fiches de table en cours de génération pour cette dégustation. -->
+                {#if cardsBusyId === tasting.id}<Spinner size={18} inline />{/if}
                 <IconButton href="/manage/tastings/{tasting.id}/live" label="Piloter {tastingTitle(tasting)}">
                   <IconPlay size={18} strokeWidth={1.75} />
                 </IconButton>
