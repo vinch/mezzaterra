@@ -330,7 +330,7 @@
       <span class="t-caption block">{[o.email, o.phone].filter(Boolean).join(" · ")}</span>
       {#if o.message}<span class="t-caption block">« {o.message} »</span>{/if}
     </td>
-    <td class="num">{quantitiesByVintage(items).get(current.id) || "—"}</td>
+    <td class="num">{items.reduce((n, i) => n + (i.wine_vintage_id === current.id ? i.quantity : 0), 0) || "—"}</td>
     <td class="num"><span class="t-muted">{totalQuantity(items)} bt.</span> <strong>{formatEUR(wishTotal(o, prices))}</strong></td>
     <td class="col-actions">
       {#if preorder}

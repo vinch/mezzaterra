@@ -15,11 +15,9 @@ export function quantitiesByVintage(items: QuantityLine[]): Map<string, number> 
   return m;
 }
 
-/** Total des bouteilles, mêmes lignes que quantitiesByVintage. */
+/** Total des bouteilles (lignes sans millésime ignorées, comme dans quantitiesByVintage). */
 export function totalQuantity(items: QuantityLine[]): number {
-  let n = 0;
-  for (const q of quantitiesByVintage(items).values()) n += q;
-  return n;
+  return items.reduce((n, i) => n + (i.wine_vintage_id ? i.quantity || 0 : 0), 0);
 }
 
 /** Libellé par défaut d'une ligne « Dégustation » (sans millésime). */
