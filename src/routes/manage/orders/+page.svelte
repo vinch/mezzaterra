@@ -375,12 +375,7 @@
             </td>
             <td class="num"><strong>{formatEUR(order.total_price ?? 0)}</strong></td>
             <td class="col-actions">
-              <div class="row-actions">
-                <IconButton label="Exporter en PDF" onclick={() => openLanguageModal(order.id)}>
-                  <IconDownload size={18} strokeWidth={1.75} />
-                </IconButton>
-                <RowMenu items={rowItems(order)} label="Actions pour la commande du {formatDate(order.date)} chez {order.supplier.name}" />
-              </div>
+              <RowMenu items={rowItems(order)} label="Actions pour la commande du {formatDate(order.date)} chez {order.supplier.name}" />
             </td>
           </tr>
         {/each}
@@ -547,12 +542,6 @@
   .stack {
     display: flex;
     flex-direction: column;
-  }
-
-  .row-actions {
-    display: inline-flex;
-    align-items: center;
-    gap: 4px;
   }
 
   .order-form {
