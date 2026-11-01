@@ -2,26 +2,26 @@ import { supabase } from "$lib/supabase";
 import type { PageLoad } from "./$types";
 
 export const load: PageLoad = async ({ params }) => {
-  // Charger les données du vin avec ses vintages
-  const { data: wine, error: wineError } = await supabase
-    .from("wine")
+  // Charger le produit avec ses lots
+  const { data: product, error: productError } = await supabase
+    .from("product")
     .select(
       `
       *,
-      winery (*),
-      appelation ( *, label (*) ),
-      wine_type (*),
-      wine_vintage (*)
+      producer (*),
+      appellation ( *, label (*) ),
+      product_type (*),
+      lot (*)
     `
     )
     .eq("id", params.id)
     .single();
 
-  if (wineError) {
-    throw new Error(`Erreur lors du chargement du produit : ${wineError.message}`);
+  if (productError) {
+    throw new Error(`Erreur lors du chargement du produit : ${productError.message}`);
   }
 
   return {
-    wine,
+    product,
   };
 };

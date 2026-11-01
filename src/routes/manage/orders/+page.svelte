@@ -22,15 +22,15 @@
   import { IconClipboard, IconDownload, IconEye, IconPencil, IconPlus, IconTrash } from "$lib/ui/icons";
   import { isEditable } from "$lib/status";
   import ManagePageShell from "$lib/components/manage/ManagePageShell.svelte";
-  import ProductVintageAutocomplete from "$lib/components/manage/ProductVintageAutocomplete.svelte";
-  import { fetchLineItems, fetchPickerVintages, LINE_ITEMS_SELECT } from "$lib/manageData";
+  import ProductLotAutocomplete from "$lib/components/manage/ProductLotAutocomplete.svelte";
+  import { fetchLineItems, fetchPickerLots, LINE_ITEMS_SELECT } from "$lib/manageData";
   import { errorMessage, latestOnly } from "$lib/async";
   import { isoDateOnly, todayIso } from "$lib/dates";
   import type { OrderPdfLanguage } from "$lib/pdf/purchaseOrderPdf";
   import { formatDate, formatEUR } from "$lib/format";
   import { lineTotal } from "$lib/analytics";
   import { itemsSubtotal } from "$lib/sales";
-  import { isDiscontinued, vintageProductLabel } from "$lib/wine";
+  import { isDiscontinued, lotProductLabel } from "$lib/products";
 
   interface Props {
     data: PageData;
@@ -42,7 +42,7 @@
   /* Rechargés par invalidateAll() après une création, une modification ou une suppression. */
   let suppliers: any[] = $derived(data.suppliers);
   /** Catalogue du formulaire, lu en arrière-plan : la liste s'affiche sans l'attendre. */
-  let wineVintages = $state.raw<any[]>([]);
+  let lots = $state.raw<any[]>([]);
   let catalog: Promise<any[]> | null = null;
   let error = $state("");
   /** Modale unique création / édition (`editingOrder` les distingue). */
@@ -59,7 +59,7 @@
   let formData = $state(emptyForm());
 
   let orderItems = $state<any[]>([]);
-  let selectedVintageId = $state("");
+  let selectedLotId = $state("");
   let selectedQuantity = $state("");
   let selectedPrice = $state("");
 
@@ -70,16 +70,16 @@
   function openCreateModal() {
     error = "";
     formLoad.cancel();
-    pickerVintages().catch((e) => (error = errorMessage(e)));
+    pickerLots().catch((e) => (error = errorMessage(e)));
     editingOrder = null;
     resetForm();
     formOpen = true;
   }
 
   /** Une seule lecture du catalogue, partagée par les ouvertures du formulaire ; relue si elle a échoué. */
-  function pickerVintages(): Promise<any[]> {
-    catalog ??= fetchPickerVintages().then(
-      (v) => (wineVintages = v),
+  function pickerLots(): Promise<any[]> {
+    catalog ??= fetchPickerLots().then(
+      (v) => (lots = v),
       (e) => {
         catalog = null;
         throw e;
@@ -89,13 +89,13 @@
   }
 
   onMount(() => {
-    pickerVintages().catch((e) => (error = errorMessage(e)));
+    pickerLots().catch((e) => (error = errorMessage(e)));
   });
 
   async function openEditModal(order: any) {
     error = "";
     /* Commande figée : le menu de ligne ne propose pas « Modifier » et save_order refuse. */
-    const loaded = await formLoad.run(() => Promise.all([pickerVintages(), loadOrderItems(order.id)]));
+    const loaded = await formLoad.run(() => Promise.all([pickerLots(), loadOrderItems(order.id)]));
     if (!loaded) return;
     const [, items] = loaded;
 
@@ -106,8 +106,8 @@
       note: order.note || "",
     };
     orderItems = items.map((item: any) => ({
-      wine_vintage: item.wine_vintage,
-      wine_vintage_id: item.wine_vintage_id,
+      lot: item.lot,
+      lot_id: item.lot_id,
       quantity: item.quantity,
       price: item.price,
       note: item.note || "",
@@ -139,7 +139,7 @@
   function resetForm() {
     formData = emptyForm();
     orderItems = [];
-    selectedVintageId = "";
+    selectedLotId = "";
     selectedQuantity = "";
     selectedPrice = "";
   }
@@ -148,34 +148,34 @@
   let total = $derived(itemsSubtotal(orderItems));
 
   /* On ne recommande pas un millésime « plus jamais disponible ». */
-  let orderableVintages = $derived(wineVintages.filter((v) => !isDiscontinued(v)));
+  let orderableLots = $derived(lots.filter((v) => !isDiscontinued(v)));
 
-  function handleVintageChange() {
-    if (!selectedVintageId) return;
-    const vintage = wineVintages.find((v) => v.id === selectedVintageId);
-    selectedPrice = vintage?.purchase_price ? String(vintage.purchase_price) : "";
+  function handleLotChange() {
+    if (!selectedLotId) return;
+    const lot = lots.find((v) => v.id === selectedLotId);
+    selectedPrice = lot?.purchase_price ? String(lot.purchase_price) : "";
   }
 
-  function isVintageAlreadyAdded(vintageId: string): boolean {
-    return orderItems.some((item) => item.wine_vintage_id === vintageId);
+  function isLotAlreadyAdded(lotId: string): boolean {
+    return orderItems.some((item) => item.lot_id === lotId);
   }
 
   function addOrderItem() {
-    if (!selectedVintageId || !selectedQuantity || !selectedPrice) return;
+    if (!selectedLotId || !selectedQuantity || !selectedPrice) return;
 
-    const vintage = wineVintages.find((v) => v.id === selectedVintageId);
-    if (vintage) {
+    const lot = lots.find((v) => v.id === selectedLotId);
+    if (lot) {
       orderItems = [
         ...orderItems,
         {
-          wine_vintage: vintage,
-          wine_vintage_id: selectedVintageId,
+          lot,
+          lot_id: selectedLotId,
           quantity: parseInt(selectedQuantity),
           price: parseFloat(selectedPrice),
           note: "",
         },
       ];
-      selectedVintageId = "";
+      selectedLotId = "";
       selectedQuantity = "";
       selectedPrice = "";
       error = "";
@@ -184,7 +184,7 @@
 
   function removeOrderItem(index: number) {
     orderItems = orderItems.filter((_, i) => i !== index);
-    selectedVintageId = "";
+    selectedLotId = "";
   }
 
   /** Création ou modification (selon `editingOrder`) de la commande et de ses lignes. */
@@ -215,7 +215,7 @@
       p_order_id: editingOrder?.id ?? NEW_ROW,
       p_order: orderData,
       p_items: orderItems.map((item) => ({
-        wine_vintage_id: item.wine_vintage_id,
+        lot_id: item.lot_id,
         quantity: item.quantity,
         price: item.price,
         note: item.note || null,
@@ -458,12 +458,12 @@
           <tbody>
             {#each orderItems as item, index}
               <tr>
-                <td>{vintageProductLabel(item.wine_vintage)}</td>
+                <td>{lotProductLabel(item.lot)}</td>
                 <td class="num">{item.quantity}</td>
                 <td class="num">{formatEUR(item.price)}</td>
                 <td class="num"><strong>{formatEUR(lineTotal(item))}</strong></td>
                 <td class="col-actions">
-                  <IconButton label="Retirer {vintageProductLabel(item.wine_vintage)}" onclick={() => removeOrderItem(index)}>
+                  <IconButton label="Retirer {lotProductLabel(item.lot)}" onclick={() => removeOrderItem(index)}>
                     <IconTrash size={18} strokeWidth={1.75} />
                   </IconButton>
                 </td>
@@ -476,14 +476,14 @@
       <div class="add-row">
         <div class="add-product">
           <label class="t-label" for="order-add-product">Ajouter un produit</label>
-          <ProductVintageAutocomplete
+          <ProductLotAutocomplete
             id="order-add-product"
-            bind:value={selectedVintageId}
-            wineVintages={orderableVintages}
+            bind:value={selectedLotId}
+            lots={orderableLots}
             includeTastingOption={false}
-            {isVintageAlreadyAdded}
-            formatLabel={vintageProductLabel}
-            onchange={handleVintageChange}
+            {isLotAlreadyAdded}
+            formatLabel={lotProductLabel}
+            onchange={handleLotChange}
           />
         </div>
         <label>
@@ -532,7 +532,7 @@
       <tbody>
         {#each detailsOrderItems as item}
           <tr>
-            <td>{vintageProductLabel(item.wine_vintage)}</td>
+            <td>{lotProductLabel(item.lot)}</td>
             <td class="num">{item.quantity}</td>
             <td class="num">{formatEUR(item.price)}</td>
             <td class="num"><strong>{formatEUR(lineTotal(item))}</strong></td>

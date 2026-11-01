@@ -6,12 +6,12 @@ import { tastingTitle } from "$lib/publicData";
 import { kindInfo, productHref } from "$lib/productKinds";
 import {
   findNote,
-  grapesText,
+  varietiesText,
   productStyle,
   productSubtitle,
   productPairings,
   productTitle,
-} from "$lib/wine";
+} from "$lib/products";
 import { formatEUR } from "$lib/format";
 
 /**
@@ -29,7 +29,7 @@ function hexToRgb(hex: string): [number, number, number] {
   return [parseInt(h.slice(0, 2), 16), parseInt(h.slice(2, 4), 16), parseInt(h.slice(4, 6), 16)];
 }
 
-export async function downloadTableCardsPdf(tasting: any, wines: any[], origin: string) {
+export async function downloadTableCardsPdf(tasting: any, lots: any[], origin: string) {
   const doc = new jsPDF({ unit: "mm", format: "a5", orientation: "portrait" });
   const [font, logo] = await Promise.all([attachRobotoPdf(doc), svgToPng("/flyer/logo-text.svg")]);
   const W = doc.internal.pageSize.getWidth();
@@ -58,15 +58,15 @@ export async function downloadTableCardsPdf(tasting: any, wines: any[], origin: 
     doc.setFontSize(12);
     doc.setTextColor(...MUTED);
     doc.text(`${tastingTitle(tasting)} — ${formatDateLong(tasting.date)}`, PW / 2, 236, { align: "center" });
-    doc.text(`${wines.length} vins`, PW / 2, 243, { align: "center" });
+    doc.text(`${lots.length} vins`, PW / 2, 243, { align: "center" });
   }
 
   /* ——— Une fiche A5 par vin ——— */
-  for (let i = 0; i < wines.length; i++) {
-    const v = wines[i];
-    const wine = v.wine;
-    const kind = kindInfo(wine);
-    const style = productStyle(wine?.wine_type);
+  for (let i = 0; i < lots.length; i++) {
+    const v = lots[i];
+    const product = v.product;
+    const kind = kindInfo(product);
+    const style = productStyle(product?.product_type);
     const robe = hexToRgb(style.color);
     doc.addPage("a5", "portrait");
 
@@ -95,28 +95,28 @@ export async function downloadTableCardsPdf(tasting: any, wines: any[], origin: 
     doc.setTextColor(...TEAL);
     doc.setFont(font, "bold");
     doc.setFontSize(22);
-    const titleLines = doc.splitTextToSize(productTitle(wine), W - 2 * M);
+    const titleLines = doc.splitTextToSize(productTitle(product), W - 2 * M);
     doc.text(titleLines, M, y);
     y += titleLines.length * 8.5;
 
     doc.setFont(font, "normal");
     doc.setTextColor(...INK);
     doc.setFontSize(11);
-    if (productSubtitle(wine)) {
-      doc.text(productSubtitle(wine), M, y);
+    if (productSubtitle(product)) {
+      doc.text(productSubtitle(product), M, y);
       y += 5.5;
     }
-    if (wine?.winery?.name) {
+    if (product?.producer?.name) {
       doc.setFont(font, "bold");
-      doc.text(wine.winery.name + (wine.winery.region?.name ? ` — ${wine.winery.region.name}` : ""), M, y);
+      doc.text(product.producer.name + (product.producer.region?.name ? ` — ${product.producer.region.name}` : ""), M, y);
       doc.setFont(font, "normal");
       y += 5.5;
     }
-    const grapes = grapesText(v.wine_vintage_grape, true);
-    if (grapes) {
+    const varieties = varietiesText(v.lot_variety, true);
+    if (varieties) {
       doc.setTextColor(...MUTED);
       doc.setFontSize(10);
-      doc.text(doc.splitTextToSize(`${kind.ingredients} : ${grapes}`, W - 2 * M), M, y);
+      doc.text(doc.splitTextToSize(`${kind.ingredients} : ${varieties}`, W - 2 * M), M, y);
       y += 6;
     }
 
@@ -140,7 +140,7 @@ export async function downloadTableCardsPdf(tasting: any, wines: any[], origin: 
       if (y > H - 62) break;
     }
 
-    const pairings = productPairings(wine);
+    const pairings = productPairings(product);
     if (pairings.length && y < H - 58) {
       doc.setFont(font, "bold");
       doc.setFontSize(10);

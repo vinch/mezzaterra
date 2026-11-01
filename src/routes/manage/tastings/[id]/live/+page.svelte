@@ -7,7 +7,7 @@
   import type { RealtimeChannel } from "@supabase/supabase-js";
   import { supabase } from "$lib/supabase";
   import { fetchStockMap } from "$lib/manageData";
-  import { quantitiesByVintage, totalQuantity } from "$lib/sales";
+  import { quantitiesByLot, totalQuantity } from "$lib/sales";
   import ManagePageShell from "$lib/components/manage/ManagePageShell.svelte";
   import Button from "$lib/ui/Button.svelte";
   import IconButton from "$lib/ui/IconButton.svelte";
@@ -27,14 +27,14 @@
     IconUsers,
   } from "$lib/ui/icons";
   import { formatDate, formatEUR } from "$lib/format";
-  import { formatTime, isLiveNow, winesRevealed } from "$lib/dates";
+  import { formatTime, isLiveNow, productsRevealed } from "$lib/dates";
   import ProductBottle from "$lib/components/site/ProductBottle.svelte";
   import Spinner from "$lib/ui/Spinner.svelte";
-  import { fetchSeats, fetchTastingWithWines, isParticipantRegistration, onlineSeats, onlineSeatsByCustomer, participantOrigin, placesLabel, tastingTitle, type SeatInfo } from "$lib/publicData";
+  import { fetchSeats, fetchTastingWithLots, isParticipantRegistration, onlineSeats, onlineSeatsByCustomer, participantOrigin, placesLabel, tastingTitle, type SeatInfo } from "$lib/publicData";
   import { compareCustomersByLabel, customerDisplayLabel } from "$lib/customerDisplay";
   import { broadcastPosition, clampPosition, fetchLatestFeedback, joinLiveChannel, type FeedbackRow } from "$lib/live";
   import { qrDataUrl } from "$lib/qr";
-  import { swatchStyle, vintageShortLabel, wineRobe, productStyle, productSubtitle, productTitle, productTypeLabel } from "$lib/wine";
+  import { swatchStyle, lotShortLabel, wineRobe, productStyle, productSubtitle, productTitle, productTypeLabel } from "$lib/products";
   import { kindInfo } from "$lib/productKinds";
   import {
     confirmRegistration,
@@ -48,7 +48,7 @@
   const tastingId = $page.params.id ?? "";
 
   let tasting = $state<any>(null);
-  let wines = $state<any[]>([]);
+  let lots = $state<any[]>([]);
   let loading = $state(true);
   let error = $state("");
   let actionError = $state("");
@@ -78,10 +78,10 @@
   let destroyed = false;
 
   onMount(async () => {
-    const res = await fetchTastingWithWines(tastingId);
+    const res = await fetchTastingWithLots(tastingId);
     if (destroyed) return;
     tasting = res.tasting;
-    wines = res.wineVintages;
+    lots = res.lots;
     error = res.error || (!tasting ? "Dégustation introuvable." : "");
     loading = false;
     if (!tasting) return;
@@ -118,7 +118,7 @@
   });
 
   function clamp(p: number): number {
-    return clampPosition(p, wines.length);
+    return clampPosition(p, lots.length);
   }
 
   async function setPosition(p: number) {
@@ -143,7 +143,7 @@
       (async () => {
         const { data } = await supabase
           .from("sale")
-          .select("id, status, total_price, customer_id, sale_item ( wine_vintage_id, quantity )")
+          .select("id, status, total_price, customer_id, sale_item ( lot_id, quantity )")
           .eq("tasting_id", tastingId);
         eveningSales = ((data || []) as any[]).filter((x) => x.status !== "cancelled");
       })(),
@@ -151,7 +151,7 @@
         seats = await fetchSeats(tastingId);
       })(),
       (async () => {
-        const ids = wines.map((w) => w.id);
+        const ids = lots.map((w) => w.id);
         if (!ids.length) return;
         stockMap = await fetchStockMap(ids).catch(() => null);
       })(),
@@ -204,13 +204,13 @@
   let activeWishes = $derived(wishes.filter((w) => w.status !== "dismissed"));
   let wishedLines = $derived(activeWishes.flatMap((w) => wishItems(w.items)));
   /* Bouteilles demandées par vin (demandes non écartées). */
-  let wantedByWine = $derived(quantitiesByVintage(wishedLines));
+  let wantedByLot = $derived(quantitiesByLot(wishedLines));
 
   let stats = $derived(new Map(
-    wines.map((w) => {
-      const rated = feedback.filter((f) => f.wine_vintage_id === w.id && f.rating);
+    lots.map((w) => {
+      const rated = feedback.filter((f) => f.lot_id === w.id && f.rating);
       const avg = rated.length ? rated.reduce((s, r) => s + (r.rating ?? 0), 0) / rated.length : null;
-      return [w.id, { avg, count: rated.length, wanted: wantedByWine.get(w.id) ?? 0 }];
+      return [w.id, { avg, count: rated.length, wanted: wantedByLot.get(w.id) ?? 0 }];
     }),
   ));
 
@@ -219,8 +219,8 @@
     .sort((a, b) => b.created_at.localeCompare(a.created_at))
     .slice(0, 12));
 
-  let prices = $derived(new Map(wines.map((w) => [w.id, Number(w.price ?? 0)])));
-  let wineById = $derived(new Map(wines.map((w) => [w.id, w])));
+  let prices = $derived(new Map(lots.map((w) => [w.id, Number(w.price ?? 0)])));
+  let lotById = $derived(new Map(lots.map((w) => [w.id, w])));
   let seatsOnline = $derived(onlineSeats(registrations));
   let seatsByCustomer = $derived(onlineSeatsByCustomer(registrations));
   /* Les réservations confirmées et rattachées à un participant figurent déjà dans sa carte. */
@@ -229,10 +229,10 @@
     registrations.filter((r) => !isParticipantRegistration(r) || !participantIds.has(r.customer_id)),
   );
 
-  let current = $derived(wines[position]);
-  let style = $derived(productStyle(current?.wine?.wine_type));
+  let current = $derived(lots[position]);
+  let style = $derived(productStyle(current?.product?.product_type));
   /** « Vin 3 », « Huile d’olive 4 » : le produit servi. */
-  let currentLabel = $derived(kindInfo(current?.wine).label);
+  let currentLabel = $derived(kindInfo(current?.product).label);
 
   /** Action sur une ligne (demande, réservation), puis relevé à jour. */
   const run = rowAction({ busy, error: (m) => (actionError = m), after: refresh });
@@ -260,14 +260,14 @@
   let soldLines = $derived(eveningSales.flatMap((x) => x.sale_item || []));
   let soldBottles = $derived(totalQuantity(soldLines));
   let soldAmount = $derived(eveningSales.reduce((n, x) => n + Number(x.total_price || 0), 0));
-  let soldByWine = $derived(quantitiesByVintage(soldLines));
+  let soldByLot = $derived(quantitiesByLot(soldLines));
   let orderedBottles = $derived(totalQuantity(wishedLines));
   let currentOrdered = $derived(current ? (stats.get(current.id)?.wanted ?? 0) : 0);
   /* Absent de la vue : aucun mouvement, donc 0 bouteille (et non « inconnu »). */
   let currentStock = $derived(current && stockMap ? (stockMap.get(current.id) ?? 0) : null);
   let isLiveDay = $derived(tasting ? isLiveNow(tasting.date) : false);
   /** Lendemain 6 h passé : la soirée n'est plus pilotée (cf. vue invité). */
-  let finished = $derived(tasting ? winesRevealed(tasting.date) : false);
+  let finished = $derived(tasting ? productsRevealed(tasting.date) : false);
   let headerSubtitle = $derived(tasting
     ? [formatDate(tasting.date), tasting.location, tasting.start_time ? `${isLiveDay ? "depuis" : "à"} ${formatTime(tasting.start_time)}` : ""].filter(Boolean).join(" · ")
     : "");
@@ -330,7 +330,7 @@
       <span class="t-caption block">{[o.email, o.phone].filter(Boolean).join(" · ")}</span>
       {#if o.message}<span class="t-caption block">« {o.message} »</span>{/if}
     </td>
-    <td class="num">{items.reduce((n, i) => n + (i.wine_vintage_id === current.id ? i.quantity : 0), 0) || "—"}</td>
+    <td class="num">{items.reduce((n, i) => n + (i.lot_id === current.id ? i.quantity : 0), 0) || "—"}</td>
     <td class="num"><span class="t-muted">{totalQuantity(items)} bt.</span> <strong>{formatEUR(wishTotal(o, prices))}</strong></td>
     <td class="col-actions">
       {#if preorder}
@@ -349,7 +349,7 @@
   </tr>
 {/snippet}
 
-<div class="pilot" class:has-wines={wines.length > 0}>
+<div class="pilot" class:has-wines={lots.length > 0}>
   <ManagePageShell
     title={tasting ? tastingTitle(tasting) : "Piloter la dégustation"}
     subtitle={headerSubtitle}
@@ -380,7 +380,7 @@
       <Spinner />
     {:else if error}
       <div class="error-message" role="alert">{error}</div>
-    {:else if wines.length === 0}
+    {:else if lots.length === 0}
       <div class="empty-stack">
         <Card>
           <EmptyState icon={IconPlay} title="Rien au déroulé" text="Ajoutez des produits à cette dégustation pour la piloter.">
@@ -407,9 +407,9 @@
         <div class="band-item">
           <span class="t-caption">Progression</span>
           {#if finished}
-            <span class="band-v">Terminée <small>· {wines.length} au déroulé</small></span>
+            <span class="band-v">Terminée <small>· {lots.length} au déroulé</small></span>
           {:else}
-            <span class="band-v">{currentLabel} {position + 1} <small>sur {wines.length}</small></span>
+            <span class="band-v">{currentLabel} {position + 1} <small>sur {lots.length}</small></span>
           {/if}
         </div>
       </section>
@@ -421,16 +421,16 @@
                                 <a class="edit-link" href="/manage/tastings?id={tastingId}">Modifier</a>
                               {/snippet}
             <ol class="steps">
-              {#each wines as w, i (w.id)}
+              {#each lots as w, i (w.id)}
                 {@const st = stats.get(w.id)}
                 <li>
                   <button type="button" class="step" class:current={i === position} aria-current={i === position ? (finished ? "true" : "step") : undefined} onclick={() => setPosition(i)}>
                     <span class="step-num">{i + 1}</span>
-                    <StyleDot type={w.wine?.wine_type} />
+                    <StyleDot type={w.product?.product_type} />
                     <span class="step-main">
-                      <strong>{vintageShortLabel(w)}</strong>
+                      <strong>{lotShortLabel(w)}</strong>
                       <span class="t-caption">
-                        {w.wine?.winery?.name ?? ""}{soldByWine.get(w.id) ? ` · ${soldByWine.get(w.id)} bt. vendues` : ""}{st?.wanted ? ` · ${st.wanted} demandées` : ""}{st?.avg != null ? ` · ★ ${st.avg.toFixed(1)}` : ""}
+                        {w.product?.producer?.name ?? ""}{soldByLot.get(w.id) ? ` · ${soldByLot.get(w.id)} bt. vendues` : ""}{st?.wanted ? ` · ${st.wanted} demandées` : ""}{st?.avg != null ? ` · ★ ${st.avg.toFixed(1)}` : ""}
                       </span>
                     </span>
                     <!-- Soirée terminée : ni servi ni en cours, la ligne surlignée est juste celle consultée. -->
@@ -465,20 +465,20 @@
 
         <div class="main">
           <section class="now" aria-labelledby="now-title" aria-live="polite">
-            <span class="bottle" style={swatchStyle(wineRobe(current?.wine?.wine_type))} aria-hidden="true"></span>
+            <span class="bottle" style={swatchStyle(wineRobe(current?.product?.product_type))} aria-hidden="true"></span>
             <div class="now-text">
-              <span class="now-eyebrow">{currentLabel} {position + 1} · {productTypeLabel(current?.wine?.wine_type)}</span>
-              <h2 id="now-title" class="now-title">{vintageShortLabel(current)}</h2>
-              <p>{current.wine?.winery?.name ?? ""}{current.price ? " · " : ""}{#if current.price}<strong>{formatEUR(current.price)}</strong> la bouteille{/if}</p>
+              <span class="now-eyebrow">{currentLabel} {position + 1} · {productTypeLabel(current?.product?.product_type)}</span>
+              <h2 id="now-title" class="now-title">{lotShortLabel(current)}</h2>
+              <p>{current.product?.producer?.name ?? ""}{current.price ? " · " : ""}{#if current.price}<strong>{formatEUR(current.price)}</strong> la bouteille{/if}</p>
               <p class="t-caption">
-                Stock : <strong>{currentStock == null ? "indisponible" : `${currentStock} bt.`}</strong> · vendues {finished ? "à la soirée" : "ce soir"} : <strong>{soldByWine.get(current.id) ?? 0} bt.</strong>{#if currentOrdered} · demandées : <strong>{currentOrdered} bt.</strong>{/if}
+                Stock : <strong>{currentStock == null ? "indisponible" : `${currentStock} bt.`}</strong> · vendues {finished ? "à la soirée" : "ce soir"} : <strong>{soldByLot.get(current.id) ?? 0} bt.</strong>{#if currentOrdered} · demandées : <strong>{currentOrdered} bt.</strong>{/if}
               </p>
             </div>
             <div class="now-actions">
               <Button size="lg" onclick={() => setPosition(position - 1)} disabled={position === 0}>
                 <IconArrowLeft size={18} strokeWidth={1.75} /> Précédent
               </Button>
-              <Button size="lg" variant="primary" onclick={() => setPosition(position + 1)} disabled={position === wines.length - 1}>
+              <Button size="lg" variant="primary" onclick={() => setPosition(position + 1)} disabled={position === lots.length - 1}>
                 Suivant <IconArrowRight size={18} strokeWidth={1.75} />
               </Button>
             </div>
@@ -496,7 +496,7 @@
                   <thead>
                     <tr>
                       <th scope="col">Participant</th>
-                      <th scope="col" class="num">{vintageShortLabel(current)}</th>
+                      <th scope="col" class="num">{lotShortLabel(current)}</th>
                       <th scope="col" class="num">Total de la soirée</th>
                       <th scope="col" class="col-actions"><span class="sr-only">Action</span></th>
                     </tr>
@@ -519,7 +519,7 @@
                   <li>
                     <span class="list-main">
                       <span>« {c.comment} »</span>
-                      <span class="t-caption">{c.guest_name || "Invité"} · {vintageShortLabel(wineById.get(c.wine_vintage_id))}{c.rating ? ` · ${"★".repeat(c.rating)}` : ""}</span>
+                      <span class="t-caption">{c.guest_name || "Invité"} · {lotShortLabel(lotById.get(c.lot_id))}{c.rating ? ` · ${"★".repeat(c.rating)}` : ""}</span>
                     </span>
                   </li>
                 {/each}
@@ -535,8 +535,8 @@
           <IconArrowLeft size={20} strokeWidth={1.75} />
         </IconButton>
         <div class="next-btn">
-          <Button variant="primary" size="lg" block disabled={position === wines.length - 1} onclick={() => setPosition(position + 1)}>
-            <span class="next-label">{position === wines.length - 1 ? "Dernier de la dégustation" : `Suivant : ${vintageShortLabel(wines[position + 1])}`}</span>
+          <Button variant="primary" size="lg" block disabled={position === lots.length - 1} onclick={() => setPosition(position + 1)}>
+            <span class="next-label">{position === lots.length - 1 ? "Dernier de la dégustation" : `Suivant : ${lotShortLabel(lots[position + 1])}`}</span>
             <IconArrowRight size={18} strokeWidth={1.75} aria-hidden="true" />
           </Button>
         </div>
@@ -555,17 +555,17 @@
     <div class="proj-wine">
       {#key position}
         <div class="proj-inner" in:fade={{ duration: 400 }}>
-          <span class="proj-num">{currentLabel} {position + 1} <span>/ {wines.length}</span></span>
-          <h1>{productTitle(current.wine)}</h1>
-          {#if productSubtitle(current.wine)}<p class="proj-sub">{productSubtitle(current.wine)}</p>{/if}
-          <p class="proj-winery">{current.wine?.winery?.name}{current.year ? ` · ${current.year}` : ""}</p>
+          <span class="proj-num">{currentLabel} {position + 1} <span>/ {lots.length}</span></span>
+          <h1>{productTitle(current.product)}</h1>
+          {#if productSubtitle(current.product)}<p class="proj-sub">{productSubtitle(current.product)}</p>{/if}
+          <p class="proj-winery">{current.product?.producer?.name}{current.year ? ` · ${current.year}` : ""}</p>
         </div>
       {/key}
       <ProductBottle src={current.image_url} alt="" {style} height="58vh" />
     </div>
     <div class="proj-dots">
-      {#each wines as w, i}
-        <span class:active={i === position} style="--c: {productStyle(w.wine?.wine_type).color}"></span>
+      {#each lots as w, i}
+        <span class:active={i === position} style="--c: {productStyle(w.product?.product_type).color}"></span>
       {/each}
     </div>
   </div>

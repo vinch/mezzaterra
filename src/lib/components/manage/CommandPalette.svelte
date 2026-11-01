@@ -5,7 +5,7 @@
   import { goto } from "$app/navigation";
   import { fetchAllRows, supabase } from "$lib/supabase";
   import { customerDisplayLabel } from "$lib/customerDisplay";
-  import { VINTAGE_LABEL_SELECT, vintageLabel } from "$lib/wine";
+  import { LOT_LABEL_SELECT, lotLabel } from "$lib/products";
   import { fold, formatDate, formatEUR } from "$lib/format";
   import { IconClipboard, IconGlasses, IconReceipt, IconSearch, IconUsers } from "$lib/ui/icons";
   import { KIND_ICONS } from "$lib/ui/kindIcons";
@@ -42,11 +42,11 @@
     loadingData = true;
     let failed = false;
     /* Millésimes et clients lus en pages : au-delà de 1000, ils manqueraient à la recherche. */
-    const [vintages, customers, sales, orders, tastings] = await Promise.all([
+    const [lots, customers, sales, orders, tastings] = await Promise.all([
       fetchAllRows<any>((from, to) =>
         supabase
-          .from("wine_vintage")
-          .select(`id, wine_id, ${VINTAGE_LABEL_SELECT}`)
+          .from("lot")
+          .select(`id, product_id, ${LOT_LABEL_SELECT}`)
           .order("id")
           .range(from, to),
       ).catch(() => {
@@ -73,15 +73,15 @@
     ]);
 
     const items: Item[] = [];
-    for (const v of vintages) {
-      const label = vintageLabel(v);
+    for (const v of lots) {
+      const label = lotLabel(v);
       items.push({
         id: `v-${v.id}`,
         group: "Produits",
         label,
         hint: "Stock",
-        href: `/manage/products/${v.wine_id}/stock/${v.id}`,
-        icon: KIND_ICONS[kindOf(v.wine)].product,
+        href: `/manage/products/${v.product_id}/stock/${v.id}`,
+        icon: KIND_ICONS[kindOf(v.product)].product,
         haystack: fold(label),
       });
     }

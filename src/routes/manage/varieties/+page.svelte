@@ -9,7 +9,7 @@
 <!-- Même table pour les cépages des vins et les variétés d'olives des huiles (colonne kind), un onglet chacun. -->
 <RefCrudPage
   title="Cépages et variétés"
-  table="grape"
+  table="variety"
   newLabel={(k) => k.newIngredient}
   editLabel="Modifier"
   thisLabel="ce cépage ou cette variété"

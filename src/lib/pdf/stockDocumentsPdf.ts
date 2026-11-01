@@ -1,12 +1,12 @@
 import jsPDF from "jspdf";
 import { attachRobotoPdf, staticPng, svgToPng, type PdfImage } from "./assets";
 import { parseIsoDate } from "$lib/dates";
-import { wineRobe, productTypeLabel, withVolume } from "$lib/wine";
+import { wineRobe, productTypeLabel, withVolume } from "$lib/products";
 import { kindInfo, PRODUCT_KIND_LIST, PRODUCT_KINDS, type ProductKind } from "$lib/productKinds";
 import {
   sortedStockForDocuments,
-  stockVintageLabel,
-  type StockDocVintage,
+  stockLotLabel,
+  type StockDocLot,
 } from "$lib/stockDocuments";
 
 const YELLOW: [number, number, number] = [255, 235, 120];
@@ -15,9 +15,9 @@ const YELLOW: [number, number, number] = [255, 235, 120];
 type PriceGroup = "blancs" | "roses" | "rouges" | Exclude<ProductKind, "wine">;
 
 /** Groupe du tarif : les vins selon la couleur de la robe (orange et autres avec les blancs), les autres produits par type. */
-function priceGroupKey(v: StockDocVintage): PriceGroup {
+function priceGroupKey(v: StockDocLot): PriceGroup {
   if (v.kind !== "wine") return v.kind;
-  const key = wineRobe({ name: v.wineTypeName }).key;
+  const key = wineRobe({ name: v.productTypeName }).key;
   return key === "red" ? "rouges" : key === "rose" ? "roses" : "blancs";
 }
 
@@ -195,7 +195,7 @@ const NOTES_WRITING_GAP_MM = 19;
 const NOTES_BLOCK_EXTRA_MM = 22;
 
 export async function downloadPricesPdf(
-  rows: StockDocVintage[],
+  rows: StockDocLot[],
   highlightedIds: Set<string>,
   filename = "mezzaterra-liste-de-prix.pdf",
 ): Promise<void> {
@@ -210,14 +210,14 @@ export async function downloadPricesPdf(
 
   y = drawPdfPricesHeader(doc, images, pageW, margin, y, fontFamily);
 
-  const colWinery = margin;
-  const colWine = margin + 38;
+  const colProducer = margin;
+  const colProduct = margin + 38;
   const colUnitPrice = pageW - margin - 54;
   const colQtyLeft = pageW - margin - 50;
   const colQtyRight = pageW - margin - 34;
   const colTotalLeft = pageW - margin - 30;
   const colTotalRight = pageW - margin;
-  const wineColWidth = colUnitPrice - colWine - 10;
+  const productColWidth = colUnitPrice - colProduct - 10;
   const rowPad = 1.2;
   const baseLineH = 4.2;
 
@@ -225,8 +225,8 @@ export async function downloadPricesPdf(
     doc.setFont(fontFamily, "bold");
     doc.setFontSize(7.5);
     doc.setTextColor(90, 90, 90);
-    doc.text("Domaine", colWinery, headerY);
-    doc.text("Nom", colWine, headerY);
+    doc.text("Domaine", colProducer, headerY);
+    doc.text("Nom", colProduct, headerY);
     doc.text("Prix unit.", colUnitPrice, headerY, { align: "right" });
     doc.text("Quantité", (colQtyLeft + colQtyRight) / 2, headerY, {
       align: "center",
@@ -250,9 +250,9 @@ export async function downloadPricesPdf(
 
     for (const v of inGroup) {
       const highlight = highlightedIds.has(v.id);
-      const wineLines = fitLine(doc, withVolume(v.wineName, v, v.kind), wineColWidth, 9);
-      const wineryLines = fitLine(doc, v.wineryName, 36, 9);
-      const rowLines = Math.max(wineLines.length, wineryLines.length, 1);
+      const productLines = fitLine(doc, withVolume(v.productName, v, v.kind), productColWidth, 9);
+      const producerLines = fitLine(doc, v.producerName, 36, 9);
+      const rowLines = Math.max(productLines.length, producerLines.length, 1);
       const rowH = rowLines * baseLineH + rowPad * 2;
 
       y = newPageIfNeeded(doc, y, rowH + 1, margin);
@@ -269,10 +269,10 @@ export async function downloadPricesPdf(
 
       let lineY = rowTop + 4;
       for (let i = 0; i < rowLines; i++) {
-        const wLine = wineryLines[i] ?? "";
-        const wineLine = wineLines[i] ?? "";
-        if (wLine) doc.text(wLine, colWinery, lineY);
-        if (wineLine) doc.text(wineLine, colWine, lineY);
+        const wLine = producerLines[i] ?? "";
+        const productLine = productLines[i] ?? "";
+        if (wLine) doc.text(wLine, colProducer, lineY);
+        if (productLine) doc.text(productLine, colProduct, lineY);
         if (i === 0) {
           doc.text(formatEur(v.price), colUnitPrice, lineY, { align: "right" });
           drawFillInLine(doc, colQtyLeft, colQtyRight, lineY + 1.5);
@@ -310,7 +310,7 @@ export type NotesPdfOptions = {
 
 export async function downloadNotesPdf(
   /** Ordre des entrées = ordre de dégustation (non re-trié). */
-  rows: StockDocVintage[],
+  rows: StockDocLot[],
   options: NotesPdfOptions = {},
 ): Promise<void> {
   if (rows.length === 0) return;
@@ -342,11 +342,11 @@ export async function downloadNotesPdf(
   let idx = 1;
   for (const v of rows) {
     /* « 1. », pas « ① » : Helvetica (police de repli) ne l’a pas. */
-    const title = `${idx}. ${v.wineryName} ${v.wineName}`;
-    const grapes = v.grapeNames.length ? v.grapeNames.join(", ") : "—";
+    const title = `${idx}. ${v.producerName} ${v.productName}`;
+    const varieties = v.varietyNames.length ? v.varietyNames.join(", ") : "—";
     const kind = kindInfo(v.kind);
     const abvStr = kind.hasAbv ? ` / ${v.abv != null ? `${v.abv}%` : "—"}` : "";
-    const detail = `${productTypeLabel({ name: v.wineTypeName, kind: v.kind })} / ${stockVintageLabel(v)}${abvStr} / ${kind.ingredients} : ${grapes} / ${v.appellationLine || "—"}`;
+    const detail = `${productTypeLabel({ name: v.productTypeName, kind: v.kind })} / ${stockLotLabel(v)}${abvStr} / ${kind.ingredients} : ${varieties} / ${v.appellationLine || "—"}`;
 
     const titleLines = fitLine(doc, title, textW - 2, 10.5);
     const detailLines = fitLine(doc, detail, textW, 9);

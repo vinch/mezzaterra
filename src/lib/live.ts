@@ -95,7 +95,7 @@ export function clampPosition(p: number, count: number): number {
 /** Envoie une note en base (insert-only ; la plus récente fait foi). Silencieux en cas d'échec. */
 export async function pushFeedback(opts: {
   tastingId: string;
-  vintageId: string;
+  lotId: string;
   rating: number | null;
   comment: string;
   profile: GuestProfile;
@@ -104,7 +104,7 @@ export async function pushFeedback(opts: {
     const name = guestName(opts.profile);
     const { error } = await supabase.from("tasting_feedback").insert({
       tasting_id: opts.tastingId,
-      wine_vintage_id: opts.vintageId,
+      lot_id: opts.lotId,
       guest_id: getGuestId(),
       guest_name: name || null,
       guest_email: opts.profile.email.trim().toLowerCase() || null,
@@ -122,7 +122,7 @@ export type FeedbackRow = {
   tasting_id: string;
   guest_id: string;
   guest_name: string | null;
-  wine_vintage_id: string;
+  lot_id: string;
   rating: number | null;
   comment: string | null;
   created_at: string;
@@ -139,14 +139,14 @@ export async function fetchLatestFeedback(filter: { tastingId: string } | { gues
   const rows = await fetchAllRows<FeedbackRow>((from, to) => {
     const query = supabase
       .from("tasting_feedback")
-      .select("id, tasting_id, guest_id, guest_name, wine_vintage_id, rating, comment, created_at");
+      .select("id, tasting_id, guest_id, guest_name, lot_id, rating, comment, created_at");
     return (byTasting ? query.eq("tasting_id", filter.tastingId) : query.ilike("guest_email", escapeLike(filter.guestEmail)))
       .order("created_at", { ascending: true })
       .order("id")
       .range(from, to);
   });
   const latest = new Map<string, FeedbackRow>();
-  for (const f of rows) latest.set(`${byTasting ? f.guest_id : f.tasting_id}:${f.wine_vintage_id}`, f);
+  for (const f of rows) latest.set(`${byTasting ? f.guest_id : f.tasting_id}:${f.lot_id}`, f);
   return [...latest.values()];
 }
 
@@ -164,7 +164,7 @@ async function savePreorder(opts: {
     const { error } = await supabase.rpc("save_live_preorder", {
       p_tasting_id: opts.tastingId,
       p_guest_id: getGuestId(),
-      p_items: Object.entries(opts.cart).map(([wine_vintage_id, quantity]) => ({ wine_vintage_id, quantity })),
+      p_items: Object.entries(opts.cart).map(([lot_id, quantity]) => ({ lot_id, quantity })),
       p_first_name: opts.profile.firstName,
       p_last_name: opts.profile.lastName,
       p_email: opts.profile.email,

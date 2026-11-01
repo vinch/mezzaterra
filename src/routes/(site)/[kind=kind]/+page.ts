@@ -1,23 +1,23 @@
 import { supabase } from "$lib/supabase";
 import { kindBySlug, PRODUCT_KINDS } from "$lib/productKinds";
-import { VINTAGE_PUBLIC_SELECT_BY_WINE } from "$lib/wine";
+import { LOT_PUBLIC_SELECT_BY_PRODUCT } from "$lib/products";
 import type { PageLoad } from "./$types";
 
 export const load: PageLoad = async ({ params }) => {
   /* Le segment est garanti par le matcher `kind` (src/params/kind.ts). */
   const kind = kindBySlug(params.kind)!;
   const { data, error } = await supabase
-    .from("wine_vintage")
-    .select(VINTAGE_PUBLIC_SELECT_BY_WINE)
-    .eq("wine.kind", kind)
+    .from("lot")
+    .select(LOT_PUBLIC_SELECT_BY_PRODUCT)
+    .eq("product.kind", kind)
     /* Domaine masqué : ni lui ni ses produits au catalogue (pages accessibles par lien). */
-    .eq("wine.winery.hidden", false)
+    .eq("product.producer.hidden", false)
     .is("discontinued_at", null)
     .order("year", { ascending: false, nullsFirst: false });
 
   return {
     kind,
-    vintages: (data || []) as any[],
+    lots: (data || []) as any[],
     error: error ? `Impossible de charger les ${PRODUCT_KINDS[kind].plural.toLowerCase()} pour le moment.` : null,
   };
 };

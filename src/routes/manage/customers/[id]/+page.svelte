@@ -12,7 +12,7 @@
   import { REVENUE_STATUSES, lineTotal, type SaleItemRow } from "$lib/analytics";
   import { daysUntil } from "$lib/dates";
   import { fetchLatestFeedback } from "$lib/live";
-  import { MAIN_ROBES, robePreference, styleByKey, vintageLabel, vintageLabelSelect, vintageShortLabel, wineRobe, type ProductStyleKey } from "$lib/wine";
+  import { MAIN_ROBES, robePreference, styleByKey, lotLabel, lotLabelSelect, lotShortLabel, wineRobe, type ProductStyleKey } from "$lib/products";
   import { KIND_STYLES } from "$lib/productKinds";
   import { formatDate, formatEUR } from "$lib/format";
   import Button from "$lib/ui/Button.svelte";
@@ -39,7 +39,7 @@
   let sales = $state<any[]>([]);
   let tastings = $state<any[]>([]);
   let feedback = $state<any[]>([]);
-  let vintages = $state.raw<any[]>([]);
+  let lots = $state.raw<any[]>([]);
   /** Clients du même nom de famille (le bandeau « Doublon possible » filtre ensuite les homonymes). */
   let sameLastName = $state.raw<Customer[]>([]);
   /** Lectures secondaires en échec (millésimes, stock, dégustations) : fiche affichée, incomplète. */
@@ -67,8 +67,8 @@
           .eq("customer_id", customerId),
         fetchAllRows<any>((from, to) =>
           supabase
-            .from("wine_vintage")
-            .select(`id, wine_id, price, purchase_price, ${vintageLabelSelect("id, wine_type ( name, category, kind )")}`)
+            .from("lot")
+            .select(`id, product_id, price, purchase_price, ${lotLabelSelect("id, product_type ( name, category, kind )")}`)
             .order("id")
             .range(from, to),
         ).catch((e) => {
@@ -90,7 +90,7 @@
         .map((r) => r.tasting)
         .filter(Boolean)
         .sort((a, b) => b.date.localeCompare(a.date));
-      vintages = vRes;
+      lots = vRes;
       stock = iRes;
 
       if (customer) {
@@ -114,7 +114,7 @@
     }
   }
 
-  let vintageById = $derived(new Map(vintages.map((v) => [v.id, v])));
+  let lotById = $derived(new Map(lots.map((v) => [v.id, v])));
   let paidSales = $derived(sales.filter((s) => REVENUE_STATUSES.includes(s.status)));
   let revenue = $derived(paidSales.reduce((s, x) => s + Number(x.total_price || 0), 0));
   let avgBasket = $derived(paidSales.length ? revenue / paidSales.length : 0);
@@ -122,14 +122,14 @@
 
   /* Vins achetés (agrégés par millésime, ventes non annulées). */
   let bought = $derived((() => {
-    const map = new Map<string, { vintage: any; qty: number; spent: number; last: string }>();
+    const map = new Map<string, { lot: any; qty: number; spent: number; last: string }>();
     for (const s of sales) {
       if (s.status === "cancelled") continue;
       for (const it of (s.sale_item || []) as SaleItemRow[]) {
-        if (!it.wine_vintage_id) continue;
-        const v = vintageById.get(it.wine_vintage_id);
+        if (!it.lot_id) continue;
+        const v = lotById.get(it.lot_id);
         if (!v) continue;
-        const cur = map.get(v.id) ?? { vintage: v, qty: 0, spent: 0, last: s.date };
+        const cur = map.get(v.id) ?? { lot: v, qty: 0, spent: 0, last: s.date };
         cur.qty += Number(it.quantity) || 0;
         cur.spent += lineTotal(it);
         if (s.date > cur.last) cur.last = s.date;
@@ -145,14 +145,14 @@
   /* Blanc, rouge, rosé : ordre de cette fiche à égalité (les filtres des produits mettent le rouge d'abord). */
   const ROBE_ORDER: ProductStyleKey[] = ["white", "red", "rose"];
   let { qty: robeQty, order: allRobes, favorite: favRobe } = $derived(
-    robePreference(bought.map((b) => ({ type: b.vintage.wine?.wine_type, qty: b.qty })), [...ROBE_ORDER, ...KIND_STYLES]),
+    robePreference(bought.map((b) => ({ type: b.lot.product?.product_type, qty: b.qty })), [...ROBE_ORDER, ...KIND_STYLES]),
   );
   let robeOrder = $derived(allRobes.filter((r) => MAIN_ROBES.includes(r) || robeQty[r]));
 
-  let favoriteWinery = $derived((() => {
+  let favoriteProducer = $derived((() => {
     const map = new Map<string, number>();
     for (const b of bought) {
-      const n = b.vintage.wine?.winery?.name || "—";
+      const n = b.lot.product?.producer?.name || "—";
       map.set(n, (map.get(n) ?? 0) + b.qty);
     }
     return [...map.entries()].sort((a, b) => b[1] - a[1])[0] ?? null;
@@ -160,30 +160,30 @@
 
   /* Suggestions de relance. */
   let suggestions = $derived((() => {
-    const boughtIds = new Set(bought.map((b) => b.vintage.id));
-    const out: { vintage: any; reason: string }[] = [];
+    const boughtIds = new Set(bought.map((b) => b.lot.id));
+    const out: { lot: any; reason: string }[] = [];
     const seen = new Set<string>();
     const push = (v: any, reason: string) => {
       if (!v || seen.has(v.id) || boughtIds.has(v.id) || (stock?.get(v.id) ?? 0) <= 0) return;
       seen.add(v.id);
-      out.push({ vintage: v, reason });
+      out.push({ lot: v, reason });
     };
 
     for (const b of bought) {
-      const year = b.vintage.year ?? b.vintage.production_year;
-      for (const v of vintages) {
-        if (v.wine_id === b.vintage.wine_id && (v.year ?? v.production_year) > year) {
+      const year = b.lot.year ?? b.lot.production_year;
+      for (const v of lots) {
+        if (v.product_id === b.lot.product_id && (v.year ?? v.production_year) > year) {
           push(v, `Plus récent qu’un produit acheté (${b.qty} bt.)`);
         }
       }
     }
     for (const f of feedback) {
-      if ((f.rating ?? 0) >= 4) push(vintageById.get(f.wine_vintage_id), `Noté ${f.rating}★ en dégustation`);
+      if ((f.rating ?? 0) >= 4) push(lotById.get(f.lot_id), `Noté ${f.rating}★ en dégustation`);
     }
     if (favRobe) {
-      for (const v of vintages) {
+      for (const v of lots) {
         if (out.length >= 6) break;
-        if (wineRobe(v.wine?.wine_type).key === favRobe) push(v, `Dans ses goûts (${styleByKey(favRobe).label.toLowerCase()})`);
+        if (wineRobe(v.product?.product_type).key === favRobe) push(v, `Dans ses goûts (${styleByKey(favRobe).label.toLowerCase()})`);
       }
     }
     return out.slice(0, 6);
@@ -191,7 +191,7 @@
 
   /* Cases « À lui proposer » : toutes cochées par défaut. */
   let unchecked = $state(new Set<string>());
-  let selectedSuggestions = $derived(suggestions.filter((sg) => !unchecked.has(sg.vintage.id)));
+  let selectedSuggestions = $derived(suggestions.filter((sg) => !unchecked.has(sg.lot.id)));
   function toggleSuggestion(id: string) {
     const next = new Set(unchecked);
     if (next.has(id)) next.delete(id);
@@ -201,7 +201,7 @@
 
   function mailto(): string {
     if (!customer?.email) return "";
-    const lines = selectedSuggestions.map((s) => `- ${vintageLabel(s.vintage)}${s.vintage.price ? ` (${formatEUR(s.vintage.price)})` : ""}`);
+    const lines = selectedSuggestions.map((s) => `- ${lotLabel(s.lot)}${s.lot.price ? ` (${formatEUR(s.lot.price)})` : ""}`);
     const body = `Bonjour ${customer.first_name},\n\nJ’ai pensé à vous :\n${lines.join("\n")}\n\nÀ bientôt,\nMezzaterra`;
     return `mailto:${customer.email}?subject=${encodeURIComponent("Quelques idées pour vous")}&body=${encodeURIComponent(body)}`;
   }
@@ -379,10 +379,10 @@
               </li>
             {/each}
           </ul>
-          {#if favoriteWinery}
+          {#if favoriteProducer}
             <div class="fav">
               <span class="t-caption">Domaine préféré</span>
-              <p><strong>{favoriteWinery[0]}</strong> · {favoriteWinery[1]} bt.</p>
+              <p><strong>{favoriteProducer[0]}</strong> · {favoriteProducer[1]} bt.</p>
             </div>
           {/if}
         {/if}
@@ -400,18 +400,18 @@
           />
         {:else}
           <ul class="list">
-            {#each suggestions as sg (sg.vintage.id)}
+            {#each suggestions as sg (sg.lot.id)}
               <li>
                 <label class="suggest">
-                  <input type="checkbox" checked={!unchecked.has(sg.vintage.id)} onchange={() => toggleSuggestion(sg.vintage.id)} />
-                  <StyleDot type={sg.vintage.wine?.wine_type} />
+                  <input type="checkbox" checked={!unchecked.has(sg.lot.id)} onchange={() => toggleSuggestion(sg.lot.id)} />
+                  <StyleDot type={sg.lot.product?.product_type} />
                   <span class="list-main">
-                    <span><strong>{vintageShortLabel(sg.vintage)}</strong><span class="t-muted">&nbsp;· {sg.vintage.wine?.winery?.name ?? ""}</span></span>
-                    <span class="t-caption" class:t-warn={(stock?.get(sg.vintage.id) ?? 0) <= 3}>
-                      {sg.reason}{(stock?.get(sg.vintage.id) ?? 0) <= 3 ? ` · plus que ${stock?.get(sg.vintage.id)} bt.` : ""}
+                    <span><strong>{lotShortLabel(sg.lot)}</strong><span class="t-muted">&nbsp;· {sg.lot.product?.producer?.name ?? ""}</span></span>
+                    <span class="t-caption" class:t-warn={(stock?.get(sg.lot.id) ?? 0) <= 3}>
+                      {sg.reason}{(stock?.get(sg.lot.id) ?? 0) <= 3 ? ` · plus que ${stock?.get(sg.lot.id)} bt.` : ""}
                     </span>
                   </span>
-                  <span class="price">{formatEUR(sg.vintage.price)}</span>
+                  <span class="price">{formatEUR(sg.lot.price)}</span>
                 </label>
               </li>
             {/each}
@@ -427,9 +427,9 @@
           <ul class="list">
             {#each bought as b}
               <li>
-                <StyleDot type={b.vintage.wine?.wine_type} />
+                <StyleDot type={b.lot.product?.product_type} />
                 <span class="list-main">
-                  <span><strong>{vintageShortLabel(b.vintage)}</strong><span class="t-muted">&nbsp;· {b.vintage.wine?.winery?.name ?? ""}</span></span>
+                  <span><strong>{lotShortLabel(b.lot)}</strong><span class="t-muted">&nbsp;· {b.lot.product?.producer?.name ?? ""}</span></span>
                   <span class="t-caption">Dernier achat le {formatDate(b.last)}</span>
                 </span>
                 <strong>{b.qty} bt.</strong>
@@ -462,7 +462,7 @@
             {#each feedback as f}
               <li>
                 <span class="list-main">
-                  <strong>{vintageShortLabel(vintageById.get(f.wine_vintage_id))}</strong>
+                  <strong>{lotShortLabel(lotById.get(f.lot_id))}</strong>
                   {#if f.comment}<span class="t-caption">« {f.comment} »</span>{/if}
                 </span>
                 {#if f.rating}<StarRating value={f.rating} readonly size="0.9rem" />{/if}
@@ -502,9 +502,9 @@
                   <td class="items">
                     {#each s.sale_item || [] as it, i}
                       {#if i > 0}<span class="t-muted">&nbsp;· </span>{/if}
-                      {#if it.wine_vintage_id}
-                        {@const v = vintageById.get(it.wine_vintage_id)}
-                        <span class="item"><StyleDot type={v?.wine?.wine_type} /> {it.quantity} × {vintageShortLabel(v)}<span class="t-muted">&nbsp;· {v?.wine?.winery?.name ?? ""}</span></span>
+                      {#if it.lot_id}
+                        {@const v = lotById.get(it.lot_id)}
+                        <span class="item"><StyleDot type={v?.product?.product_type} /> {it.quantity} × {lotShortLabel(v)}<span class="t-muted">&nbsp;· {v?.product?.producer?.name ?? ""}</span></span>
                       {:else}
                         <span class="item">{it.quantity} × {it.note || "Dégustation"}</span>
                       {/if}

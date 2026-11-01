@@ -9,7 +9,7 @@
 
   let { data } = $props();
 
-  let wineryNames = $derived(data.wineries.map((w) => w.name));
+  let producerNames = $derived(data.producers.map((w) => w.name));
 
   let email = $state("");
   let isSubmitting = $state(false);
@@ -105,7 +105,7 @@
         <a class="hero-link" href="#newsletter" onclick={goToSignup}>Je veux en être <span aria-hidden="true">↓</span></a>
       </div>
       <div class="hero-map mz-rise" style="animation-delay: 120ms">
-        <AbruzzoMap wineries={data.wineries} />
+        <AbruzzoMap producers={data.producers} />
       </div>
     </section>
 
@@ -114,8 +114,8 @@
         <span class="pillar-num">01</span>
         <h2 class="pillar-title">Des domaines familiaux</h2>
         <p>
-          {#if wineryNames.length}
-            Une poignée de domaines choisis — {listFr(wineryNames)} — et leurs cépages du pays :
+          {#if producerNames.length}
+            Une poignée de domaines choisis — {listFr(producerNames)} — et leurs cépages du pays :
             Montepulciano, Pecorino, Passerina, Cerasuolo…
           {:else}
             Une poignée de domaines choisis et leurs cépages du pays : Montepulciano, Pecorino,

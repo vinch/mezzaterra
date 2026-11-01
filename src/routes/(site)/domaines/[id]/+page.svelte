@@ -3,19 +3,19 @@
   import { page } from "$app/stores";
   import AbruzzoMap from "$lib/components/site/AbruzzoMap.svelte";
   import ProductCard from "$lib/components/site/ProductCard.svelte";
-  import WineryLinkCard from "$lib/components/site/WineryLinkCard.svelte";
+  import ProducerLinkCard from "$lib/components/site/ProducerLinkCard.svelte";
   import { combinedAvailability, fetchAvailability, firstAvailable, type AvailabilityOf } from "$lib/publicData";
   import { MAIN, project } from "$lib/geo/abruzzo";
   import {
     compareProducts,
     groupFormats,
     presentStyles,
-    wineryFlag,
-    wineryInstagram,
-    wineryMapEmbedUrl,
-    wineryMapUrl,
-    wineryPlace,
-  } from "$lib/wine";
+    producerFlag,
+    producerInstagram,
+    producerMapEmbedUrl,
+    producerMapUrl,
+    producerPlace,
+  } from "$lib/products";
   import { IconInstagram, IconMapPin } from "$lib/ui/icons";
   import { DEFAULT_KIND, kindOf, PRODUCT_KIND_LIST, PRODUCT_KINDS, productHref } from "$lib/productKinds";
 
@@ -27,30 +27,30 @@
     availability = await fetchAvailability();
   });
 
-  let winery = $derived(data.winery);
-  let place = $derived(wineryPlace(winery));
-  let flag = $derived(wineryFlag(winery));
-  let mapUrl = $derived(wineryMapUrl(winery));
-  let instagram = $derived(wineryInstagram(winery));
+  let producer = $derived(data.producer);
+  let place = $derived(producerPlace(producer));
+  let flag = $derived(producerFlag(producer));
+  let mapUrl = $derived(producerMapUrl(producer));
+  let instagram = $derived(producerInstagram(producer));
 
-  let vintages = $derived([...data.vintages].sort(compareProducts));
+  let lots = $derived([...data.lots].sort(compareProducts));
 
-  let cuveeCount = $derived(new Set(vintages.map((v) => v.wine_id)).size);
-  let styles = $derived(presentStyles(vintages));
+  let cuveeCount = $derived(new Set(lots.map((v) => v.product_id)).size);
+  let styles = $derived(presentStyles(lots));
   /** Types de produit du domaine (vins, huiles…) avec leurs cépages ou variétés. */
   let kinds = $derived((() => {
-    const grapesByKind = new Map<string, Set<string>>();
-    for (const v of vintages) {
-      const kind = kindOf(v.wine);
-      if (!grapesByKind.has(kind)) grapesByKind.set(kind, new Set());
-      for (const g of v.wine_vintage_grape || []) if (g.grape?.name) grapesByKind.get(kind)!.add(g.grape.name);
+    const varietiesByKind = new Map<string, Set<string>>();
+    for (const v of lots) {
+      const kind = kindOf(v.product);
+      if (!varietiesByKind.has(kind)) varietiesByKind.set(kind, new Set());
+      for (const g of v.lot_variety || []) if (g.variety?.name) varietiesByKind.get(kind)!.add(g.variety.name);
     }
-    return PRODUCT_KIND_LIST.filter((k) => grapesByKind.has(k.key)).map((k) => ({
+    return PRODUCT_KIND_LIST.filter((k) => varietiesByKind.has(k.key)).map((k) => ({
       ...k,
-      grapes: [...grapesByKind.get(k.key)!].sort((a, b) => a.localeCompare(b, "fr")),
+      varieties: [...varietiesByKind.get(k.key)!].sort((a, b) => a.localeCompare(b, "fr")),
     }));
   })());
-  let grapes = $derived(kinds.flatMap((k) => k.grapes));
+  let varieties = $derived(kinds.flatMap((k) => k.varieties));
   /* « vins », « huiles d’olive », « vins et huiles d’olive ». */
   let productsLabel = $derived((kinds.length ? kinds : [PRODUCT_KINDS[DEFAULT_KIND]]).map((k) => k.plural.toLowerCase()).join(" et "));
 
@@ -61,40 +61,40 @@
     return x >= 0 && x <= MAIN.width && y >= 0 && y <= MAIN.height;
   }
 
-  let pins = $derived([winery, ...data.others].filter(onMainMap));
-  let mapEmbed = $derived(onMainMap(winery) ? null : wineryMapEmbedUrl(winery));
+  let pins = $derived([producer, ...data.others].filter(onMainMap));
+  let mapEmbed = $derived(onMainMap(producer) ? null : producerMapEmbedUrl(producer));
 
   let ogDescription = $derived((
-    winery.description?.trim() ||
-    [place, cuveeCount ? `${cuveeCount} cuvée${cuveeCount > 1 ? "s" : ""} chez Mezzaterra` : "", grapes.join(", ")]
+    producer.description?.trim() ||
+    [place, cuveeCount ? `${cuveeCount} cuvée${cuveeCount > 1 ? "s" : ""} chez Mezzaterra` : "", varieties.join(", ")]
       .filter(Boolean)
       .join(" · ")
   ).slice(0, 280));
 </script>
 
 <svelte:head>
-  <title>{winery.name} — Mezzaterra</title>
+  <title>{producer.name} — Mezzaterra</title>
   <meta name="description" content={ogDescription} />
-  <meta property="og:title" content="{winery.name} — Mezzaterra" />
+  <meta property="og:title" content="{producer.name} — Mezzaterra" />
   <meta property="og:description" content={ogDescription} />
   <meta property="og:url" content={$page.url.href} />
   <meta property="og:image" content="{$page.url.origin}/logo.png" />
 </svelte:head>
 
 <section class="hero">
-  <div class="mz-container hero-grid" class:no-map={!onMainMap(winery) && !mapEmbed}>
+  <div class="mz-container hero-grid" class:no-map={!onMainMap(producer) && !mapEmbed}>
     <div class="hero-text mz-rise">
       <a href="/vins" class="mz-back">← Toute la cave</a>
-      <h1 class="mz-display mz-h1">{winery.name}</h1>
+      <h1 class="mz-display mz-h1">{producer.name}</h1>
       {#if place}
         <p class="place">{flag} {place}</p>
       {/if}
 
-      {#if winery.description?.trim()}
-        <p class="description">{winery.description.trim()}</p>
+      {#if producer.description?.trim()}
+        <p class="description">{producer.description.trim()}</p>
       {/if}
 
-      {#if vintages.length}
+      {#if lots.length}
         <dl class="mz-facts mz-facts--ruled">
           <div>
             <dt>Cuvées</dt>
@@ -110,19 +110,19 @@
               </dd>
             </div>
           {/if}
-          {#each kinds.filter((k) => k.grapes.length) as k (k.key)}
-            <div class="grapes">
+          {#each kinds.filter((k) => k.varieties.length) as k (k.key)}
+            <div class="varieties">
               <dt>{k.ingredients}</dt>
-              <dd class="plain">{k.grapes.join(", ")}</dd>
+              <dd class="plain">{k.varieties.join(", ")}</dd>
             </div>
           {/each}
         </dl>
       {/if}
 
-      {#if winery.url || instagram || mapUrl}
+      {#if producer.url || instagram || mapUrl}
         <div class="links">
-          {#if winery.url}
-            <a class="mz-btn" href={winery.url} target="_blank" rel="noopener noreferrer">Site du domaine ↗</a>
+          {#if producer.url}
+            <a class="mz-btn" href={producer.url} target="_blank" rel="noopener noreferrer">Site du domaine ↗</a>
           {/if}
           {#if instagram}
             <a
@@ -152,13 +152,13 @@
       {/if}
     </div>
 
-    {#if onMainMap(winery)}
+    {#if onMainMap(producer)}
       <div class="hero-map mz-rise" style="animation-delay: 120ms">
-        <AbruzzoMap wineries={pins} current={winery.id} />
+        <AbruzzoMap producers={pins} current={producer.id} />
       </div>
     {:else if mapEmbed}
       <div class="hero-map mz-rise" style="animation-delay: 120ms">
-        <iframe class="osm" title="Carte du domaine {winery.name}" src={mapEmbed} loading="lazy"></iframe>
+        <iframe class="osm" title="Carte du domaine {producer.name}" src={mapEmbed} loading="lazy"></iframe>
       </div>
     {/if}
   </div>
@@ -166,12 +166,12 @@
 
 <section class="mz-container mz-section">
   <h2 class="section-title mz-display mz-h2">Les {productsLabel} du domaine</h2>
-  {#if vintages.length}
+  {#if lots.length}
     <div class="mz-product-grid">
-      {#each groupFormats(vintages) as { vintage: v, formats } (v.id)}
+      {#each groupFormats(lots) as { lot: v, formats } (v.id)}
         <div>
           <ProductCard
-            vintage={v}
+            lot={v}
             {formats}
             href={productHref(firstAvailable(availability, formats))}
             availability={combinedAvailability(availability, formats)}
@@ -189,7 +189,7 @@
     <h2 class="section-title mz-display mz-h2">Les autres domaines</h2>
     <ul class="others-list">
       {#each data.others as other (other.id)}
-        <li><WineryLinkCard id={other.id} name={other.name} detail={other.city} /></li>
+        <li><ProducerLinkCard id={other.id} name={other.name} detail={other.city} /></li>
       {/each}
     </ul>
   </section>
@@ -243,7 +243,7 @@
     gap: 0.2rem;
   }
 
-  .grapes {
+  .varieties {
     flex-basis: 100%;
   }
 

@@ -33,7 +33,7 @@ export const STYLE_ORDER: ProductStyleKey[] = ["sparkling", "white", "orange", "
 
 type TypeLike = { name?: string | null; category?: string | null; kind?: string | null } | null | undefined;
 
-/** Couleur d'un produit d'après son type (`wine_type`) : robe d'un vin, couleur du produit sinon (vert olive). */
+/** Couleur d'un produit d'après son type (`product_type`) : robe d'un vin, couleur du produit sinon (vert olive). */
 export function productStyle(type: TypeLike): ProductStyle {
   const own = kindInfo(type).style;
   if (own) return STYLES[own];
@@ -63,7 +63,7 @@ export function styleLabel(type: TypeLike): string {
 }
 
 /**
- * Tri des types (`wine_type`) pour les listes : par type de produit (vins puis huiles), selon son
+ * Tri des types (`product_type`) pour les listes : par type de produit (vins puis huiles), selon son
  * `typeOrder` (fruité léger, moyen, intense ; un type absent de cet ordre vient après), puis par nom.
  */
 export function byProductType(a: TypeLike, b: TypeLike): number {
@@ -84,25 +84,25 @@ function typePosition(t: TypeLike): number {
   return i < 0 ? order.length : i;
 }
 
-type CompareProduct = { year?: number | null; production_year?: number | null; wine?: ProductLike };
+type CompareProduct = { year?: number | null; production_year?: number | null; product?: ProductLike };
 
 /**
  * Tri des lots du site : couleur du plus léger au plus corsé, ordre des types du produit (fruité
  * léger à intense pour les huiles), nom, puis année la plus récente (millésime, sinon mise en bouteille).
  */
 export function compareProducts(a: CompareProduct, b: CompareProduct): number {
-  const style = (v: typeof a) => STYLE_ORDER.indexOf(productStyle(v.wine?.wine_type).key);
+  const style = (v: typeof a) => STYLE_ORDER.indexOf(productStyle(v.product?.product_type).key);
   return (
     style(a) - style(b) ||
-    typePosition(a.wine?.wine_type) - typePosition(b.wine?.wine_type) ||
-    productTitle(a.wine).localeCompare(productTitle(b.wine), "fr") ||
+    typePosition(a.product?.product_type) - typePosition(b.product?.product_type) ||
+    productTitle(a.product).localeCompare(productTitle(b.product), "fr") ||
     (b.year ?? b.production_year ?? 0) - (a.year ?? a.production_year ?? 0)
   );
 }
 
 /** Couleurs présentes dans une liste de lots, dans l'ordre des filtres. */
-export function presentStyles(vintages: { wine?: ProductLike }[]): ProductStyle[] {
-  const keys = new Set(vintages.map((v) => productStyle(v.wine?.wine_type).key));
+export function presentStyles(lots: { product?: ProductLike }[]): ProductStyle[] {
+  const keys = new Set(lots.map((v) => productStyle(v.product?.product_type).key));
   return allProductStyles().filter((s) => keys.has(s.key));
 }
 
@@ -154,9 +154,9 @@ export type ProductLike = {
   kind?: string | null;
   name?: string | null;
   description?: string | null;
-  appelation?: AppellationLike;
-  winery?: { name?: string | null } | null;
-  wine_type?: TypeLike;
+  appellation?: AppellationLike;
+  producer?: { name?: string | null } | null;
+  product_type?: TypeLike;
 } | null | undefined;
 
 export function appellationText(ap: AppellationLike | undefined): string {
@@ -165,27 +165,27 @@ export function appellationText(ap: AppellationLike | undefined): string {
 }
 
 /** Nom principal d'un produit : son nom, sinon son appellation. */
-export function productTitle(wine: ProductLike): string {
-  if (wine?.name?.trim()) return wine.name.trim();
-  return appellationText(wine?.appelation) || kindInfo(wine).untitled;
+export function productTitle(product: ProductLike): string {
+  if (product?.name?.trim()) return product.name.trim();
+  return appellationText(product?.appellation) || kindInfo(product).untitled;
 }
 
 /** Ligne secondaire : appellation quand le titre est un nom de cuvée. */
-export function productSubtitle(wine: ProductLike): string {
-  if (!wine?.name?.trim()) return "";
-  return appellationText(wine?.appelation);
+export function productSubtitle(product: ProductLike): string {
+  if (!product?.name?.trim()) return "";
+  return appellationText(product?.appellation);
 }
 
 /** Lot tel que les libellés le lisent : année, mise en bouteille, contenant et produit. */
-type VintageLike = {
+type LotLike = {
   year?: number | null;
   production_year?: number | null;
   volume_ml?: number | null;
-  wine?: ProductLike;
+  product?: ProductLike;
 };
 
 /** Contenant d'un lot à afficher (« 5 L », « 1,5 L ») ; vide pour la bouteille standard du vin. */
-export function vintageVolume(v: VintageLike | null | undefined, kind: ProductKind = kindOf(v?.wine)): string {
+export function lotVolume(v: LotLike | null | undefined, kind: ProductKind = kindOf(v?.product)): string {
   if (!v?.volume_ml || v.volume_ml === kindInfo(kind).standardVolume) return "";
   return formatVolume(v.volume_ml);
 }
@@ -193,11 +193,11 @@ export function vintageVolume(v: VintageLike | null | undefined, kind: ProductKi
 /** « 2025 · 5 L » : un libellé suivi du contenant du lot, s'il est à afficher. */
 export function withVolume(
   text: string,
-  v: VintageLike | null | undefined,
-  kind: ProductKind = kindOf(v?.wine),
+  v: LotLike | null | undefined,
+  kind: ProductKind = kindOf(v?.product),
   separator = " · ",
 ): string {
-  const volume = vintageVolume(v, kind);
+  const volume = lotVolume(v, kind);
   return volume ? `${text}${separator}${volume}` : text;
 }
 
@@ -207,23 +207,23 @@ export function byVolume(a: { volume_ml?: number | null }, b: { volume_ml?: numb
 }
 
 /** Contenants présentés ensemble (« 50 cl · 1 L · 5 L ») : vide pour un seul lot en bouteille standard. */
-export function formatsText(formats: VintageLike[]): string {
-  if (formats.length === 1 && !vintageVolume(formats[0])) return "";
+export function formatsText(formats: LotLike[]): string {
+  if (formats.length === 1 && !lotVolume(formats[0])) return "";
   return formats.map((f) => (f.volume_ml ? formatVolume(f.volume_ml) : "")).filter(Boolean).join(" · ");
 }
 
 /** « Domaine — Cuvée — 2022 » (« — 1,5 L » hors bouteille standard) : libellé compact pour l'admin, la recherche… */
-export function vintageLabel(v: VintageLike | null | undefined): string {
+export function lotLabel(v: LotLike | null | undefined): string {
   if (!v) return "—";
-  const parts = [v.wine?.winery?.name, productTitle(v.wine)].filter(Boolean);
+  const parts = [v.product?.producer?.name, productTitle(v.product)].filter(Boolean);
   const year = v.year ?? v.production_year;
   if (year) parts.push(String(year));
   return withVolume(parts.join(" — "), v, undefined, " — ");
 }
 
 /** « Riserva 2019 », « Olio 2025 · 5 L » : nom court, sans domaine (listes de l'admin). */
-export function vintageShortLabel(v: VintageLike | null | undefined): string {
-  const name = v?.wine?.name?.trim() || v?.wine?.appelation?.name || kindInfo(v?.wine).label;
+export function lotShortLabel(v: LotLike | null | undefined): string {
+  const name = v?.product?.name?.trim() || v?.product?.appellation?.name || kindInfo(v?.product).label;
   const year = v?.year ?? v?.production_year;
   return withVolume(year ? `${name} ${year}` : name, v);
 }
@@ -232,63 +232,63 @@ export function vintageShortLabel(v: VintageLike | null | undefined): string {
  * « Domaine - Cuvée - 2022 » (ou « Domaine - Cuvée (2021) » sans millésime, « - 5 L » hors bouteille
  * standard) : libellé des lignes de vente, de commande et de transport, factures et bons de commande compris.
  */
-export function vintageProductLabel(v: VintageLike): string {
-  const winery = v.wine?.winery?.name;
-  const name = v.wine?.name || v.wine?.appelation?.name;
-  const base = name ? `${winery} - ${name}` : `${winery}`;
+export function lotProductLabel(v: LotLike): string {
+  const producer = v.product?.producer?.name;
+  const name = v.product?.name || v.product?.appellation?.name;
+  const base = name ? `${producer} - ${name}` : `${producer}`;
   return withVolume(v.year ? `${base} - ${v.year}` : `${base} (${v.production_year})`, v, undefined, " - ");
 }
 
 /** Tri des produits de l'admin : domaine, puis cuvée (ou appellation). */
 export function compareProductsByProducer(a: ProductLike, b: ProductLike): number {
-  const wineryA = a?.winery?.name?.toLowerCase() || "";
-  const wineryB = b?.winery?.name?.toLowerCase() || "";
-  if (wineryA !== wineryB) return wineryA.localeCompare(wineryB);
-  const nameA = a?.name?.toLowerCase() || a?.appelation?.name?.toLowerCase() || "";
-  const nameB = b?.name?.toLowerCase() || b?.appelation?.name?.toLowerCase() || "";
+  const producerA = a?.producer?.name?.toLowerCase() || "";
+  const producerB = b?.producer?.name?.toLowerCase() || "";
+  if (producerA !== producerB) return producerA.localeCompare(producerB);
+  const nameA = a?.name?.toLowerCase() || a?.appellation?.name?.toLowerCase() || "";
+  const nameB = b?.name?.toLowerCase() || b?.appellation?.name?.toLowerCase() || "";
   return nameA.localeCompare(nameB);
 }
 
 /** Tri des sélecteurs de l'admin : domaine, cuvée (ou appellation), année décroissante, puis contenant. */
-export function compareVintages(a: VintageLike, b: VintageLike): number {
-  const byWine = compareProductsByProducer(a.wine, b.wine);
-  if (byWine) return byWine;
+export function compareLots(a: LotLike, b: LotLike): number {
+  const byProduct = compareProductsByProducer(a.product, b.product);
+  if (byProduct) return byProduct;
   const byYear = (b.year || b.production_year || 0) - (a.year || a.production_year || 0);
   return byYear || byVolume(a, b);
 }
 
 /** « 2019 », « 2025 · 5 L », ou « Non millésimé (2021) » avec l'année de mise en bouteille. */
-export function vintageYearLabel(v: VintageLike, kind: ProductKind = kindOf(v.wine)): string {
+export function lotYearLabel(v: LotLike, kind: ProductKind = kindOf(v.product)): string {
   return withVolume(v.year ? String(v.year) : `${kindInfo(kind).noYear} (${v.production_year})`, v, kind);
 }
 
 /** Les contenants d'un même produit et d'une même année, le plus petit en tête (une carte par lot sur le site). */
-export type FormatGroup<T> = { vintage: T; formats: T[] };
+export type FormatGroup<T> = { lot: T; formats: T[] };
 
 /** Regroupe les contenants par produit et par année, dans l'ordre de la liste. */
-export function groupFormats<T extends { wine_id: string; year?: number | null; production_year?: number | null; volume_ml?: number | null }>(
+export function groupFormats<T extends { product_id: string; year?: number | null; production_year?: number | null; volume_ml?: number | null }>(
   list: T[],
 ): FormatGroup<T>[] {
   const groups = new Map<string, T[]>();
   for (const v of list) {
-    const key = `${v.wine_id}:${v.year ?? `sans-annee-${v.production_year}`}`;
+    const key = `${v.product_id}:${v.year ?? `sans-annee-${v.production_year}`}`;
     if (!groups.has(key)) groups.set(key, []);
     groups.get(key)!.push(v);
   }
   return [...groups.values()].map((formats) => {
     formats.sort(byVolume);
-    return { vintage: formats[0], formats };
+    return { lot: formats[0], formats };
   });
 }
 
-export function grapesText(
-  grapes: { percentage?: number | null; grape?: { name?: string | null } | null }[] | null | undefined,
+export function varietiesText(
+  varieties: { percentage?: number | null; variety?: { name?: string | null } | null }[] | null | undefined,
   withPercent = false,
 ): string {
-  if (!grapes?.length) return "";
-  return grapes
-    .filter((g) => g.grape?.name)
-    .map((g) => (withPercent && g.percentage ? `${g.grape!.name} ${g.percentage} %` : g.grape!.name))
+  if (!varieties?.length) return "";
+  return varieties
+    .filter((g) => g.variety?.name)
+    .map((g) => (withPercent && g.percentage ? `${g.variety!.name} ${g.percentage} %` : g.variety!.name))
     .join(", ");
 }
 
@@ -299,8 +299,8 @@ export function findNote(
   return notes?.find((n) => n.type === key)?.content?.trim() || "";
 }
 
-/** Notes renseignées d'un millésime, dans l'ordre et avec les libellés de son type de produit. */
-export function vintageNotes(
+/** Notes renseignées d'un lot, dans l'ordre et avec les libellés de son type de produit. */
+export function lotNotes(
   notes: { type: string; content: string }[] | null | undefined,
   kind: ProductKind,
 ): { key: string; label: string; content: string }[] {
@@ -309,52 +309,52 @@ export function vintageNotes(
     .filter((n) => n.content);
 }
 
-/** Accords mets-vins d'un vin chargé avec `VINTAGE_PUBLIC_SELECT` ; aucun pour un type sans accords (huile). */
+/** Accords mets-vins d'un produit chargé avec `LOT_PUBLIC_SELECT` ; aucun pour un type sans accords (huile). */
 export function productPairings(
-  wine:
-    | { kind?: string | null; wine_pairing?: { pairing?: { description?: string | null } | null }[] | null }
+  product:
+    | { kind?: string | null; product_pairing?: { pairing?: { description?: string | null } | null }[] | null }
     | null
     | undefined,
 ): string[] {
-  if (!kindInfo(wine).pairingsLabel) return [];
-  return (wine?.wine_pairing || []).map((wp) => wp.pairing?.description).filter((d): d is string => !!d);
+  if (!kindInfo(product).pairingsLabel) return [];
+  return (product?.product_pairing || []).map((wp) => wp.pairing?.description).filter((d): d is string => !!d);
 }
 
 /**
- * Requête Supabase réutilisable : un millésime avec tout ce qu'il faut pour l'afficher.
- * `inner` permet de filtrer sur le produit et son domaine (`.eq("wine.kind", …)`, `.eq("wine.winery.hidden", false)`).
+ * Requête Supabase réutilisable : un lot avec tout ce qu'il faut pour l'afficher.
+ * `inner` permet de filtrer sur le produit et son domaine (`.eq("product.kind", …)`, `.eq("product.producer.hidden", false)`).
  */
-const vintagePublicSelect = (inner: boolean) => `
+const lotPublicSelect = (inner: boolean) => `
   *,
-  wine${inner ? "!inner" : ""} (
+  product${inner ? "!inner" : ""} (
     *,
-    wine_type ( name, category, kind ),
-    winery${inner ? "!inner" : ""} (
+    product_type ( name, category, kind ),
+    producer${inner ? "!inner" : ""} (
       *,
       region ( name, country ( iso_code, name, flag ) ),
       country ( iso_code, name, flag )
     ),
-    appelation ( name, label ( name ) ),
-    wine_pairing ( pairing_id, pairing ( id, description ) )
+    appellation ( name, label ( name ) ),
+    product_pairing ( pairing_id, pairing ( id, description ) )
   ),
-  wine_vintage_grape ( percentage, grape ( name ) ),
+  lot_variety ( percentage, variety ( name ) ),
   note ( * )
 `;
 
 /**
- * Colonnes d'un lot nécessaires à ses libellés (`vintageLabel`, `vintageProductLabel`…). `kind` en
+ * Colonnes d'un lot nécessaires à ses libellés (`lotLabel`, `lotProductLabel`…). `kind` en
  * fait partie : sans lui, une huile serait lue comme un vin et perdrait son contenant affiché.
  */
-const LABEL_WINE_COLUMNS = "kind, name, winery ( name ), appelation ( name, label ( name ) )" as const;
-export const VINTAGE_LABEL_SELECT = `year, production_year, volume_ml, wine ( ${LABEL_WINE_COLUMNS} )` as const;
+const LABEL_PRODUCT_COLUMNS = "kind, name, producer ( name ), appellation ( name, label ( name ) )" as const;
+export const LOT_LABEL_SELECT = `year, production_year, volume_ml, product ( ${LABEL_PRODUCT_COLUMNS} )` as const;
 
-/** `VINTAGE_LABEL_SELECT` avec des colonnes du produit en plus (« id, wine_type ( name ) »). */
-export function vintageLabelSelect(wineExtra: string): string {
-  return `year, production_year, volume_ml, wine ( ${LABEL_WINE_COLUMNS}, ${wineExtra} )`;
+/** `LOT_LABEL_SELECT` avec des colonnes du produit en plus (« id, product_type ( name ) »). */
+export function lotLabelSelect(productExtra: string): string {
+  return `year, production_year, volume_ml, product ( ${LABEL_PRODUCT_COLUMNS}, ${productExtra} )`;
 }
 
-export const VINTAGE_PUBLIC_SELECT = vintagePublicSelect(false);
-export const VINTAGE_PUBLIC_SELECT_BY_WINE = vintagePublicSelect(true);
+export const LOT_PUBLIC_SELECT = lotPublicSelect(false);
+export const LOT_PUBLIC_SELECT_BY_PRODUCT = lotPublicSelect(true);
 
 /**
  * Lot « plus jamais disponible » : grisé dans la gestion, absent du site public (ses requêtes
@@ -364,7 +364,7 @@ export function isDiscontinued(v: { discontinued_at?: string | null } | null | u
   return !!v?.discontinued_at;
 }
 
-type WineryLike = {
+type ProducerLike = {
   city?: string | null;
   latitude?: number | null;
   longitude?: number | null;
@@ -374,16 +374,16 @@ type WineryLike = {
 } | null | undefined;
 
 /** « Ville, Région » d'un domaine. */
-export function wineryPlace(w: WineryLike): string {
+export function producerPlace(w: ProducerLike): string {
   return [w?.city, w?.region?.name].filter(Boolean).join(", ");
 }
 
-export function wineryFlag(w: WineryLike): string {
+export function producerFlag(w: ProducerLike): string {
   return w?.region?.country?.flag || w?.country?.flag || "";
 }
 
 /** Lien OpenStreetMap centré sur le domaine. */
-export function wineryMapUrl(w: WineryLike): string | null {
+export function producerMapUrl(w: ProducerLike): string | null {
   if (w?.latitude == null || w?.longitude == null) return null;
   return `https://www.openstreetmap.org/?mlat=${w.latitude}&mlon=${w.longitude}#map=12/${w.latitude}/${w.longitude}`;
 }
@@ -401,13 +401,13 @@ export function instagramAccount(input: string): string | null {
 }
 
 /** Compte Instagram d'un domaine : « @compte » et lien du profil. */
-export function wineryInstagram(w: WineryLike): { handle: string; url: string } | null {
+export function producerInstagram(w: ProducerLike): { handle: string; url: string } | null {
   const account = w?.instagram ? instagramAccount(w.instagram) : null;
   return account ? { handle: `@${account}`, url: `https://www.instagram.com/${account}/` } : null;
 }
 
 /** Carte OpenStreetMap intégrable (iframe) centrée sur le domaine. */
-export function wineryMapEmbedUrl(w: WineryLike): string | null {
+export function producerMapEmbedUrl(w: ProducerLike): string | null {
   if (w?.latitude == null || w?.longitude == null) return null;
   const { latitude: lat, longitude: lon } = w;
   return `https://www.openstreetmap.org/export/embed.html?bbox=${lon - 0.12}%2C${lat - 0.07}%2C${lon + 0.12}%2C${lat + 0.07}&layer=mapnik&marker=${lat}%2C${lon}`;

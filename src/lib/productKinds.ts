@@ -1,15 +1,15 @@
 /**
- * Types de produit du catalogue : vin, huile d'olive… Tous partagent les mêmes tables (`wine` pour le
- * produit, `wine_vintage` pour le millésime ou la récolte, `grape` pour les cépages ou variétés) et
+ * Types de produit du catalogue : vin, huile d'olive… Tous partagent les mêmes tables (`product` pour le
+ * produit, `lot` pour le millésime ou la récolte, `variety` pour les cépages ou variétés) et
  * donc les mêmes ventes, stocks, commandes et dégustations ; ce registre donne à chacun son
  * vocabulaire et ses particularités.
  *
  * Nouveau type : l'ajouter ici, à `KIND_ICONS` (`src/lib/ui/kindIcons.ts`), au domaine SQL `product_kind`
  * et à sa TVA (`product_kind_vat_rate`, qui donne sinon 21 % sans rien signaler), sa couleur à `STYLES`
- * (`wine.ts`) s'il en a une propre, puis créer ses types (`wine_type`).
+ * (`products.ts`) s'il en a une propre, puis créer ses types (`product_type`).
  */
 
-import type { ProductStyleKey } from "./wine";
+import type { ProductStyleKey } from "./products";
 
 export type ProductKind = "wine" | "olive_oil";
 
@@ -42,16 +42,16 @@ export type ProductKindInfo = {
   noProduct: string;
   /** Titre d'un produit sans nom ni appellation. */
   untitled: string;
-  /** Ce qui distingue les types de ce produit (`wine_type`) : « Robe », « Fruité ». */
+  /** Ce qui distingue les types de ce produit (`product_type`) : « Robe », « Fruité ». */
   typeLabel: string;
-  /** Ordre des types (noms `wine_type`) dans les listes, quand l'alphabet ne convient pas : du fruité léger à l'intense. */
+  /** Ordre des types (noms `product_type`) dans les listes, quand l'alphabet ne convient pas : du fruité léger à l'intense. */
   typeOrder?: string[];
   /**
    * Couleur unique du produit (pastilles, bouteille, liserés) ; `null` : couleur de la robe, propre à
    * chaque type (vin). Un type de produit à couleur unique affiche le nom de son type (« Fruité intense »).
    */
   style: ProductStyleKey | null;
-  /** Lot du produit (une ligne `wine_vintage`, vendue et stockée) : « Millésime », « Lot ». */
+  /** Lot du produit (une ligne `lot`, vendue et stockée) : « Millésime », « Lot ». */
   batch: string;
   batchPlural: string;
   newBatch: string;
@@ -62,7 +62,7 @@ export type ProductKindInfo = {
   /** « Modifier le millésime », « ce millésime ». */
   editBatch: string;
   thisBatch: string;
-  /** Année du lot (`wine_vintage.year`), toujours facultative (vin non millésimé, huile sans récolte indiquée). */
+  /** Année du lot (`lot.year`), toujours facultative (vin non millésimé, huile sans récolte indiquée). */
   yearLabel: string;
   yearPlaceholder: string;
   /** Intitulé public de cette année : « Millésime », « Récolte ». */
@@ -71,14 +71,14 @@ export type ProductKindInfo = {
   otherYears: string;
   /** Lot sans année : « Non millésimé ». */
   noYear: string;
-  /** Composition (`grape`) : « Cépages », « Variétés d'olives ». */
+  /** Composition (`variety`) : « Cépages », « Variétés d'olives ». */
   ingredients: string;
   /** « Nouveau cépage », « Nouvelle variété » (référentiel des cépages et variétés). */
   newIngredient: string;
   /** « Choisir un cépage… », « Aucun cépage ». */
   chooseIngredient: string;
   noIngredient: string;
-  /** Le degré d'alcool a un sens (`wine_vintage.abv`). */
+  /** Le degré d'alcool a un sens (`lot.abv`). */
   hasAbv: boolean;
   /** Contenants proposés à la création d'un lot (en mL), le premier par défaut. */
   volumes: number[];
@@ -88,7 +88,7 @@ export type ProductKindInfo = {
   organicLabel: string;
   /** Titre de la description du produit sur sa fiche : « Le vin ». */
   aboutTitle: string;
-  /** Accords mets (`wine_pairing`) : « Accords mets & vins » ; `null` : pas d'accords pour ce type (huile). */
+  /** Accords mets (`product_pairing`) : « Accords mets & vins » ; `null` : pas d'accords pour ce type (huile). */
   pairingsLabel: string | null;
   /** Notes de dégustation, dans l'ordre d'affichage (`note.type`). */
   noteTypes: { key: string; label: string }[];
@@ -195,11 +195,11 @@ export function isProductKind(value: unknown): value is ProductKind {
 }
 
 /** Ligne qui porte (ou dont le type porte) un type de produit : produit, type, référentiel. */
-type KindRow = { kind?: string | null; wine_type?: { kind?: string | null } | null } | null | undefined;
+type KindRow = { kind?: string | null; product_type?: { kind?: string | null } | null } | null | undefined;
 
 /** Type d'un produit, d'un type ou d'un référentiel ; `DEFAULT_KIND` pour une ligne lue sans sa colonne `kind`. */
 export function kindOf(row: KindRow): ProductKind {
-  const kind = row?.kind ?? row?.wine_type?.kind;
+  const kind = row?.kind ?? row?.product_type?.kind;
   return isProductKind(kind) ? kind : DEFAULT_KIND;
 }
 
@@ -251,8 +251,8 @@ export function kindBySlug(slug: string): ProductKind | null {
 }
 
 /** Fiche publique d'un millésime ou d'une récolte : `/vins/…`, `/huiles/…`. */
-export function productHref(vintage: { id: string; wine?: { kind?: string | null } | null }): string {
-  return `/${kindInfo(vintage.wine).slug}/${vintage.id}`;
+export function productHref(lot: { id: string; product?: { kind?: string | null } | null }): string {
+  return `/${kindInfo(lot.product).slug}/${lot.id}`;
 }
 
 /** Options « Vin », « Huile d'olive » des listes de choix. */

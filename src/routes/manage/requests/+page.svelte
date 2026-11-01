@@ -9,7 +9,7 @@
   import EmptyState from "$lib/ui/EmptyState.svelte";
   import Spinner from "$lib/ui/Spinner.svelte";
   import { IconInbox } from "$lib/ui/icons";
-  import { VINTAGE_LABEL_SELECT, vintageLabel } from "$lib/wine";
+  import { LOT_LABEL_SELECT, lotLabel } from "$lib/products";
   import { formatDate, formatDateTime, formatEUR } from "$lib/format";
   import { contactReason } from "$lib/contact";
   import {
@@ -36,7 +36,7 @@
   let error = $state("");
   let wishes = $state.raw<WishRequest[]>([]);
   let messages = $state.raw<ContactMessage[]>([]);
-  let vintages = $state.raw(new Map<string, any>());
+  let lots = $state.raw(new Map<string, any>());
   let tastings = new Map<string, any>();
   let filter = $state<Filter>("new");
   /** Lignes dont une action est en cours. */
@@ -48,14 +48,14 @@
         loadRequests(),
         fetchAllRows<any>((a, b) =>
           supabase
-            .from("wine_vintage")
-            .select(`id, price, ${VINTAGE_LABEL_SELECT}`)
+            .from("lot")
+            .select(`id, price, ${LOT_LABEL_SELECT}`)
             .order("id")
             .range(a, b),
         ),
         fetchAllRows<any>((a, b) => supabase.from("tasting").select("id, name, date").order("id").range(a, b)),
       ]);
-      vintages = new Map(vRows.map((v) => [v.id, v]));
+      lots = new Map(vRows.map((v) => [v.id, v]));
       tastings = new Map(tRows.map((t) => [t.id, t]));
     } catch (e) {
       error = errorMessage(e);
@@ -77,7 +77,7 @@
     ]);
   }
 
-  let prices = $derived(new Map([...vintages.values()].map((v) => [v.id, Number(v.price ?? 0)])));
+  let prices = $derived(new Map([...lots.values()].map((v) => [v.id, Number(v.price ?? 0)])));
   let items = $derived(
     [
       ...messages.map((r): Item => ({ kind: "message", r })),
@@ -188,8 +188,8 @@
                   {#each wishItems(w.items) as it}
                     <li>
                       <span class="qty">{it.quantity} ×</span>
-                      <span>{vintageLabel(vintages.get(it.wine_vintage_id))}</span>
-                      <span class="num">{formatEUR(it.quantity * (prices.get(it.wine_vintage_id) ?? 0))}</span>
+                      <span>{lotLabel(lots.get(it.lot_id))}</span>
+                      <span class="num">{formatEUR(it.quantity * (prices.get(it.lot_id) ?? 0))}</span>
                     </li>
                   {/each}
                   <li class="total">

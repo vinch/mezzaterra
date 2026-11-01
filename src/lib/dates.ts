@@ -145,6 +145,6 @@ export function isLiveNow(iso: string, now = new Date()): boolean {
 }
 
 /** Les vins d'une dégustation ne sont dévoilés sur le site qu'une fois la soirée terminée (après 6 h le lendemain). */
-export function winesRevealed(iso: string, now = new Date()): boolean {
+export function productsRevealed(iso: string, now = new Date()): boolean {
   return daysUntil(iso) < 0 && !isLiveNow(iso, now);
 }

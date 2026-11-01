@@ -7,11 +7,6 @@ export type Json =
   | Json[]
 
 export type Database = {
-  // Allows to automatically instantiate createClient with right options
-  // instead of createClient<Database, { PostgrestVersion: 'XX' }>(URL, KEY)
-  __InternalSupabase: {
-    PostgrestVersion: "13.0.4"
-  }
   public: {
     Tables: {
       administrator: {
@@ -29,7 +24,7 @@ export type Database = {
         }
         Relationships: []
       }
-      appelation: {
+      appellation: {
         Row: {
           created_at: string
           description: string | null
@@ -59,14 +54,14 @@ export type Database = {
         }
         Relationships: [
           {
-            foreignKeyName: "appelations_label_id_fkey"
+            foreignKeyName: "appellation_label_id_fkey"
             columns: ["label_id"]
             isOneToOne: false
             referencedRelation: "label"
             referencedColumns: ["id"]
           },
           {
-            foreignKeyName: "appelations_region_id_fkey"
+            foreignKeyName: "appellation_region_id_fkey"
             columns: ["region_id"]
             isOneToOne: false
             referencedRelation: "region"
@@ -217,30 +212,6 @@ export type Database = {
         }
         Relationships: []
       }
-      grape: {
-        Row: {
-          created_at: string
-          description: string | null
-          id: string
-          kind: string
-          name: string
-        }
-        Insert: {
-          created_at?: string
-          description?: string | null
-          id?: string
-          kind?: string
-          name: string
-        }
-        Update: {
-          created_at?: string
-          description?: string | null
-          id?: string
-          kind?: string
-          name?: string
-        }
-        Relationships: []
-      }
       label: {
         Row: {
           country_id: string | null
@@ -269,64 +240,6 @@ export type Database = {
             columns: ["country_id"]
             isOneToOne: false
             referencedRelation: "country"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      member: {
-        Row: {
-          created_at: string
-          customer_id: string | null
-          id: string
-        }
-        Insert: {
-          created_at?: string
-          customer_id?: string | null
-          id: string
-        }
-        Update: {
-          created_at?: string
-          customer_id?: string | null
-          id?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "member_customer_id_fkey"
-            columns: ["customer_id"]
-            isOneToOne: false
-            referencedRelation: "customer"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      note: {
-        Row: {
-          content: string
-          created_at: string
-          id: string
-          type: string
-          wine_vintage_id: string
-        }
-        Insert: {
-          content: string
-          created_at?: string
-          id?: string
-          type: string
-          wine_vintage_id: string
-        }
-        Update: {
-          content?: string
-          created_at?: string
-          id?: string
-          type?: string
-          wine_vintage_id?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "wine_tasting_notes_wine_vintage_id_fkey"
-            columns: ["wine_vintage_id"]
-            isOneToOne: false
-            referencedRelation: "wine_vintage"
             referencedColumns: ["id"]
           },
         ]
@@ -368,6 +281,150 @@ export type Database = {
             columns: ["tasting_id"]
             isOneToOne: false
             referencedRelation: "tasting"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      lot: {
+        Row: {
+          abv: number | null
+          created_at: string
+          discontinued_at: string | null
+          id: string
+          image_url: string | null
+          organic: boolean | null
+          price: number | null
+          product_id: string
+          production_year: number
+          purchase_price: number
+          volume_ml: number
+          year: number | null
+        }
+        Insert: {
+          abv?: number | null
+          created_at?: string
+          discontinued_at?: string | null
+          id?: string
+          image_url?: string | null
+          organic?: boolean | null
+          price?: number | null
+          product_id: string
+          production_year: number
+          purchase_price?: number
+          volume_ml?: number
+          year?: number | null
+        }
+        Update: {
+          abv?: number | null
+          created_at?: string
+          discontinued_at?: string | null
+          id?: string
+          image_url?: string | null
+          organic?: boolean | null
+          price?: number | null
+          product_id?: string
+          production_year?: number
+          purchase_price?: number
+          volume_ml?: number
+          year?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "lot_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "product"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      lot_variety: {
+        Row: {
+          lot_id: string
+          percentage: number | null
+          variety_id: string
+        }
+        Insert: {
+          lot_id: string
+          percentage?: number | null
+          variety_id: string
+        }
+        Update: {
+          lot_id?: string
+          percentage?: number | null
+          variety_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "lot_variety_lot_id_fkey"
+            columns: ["lot_id"]
+            isOneToOne: false
+            referencedRelation: "lot"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "lot_variety_variety_id_fkey"
+            columns: ["variety_id"]
+            isOneToOne: false
+            referencedRelation: "variety"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      member: {
+        Row: {
+          created_at: string
+          customer_id: string | null
+          id: string
+        }
+        Insert: {
+          created_at?: string
+          customer_id?: string | null
+          id: string
+        }
+        Update: {
+          created_at?: string
+          customer_id?: string | null
+          id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "member_customer_id_fkey"
+            columns: ["customer_id"]
+            isOneToOne: false
+            referencedRelation: "customer"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      note: {
+        Row: {
+          content: string
+          created_at: string
+          id: string
+          lot_id: string
+          type: string
+        }
+        Insert: {
+          content: string
+          created_at?: string
+          id?: string
+          lot_id: string
+          type: string
+        }
+        Update: {
+          content?: string
+          created_at?: string
+          id?: string
+          lot_id?: string
+          type?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "note_lot_id_fkey"
+            columns: ["lot_id"]
+            isOneToOne: false
+            referencedRelation: "lot"
             referencedColumns: ["id"]
           },
         ]
@@ -424,43 +481,43 @@ export type Database = {
         Row: {
           created_at: string
           id: string
+          lot_id: string
           note: string | null
           order_id: string
           price: number
           quantity: number
-          wine_vintage_id: string
         }
         Insert: {
           created_at?: string
           id?: string
+          lot_id: string
           note?: string | null
           order_id: string
           price: number
           quantity: number
-          wine_vintage_id: string
         }
         Update: {
           created_at?: string
           id?: string
+          lot_id?: string
           note?: string | null
           order_id?: string
           price?: number
           quantity?: number
-          wine_vintage_id?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "order_item_lot_id_fkey"
+            columns: ["lot_id"]
+            isOneToOne: false
+            referencedRelation: "lot"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "order_item_order_id_fkey"
             columns: ["order_id"]
             isOneToOne: false
             referencedRelation: "order"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "order_item_wine_vintage_id_fkey"
-            columns: ["wine_vintage_id"]
-            isOneToOne: false
-            referencedRelation: "wine_vintage"
             referencedColumns: ["id"]
           },
         ]
@@ -514,6 +571,190 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      producer: {
+        Row: {
+          address_line_1: string | null
+          address_line_2: string | null
+          city: string | null
+          country_id: string | null
+          created_at: string
+          description: string | null
+          email: string | null
+          hidden: boolean
+          id: string
+          instagram: string | null
+          latitude: number | null
+          longitude: number | null
+          name: string
+          phone_number: string | null
+          region_id: string | null
+          url: string | null
+          zip_code: string | null
+        }
+        Insert: {
+          address_line_1?: string | null
+          address_line_2?: string | null
+          city?: string | null
+          country_id?: string | null
+          created_at?: string
+          description?: string | null
+          email?: string | null
+          hidden?: boolean
+          id?: string
+          instagram?: string | null
+          latitude?: number | null
+          longitude?: number | null
+          name: string
+          phone_number?: string | null
+          region_id?: string | null
+          url?: string | null
+          zip_code?: string | null
+        }
+        Update: {
+          address_line_1?: string | null
+          address_line_2?: string | null
+          city?: string | null
+          country_id?: string | null
+          created_at?: string
+          description?: string | null
+          email?: string | null
+          hidden?: boolean
+          id?: string
+          instagram?: string | null
+          latitude?: number | null
+          longitude?: number | null
+          name?: string
+          phone_number?: string | null
+          region_id?: string | null
+          url?: string | null
+          zip_code?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "producer_country_id_fkey"
+            columns: ["country_id"]
+            isOneToOne: false
+            referencedRelation: "country"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "producer_region_id_fkey"
+            columns: ["region_id"]
+            isOneToOne: false
+            referencedRelation: "region"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      product: {
+        Row: {
+          appellation_id: string | null
+          created_at: string
+          description: string | null
+          id: string
+          kind: string
+          name: string | null
+          producer_id: string
+          product_type_id: string
+        }
+        Insert: {
+          appellation_id?: string | null
+          created_at?: string
+          description?: string | null
+          id?: string
+          kind?: string
+          name?: string | null
+          producer_id: string
+          product_type_id: string
+        }
+        Update: {
+          appellation_id?: string | null
+          created_at?: string
+          description?: string | null
+          id?: string
+          kind?: string
+          name?: string | null
+          producer_id?: string
+          product_type_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "product_appellation_id_fkey"
+            columns: ["appellation_id"]
+            isOneToOne: false
+            referencedRelation: "appellation"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "product_producer_id_fkey"
+            columns: ["producer_id"]
+            isOneToOne: false
+            referencedRelation: "producer"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "product_product_type_id_fkey"
+            columns: ["product_type_id"]
+            isOneToOne: false
+            referencedRelation: "product_type"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      product_pairing: {
+        Row: {
+          pairing_id: string
+          product_id: string
+        }
+        Insert: {
+          pairing_id: string
+          product_id: string
+        }
+        Update: {
+          pairing_id?: string
+          product_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "product_pairing_pairing_id_fkey"
+            columns: ["pairing_id"]
+            isOneToOne: false
+            referencedRelation: "pairing"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "product_pairing_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "product"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      product_type: {
+        Row: {
+          category: string | null
+          created_at: string
+          id: string
+          kind: string
+          name: string
+        }
+        Insert: {
+          category?: string | null
+          created_at?: string
+          id?: string
+          kind?: string
+          name: string
+        }
+        Update: {
+          category?: string | null
+          created_at?: string
+          id?: string
+          kind?: string
+          name?: string
+        }
+        Relationships: []
       }
       region: {
         Row: {
@@ -610,50 +851,50 @@ export type Database = {
           discount: number | null
           discount_type: string | null
           id: string
+          lot_id: string | null
           note: string | null
           price: number
           quantity: number
           sale_id: string
           vat_rate: number
-          wine_vintage_id: string | null
         }
         Insert: {
           created_at?: string
           discount?: number | null
           discount_type?: string | null
           id?: string
+          lot_id?: string | null
           note?: string | null
           price: number
           quantity: number
           sale_id: string
           vat_rate?: number
-          wine_vintage_id?: string | null
         }
         Update: {
           created_at?: string
           discount?: number | null
           discount_type?: string | null
           id?: string
+          lot_id?: string | null
           note?: string | null
           price?: number
           quantity?: number
           sale_id?: string
           vat_rate?: number
-          wine_vintage_id?: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "sale_item_lot_id_fkey"
+            columns: ["lot_id"]
+            isOneToOne: false
+            referencedRelation: "lot"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "sale_item_sale_id_fkey"
             columns: ["sale_id"]
             isOneToOne: false
             referencedRelation: "sale"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "sale_item_wine_vintage_id_fkey"
-            columns: ["wine_vintage_id"]
-            isOneToOne: false
-            referencedRelation: "wine_vintage"
             referencedColumns: ["id"]
           },
         ]
@@ -663,28 +904,28 @@ export type Database = {
           created_at: string
           date: string
           id: string
+          lot_id: string
           note: string | null
           quantity: number
           reason: string
-          wine_vintage_id: string
         }
         Insert: {
           created_at?: string
           date: string
           id?: string
+          lot_id: string
           note?: string | null
           quantity: number
           reason: string
-          wine_vintage_id: string
         }
         Update: {
           created_at?: string
           date?: string
           id?: string
+          lot_id?: string
           note?: string | null
           quantity?: number
           reason?: string
-          wine_vintage_id?: string
         }
         Relationships: []
       }
@@ -827,9 +1068,9 @@ export type Database = {
           guest_id: string
           guest_name: string | null
           id: string
+          lot_id: string
           rating: number | null
           tasting_id: string
-          wine_vintage_id: string
         }
         Insert: {
           comment?: string | null
@@ -838,9 +1079,9 @@ export type Database = {
           guest_id: string
           guest_name?: string | null
           id?: string
+          lot_id: string
           rating?: number | null
           tasting_id: string
-          wine_vintage_id: string
         }
         Update: {
           comment?: string | null
@@ -849,11 +1090,18 @@ export type Database = {
           guest_id?: string
           guest_name?: string | null
           id?: string
+          lot_id?: string
           rating?: number | null
           tasting_id?: string
-          wine_vintage_id?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "tasting_feedback_lot_id_fkey"
+            columns: ["lot_id"]
+            isOneToOne: false
+            referencedRelation: "lot"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "tasting_feedback_tasting_id_fkey"
             columns: ["tasting_id"]
@@ -861,11 +1109,37 @@ export type Database = {
             referencedRelation: "tasting"
             referencedColumns: ["id"]
           },
+        ]
+      }
+      tasting_lot: {
+        Row: {
+          lot_id: string
+          order: number
+          tasting_id: string
+        }
+        Insert: {
+          lot_id: string
+          order: number
+          tasting_id: string
+        }
+        Update: {
+          lot_id?: string
+          order?: number
+          tasting_id?: string
+        }
+        Relationships: [
           {
-            foreignKeyName: "tasting_feedback_wine_vintage_id_fkey"
-            columns: ["wine_vintage_id"]
+            foreignKeyName: "tasting_lot_lot_id_fkey"
+            columns: ["lot_id"]
             isOneToOne: false
-            referencedRelation: "wine_vintage"
+            referencedRelation: "lot"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tasting_lot_tasting_id_fkey"
+            columns: ["tasting_id"]
+            isOneToOne: false
+            referencedRelation: "tasting"
             referencedColumns: ["id"]
           },
         ]
@@ -920,39 +1194,6 @@ export type Database = {
             columns: ["tasting_id"]
             isOneToOne: false
             referencedRelation: "tasting"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      tasting_wine_vintage: {
-        Row: {
-          order: number
-          tasting_id: string
-          wine_vintage_id: string
-        }
-        Insert: {
-          order: number
-          tasting_id: string
-          wine_vintage_id: string
-        }
-        Update: {
-          order?: number
-          tasting_id?: string
-          wine_vintage_id?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "tastings_wines_tasting_id_fkey"
-            columns: ["tasting_id"]
-            isOneToOne: false
-            referencedRelation: "tasting"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "tastings_wines_wine_vintage_id_fkey"
-            columns: ["wine_vintage_id"]
-            isOneToOne: false
-            referencedRelation: "wine_vintage"
             referencedColumns: ["id"]
           },
         ]
@@ -1051,275 +1292,29 @@ export type Database = {
           },
         ]
       }
-      wine: {
+      variety: {
         Row: {
-          appelation_id: string | null
           created_at: string
           description: string | null
           id: string
           kind: string
-          name: string | null
-          wine_type_id: string
-          winery_id: string
-        }
-        Insert: {
-          appelation_id?: string | null
-          created_at?: string
-          description?: string | null
-          id?: string
-          kind?: string
-          name?: string | null
-          wine_type_id: string
-          winery_id: string
-        }
-        Update: {
-          appelation_id?: string | null
-          created_at?: string
-          description?: string | null
-          id?: string
-          kind?: string
-          name?: string | null
-          wine_type_id?: string
-          winery_id?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "wines_appelation_id_fkey"
-            columns: ["appelation_id"]
-            isOneToOne: false
-            referencedRelation: "appelation"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "wines_wine_type_id_fkey"
-            columns: ["wine_type_id"]
-            isOneToOne: false
-            referencedRelation: "wine_type"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "wines_winery_id_fkey"
-            columns: ["winery_id"]
-            isOneToOne: false
-            referencedRelation: "winery"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      wine_pairing: {
-        Row: {
-          pairing_id: string
-          wine_id: string
-        }
-        Insert: {
-          pairing_id: string
-          wine_id: string
-        }
-        Update: {
-          pairing_id?: string
-          wine_id?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "wines_pairings_pairing_id_fkey"
-            columns: ["pairing_id"]
-            isOneToOne: false
-            referencedRelation: "pairing"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "wines_pairings_wine_id_fkey"
-            columns: ["wine_id"]
-            isOneToOne: false
-            referencedRelation: "wine"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      wine_type: {
-        Row: {
-          category: string | null
-          created_at: string
-          id: string
-          kind: string
           name: string
         }
         Insert: {
-          category?: string | null
           created_at?: string
+          description?: string | null
           id?: string
           kind?: string
           name: string
         }
         Update: {
-          category?: string | null
           created_at?: string
+          description?: string | null
           id?: string
           kind?: string
           name?: string
         }
         Relationships: []
-      }
-      wine_vintage: {
-        Row: {
-          abv: number | null
-          created_at: string
-          discontinued_at: string | null
-          id: string
-          image_url: string | null
-          organic: boolean | null
-          price: number | null
-          production_year: number
-          purchase_price: number
-          volume_ml: number
-          wine_id: string
-          year: number | null
-        }
-        Insert: {
-          abv?: number | null
-          created_at?: string
-          discontinued_at?: string | null
-          id?: string
-          image_url?: string | null
-          organic?: boolean | null
-          price?: number | null
-          production_year: number
-          purchase_price?: number
-          volume_ml?: number
-          wine_id: string
-          year?: number | null
-        }
-        Update: {
-          abv?: number | null
-          created_at?: string
-          discontinued_at?: string | null
-          id?: string
-          image_url?: string | null
-          organic?: boolean | null
-          price?: number | null
-          production_year?: number
-          purchase_price?: number
-          volume_ml?: number
-          wine_id?: string
-          year?: number | null
-        }
-        Relationships: [
-          {
-            foreignKeyName: "wine_vintages_wine_id_fkey"
-            columns: ["wine_id"]
-            isOneToOne: false
-            referencedRelation: "wine"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      wine_vintage_grape: {
-        Row: {
-          grape_id: string
-          percentage: number | null
-          wine_vintage_id: string
-        }
-        Insert: {
-          grape_id: string
-          percentage?: number | null
-          wine_vintage_id: string
-        }
-        Update: {
-          grape_id?: string
-          percentage?: number | null
-          wine_vintage_id?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "wines_grapes_grape_id_fkey"
-            columns: ["grape_id"]
-            isOneToOne: false
-            referencedRelation: "grape"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "wines_grapes_wine_vintage_id_fkey"
-            columns: ["wine_vintage_id"]
-            isOneToOne: false
-            referencedRelation: "wine_vintage"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      winery: {
-        Row: {
-          address_line_1: string | null
-          address_line_2: string | null
-          city: string | null
-          country_id: string | null
-          created_at: string
-          description: string | null
-          email: string | null
-          hidden: boolean
-          id: string
-          instagram: string | null
-          latitude: number | null
-          longitude: number | null
-          name: string
-          phone_number: string | null
-          region_id: string | null
-          url: string | null
-          zip_code: string | null
-        }
-        Insert: {
-          address_line_1?: string | null
-          address_line_2?: string | null
-          city?: string | null
-          country_id?: string | null
-          created_at?: string
-          description?: string | null
-          email?: string | null
-          hidden?: boolean
-          id?: string
-          instagram?: string | null
-          latitude?: number | null
-          longitude?: number | null
-          name: string
-          phone_number?: string | null
-          region_id?: string | null
-          url?: string | null
-          zip_code?: string | null
-        }
-        Update: {
-          address_line_1?: string | null
-          address_line_2?: string | null
-          city?: string | null
-          country_id?: string | null
-          created_at?: string
-          description?: string | null
-          email?: string | null
-          hidden?: boolean
-          id?: string
-          instagram?: string | null
-          latitude?: number | null
-          longitude?: number | null
-          name?: string
-          phone_number?: string | null
-          region_id?: string | null
-          url?: string | null
-          zip_code?: string | null
-        }
-        Relationships: [
-          {
-            foreignKeyName: "wineries_country_id_fkey"
-            columns: ["country_id"]
-            isOneToOne: false
-            referencedRelation: "country"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "wineries_region_id_fkey"
-            columns: ["region_id"]
-            isOneToOne: false
-            referencedRelation: "region"
-            referencedColumns: ["id"]
-          },
-        ]
       }
       wish_request: {
         Row: {
@@ -1388,8 +1383,8 @@ export type Database = {
     Views: {
       inventory: {
         Row: {
+          lot_id: string | null
           quantity_on_hand: number | null
-          wine_vintage_id: string | null
         }
         Relationships: []
       }
@@ -1397,10 +1392,10 @@ export type Database = {
     Functions: {
       add_to_supplier_order: {
         Args: {
+          p_lot_id: string
           p_price: number
           p_quantity: number
           p_supplier_id: string
-          p_vintage_id: string
         }
         Returns: {
           created: boolean
@@ -1427,12 +1422,12 @@ export type Database = {
         Args: { p_registration_id: string }
         Returns: string
       }
-      create_wine_vintage: {
+      create_lot: {
         Args: {
-          p_copy_grapes?: boolean
           p_copy_notes?: boolean
+          p_copy_varieties?: boolean
+          p_lot: Json
           p_source_id?: string
-          p_vintage: Json
         }
         Returns: string
       }
@@ -1461,12 +1456,12 @@ export type Database = {
         Returns: number
       }
       product_kind_vat_rate: { Args: { p_kind: unknown }; Returns: number }
-      public_wine_availability: {
+      public_lot_availability: {
         Args: never
         Returns: {
           in_stock: boolean
+          lot_id: string
           low_stock: boolean
-          wine_vintage_id: string
         }[]
       }
       register_for_tasting: {
@@ -1489,10 +1484,6 @@ export type Database = {
         }
         Returns: string
       }
-      save_order: {
-        Args: { p_items: Json; p_order: Json; p_order_id: string }
-        Returns: string
-      }
       save_live_preorder: {
         Args: {
           p_confirm?: boolean
@@ -1504,6 +1495,10 @@ export type Database = {
           p_phone?: string
           p_tasting_id: string
         }
+        Returns: string
+      }
+      save_order: {
+        Args: { p_items: Json; p_order: Json; p_order_id: string }
         Returns: string
       }
       save_sale: {
@@ -1518,10 +1513,10 @@ export type Database = {
       save_tasting: {
         Args: {
           p_added_customer_ids: string[]
+          p_lot_ids: string[]
           p_removed_customer_ids: string[]
           p_tasting: Json
           p_tasting_id: string
-          p_wine_ids: string[]
         }
         Returns: string
       }
@@ -1561,12 +1556,12 @@ export type Tables<
   DefaultSchemaTableNameOrOptions extends
     | keyof (DefaultSchema["Tables"] & DefaultSchema["Views"])
     | { schema: keyof DatabaseWithoutInternals },
-  TableName extends (DefaultSchemaTableNameOrOptions extends {
+  TableName extends DefaultSchemaTableNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
     ? keyof (DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"] &
         DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Views"])
-    : never) = never,
+    : never = never,
 > = DefaultSchemaTableNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }
@@ -1590,11 +1585,11 @@ export type TablesInsert<
   DefaultSchemaTableNameOrOptions extends
     | keyof DefaultSchema["Tables"]
     | { schema: keyof DatabaseWithoutInternals },
-  TableName extends (DefaultSchemaTableNameOrOptions extends {
+  TableName extends DefaultSchemaTableNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
     ? keyof DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"]
-    : never) = never,
+    : never = never,
 > = DefaultSchemaTableNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }
@@ -1615,11 +1610,11 @@ export type TablesUpdate<
   DefaultSchemaTableNameOrOptions extends
     | keyof DefaultSchema["Tables"]
     | { schema: keyof DatabaseWithoutInternals },
-  TableName extends (DefaultSchemaTableNameOrOptions extends {
+  TableName extends DefaultSchemaTableNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
     ? keyof DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"]
-    : never) = never,
+    : never = never,
 > = DefaultSchemaTableNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }
@@ -1640,11 +1635,11 @@ export type Enums<
   DefaultSchemaEnumNameOrOptions extends
     | keyof DefaultSchema["Enums"]
     | { schema: keyof DatabaseWithoutInternals },
-  EnumName extends (DefaultSchemaEnumNameOrOptions extends {
+  EnumName extends DefaultSchemaEnumNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
     ? keyof DatabaseWithoutInternals[DefaultSchemaEnumNameOrOptions["schema"]]["Enums"]
-    : never) = never,
+    : never = never,
 > = DefaultSchemaEnumNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }
@@ -1657,11 +1652,11 @@ export type CompositeTypes<
   PublicCompositeTypeNameOrOptions extends
     | keyof DefaultSchema["CompositeTypes"]
     | { schema: keyof DatabaseWithoutInternals },
-  CompositeTypeName extends (PublicCompositeTypeNameOrOptions extends {
+  CompositeTypeName extends PublicCompositeTypeNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
     ? keyof DatabaseWithoutInternals[PublicCompositeTypeNameOrOptions["schema"]]["CompositeTypes"]
-    : never) = never,
+    : never = never,
 > = PublicCompositeTypeNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }
@@ -1675,3 +1670,4 @@ export const Constants = {
     Enums: {},
   },
 } as const
+

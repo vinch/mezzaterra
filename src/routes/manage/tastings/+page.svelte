@@ -15,7 +15,7 @@
   import Card from "$lib/ui/Card.svelte";
   import Field from "$lib/ui/Field.svelte";
   import ManagePageShell from "$lib/components/manage/ManagePageShell.svelte";
-  import ProductVintageAutocomplete from "$lib/components/manage/ProductVintageAutocomplete.svelte";
+  import ProductLotAutocomplete from "$lib/components/manage/ProductLotAutocomplete.svelte";
   import CustomerAutocomplete from "$lib/components/manage/CustomerAutocomplete.svelte";
   import Spinner from "$lib/ui/Spinner.svelte";
   import EmptyState from "$lib/ui/EmptyState.svelte";
@@ -32,22 +32,22 @@
   } from "$lib/ui/icons";
   import MoveButtons from "$lib/ui/MoveButtons.svelte";
   import { compareCustomersByLabel, customerDisplayLabel, namesakeIds } from "$lib/customerDisplay";
-  import { fetchCustomers, fetchPickerVintages } from "$lib/manageData";
+  import { fetchCustomers, fetchPickerLots } from "$lib/manageData";
   import { errorMessage, latestOnly } from "$lib/async";
-  import { fetchTastingWithWines, onlineSeatsByCustomer, participantOrigin, placesLabel, seatsTaken, tastingTitle } from "$lib/publicData";
+  import { fetchTastingWithLots, onlineSeatsByCustomer, participantOrigin, placesLabel, seatsTaken, tastingTitle } from "$lib/publicData";
   import { isoDateOnly, todayIso } from "$lib/dates";
   import { formatDate } from "$lib/format";
-  import { isDiscontinued, vintageLabel } from "$lib/wine";
+  import { isDiscontinued, lotLabel } from "$lib/products";
 
   type TastingRow = Tasting & {
-    tasting_wine_vintage: { order: number; wine_vintage_id: string }[];
+    tasting_lot: { order: number; lot_id: string }[];
     tasting_customer: { customer_id: string; seats: number }[];
     tasting_registration: { customer_id: string | null; seats: number; status: string }[];
   };
 
-  type ModalWineEntry = {
-    wine_vintage_id: string;
-    vintage: any;
+  type ModalLotEntry = {
+    lot_id: string;
+    lot: any;
   };
 
   type ModalCustomerEntry = {
@@ -63,16 +63,16 @@
   let customers = $state.raw<Customer[]>([]);
   /** Participants signalés « Doublon possible » (une autre fiche porte leur nom). */
   let duplicateIds = $derived(namesakeIds(customers));
-  let wineVintages = $state.raw<any[]>([]);
+  let lots = $state.raw<any[]>([]);
   let loading = $state(true);
   let error = $state("");
   let showModal = $state(false);
   let editingTasting = $state<TastingRow | null>(null);
-  let modalWines = $state<ModalWineEntry[]>([]);
+  let modalLots = $state<ModalLotEntry[]>([]);
   let modalCustomers = $state<ModalCustomerEntry[]>([]);
   /** Participants à l'ouverture du formulaire : seuls les ajouts et retraits sont enregistrés. */
   let initialCustomerIds: string[] = [];
-  let selectedVintageId = $state("");
+  let selectedLotId = $state("");
   let selectedCustomerId = $state("");
   let saving = $state(false);
   let cardsBusyId = $state("");
@@ -92,13 +92,13 @@
   });
   let formData = $state(emptyForm());
   /* On ne propose pas un lot « plus jamais disponible ». */
-  let pickableVintages = $derived(wineVintages.filter((v) => !isDiscontinued(v)));
+  let pickableLots = $derived(lots.filter((v) => !isDiscontinued(v)));
 
   onMount(async () => {
     /* Chaque liste est gardée même si une autre échoue. */
     const results = await Promise.allSettled([
       loadTastings(),
-      fetchPickerVintages().then((v) => (wineVintages = v)),
+      fetchPickerLots().then((v) => (lots = v)),
       fetchCustomers().then((c) => (customers = c)),
     ]);
     const failed = results.find((r) => r.status === "rejected");
@@ -114,14 +114,14 @@
     cardsBusyId = tasting.id;
     error = "";
     try {
-      const res = await fetchTastingWithWines(tasting.id);
-      if (!res.tasting || res.wineVintages.length === 0) {
+      const res = await fetchTastingWithLots(tasting.id);
+      if (!res.tasting || res.lots.length === 0) {
         error = "Ajoutez des produits à la dégustation pour générer les fiches.";
         return;
       }
       /* jsPDF et qrcode ne sont chargés qu'au moment de générer les fiches. */
       const { downloadTableCardsPdf } = await import("$lib/pdf/tableCardsPdf");
-      await downloadTableCardsPdf(res.tasting, res.wineVintages, window.location.origin);
+      await downloadTableCardsPdf(res.tasting, res.lots, window.location.origin);
     } catch (e) {
       error = errorMessage(e);
     } finally {
@@ -138,8 +138,8 @@
     return modalCustomers.some((e) => e.customer_id === customerId);
   }
 
-  function isVintageInModal(vintageId: string): boolean {
-    return modalWines.some((e) => e.wine_vintage_id === vintageId);
+  function isLotInModal(lotId: string): boolean {
+    return modalLots.some((e) => e.lot_id === lotId);
   }
 
   async function loadTastings() {
@@ -148,7 +148,7 @@
       .select(
         `
         *,
-        tasting_wine_vintage ( order, wine_vintage_id ),
+        tasting_lot ( order, lot_id ),
         tasting_customer ( customer_id, seats ),
         tasting_registration ( customer_id, seats, status )
       `,
@@ -210,23 +210,23 @@
     return { entries, ids: (data || []).map((r) => r.customer_id) };
   }
 
-  async function loadModalWines(tastingId: string): Promise<ModalWineEntry[]> {
+  async function loadModalLots(tastingId: string): Promise<ModalLotEntry[]> {
     const { data, error: fetchError } = await supabase
-      .from("tasting_wine_vintage")
+      .from("tasting_lot")
       .select(
         `
         order,
-        wine_vintage_id,
-        wine_vintage (
+        lot_id,
+        lot (
           id,
           production_year,
           year,
           volume_ml,
-          wine (
+          product (
             kind,
             name,
-            winery (name),
-            appelation (name, label (name))
+            producer (name),
+            appellation (name, label (name))
           )
         )
       `,
@@ -236,19 +236,19 @@
 
     if (fetchError) throw new Error(fetchError.message);
     return (data || [])
-      .filter((r) => r.wine_vintage)
+      .filter((r) => r.lot)
       .map((r) => ({
-        wine_vintage_id: r.wine_vintage_id,
-        vintage: r.wine_vintage,
+        lot_id: r.lot_id,
+        lot: r.lot,
       }));
   }
 
   function resetForm() {
     formData = emptyForm();
-    modalWines = [];
+    modalLots = [];
     modalCustomers = [];
     initialCustomerIds = [];
-    selectedVintageId = "";
+    selectedLotId = "";
     selectedCustomerId = "";
   }
 
@@ -265,12 +265,12 @@
   async function openEditModal(tasting: TastingRow) {
     error = "";
     const loaded = await formLoad.run(
-      () => Promise.all([loadModalWines(tasting.id), loadModalCustomers(tasting.id)]),
+      () => Promise.all([loadModalLots(tasting.id), loadModalCustomers(tasting.id)]),
     );
     if (!loaded) return;
 
-    const [wines, registered] = loaded;
-    modalWines = wines;
+    const [tastingLots, registered] = loaded;
+    modalLots = tastingLots;
     modalCustomers = registered.entries;
     initialCustomerIds = registered.ids;
     editingTasting = tasting;
@@ -285,7 +285,7 @@
       description: tasting.description || "",
       is_private: tasting.is_private === true,
     };
-    selectedVintageId = "";
+    selectedLotId = "";
     selectedCustomerId = "";
     showModal = true;
   }
@@ -331,24 +331,24 @@
     modalCustomers = modalCustomers.filter((_, i) => i !== index);
   }
 
-  function addWineToTasting() {
-    if (!selectedVintageId) return;
-    if (isVintageInModal(selectedVintageId)) {
+  function addLotToTasting() {
+    if (!selectedLotId) return;
+    if (isLotInModal(selectedLotId)) {
       error = "Ce lot est déjà dans la liste.";
       return;
     }
-    const vintage = wineVintages.find((v) => v.id === selectedVintageId);
-    if (!vintage) return;
-    modalWines = [
-      ...modalWines,
-      { wine_vintage_id: selectedVintageId, vintage },
+    const lot = lots.find((v) => v.id === selectedLotId);
+    if (!lot) return;
+    modalLots = [
+      ...modalLots,
+      { lot_id: selectedLotId, lot },
     ];
-    selectedVintageId = "";
+    selectedLotId = "";
     error = "";
   }
 
-  function removeWineFromList(index: number) {
-    modalWines = modalWines.filter((_, i) => i !== index);
+  function removeLotFromList(index: number) {
+    modalLots = modalLots.filter((_, i) => i !== index);
   }
 
   async function handleSubmit() {
@@ -378,7 +378,7 @@
       const { error: saveError } = await supabase.rpc("save_tasting", {
         p_tasting_id: editingTasting?.id ?? NEW_ROW,
         p_tasting: payload,
-        p_wine_ids: modalWines.map((e) => e.wine_vintage_id),
+        p_lot_ids: modalLots.map((e) => e.lot_id),
         p_added_customer_ids: modalCustomers.map((e) => e.customer_id).filter((id) => !initialCustomerIds.includes(id)),
         p_removed_customer_ids: initialCustomerIds.filter((id) => !modalCustomers.some((e) => e.customer_id === id)),
       });
@@ -397,7 +397,7 @@
   async function deleteTasting(tasting: TastingRow) {
     /* Les participants partent avec la dégustation (cascade) : les supprimer avant annulerait leurs
        réservations en ligne même si la suppression de la dégustation échouait. */
-    const { error: linkErr } = await supabase.from("tasting_wine_vintage").delete().eq("tasting_id", tasting.id);
+    const { error: linkErr } = await supabase.from("tasting_lot").delete().eq("tasting_id", tasting.id);
     if (linkErr) {
       error = linkErr.message;
       return;
@@ -416,8 +416,8 @@
     await loadTastings();
   }
 
-  function wineCount(t: TastingRow): number {
-    return t.tasting_wine_vintage?.length ?? 0;
+  function lotCount(t: TastingRow): number {
+    return t.tasting_lot?.length ?? 0;
   }
 
   /** Places prises, comme dans Piloter : une réservation en ligne de 2 places compte pour 2. */
@@ -486,7 +486,7 @@
               {#if tasting.is_private}<span class="private-badge" title="Non listée sur le site public">Privée</span>{/if}
             </td>
             <td>{tasting.location || "—"}</td>
-            <td class="num">{wineCount(tasting)}</td>
+            <td class="num">{lotCount(tasting)}</td>
             <td class="num">
               {#if tasting.tasting_customer?.length}
                 <Button size="sm" variant="ghost" title="Voir les participants" ariaLabel="Voir les participants ({placesLabel(count)})" onclick={() => showParticipants(tasting)}>{count}</Button>
@@ -568,17 +568,17 @@
 
     <section class="block" aria-labelledby="tasting-wines-label">
       <h3 id="tasting-wines-label" class="t-label">Produits (ordre de passage)</h3>
-      {#if modalWines.length === 0}
+      {#if modalLots.length === 0}
         <EmptyState title="Aucun produit ajouté" compact />
       {:else}
         <ol class="entries">
-          {#each modalWines as entry, i (entry.wine_vintage_id)}
-            {@const label = vintageLabel(entry.vintage)}
+          {#each modalLots as entry, i (entry.lot_id)}
+            {@const label = lotLabel(entry.lot)}
             <li class="entry">
               <span class="entry-num" aria-hidden="true">{i + 1}</span>
               <span class="entry-label">{label}</span>
-              <MoveButtons bind:list={modalWines} index={i} {label} />
-              <IconButton label="Retirer {label}" onclick={() => removeWineFromList(i)}>
+              <MoveButtons bind:list={modalLots} index={i} {label} />
+              <IconButton label="Retirer {label}" onclick={() => removeLotFromList(i)}>
                 <IconX size={18} strokeWidth={1.75} />
               </IconButton>
             </li>
@@ -587,15 +587,15 @@
       {/if}
 
       <div class="add-row">
-        <ProductVintageAutocomplete
-          bind:value={selectedVintageId}
-          wineVintages={pickableVintages}
+        <ProductLotAutocomplete
+          bind:value={selectedLotId}
+          lots={pickableLots}
           includeTastingOption={false}
-          isVintageAlreadyAdded={isVintageInModal}
-          formatLabel={vintageLabel}
+          isLotAlreadyAdded={isLotInModal}
+          formatLabel={lotLabel}
           placeholder="Rechercher un produit…"
         />
-        <Button disabled={!selectedVintageId} onclick={addWineToTasting}><IconPlus size={16} strokeWidth={1.75} /> Ajouter</Button>
+        <Button disabled={!selectedLotId} onclick={addLotToTasting}><IconPlus size={16} strokeWidth={1.75} /> Ajouter</Button>
       </div>
     </section>
 

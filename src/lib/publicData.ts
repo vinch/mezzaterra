@@ -1,6 +1,6 @@
 import { error as httpError } from "@sveltejs/kit";
 import { fetchAllRows, supabase } from "./supabase";
-import { VINTAGE_PUBLIC_SELECT } from "./wine";
+import { LOT_PUBLIC_SELECT } from "./products";
 import { DEFAULT_KIND, PRODUCT_KIND_LIST, type ProductKind } from "./productKinds";
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -12,7 +12,7 @@ export function isUuid(id: string): boolean {
 
 export type Availability = { in_stock: boolean; low_stock: boolean };
 /** Disponibilité d'un millésime d'après son identifiant. */
-export type AvailabilityOf = (vintageId: string) => Availability;
+export type AvailabilityOf = (lotId: string) => Availability;
 
 const SOLD_OUT: Availability = { in_stock: false, low_stock: false };
 
@@ -24,11 +24,11 @@ const SOLD_OUT: Availability = { in_stock: false, low_stock: false };
 export async function fetchAvailability(): Promise<AvailabilityOf | null> {
   try {
     /* Paginé : une ligne tronquée par la limite PostgREST passerait pour épuisée. */
-    const rows = await fetchAllRows<{ wine_vintage_id: string; in_stock: boolean; low_stock: boolean }>((a, b) =>
-      supabase.rpc("public_wine_availability").order("wine_vintage_id").range(a, b),
+    const rows = await fetchAllRows<{ lot_id: string; in_stock: boolean; low_stock: boolean }>((a, b) =>
+      supabase.rpc("public_lot_availability").order("lot_id").range(a, b),
     );
-    const byVintage = new Map(rows.map((r) => [r.wine_vintage_id, { in_stock: r.in_stock, low_stock: r.low_stock }]));
-    return (vintageId) => byVintage.get(vintageId) ?? SOLD_OUT;
+    const byLot = new Map(rows.map((r) => [r.lot_id, { in_stock: r.in_stock, low_stock: r.low_stock }]));
+    return (lotId) => byLot.get(lotId) ?? SOLD_OUT;
   } catch {
     return null;
   }
@@ -44,10 +44,10 @@ export async function fetchCatalogKinds(): Promise<ProductKind[]> {
     const others = await Promise.all(
       PRODUCT_KIND_LIST.filter((k) => k.key !== DEFAULT_KIND).map(async (k) => {
         const { data } = await supabase
-          .from("wine_vintage")
-          .select("id, wine!inner ( kind, winery!inner ( hidden ) )")
-          .eq("wine.kind", k.key)
-          .eq("wine.winery.hidden", false)
+          .from("lot")
+          .select("id, product!inner ( kind, producer!inner ( hidden ) )")
+          .eq("product.kind", k.key)
+          .eq("product.producer.hidden", false)
           .is("discontinued_at", null)
           .limit(1);
         return data?.length ? [k.key] : [];
@@ -130,11 +130,11 @@ export async function fetchSeats(tastingId: string): Promise<SeatInfo | null> {
 }
 
 /** Dégustation + vins dans l'ordre de passage. */
-export async function fetchTastingWithWines(tastingId: string, opts: { reveal?: (date: string) => boolean } = {}) {
+export async function fetchTastingWithLots(tastingId: string, opts: { reveal?: (date: string) => boolean } = {}) {
   const fetchLinks = () =>
     supabase
-      .from("tasting_wine_vintage")
-      .select(`order, wine_vintage ( ${VINTAGE_PUBLIC_SELECT} )`)
+      .from("tasting_lot")
+      .select(`order, lot ( ${LOT_PUBLIC_SELECT} )`)
       .eq("tasting_id", tastingId)
       .order("order");
 
@@ -144,27 +144,27 @@ export async function fetchTastingWithWines(tastingId: string, opts: { reveal?: 
     opts.reveal ? null : fetchLinks(),
   ]);
 
-  if (error) return { tasting: null, wineVintages: [] as any[], error: error.message };
-  if (!tasting) return { tasting: null, wineVintages: [] as any[], error: null };
+  if (error) return { tasting: null, lots: [] as any[], error: error.message };
+  if (!tasting) return { tasting: null, lots: [] as any[], error: null };
 
   /* Vins encore secrets : on ne les charge pas, seulement leur nombre. */
   if (opts.reveal && !opts.reveal(tasting.date)) {
     const { count } = await supabase
-      .from("tasting_wine_vintage")
-      .select("wine_vintage_id", { count: "exact", head: true })
+      .from("tasting_lot")
+      .select("lot_id", { count: "exact", head: true })
       .eq("tasting_id", tastingId);
-    return { tasting, wineVintages: [] as any[], hiddenCount: count ?? 0, error: null };
+    return { tasting, lots: [] as any[], hiddenCount: count ?? 0, error: null };
   }
 
   const { data: links, error: linksError } = eagerLinks ?? (await fetchLinks());
 
   if (linksError) console.error("Erreur chargement des vins :", linksError);
 
-  const wineVintages = ((links || []) as any[])
-    .map((l) => l.wine_vintage)
+  const lots = ((links || []) as any[])
+    .map((l) => l.lot)
     .filter(Boolean);
 
-  return { tasting, wineVintages, hiddenCount: 0, error: null };
+  return { tasting, lots, hiddenCount: 0, error: null };
 }
 
 /** Chargeur des pages publiques d'une dégustation : 404 pour une adresse fantaisiste ou une dégustation absente. */
@@ -172,9 +172,9 @@ export async function loadTasting(id: string, opts: { reveal?: (date: string) =>
   if (!isUuid(id)) throw httpError(404, "Page introuvable");
   let res;
   try {
-    res = await fetchTastingWithWines(id, opts);
+    res = await fetchTastingWithLots(id, opts);
   } catch {
-    return { tasting: null, wineVintages: [] as any[], hiddenCount: 0, error: "Impossible de charger la dégustation" };
+    return { tasting: null, lots: [] as any[], hiddenCount: 0, error: "Impossible de charger la dégustation" };
   }
   if (!res.tasting && !res.error) throw httpError(404, "Dégustation introuvable");
   return res;

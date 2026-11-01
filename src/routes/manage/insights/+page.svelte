@@ -3,15 +3,15 @@
   import { errorMessage } from "$lib/async";
   import ManagePageShell from "$lib/components/manage/ManagePageShell.svelte";
   import {
-    BOTTLES_PER_TASTED_WINE,
+    BOTTLES_PER_TASTED_LOT,
     loadDataset,
     revenueLines,
     tastingRoi,
-    vintageStats,
+    lotStats,
     type TastingRoi,
-    type VintageStats,
+    type LotStats,
   } from "$lib/analytics";
-  import { vintageLabel } from "$lib/wine";
+  import { lotLabel } from "$lib/products";
   import StyleDot from "$lib/ui/StyleDot.svelte";
   import StockBadge from "$lib/ui/StockBadge.svelte";
   import Spinner from "$lib/ui/Spinner.svelte";
@@ -25,7 +25,7 @@
 
   let loading = $state(true);
   let error = $state("");
-  let stats = $state.raw<VintageStats[]>([]);
+  let stats = $state.raw<LotStats[]>([]);
   let roi = $state<TastingRoi[]>([]);
   type Tab = "margins" | "rotation" | "tastings";
   const TABS: { key: Tab; label: string }[] = [
@@ -40,7 +40,7 @@
     try {
       const ds = await loadDataset();
       const lines = revenueLines(ds);
-      stats = vintageStats(ds, lines);
+      stats = lotStats(ds, lines);
       roi = await tastingRoi(ds, lines);
     } catch (e) {
       error = errorMessage(e);
@@ -58,7 +58,7 @@
     .filter((s) => s.stock > 0)
     .map((s) => ({
       ...s,
-      value: s.stock * Number(s.vintage.purchase_price || 0),
+      value: s.stock * Number(s.lot.purchase_price || 0),
       /* Ventes mensuelles moyennes sur la période observée → mois de stock restants. */
       monthsLeft: s.sold > 0 && s.lastSale ? s.stock / Math.max(0.25, s.sold / 12) : null,
     }))
@@ -118,14 +118,14 @@
             </tr>
           </thead>
           <tbody>
-            {#each sorted as s (s.vintage.id)}
+            {#each sorted as s (s.lot.id)}
               <tr>
                 <td>
-                  <span class="wine-cell"><StyleDot type={s.vintage.wine?.wine_type} />
-                  <a class="row-link" href="/manage/products/{s.vintage.wine_id}/stock/{s.vintage.id}">{vintageLabel(s.vintage)}</a></span>
+                  <span class="wine-cell"><StyleDot type={s.lot.product?.product_type} />
+                  <a class="row-link" href="/manage/products/{s.lot.product_id}/stock/{s.lot.id}">{lotLabel(s.lot)}</a></span>
                 </td>
-                <td class="num">{formatEUR(s.vintage.purchase_price)}</td>
-                <td class="num">{formatEUR(s.vintage.price)}</td>
+                <td class="num">{formatEUR(s.lot.purchase_price)}</td>
+                <td class="num">{formatEUR(s.lot.price)}</td>
                 <td class="num">
                   {#if s.unitMargin != null}
                     {formatEUR(s.unitMargin)} <span class="tag {marginClass(s.unitMarginPct)}">{pct(s.unitMarginPct)}</span>
@@ -156,9 +156,9 @@
             </tr>
           </thead>
           <tbody>
-            {#each rotation as r (r.vintage.id)}
+            {#each rotation as r (r.lot.id)}
               <tr>
-                <td>{vintageLabel(r.vintage)}</td>
+                <td>{lotLabel(r.lot)}</td>
                 <td class="num">{r.stock}</td>
                 <td class="num">{formatEUR(r.value, true)}</td>
                 <td>{r.lastSale ? `${formatDate(r.lastSale)} (${r.idleDays} j)` : "Jamais vendu"}</td>
@@ -179,7 +179,7 @@
     {:else}
       <p class="explain">
         Pour chaque soirée : entrées + marge sur les ventes rattachées à la dégustation − coût des
-        bouteilles ouvertes ({BOTTLES_PER_TASTED_WINE} par vin servi). Les « relances » sont les achats des
+        bouteilles ouvertes ({BOTTLES_PER_TASTED_LOT} par vin servi). Les « relances » sont les achats des
         participants dans les 30 jours suivants, hors soirée.
       </p>
       <DataTable caption="Rentabilité des dégustations">
@@ -203,7 +203,7 @@
                   <small class="muted">{formatDate(r.tasting.date)}{r.tasting.location ? ` · ${r.tasting.location}` : ""}</small>
                 </td>
                 <td class="num">{r.participants}</td>
-                <td class="num">{r.winesPoured} <small class="muted">({formatEUR(r.pouredCost, true)})</small></td>
+                <td class="num">{r.lotsPoured} <small class="muted">({formatEUR(r.pouredCost, true)})</small></td>
                 <td class="num">{formatEUR(r.fees, true)}</td>
                 <td class="num">
                   <a href="/manage/sales?degustation={r.tasting.id}">{formatEUR(r.eveningRevenue, true)}</a>

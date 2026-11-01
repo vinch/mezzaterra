@@ -2,7 +2,7 @@
   import Combobox, { type ComboOption } from "$lib/ui/Combobox.svelte";
   import { fold } from "$lib/format";
   import StyleDot from "$lib/ui/StyleDot.svelte";
-  import { vintageShortLabel, vintageVolume, wineRobe } from "$lib/wine";
+  import { lotShortLabel, lotVolume, wineRobe } from "$lib/products";
   import { formatEUR } from "$lib/format";
 
   interface Props {
@@ -10,16 +10,16 @@
     value?: string;
     /** Id du champ, pour un <label for> (sinon généré). */
     id?: string;
-    wineVintages?: any[];
+    lots?: any[];
     tastingValue?: string;
     placeholder?: string;
     /**
      * Stock ajoutable d'un millésime (ventes) : affiché avec le prix de vente, option désactivée
      * sans stock (null : stock inconnu, « — »). Absent (commandes, dégustations) : ni stock ni prix.
      */
-    getAvailableStock?: (vintageId: string) => number | null;
-    isVintageAlreadyAdded?: (vintageId: string) => boolean;
-    formatLabel?: (vintage: any, availableStock: number | null) => string;
+    getAvailableStock?: (lotId: string) => number | null;
+    isLotAlreadyAdded?: (lotId: string) => boolean;
+    formatLabel?: (lot: any, availableStock: number | null) => string;
     /** Option « Dégustation » (lignes de vente sans millésime). */
     includeTastingOption?: boolean;
   }
@@ -27,52 +27,52 @@
   let {
     value = $bindable(""),
     id = undefined,
-    wineVintages = [],
+    lots = [],
     tastingValue = "__tasting__",
     placeholder = "Rechercher un produit…",
     getAvailableStock,
-    isVintageAlreadyAdded = () => false,
+    isLotAlreadyAdded = () => false,
     formatLabel = (_v, _s) => "",
     includeTastingOption = true,
     onchange
   }: Props = $props();
 
-  function vintageSearchText(v: any): string {
-    const w = v?.wine;
+  function lotSearchText(v: any): string {
+    const w = v?.product;
     if (!w) return "";
     const year = v.year != null && v.year !== "" ? String(v.year) : String(v.production_year ?? "");
-    return fold(`${w.winery?.name || ""} ${w.name || w.appelation?.name || ""} ${year} ${vintageVolume(v)}`);
+    return fold(`${w.producer?.name || ""} ${w.name || w.appellation?.name || ""} ${year} ${lotVolume(v)}`);
   }
 
   /** « Riserva 2019 », « Olio 2025 · 5 L » ; un non-millésimé sans année (pas de confusion avec un millésime). */
   function optionName(v: any): string {
-    return vintageShortLabel({ ...v, production_year: null });
+    return lotShortLabel({ ...v, production_year: null });
   }
 
   function buildOptions(list: any[]): ComboOption[] {
-    const wines: ComboOption[] = list.map((v) => {
+    const lotOptions: ComboOption[] = list.map((v) => {
       const stock = getAvailableStock ? getAvailableStock(v.id) : null;
       return {
         id: v.id,
         label: formatLabel(v, stock) || optionName(v),
-        searchText: vintageSearchText(v),
-        disabled: (!!getAvailableStock && !stock) || isVintageAlreadyAdded(v.id),
+        searchText: lotSearchText(v),
+        disabled: (!!getAvailableStock && !stock) || isLotAlreadyAdded(v.id),
         kind: "product",
-        robe: wineRobe(v.wine?.wine_type).key,
+        robe: wineRobe(v.product?.product_type).key,
         name: optionName(v),
-        winery: v.wine?.winery?.name || "",
+        producer: v.product?.producer?.name || "",
         stock,
         price: v.price,
-        added: isVintageAlreadyAdded(v.id),
+        added: isLotAlreadyAdded(v.id),
       };
     });
-    if (!includeTastingOption) return wines;
+    if (!includeTastingOption) return lotOptions;
     return [
       { id: tastingValue, label: "Dégustation", searchText: fold("Dégustation"), kind: "tasting" },
-      ...wines,
+      ...lotOptions,
     ];
   }
-  let options = $derived(buildOptions(wineVintages));
+  let options = $derived(buildOptions(lots));
 </script>
 
 <Combobox bind:value {id} {options} {placeholder} emptyText="Aucun produit trouvé" {onchange}>
@@ -83,7 +83,7 @@
         <StyleDot robe={option.robe} />
         <span class="opt-main">
           <strong>{option.name}</strong>
-          <small>{option.winery}{option.added ? " · déjà ajouté" : ""}</small>
+          <small>{option.producer}{option.added ? " · déjà ajouté" : ""}</small>
         </span>
         {#if getAvailableStock}
           <span class="opt-stock" class:low={option.stock != null && option.stock <= 3}>{option.stock ?? "—"} bt.</span>

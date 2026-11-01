@@ -10,17 +10,17 @@
   import CaveSheet from "$lib/components/site/CaveSheet.svelte";
   import QtyStepper from "$lib/components/site/QtyStepper.svelte";
   import { tastingTitle } from "$lib/publicData";
-  import { daysUntil, formatDateLong, winesRevealed } from "$lib/dates";
+  import { daysUntil, formatDateLong, productsRevealed } from "$lib/dates";
   import {
-    grapesText,
+    varietiesText,
     styleLabel,
     withVolume,
-    vintageNotes,
+    lotNotes,
     productPairings,
     productStyle,
     productSubtitle,
     productTitle,
-  } from "$lib/wine";
+  } from "$lib/products";
   import { kindInfo } from "$lib/productKinds";
   import { formatEUR } from "$lib/format";
   import { isValidEmail } from "$lib/contact";
@@ -44,8 +44,8 @@
   let { data } = $props();
 
   let tasting = $derived(data.tasting as any);
-  let wines = $derived(data.wineVintages as any[]);
-  let total = $derived(wines.length);
+  let lots = $derived(data.lots as any[]);
+  let total = $derived(lots.length);
 
   /* ——— Position ——— */
   let index = $state(0);
@@ -112,9 +112,9 @@
   onDestroy(() => {
     if (channel) void supabase.removeChannel(channel);
     /* Commentaire tapé il y a moins de 1,2 s : envoyé quand même en quittant la page. */
-    for (const [vintageId, timer] of commentTimers) {
+    for (const [lotId, timer] of commentTimers) {
       clearTimeout(timer);
-      void sync(vintageId);
+      void sync(lotId);
     }
     preorder?.flush();
   });
@@ -131,7 +131,7 @@
 
   /* Avant la soirée : rien. Pendant : jusqu'au vin servi. Après : tout. */
   let upcoming = $derived(tasting ? daysUntil(tasting.date) > 0 : false);
-  let finished = $derived(tasting ? winesRevealed(tasting.date) : false);
+  let finished = $derived(tasting ? productsRevealed(tasting.date) : false);
   let unlocked = $derived(finished ? Math.max(0, total - 1) : Math.min(maxServed, Math.max(0, total - 1)));
 
   function goTo(i: number, manual = true) {
@@ -149,31 +149,31 @@
     goTo(hostPosition, false);
   }
 
-  let current = $derived(wines[index]);
-  let style = $derived(productStyle(current?.wine?.wine_type));
+  let current = $derived(lots[index]);
+  let style = $derived(productStyle(current?.product?.product_type));
   let currentRating = $derived(current ? ratings[current.id] : undefined);
-  let kind = $derived(kindInfo(current?.wine));
-  let notes = $derived(vintageNotes(current?.note, kind.key));
-  let pairings = $derived(productPairings(current?.wine));
-  let cartLines = $derived(wines.filter((w) => (cart[w.id] ?? 0) > 0).map((w) => ({ wine: w, qty: cart[w.id] })));
+  let kind = $derived(kindInfo(current?.product));
+  let notes = $derived(lotNotes(current?.note, kind.key));
+  let pairings = $derived(productPairings(current?.product));
+  let cartLines = $derived(lots.filter((w) => (cart[w.id] ?? 0) > 0).map((w) => ({ lot: w, qty: cart[w.id] })));
   let cartCount = $derived(cartLines.reduce((s, l) => s + l.qty, 0));
-  let cartTotal = $derived(cartLines.reduce((s, l) => s + l.qty * Number(l.wine.price ?? 0), 0));
-  let ratedCount = $derived(wines.filter((w) => ratings[w.id]?.rating).length);
+  let cartTotal = $derived(cartLines.reduce((s, l) => s + l.qty * Number(l.lot.price ?? 0), 0));
+  let ratedCount = $derived(lots.filter((w) => ratings[w.id]?.rating).length);
 
-  function persistRating(vintage: any, patch: Partial<LocalRating>) {
-    const prev = ratings[vintage.id] ?? { rating: null, comment: "", updatedAt: "" };
+  function persistRating(lot: any, patch: Partial<LocalRating>) {
+    const prev = ratings[lot.id] ?? { rating: null, comment: "", updatedAt: "" };
     const next = { ...prev, ...patch, updatedAt: new Date().toISOString() };
-    ratings = { ...ratings, [vintage.id]: next };
+    ratings = { ...ratings, [lot.id]: next };
     localRatings.save(tasting.id, ratings);
   }
 
   /** Envoie la note telle qu'elle est au moment de l'envoi : un envoi retardé ne remet pas d'anciennes étoiles. */
-  async function sync(vintageId: string) {
-    const r = ratings[vintageId];
+  async function sync(lotId: string) {
+    const r = ratings[lotId];
     if (!r) return;
     const ok = await pushFeedback({
       tastingId: tasting.id,
-      vintageId,
+      lotId,
       rating: r.rating,
       comment: r.comment,
       profile,
@@ -196,23 +196,23 @@
 
   function onComment(e: Event) {
     if (!current) return;
-    const vintageId = current.id;
+    const lotId = current.id;
     persistRating(current, { comment: (e.target as HTMLTextAreaElement).value });
-    clearTimeout(commentTimers.get(vintageId));
+    clearTimeout(commentTimers.get(lotId));
     commentTimers.set(
-      vintageId,
+      lotId,
       setTimeout(() => {
-        commentTimers.delete(vintageId);
-        void sync(vintageId);
+        commentTimers.delete(lotId);
+        void sync(lotId);
       }, 1200),
     );
   }
 
-  function setQty(vintageId: string, qty: number) {
+  function setQty(lotId: string, qty: number) {
     const q = Math.max(0, Math.min(60, qty));
     const next = { ...cart };
-    if (q === 0) delete next[vintageId];
-    else next[vintageId] = q;
+    if (q === 0) delete next[lotId];
+    else next[lotId] = q;
     cart = next;
     localCart.save(tasting.id, cart);
     preorder?.schedule();
@@ -326,7 +326,7 @@
 
     {#if !follow && hostPosition != null && hostPosition !== index}
       <button type="button" class="rejoin" onclick={backToHost} transition:fly={{ y: -10, duration: 200 }}>
-        En ce moment : {kindInfo(wines[hostPosition]?.wine).label.toLowerCase()} n° {hostPosition + 1} — y retourner →
+        En ce moment : {kindInfo(lots[hostPosition]?.product).label.toLowerCase()} n° {hostPosition + 1} — y retourner →
       </button>
     {/if}
 
@@ -339,17 +339,17 @@
         >
           <div class="bottle-wrap">
             <div class="halo" aria-hidden="true"></div>
-            <ProductBottle src={current.image_url} alt={productTitle(current.wine)} {style} height="min(19rem, 38vh)" />
+            <ProductBottle src={current.image_url} alt={productTitle(current.product)} {style} height="min(19rem, 38vh)" />
           </div>
 
           <div class="identity">
             <span class="eyebrow">
-              <span class="robe-dot" aria-hidden="true"></span>{styleLabel(current.wine?.wine_type)}{current.year ? ` · ${current.year}` : ""}{current.organic ? " · Bio" : ""}
+              <span class="robe-dot" aria-hidden="true"></span>{styleLabel(current.product?.product_type)}{current.year ? ` · ${current.year}` : ""}{current.organic ? " · Bio" : ""}
             </span>
-            <h1>{productTitle(current.wine)}</h1>
-            {#if productSubtitle(current.wine)}<p class="sub">{productSubtitle(current.wine)}</p>{/if}
-            {#if current.wine?.winery?.name}<p class="winery">{current.wine.winery.name}</p>{/if}
-            {#if grapesText(current.wine_vintage_grape)}<p class="grapes">{grapesText(current.wine_vintage_grape, true)}</p>{/if}
+            <h1>{productTitle(current.product)}</h1>
+            {#if productSubtitle(current.product)}<p class="sub">{productSubtitle(current.product)}</p>{/if}
+            {#if current.product?.producer?.name}<p class="producer">{current.product.producer.name}</p>{/if}
+            {#if varietiesText(current.lot_variety)}<p class="varieties">{varietiesText(current.lot_variety, true)}</p>{/if}
           </div>
 
           <div class="panel rating">
@@ -405,8 +405,8 @@
     <nav class="dots" aria-label="Déroulé de la soirée">
       <button type="button" class="nav-arrow" onclick={() => goTo(index - 1)} disabled={index === 0} aria-label="Précédent">‹</button>
       <div class="dot-row">
-        {#each wines as w, i}
-          {@const s = productStyle(w.wine?.wine_type)}
+        {#each lots as w, i}
+          {@const s = productStyle(w.product?.product_type)}
           {#if i <= unlocked}
             <button
               type="button"
@@ -416,7 +416,7 @@
               class:rated={!!ratings[w.id]?.rating}
               style="--c: {s.color}"
               onclick={() => goTo(i)}
-              aria-label="{kindInfo(w.wine).label} {i + 1} : {productTitle(w.wine)}"
+              aria-label="{kindInfo(w.product).label} {i + 1} : {productTitle(w.product)}"
               aria-current={i === index}
             ></button>
           {:else}
@@ -468,12 +468,12 @@
       Rien n’est commandé tant que vous n’avez pas confirmé : ajustez les quantités à votre guise.
     </p>
     <ul class="cart-lines">
-      {#each cartLines as l (l.wine.id)}
+      {#each cartLines as l (l.lot.id)}
         <li>
-          <span class="mz-dot" style="background: {productStyle(l.wine.wine?.wine_type).color}"></span>
-          <span class="cart-name">{withVolume(`${productTitle(l.wine.wine)}${l.wine.year ? ` ${l.wine.year}` : ""}`, l.wine)}</span>
-          <QtyStepper value={l.qty} onchange={(q) => setQty(l.wine.id, q)} size="sm" disabled={sending} />
-          <span class="cart-price">{formatEUR(l.qty * Number(l.wine.price ?? 0))}</span>
+          <span class="mz-dot" style="background: {productStyle(l.lot.product?.product_type).color}"></span>
+          <span class="cart-name">{withVolume(`${productTitle(l.lot.product)}${l.lot.year ? ` ${l.lot.year}` : ""}`, l.lot)}</span>
+          <QtyStepper value={l.qty} onchange={(q) => setQty(l.lot.id, q)} size="sm" disabled={sending} />
+          <span class="cart-price">{formatEUR(l.qty * Number(l.lot.price ?? 0))}</span>
         </li>
       {/each}
     </ul>
@@ -514,14 +514,14 @@
 <CaveSheet open={showRecap} title="Votre soirée" onclose={() => (showRecap = false)}>
   <p class="sheet-lead">Vous avez noté {ratedCount} sur {total}.</p>
   <ol class="recap">
-    {#each wines as w, i}
+    {#each lots as w, i}
       {@const r = ratings[w.id]}
       <li>
         {#if i <= unlocked}
           <button type="button" onclick={() => { showRecap = false; goTo(i); }}>
-            <span class="recap-num" style="--c: {productStyle(w.wine?.wine_type).color}">{i + 1}</span>
+            <span class="recap-num" style="--c: {productStyle(w.product?.product_type).color}">{i + 1}</span>
             <span class="recap-name">
-              {productTitle(w.wine)}
+              {productTitle(w.product)}
               {#if cart[w.id]}<span class="recap-qty">× {cart[w.id]} en pré-commande</span>{/if}
             </span>
             <StarRating value={r?.rating ?? null} readonly size="0.95rem" />
@@ -738,18 +738,18 @@
   }
 
   .sub,
-  .winery,
-  .grapes {
+  .producer,
+  .varieties {
     margin: 0.1rem 0 0;
     color: var(--mz-cave-muted);
   }
 
-  .winery {
+  .producer {
     color: var(--mz-cave-text);
     font-weight: 600;
   }
 
-  .grapes {
+  .varieties {
     font-style: italic;
     font-size: 0.92rem;
   }

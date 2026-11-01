@@ -6,13 +6,13 @@
   import RegistrationForm from "$lib/components/site/RegistrationForm.svelte";
   import { fetchAvailability, isPrivateTasting, TASTING_ADDRESS, tastingTitle, type AvailabilityOf } from "$lib/publicData";
   import { buildIcs, daysAwayLabel, daysUntil, downloadTextFile, formatDateLong, formatTime, isLiveNow } from "$lib/dates";
-  import { productStyle, productTitle } from "$lib/wine";
+  import { productStyle, productTitle } from "$lib/products";
   import { formatEUR } from "$lib/format";
-  import type { WineVintage } from "$lib/types";
+  import type { Lot } from "$lib/types";
 
   let { data } = $props();
 
-  let { tasting, wineVintages, error } = $derived(data);
+  let { tasting, lots, error } = $derived(data);
   let hiddenCount = $derived((data as any).hiddenCount ?? 0);
   let t = $derived(tasting as any);
   let delta = $derived(t ? daysUntil(t.date) : 0);
@@ -22,9 +22,9 @@
   let isPrivate = $derived(isPrivateTasting(t));
   /* Adresse seulement quand elle sert à venir ; une dégustation privée a lieu ailleurs. */
   let address = $derived((isUpcoming || isLive) && !isPrivate ? TASTING_ADDRESS : null);
-  let styles = $derived(wineVintages.map((v: any) => productStyle(v.wine?.wine_type)));
+  let styles = $derived(lots.map((v: any) => productStyle(v.product?.product_type)));
 
-  let selected = $state<WineVintage | null>(null);
+  let selected = $state<Lot | null>(null);
   let availability = $state<AvailabilityOf | null>(null);
 
   onMount(async () => {
@@ -58,7 +58,7 @@
     <meta property="og:title" content="{tastingTitle(t)} — Mezzaterra" />
     <meta
       property="og:description"
-      content="{formatDateLong(t.date)} — {wineVintages.length || hiddenCount} vins des Abruzzes à découvrir."
+      content="{formatDateLong(t.date)} — {lots.length || hiddenCount} vins des Abruzzes à découvrir."
     />
   {/if}
 </svelte:head>
@@ -83,7 +83,7 @@
         {#if isPrivate}<li>Dégustation privée</li>{/if}
         {#if address}<li>{address}</li>{/if}
         {#if t.price}<li>{formatEUR(t.price)} / personne</li>{/if}
-        {#if wineVintages.length || hiddenCount}<li>{wineVintages.length || hiddenCount} vins</li>{/if}
+        {#if lots.length || hiddenCount}<li>{lots.length || hiddenCount} vins</li>{/if}
       </ul>
       {#if t.description}
         <p class="mz-lead description">{t.description}</p>
@@ -99,7 +99,7 @@
         {/if}
       </div>
 
-      {#if wineVintages.length > 1}
+      {#if lots.length > 1}
         <div class="journey" aria-label="Parcours de la dégustation">
           <span class="mz-eyebrow journey-label">Le parcours</span>
           <div class="journey-track">
@@ -107,11 +107,11 @@
               class="journey-line"
               style="background: linear-gradient(90deg, {styles.map((s: any) => s.color).join(', ')})"
             ></span>
-            {#each wineVintages as v, i}
+            {#each lots as v, i}
               <span
                 class="journey-stop"
-                style="--c: {styles[i].color}; --l: {styles[i].light}; left: {(i / (wineVintages.length - 1)) * 100}%"
-                title="{i + 1}. {productTitle(v.wine)}"
+                style="--c: {styles[i].color}; --l: {styles[i].light}; left: {(i / (lots.length - 1)) * 100}%"
+                title="{i + 1}. {productTitle(v.product)}"
               ></span>
             {/each}
           </div>
@@ -121,12 +121,12 @@
   </section>
 
   <section class="mz-container mz-section">
-    {#if wineVintages.length > 0}
+    {#if lots.length > 0}
       <div class="mz-product-grid">
-        {#each wineVintages as v, i (v.id)}
+        {#each lots as v, i (v.id)}
           <div class="mz-rise" style="animation-delay: {Math.min(i, 8) * 60}ms">
             <ProductCard
-              vintage={v}
+              lot={v}
               position={i + 1}
               availability={availability?.(v.id) ?? null}
               onopen={(v) => (selected = v)}
@@ -169,7 +169,7 @@
 {/if}
 
 {#if selected}
-  <ProductModal vintage={selected} onclose={() => (selected = null)} />
+  <ProductModal lot={selected} onclose={() => (selected = null)} />
 {/if}
 
 <style>

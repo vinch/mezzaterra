@@ -11,13 +11,13 @@
   } from "$lib/geo/abruzzo";
 
   interface Props {
-    /** Domaines à épingler (coordonnées GPS de la table winery). */
-    wineries?: { id: string; name: string; latitude: number | null; longitude: number | null }[];
+    /** Domaines à épingler (coordonnées GPS de la table producer). */
+    producers?: { id: string; name: string; latitude: number | null; longitude: number | null }[];
     /** Domaine mis en avant (page domaine) : les autres épingles passent au second plan. */
     current?: string | null;
   }
 
-  let { wineries = [], current = null }: Props = $props();
+  let { producers = [], current = null }: Props = $props();
 
   const W = MAIN.width;
   const H = MAIN.height;
@@ -46,7 +46,7 @@
 
   /* Épingles sans étiquette, triées du nord au sud (ordre de tabulation) : le nom s'affiche dans une
      infobulle, rien à caser sur la carte quel que soit le nombre de domaines. */
-  let pins = $derived(wineries
+  let pins = $derived(producers
     .filter((w) => w.latitude != null && w.longitude != null)
     .map((w) => {
       const [x, y] = p(w.longitude!, w.latitude!);

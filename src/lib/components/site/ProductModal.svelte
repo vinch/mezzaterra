@@ -1,37 +1,37 @@
 <script lang="ts">
   import { self } from "$lib/ui/events";
   import { fade, fly } from "svelte/transition";
-  import type { WineVintage } from "$lib/types";
+  import type { Lot } from "$lib/types";
   import ProductBottle from "./ProductBottle.svelte";
   import ProductAbout from "./ProductAbout.svelte";
   import {
-    grapesText,
+    varietiesText,
     styleLabel,
-    vintageVolume,
-    wineryFlag,
+    lotVolume,
+    producerFlag,
     productStyle,
     productSubtitle,
     productTitle,
-  } from "$lib/wine";
+  } from "$lib/products";
   import { kindInfo, productHref } from "$lib/productKinds";
   import { formatEUR } from "$lib/format";
 
-  /** Fiche rapide d'un lot du site (chargé avec `VINTAGE_PUBLIC_SELECT`) ; fermée quand `vintage` est vide. */
+  /** Fiche rapide d'un lot du site (chargé avec `LOT_PUBLIC_SELECT`) ; fermée quand `lot` est vide. */
   interface Props {
     onclose?: () => void;
-    vintage?: WineVintage | null;
+    lot?: Lot | null;
   }
 
-  let { vintage = null, onclose }: Props = $props();
+  let { lot = null, onclose }: Props = $props();
 
-  let v = $derived(vintage as any);
-  let wine = $derived(v?.wine);
-  let kind = $derived(kindInfo(wine));
-  let volume = $derived(v ? vintageVolume(v) : "");
-  let style = $derived(productStyle(wine?.wine_type));
-  let region = $derived(wine?.winery?.region?.name || wine?.winery?.country?.name || "");
-  let flag = $derived(wineryFlag(wine?.winery));
-  let grapes = $derived(grapesText(v?.wine_vintage_grape, true));
+  let v = $derived(lot as any);
+  let product = $derived(v?.product);
+  let kind = $derived(kindInfo(product));
+  let volume = $derived(v ? lotVolume(v) : "");
+  let style = $derived(productStyle(product?.product_type));
+  let region = $derived(product?.producer?.region?.name || product?.producer?.country?.name || "");
+  let flag = $derived(producerFlag(product?.producer));
+  let varieties = $derived(varietiesText(v?.lot_variety, true));
 
   function closeModal() {
     onclose?.();
@@ -44,7 +44,7 @@
 
 <svelte:window onkeydown={handleKeydown} />
 
-{#if v && wine}
+{#if v && product}
   <div
     class="backdrop"
     transition:fade={{ duration: 180 }}
@@ -63,19 +63,19 @@
 
       <header class="hero">
         <div class="hero-bottle">
-          <ProductBottle src={v.image_url} alt={productTitle(wine)} {style} height="15rem" />
+          <ProductBottle src={v.image_url} alt={productTitle(product)} {style} height="15rem" />
         </div>
         <div class="hero-text">
           <span class="mz-eyebrow">
             <span class="mz-dot" style="background: {style.color}"></span>
-            {styleLabel(wine.wine_type)}{v.organic ? " · Bio" : ""}
+            {styleLabel(product.product_type)}{v.organic ? " · Bio" : ""}
           </span>
-          <h2 id="product-modal-title" class="title">{productTitle(wine)}</h2>
-          {#if productSubtitle(wine)}
-            <p class="appellation">{productSubtitle(wine)}</p>
+          <h2 id="product-modal-title" class="title">{productTitle(product)}</h2>
+          {#if productSubtitle(product)}
+            <p class="appellation">{productSubtitle(product)}</p>
           {/if}
-          {#if wine.winery?.name}
-            <p class="winery">{wine.winery.name}</p>
+          {#if product.producer?.name}
+            <p class="producer">{product.producer.name}</p>
           {/if}
           {#if region}
             <p class="region">{flag} {region}</p>
@@ -103,14 +103,14 @@
       </header>
 
       <div class="content">
-        {#if grapes}
+        {#if varieties}
           <section>
             <h3 class="mz-eyebrow mz-eyebrow--heading">{kind.ingredients}</h3>
-            <p>{grapes}</p>
+            <p>{varieties}</p>
           </section>
         {/if}
 
-        <ProductAbout vintage={v} compact />
+        <ProductAbout lot={v} compact />
 
         <!-- Millésime retiré : sa fiche publique n'existe plus (404). -->
         {#if !v.discontinued_at}
@@ -203,13 +203,13 @@
   }
 
   .appellation,
-  .winery,
+  .producer,
   .region {
     margin: 0;
     color: var(--mz-ink-soft);
   }
 
-  .winery {
+  .producer {
     font-weight: 600;
   }
 

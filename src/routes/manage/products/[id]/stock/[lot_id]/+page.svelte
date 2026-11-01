@@ -1,7 +1,7 @@
 <script lang="ts">
   import { preventDefault } from "$lib/ui/events";
   import { supabase } from "$lib/supabase";
-  import { vintageStock } from "$lib/manageData";
+  import { lotStock } from "$lib/manageData";
   import type { PageData } from "./$types";
   import { isoDateOnly, todayIso } from "$lib/dates";
   import { formatDate } from "$lib/format";
@@ -19,7 +19,7 @@
   import type { MenuItem } from "$lib/ui/Menu.svelte";
   import { IconBox, IconPencil, IconPlus, IconTrash } from "$lib/ui/icons";
   import Spinner from "$lib/ui/Spinner.svelte";
-  import { vintageYearLabel, productTitle } from "$lib/wine";
+  import { lotYearLabel, productTitle } from "$lib/products";
 
   interface Props {
     data: PageData;
@@ -27,7 +27,7 @@
 
   let { data }: Props = $props();
 
-  let vintage = data.vintage;
+  let lot = data.lot;
   let stockMoves = $state(data.stockMoves);
   let currentStock = $state(data.currentStock);
   let loading = $state(false);
@@ -59,9 +59,9 @@
       supabase
         .from("stock_move")
         .select("*")
-        .eq("wine_vintage_id", vintage.id)
+        .eq("lot_id", lot.id)
         .order("date", { ascending: false }),
-      vintageStock(vintage.id),
+      lotStock(lot.id),
     ]);
 
     if (fetchError) {
@@ -130,7 +130,7 @@
     saving = true;
     const { error: saveError } = editingMove
       ? await supabase.from("stock_move").update(moveData).eq("id", editingMove.id)
-      : await supabase.from("stock_move").insert({ ...moveData, wine_vintage_id: vintage.id });
+      : await supabase.from("stock_move").insert({ ...moveData, lot_id: lot.id });
     saving = false;
 
     if (saveError) {
@@ -161,7 +161,7 @@
     ];
   }
 
-  let title = $derived(`${productTitle(vintage.wine)} ${vintageYearLabel(vintage)}`);
+  let title = $derived(`${productTitle(lot.product)} ${lotYearLabel(lot)}`);
   let subtitle = $derived(
     currentStock == null
       ? "Stock indisponible"
@@ -194,7 +194,7 @@
   <title>Stock - {title}</title>
 </svelte:head>
 
-<ManagePageShell {title} {subtitle} back={{ href: `/manage/products/${vintage.wine.id}`, label: productTitle(vintage.wine) }}>
+<ManagePageShell {title} {subtitle} back={{ href: `/manage/products/${lot.product.id}`, label: productTitle(lot.product) }}>
   {#snippet badge()}
       {#if currentStock != null && currentStock < 0}<StockBadge kind="out" label="Stock négatif" />{/if}
   {/snippet}

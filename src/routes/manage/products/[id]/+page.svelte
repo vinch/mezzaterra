@@ -4,7 +4,7 @@
   import { supabase } from "$lib/supabase";
   import { onMount } from "svelte";
   import type { PageData } from "./$types";
-  import type { WineVintage } from "$lib/types";
+  import type { Lot } from "$lib/types";
   import ManagePageShell from "$lib/components/manage/ManagePageShell.svelte";
   import Modal from "$lib/ui/Modal.svelte";
   import Button from "$lib/ui/Button.svelte";
@@ -33,14 +33,14 @@
   import {
     appellationText,
     byVolume,
-    grapesText,
+    varietiesText,
     isDiscontinued,
-    vintageNotes,
-    vintageYearLabel,
+    lotNotes,
+    lotYearLabel,
     productStyle,
     productTitle,
     productTypeLabel,
-  } from "$lib/wine";
+  } from "$lib/products";
   import { formatVolume, kindInfo, kindListHref, kindOf } from "$lib/productKinds";
 
   interface Props {
@@ -49,17 +49,17 @@
 
   let { data }: Props = $props();
 
-  let wine = data.wine;
+  let product = data.product;
   /** Vocabulaire du produit : millésime ou lot, cépages ou variétés… */
-  const kind = kindInfo(wine);
+  const kind = kindInfo(product);
   const kindIcons = KIND_ICONS[kind.key];
   /* Millésimes déjà chargés par +page.ts ; relus seulement après une modification. */
-  let vintages = $state<WineVintage[]>(sortVintages(wine.wine_vintage || []));
+  let lots = $state<Lot[]>(sortLots(product.lot || []));
   let error = $state("");
-  /** Modale unique création / édition (`editingVintage` les distingue). */
+  /** Modale unique création / édition (`editingLot` les distingue). */
   let formOpen = $state(false);
   let saving = $state(false);
-  let editingVintage = $state<any>(null);
+  let editingLot = $state<any>(null);
 
   function emptyForm() {
     return {
@@ -73,7 +73,7 @@
       organic: false,
     };
   }
-  let vintageFormData = $state(emptyForm());
+  let lotFormData = $state(emptyForm());
 
   /*
    * Nouveau millésime d'un vin qui en a déjà : on reprend image, cépages et notes de dégustation
@@ -81,44 +81,44 @@
    */
   /** Millésime repris ; vide : « Ne rien reprendre ». */
   let sourceId = $state("");
-  let copyGrapes = $state(true);
+  let copyVarieties = $state(true);
   let copyNotes = $state(true);
   /** Cépages et notes des millésimes, en texte, lus à l'ouverture de la création. */
-  let sourceDetails = $state<Record<string, { grapes: string; notes: string }> | null>(null);
-  let source = $derived(editingVintage ? null : vintages.find((v) => v.id === sourceId));
+  let sourceDetails = $state<Record<string, { varieties: string; notes: string }> | null>(null);
+  let source = $derived(editingLot ? null : lots.find((v) => v.id === sourceId));
   let sourceInfo = $derived(source && sourceDetails?.[source.id]);
   /* Rien à reprendre : case décochée et grisée (tant que c'est en lecture, on ne sait pas). */
-  let noGrapes = $derived(!!sourceInfo && !sourceInfo.grapes);
+  let noVarieties = $derived(!!sourceInfo && !sourceInfo.varieties);
   let noNotes = $derived(!!sourceInfo && !sourceInfo.notes);
   /* Ce que les cases annoncent est exactement ce qui est copié. */
-  let takeGrapes = $derived(copyGrapes && !noGrapes);
+  let takeVarieties = $derived(copyVarieties && !noVarieties);
   let takeNotes = $derived(copyNotes && !noNotes);
-  let imageReused = $derived(!!source?.image_url && vintageFormData.image_url === source.image_url);
+  let imageReused = $derived(!!source?.image_url && lotFormData.image_url === source.image_url);
 
-  // Grapes modal state
-  let showGrapesModal = $state(false);
-  let selectedVintage = $state<any>(null);
-  let vintageGrapes = $state<any[]>([]);
-  let allGrapes = $state<any[]>([]);
-  let selectedGrapeId = $state("");
-  let grapePercentage = $state("");
+  // Varieties modal state
+  let showVarietiesModal = $state(false);
+  let selectedLot = $state<any>(null);
+  let lotVarieties = $state<any[]>([]);
+  let allVarieties = $state<any[]>([]);
+  let selectedVarietyId = $state("");
+  let varietyPercentage = $state("");
 
   onMount(() => {
     /* Lien « Ajouter un millésime » depuis la liste des vins. */
     if (new URLSearchParams(window.location.search).has("nouveau")) openCreateModal();
   });
 
-  function sortVintages(list: WineVintage[]): WineVintage[] {
+  function sortLots(list: Lot[]): Lot[] {
     return [...list].sort((a, b) => b.production_year - a.production_year || byVolume(a, b));
   }
 
   function openCreateModal() {
-    editingVintage = null;
-    copyGrapes = copyNotes = true;
-    vintageFormData = emptyForm();
-    pickSource(vintages[0]?.id ?? "");
+    editingLot = null;
+    copyVarieties = copyNotes = true;
+    lotFormData = emptyForm();
+    pickSource(lots[0]?.id ?? "");
     formOpen = true;
-    if (vintages.length) loadSourceDetails();
+    if (lots.length) loadSourceDetails();
   }
 
   /* Une ouverture plus récente relance la lecture : sa réponse fait foi. */
@@ -128,9 +128,9 @@
     sourceDetails = null;
     const data = await detailsLoad.run(async () => {
       const res = await supabase
-        .from("wine_vintage")
-        .select("id, wine_vintage_grape ( percentage, grape ( name ) ), note ( type, content )")
-        .eq("wine_id", wine.id);
+        .from("lot")
+        .select("id, lot_variety ( percentage, variety ( name ) ), note ( type, content )")
+        .eq("product_id", product.id);
       if (res.error) throw new Error(res.error.message);
       return res.data;
     });
@@ -138,27 +138,27 @@
     sourceDetails = Object.fromEntries(
       data.map((v) => [
         v.id,
-        { grapes: grapesText(v.wine_vintage_grape, true), notes: vintageNotes(v.note, kind.key).map((n) => n.label).join(", ") },
+        { varieties: varietiesText(v.lot_variety, true), notes: lotNotes(v.note, kind.key).map((n) => n.label).join(", ") },
       ]),
     );
   }
 
   /** Changement de millésime repris (ou aucun) : l'image suit, sauf si on en a mis une autre. */
   function pickSource(id: string) {
-    if (imageReused || !vintageFormData.image_url) vintageFormData.image_url = vintages.find((v) => v.id === id)?.image_url ?? "";
+    if (imageReused || !lotFormData.image_url) lotFormData.image_url = lots.find((v) => v.id === id)?.image_url ?? "";
     sourceId = id;
   }
 
   /** Création via la base : le millésime et ses reprises en une transaction, puis la ligne créée. */
-  async function createVintage(vintageData: Record<string, unknown>) {
-    const { data: id, error: rpcError } = await supabase.rpc("create_wine_vintage", {
-      p_vintage: { ...vintageData, wine_id: wine.id },
+  async function createLot(lotData: Record<string, unknown>) {
+    const { data: id, error: rpcError } = await supabase.rpc("create_lot", {
+      p_lot: { ...lotData, product_id: product.id },
       p_source_id: source?.id,
-      p_copy_grapes: takeGrapes,
+      p_copy_varieties: takeVarieties,
       p_copy_notes: takeNotes,
     });
     if (rpcError) return { data: null, error: rpcError };
-    const read = await supabase.from("wine_vintage").select().eq("id", id).single();
+    const read = await supabase.from("lot").select().eq("id", id).single();
     /* Le millésime existe : on ferme le formulaire, un second clic le créerait en double. */
     if (read.error) {
       closeForm();
@@ -167,30 +167,30 @@
     return read;
   }
 
-  function openEditModal(vintage: WineVintage) {
-    editingVintage = vintage;
+  function openEditModal(lot: Lot) {
+    editingLot = lot;
     /* `!= null` et non un test de vérité : un prix ou un degré à 0 reste 0 (et non vide, donc null). */
     const text = (v: number | null) => (v != null ? String(v) : "");
-    vintageFormData = {
-      production_year: text(vintage.production_year),
-      volume_ml: String(vintage.volume_ml),
-      year: text(vintage.year),
-      abv: text(vintage.abv),
-      purchase_price: text(vintage.purchase_price),
-      price: text(vintage.price),
-      image_url: vintage.image_url || "",
-      organic: vintage.organic || false,
+    lotFormData = {
+      production_year: text(lot.production_year),
+      volume_ml: String(lot.volume_ml),
+      year: text(lot.year),
+      abv: text(lot.abv),
+      purchase_price: text(lot.purchase_price),
+      price: text(lot.price),
+      image_url: lot.image_url || "",
+      organic: lot.organic || false,
     };
     formOpen = true;
   }
 
   function closeForm() {
     formOpen = false;
-    editingVintage = null;
+    editingLot = null;
     error = "";
   }
 
-  /** Création ou modification (selon `editingVintage`) du millésime. */
+  /** Création ou modification (selon `editingLot`) du millésime. */
   /** Valeur d'un champ numérique (bind:value donne un nombre, ou "" / null s'il est vide). */
   function num(v: unknown): number | null {
     return v === "" || v == null ? null : Number(v);
@@ -198,33 +198,33 @@
 
   async function submitForm() {
     if (saving) return;
-    if (!vintageFormData.production_year) {
+    if (!lotFormData.production_year) {
       error = "L'année de mise en bouteille est obligatoire";
       return;
     }
 
-    const vintageData = {
-      production_year: Number(vintageFormData.production_year),
-      year: num(vintageFormData.year),
-      abv: kind.hasAbv ? num(vintageFormData.abv) : null,
+    const lotData = {
+      production_year: Number(lotFormData.production_year),
+      year: num(lotFormData.year),
+      abv: kind.hasAbv ? num(lotFormData.abv) : null,
       /* Prix d'achat obligatoire en base : vide, on garde l'actuel (ou le défaut à la création). */
-      purchase_price: num(vintageFormData.purchase_price) ?? undefined,
-      price: num(vintageFormData.price),
-      image_url: vintageFormData.image_url || null,
-      organic: vintageFormData.organic,
+      purchase_price: num(lotFormData.purchase_price) ?? undefined,
+      price: num(lotFormData.price),
+      image_url: lotFormData.image_url || null,
+      organic: lotFormData.organic,
       /* Contenant fixé à la création (voir le formulaire). */
-      ...(editingVintage ? {} : { volume_ml: Number(vintageFormData.volume_ml) }),
+      ...(editingLot ? {} : { volume_ml: Number(lotFormData.volume_ml) }),
     };
 
     /* La ligne enregistrée revient de la base : la liste se met à jour sans tout relire. */
     saving = true;
-    const { data: saved, error: saveError } = editingVintage
-      ? await supabase.from("wine_vintage").update(vintageData).eq("id", editingVintage.id).select().single()
-      : await createVintage(vintageData);
+    const { data: saved, error: saveError } = editingLot
+      ? await supabase.from("lot").update(lotData).eq("id", editingLot.id).select().single()
+      : await createLot(lotData);
     saving = false;
 
     if (saveError || !saved) {
-      /* Formulaire déjà fermé : createVintage a posé son propre message. */
+      /* Formulaire déjà fermé : createLot a posé son propre message. */
       /* 23505 : index unique produit + année + contenant (un seul « 50 cl 2025 » par produit). */
       if (formOpen) {
         error = saveError?.code === "23505"
@@ -234,29 +234,29 @@
       return;
     }
 
-    vintages = sortVintages([...vintages.filter((v) => v.id !== saved.id), saved]);
+    lots = sortLots([...lots.filter((v) => v.id !== saved.id), saved]);
     error = "";
     closeForm();
   }
 
-  let deleteTarget = $state<WineVintage | null>(null);
+  let deleteTarget = $state<Lot | null>(null);
 
-  async function deleteVintage(vintage: WineVintage) {
-    const { error: deleteError } = await supabase.from("wine_vintage").delete().eq("id", vintage.id);
+  async function deleteLot(lot: Lot) {
+    const { error: deleteError } = await supabase.from("lot").delete().eq("id", lot.id);
     if (deleteError) {
       error = deleteError.message;
       return;
     }
-    vintages = vintages.filter((v) => v.id !== vintage.id);
+    lots = lots.filter((v) => v.id !== lot.id);
     error = "";
   }
 
   /** « Plus jamais disponible » : masqué du site, exclu du réassort. Réversible. */
-  async function toggleDiscontinued(vintage: WineVintage) {
+  async function toggleDiscontinued(lot: Lot) {
     const { data: saved, error: updateError } = await supabase
-      .from("wine_vintage")
-      .update({ discontinued_at: isDiscontinued(vintage) ? null : new Date().toISOString() })
-      .eq("id", vintage.id)
+      .from("lot")
+      .update({ discontinued_at: isDiscontinued(lot) ? null : new Date().toISOString() })
+      .eq("id", lot.id)
       .select()
       .single();
 
@@ -265,14 +265,14 @@
       return;
     }
 
-    vintages = vintages.map((v) => (v.id === saved.id ? saved : v));
+    lots = lots.map((v) => (v.id === saved.id ? saved : v));
   }
 
-  function rowItems(v: WineVintage): MenuItem[] {
+  function rowItems(v: Lot): MenuItem[] {
     const gone = isDiscontinued(v);
     return [
-      { label: "Gérer le stock", icon: IconBox, href: `/manage/products/${wine.id}/stock/${v.id}` },
-      { label: kind.ingredients, icon: kindIcons.ingredient, onSelect: () => openGrapesModal(v) },
+      { label: "Gérer le stock", icon: IconBox, href: `/manage/products/${product.id}/stock/${v.id}` },
+      { label: kind.ingredients, icon: kindIcons.ingredient, onSelect: () => openVarietiesModal(v) },
       { label: "Modifier", icon: IconPencil, onSelect: () => openEditModal(v) },
       {
         label: gone ? "Remettre au catalogue" : "Plus jamais disponible",
@@ -283,47 +283,47 @@
     ];
   }
 
-  let subtitle = $derived([wine.winery?.name, appellationText(wine.appelation), productTypeLabel(wine.wine_type)].filter(Boolean).join(" · "));
+  let subtitle = $derived([product.producer?.name, appellationText(product.appellation), productTypeLabel(product.product_type)].filter(Boolean).join(" · "));
 
-  // Grapes modal functions
-  async function openGrapesModal(vintage: any) {
-    selectedVintage = vintage;
+  // Varieties modal functions
+  async function openVarietiesModal(lot: any) {
+    selectedLot = lot;
     /* La liste des cépages n'est lue qu'à la première ouverture. */
     await Promise.all([
-      loadVintageGrapes(),
-      allGrapes.length
+      loadLotVarieties(),
+      allVarieties.length
         ? null
-        : supabase.from("grape").select("*").eq("kind", kind.key).order("name").then(({ data }) => (allGrapes = data || [])),
+        : supabase.from("variety").select("*").eq("kind", kind.key).order("name").then(({ data }) => (allVarieties = data || [])),
     ]);
-    showGrapesModal = true;
+    showVarietiesModal = true;
   }
 
-  async function loadVintageGrapes() {
-    if (!selectedVintage) return;
+  async function loadLotVarieties() {
+    if (!selectedLot) return;
 
     const { data } = await supabase
-      .from("wine_vintage_grape")
+      .from("lot_variety")
       .select(
         `
-        grape_id,
+        variety_id,
         percentage,
-        grape (*)
+        variety (*)
       `
       )
-      .eq("wine_vintage_id", selectedVintage.id);
+      .eq("lot_id", selectedLot.id);
 
-    vintageGrapes = data || [];
+    lotVarieties = data || [];
   }
 
-  async function addGrape() {
-    if (!selectedGrapeId || !selectedVintage) return;
+  async function addVariety() {
+    if (!selectedVarietyId || !selectedLot) return;
 
     const { error: insertError } = await supabase
-      .from("wine_vintage_grape")
+      .from("lot_variety")
       .insert({
-        wine_vintage_id: selectedVintage.id,
-        grape_id: selectedGrapeId,
-        percentage: grapePercentage ? parseFloat(grapePercentage) : null,
+        lot_id: selectedLot.id,
+        variety_id: selectedVarietyId,
+        percentage: varietyPercentage ? parseFloat(varietyPercentage) : null,
       });
 
     if (insertError) {
@@ -331,70 +331,70 @@
       return;
     }
 
-    selectedGrapeId = "";
-    grapePercentage = "";
-    await loadVintageGrapes();
+    selectedVarietyId = "";
+    varietyPercentage = "";
+    await loadLotVarieties();
   }
 
   /** Année la plus tardive saisissable : un lot de l'an prochain peut déjà être annoncé. */
   const MAX_YEAR = new Date().getFullYear() + 1;
 
   /** Élément de la composition à retirer, en attente de confirmation. */
-  let grapeToRemove = $state<any>(null);
+  let varietyToRemove = $state<any>(null);
 
   /** Appelée après confirmation via le ConfirmDialog. */
-  async function removeGrape(grapeId: string) {
-    if (!selectedVintage) return;
+  async function removeVariety(varietyId: string) {
+    if (!selectedLot) return;
 
     const { error: deleteError } = await supabase
-      .from("wine_vintage_grape")
+      .from("lot_variety")
       .delete()
-      .eq("wine_vintage_id", selectedVintage.id)
-      .eq("grape_id", grapeId);
+      .eq("lot_id", selectedLot.id)
+      .eq("variety_id", varietyId);
 
     if (deleteError) {
       error = deleteError.message;
       return;
     }
 
-    await loadVintageGrapes();
+    await loadLotVarieties();
   }
 
-  function closeGrapesModal() {
-    showGrapesModal = false;
+  function closeVarietiesModal() {
+    showVarietiesModal = false;
     error = "";
-    selectedVintage = null;
-    vintageGrapes = [];
-    selectedGrapeId = "";
-    grapePercentage = "";
+    selectedLot = null;
+    lotVarieties = [];
+    selectedVarietyId = "";
+    varietyPercentage = "";
   }
 
-  let linkedGrapeIds = $derived(new Set(vintageGrapes.map((vg) => vg.grape_id)));
+  let linkedVarietyIds = $derived(new Set(lotVarieties.map((vg) => vg.variety_id)));
 </script>
 
 <svelte:head>
-  <title>{productTitle(wine)} - Gestion</title>
+  <title>{productTitle(product)} - Gestion</title>
 </svelte:head>
 
-<ManagePageShell title={productTitle(wine)} {subtitle} back={{ href: kindListHref("/manage/products", kindOf(wine)), label: "Produits" }}>
+<ManagePageShell title={productTitle(product)} {subtitle} back={{ href: kindListHref("/manage/products", kindOf(product)), label: "Produits" }}>
   {#snippet actions()}
       <Button variant="primary" onclick={openCreateModal}><IconPlus size={16} strokeWidth={1.75} /> {kind.newBatch}</Button>
   {/snippet}
 
-  {#if wine.description}
-    <p class="wine-description">{wine.description}</p>
+  {#if product.description}
+    <p class="wine-description">{product.description}</p>
   {/if}
 
-  {#if error && !formOpen && !showGrapesModal}
+  {#if error && !formOpen && !showVarietiesModal}
     <div class="error-message" role="alert">{error}</div>
   {/if}
 
-  {#if vintages.length === 0}
+  {#if lots.length === 0}
     <EmptyState icon={kindIcons.product} title="{kind.noBatch} pour {kind.thisLabel}" text="À ajouter pour vendre, stocker et servir en dégustation.">
       <Button onclick={openCreateModal}><IconPlus size={16} strokeWidth={1.75} /> {kind.newBatch}</Button>
     </EmptyState>
   {:else}
-    <DataTable caption="{kind.batchPlural} de {productTitle(wine)}">
+    <DataTable caption="{kind.batchPlural} de {productTitle(product)}">
       <thead>
         <tr>
           <th scope="col">{kind.batch}</th>
@@ -406,21 +406,21 @@
         </tr>
       </thead>
       <tbody>
-        {#each vintages as vintage (vintage.id)}
-          <tr class:gone={isDiscontinued(vintage)}>
+        {#each lots as lot (lot.id)}
+          <tr class:gone={isDiscontinued(lot)}>
             <td>
               <span class="vintage-cell">
-                {#if vintage.image_url}<img src={vintage.image_url} alt="" class="thumb" />{/if}
-                <a class="row-link" href="/manage/products/{wine.id}/stock/{vintage.id}">{vintageYearLabel(vintage, kind.key)}</a>
-                {#if vintage.organic}<span class="ui-chip organic">Bio</span>{/if}
-                {#if isDiscontinued(vintage)}<StockBadge kind="gone" />{/if}
+                {#if lot.image_url}<img src={lot.image_url} alt="" class="thumb" />{/if}
+                <a class="row-link" href="/manage/products/{product.id}/stock/{lot.id}">{lotYearLabel(lot, kind.key)}</a>
+                {#if lot.organic}<span class="ui-chip organic">Bio</span>{/if}
+                {#if isDiscontinued(lot)}<StockBadge kind="gone" />{/if}
               </span>
             </td>
-            <td>{vintage.production_year}</td>
-            {#if kind.hasAbv}<td class="num">{vintage.abv != null ? `${vintage.abv} %` : "—"}</td>{/if}
-            <td class="num">{formatEUR(vintage.purchase_price)}</td>
-            <td class="num">{formatEUR(vintage.price)}</td>
-            <td class="col-actions"><RowMenu items={rowItems(vintage)} label="Actions pour {vintageYearLabel(vintage, kind.key)}" /></td>
+            <td>{lot.production_year}</td>
+            {#if kind.hasAbv}<td class="num">{lot.abv != null ? `${lot.abv} %` : "—"}</td>{/if}
+            <td class="num">{formatEUR(lot.purchase_price)}</td>
+            <td class="num">{formatEUR(lot.price)}</td>
+            <td class="col-actions"><RowMenu items={rowItems(lot)} label="Actions pour {lotYearLabel(lot, kind.key)}" /></td>
           </tr>
         {/each}
       </tbody>
@@ -429,23 +429,23 @@
 </ManagePageShell>
 
 <!-- Modal de création / édition -->
-<Modal open={formOpen} title="{editingVintage ? kind.editBatch : kind.newBatch} - {productTitle(wine)}" onclose={closeForm}>
+<Modal open={formOpen} title="{editingLot ? kind.editBatch : kind.newBatch} - {productTitle(product)}" onclose={closeForm}>
   {#if error}<div class="error-message" role="alert">{error}</div>{/if}
   <form id="vintage-form" class="ui-grid-2" onsubmit={preventDefault(submitForm)}>
-    {#if !editingVintage && vintages.length}
+    {#if !editingLot && lots.length}
       <fieldset class="reuse wide">
         <legend class="t-label">Reprendre les données de</legend>
         <Select ariaLabel="{kind.batch} repris" value={sourceId} onchange={(e) => pickSource((e.currentTarget as HTMLSelectElement).value)}>
           <option value="">Ne rien reprendre</option>
-          {#each vintages as v (v.id)}
-            <option value={v.id}>{vintageYearLabel(v, kind.key)}</option>
+          {#each lots as v (v.id)}
+            <option value={v.id}>{lotYearLabel(v, kind.key)}</option>
           {/each}
         </Select>
           {#if source}
             <div class="reuse-items">
               <!-- Aperçu de la bouteille à côté des cases (silhouette du site sans image) : lignes de même hauteur. -->
               <div class="reuse-preview" class:off={!imageReused} aria-hidden="true">
-                <ProductBottle src={source.image_url} style={productStyle(wine.wine_type)} height="80px" />
+                <ProductBottle src={source.image_url} style={productStyle(product.product_type)} height="80px" />
               </div>
               <div class="reuse-checks">
                 <label class="checkbox-label">
@@ -453,7 +453,7 @@
                     type="checkbox"
                     checked={imageReused}
                     disabled={!source.image_url}
-                    onchange={(e) => (vintageFormData.image_url = e.currentTarget.checked ? source?.image_url ?? "" : "")}
+                    onchange={(e) => (lotFormData.image_url = e.currentTarget.checked ? source?.image_url ?? "" : "")}
                   />
                   Image
                   {#if !source.image_url}<span class="t-muted">aucune</span>{/if}
@@ -461,12 +461,12 @@
                 <label class="checkbox-label">
                   <input
                     type="checkbox"
-                    checked={takeGrapes}
-                    disabled={noGrapes}
-                    onchange={(e) => (copyGrapes = e.currentTarget.checked)}
+                    checked={takeVarieties}
+                    disabled={noVarieties}
+                    onchange={(e) => (copyVarieties = e.currentTarget.checked)}
                   />
                   {kind.ingredients}
-                  <span class="t-muted">{sourceInfo ? sourceInfo.grapes || "aucun" : "…"}</span>
+                  <span class="t-muted">{sourceInfo ? sourceInfo.varieties || "aucun" : "…"}</span>
                 </label>
                 <label class="checkbox-label">
                   <input
@@ -488,67 +488,67 @@
     <Field id="production_year" label="Année de mise en bouteille" required>
       <!-- Focus à l'ouverture ici, pas sur la liste du millésime repris (la saisie de l'année y changerait le choix). -->
       <!-- svelte-ignore a11y_autofocus -->
-      <input id="production_year" class="ui-control" type="number" autofocus bind:value={vintageFormData.production_year} min="1900" max={MAX_YEAR} required />
+      <input id="production_year" class="ui-control" type="number" autofocus bind:value={lotFormData.production_year} min="1900" max={MAX_YEAR} required />
     </Field>
 
     <Field id="year" label={kind.yearLabel}>
-      <input id="year" class="ui-control" type="number" bind:value={vintageFormData.year} min="1900" max={MAX_YEAR} placeholder={kind.yearPlaceholder} />
+      <input id="year" class="ui-control" type="number" bind:value={lotFormData.year} min="1900" max={MAX_YEAR} placeholder={kind.yearPlaceholder} />
     </Field>
 
     <!-- Un lot par contenant : 50 cl et 5 L d'une même huile ont chacun leur prix et leur stock. -->
     <!-- Fixé à la création : changer le contenant d'un lot réécrirait son stock et ses ventes passées. -->
     <Field id="volume_ml" label="Contenant" required>
-      <Select id="volume_ml" bind:value={vintageFormData.volume_ml} required disabled={!!editingVintage}>
-        {#each editingVintage ? [editingVintage.volume_ml] : kind.volumes as ml (ml)}
+      <Select id="volume_ml" bind:value={lotFormData.volume_ml} required disabled={!!editingLot}>
+        {#each editingLot ? [editingLot.volume_ml] : kind.volumes as ml (ml)}
           <option value={String(ml)}>{formatVolume(ml)}</option>
         {/each}
       </Select>
     </Field>
 
     <Field id="purchase_price" label="Prix d’achat (€)">
-      <input id="purchase_price" class="ui-control" type="number" step="0.01" min="0" bind:value={vintageFormData.purchase_price} placeholder="Prix unitaire payé au fournisseur" />
+      <input id="purchase_price" class="ui-control" type="number" step="0.01" min="0" bind:value={lotFormData.purchase_price} placeholder="Prix unitaire payé au fournisseur" />
     </Field>
 
     <Field id="price" label="Prix de vente (€)">
-      <input id="price" class="ui-control" type="number" step="0.01" min="0" bind:value={vintageFormData.price} placeholder="Prix unitaire de vente" />
+      <input id="price" class="ui-control" type="number" step="0.01" min="0" bind:value={lotFormData.price} placeholder="Prix unitaire de vente" />
     </Field>
 
     {#if kind.hasAbv}
       <Field id="abv" label="Degré d’alcool (%)">
-        <input id="abv" class="ui-control" type="number" step="0.1" min="0" max="20" bind:value={vintageFormData.abv} />
+        <input id="abv" class="ui-control" type="number" step="0.1" min="0" max="20" bind:value={lotFormData.abv} />
       </Field>
     {/if}
 
     <!-- Image reprise : on la change en décochant « Image » plus haut. -->
     <Field id="image_url" label="URL de l’image" help={imageReused ? "Décochez « Image » pour en mettre une autre." : ""}>
       {#snippet children({ describedby })}
-        <input id="image_url" class="ui-control" type="url" bind:value={vintageFormData.image_url} disabled={imageReused} aria-describedby={describedby} />
+        <input id="image_url" class="ui-control" type="url" bind:value={lotFormData.image_url} disabled={imageReused} aria-describedby={describedby} />
       {/snippet}
     </Field>
 
     <label class="checkbox-label wide">
-      <input type="checkbox" bind:checked={vintageFormData.organic} />
+      <input type="checkbox" bind:checked={lotFormData.organic} />
       {kind.organicLabel}
     </label>
   </form>
   {#snippet footer()}
       <Button variant="ghost" onclick={closeForm}>Annuler</Button>
-      <Button variant="primary" type="submit" form="vintage-form" disabled={saving}>{editingVintage ? "Mettre à jour" : "Créer"}</Button>
+      <Button variant="primary" type="submit" form="vintage-form" disabled={saving}>{editingLot ? "Mettre à jour" : "Créer"}</Button>
   {/snippet}
 </Modal>
 
 <!-- Cépages d'un millésime, variétés d'olives d'un lot -->
-<Modal open={showGrapesModal} title={kind.ingredients} maxWidth={520} onclose={closeGrapesModal}>
+<Modal open={showVarietiesModal} title={kind.ingredients} maxWidth={520} onclose={closeVarietiesModal}>
   {#if error}<div class="error-message" role="alert">{error}</div>{/if}
-  {#if selectedVintage}<p class="t-muted grapes-intro">{productTitle(wine)} · {vintageYearLabel(selectedVintage, kind.key)}</p>{/if}
-  {#if vintageGrapes.length === 0}
+  {#if selectedLot}<p class="t-muted grapes-intro">{productTitle(product)} · {lotYearLabel(selectedLot, kind.key)}</p>{/if}
+  {#if lotVarieties.length === 0}
     <EmptyState icon={kindIcons.ingredient} title="{kind.noIngredient} pour {kind.thisBatch}" compact />
   {:else}
-    <ul class="grapes">
-      {#each vintageGrapes as vintageGrape (vintageGrape.grape_id)}
+    <ul class="varieties">
+      {#each lotVarieties as lotVariety (lotVariety.variety_id)}
         <li>
-          <span>{vintageGrape.grape.name}{#if vintageGrape.percentage}<span class="t-muted"> · {vintageGrape.percentage} %</span>{/if}</span>
-          <IconButton label="Retirer {vintageGrape.grape.name}" onclick={() => (grapeToRemove = vintageGrape)}>
+          <span>{lotVariety.variety.name}{#if lotVariety.percentage}<span class="t-muted"> · {lotVariety.percentage} %</span>{/if}</span>
+          <IconButton label="Retirer {lotVariety.variety.name}" onclick={() => (varietyToRemove = lotVariety)}>
             <IconX size={16} strokeWidth={1.75} />
           </IconButton>
         </li>
@@ -556,11 +556,11 @@
     </ul>
   {/if}
   <div class="add-grape">
-    <select class="ui-control" bind:value={selectedGrapeId} aria-label="{kind.ingredients} : ajouter">
+    <select class="ui-control" bind:value={selectedVarietyId} aria-label="{kind.ingredients} : ajouter">
       <option value="">{kind.chooseIngredient}</option>
-      {#each allGrapes as grape (grape.id)}
-        <option value={grape.id} disabled={linkedGrapeIds.has(grape.id)}>
-          {grape.name}{linkedGrapeIds.has(grape.id) ? " (déjà ajouté)" : ""}
+      {#each allVarieties as variety (variety.id)}
+        <option value={variety.id} disabled={linkedVarietyIds.has(variety.id)}>
+          {variety.name}{linkedVarietyIds.has(variety.id) ? " (déjà ajouté)" : ""}
         </option>
       {/each}
     </select>
@@ -572,31 +572,31 @@
       max="100"
       placeholder="%"
       aria-label="Pourcentage"
-      bind:value={grapePercentage}
-      disabled={!selectedGrapeId}
+      bind:value={varietyPercentage}
+      disabled={!selectedVarietyId}
     />
-    <Button onclick={addGrape} disabled={!selectedGrapeId}><IconPlus size={16} strokeWidth={1.75} /> Ajouter</Button>
+    <Button onclick={addVariety} disabled={!selectedVarietyId}><IconPlus size={16} strokeWidth={1.75} /> Ajouter</Button>
   </div>
   {#snippet footer()}
-      <Button variant="primary" onclick={closeGrapesModal}>Terminé</Button>
+      <Button variant="primary" onclick={closeVarietiesModal}>Terminé</Button>
   {/snippet}
 </Modal>
 
 <ConfirmDialog
-  open={!!grapeToRemove}
+  open={!!varietyToRemove}
   title="Retirer de la composition ?"
-  message={grapeToRemove ? `« ${grapeToRemove.grape?.name ?? ""} » sera retiré de la composition.` : ""}
+  message={varietyToRemove ? `« ${varietyToRemove.variety?.name ?? ""} » sera retiré de la composition.` : ""}
   confirmLabel="Oui, retirer"
-  action={() => removeGrape(grapeToRemove.grape_id)}
-  oncancel={() => (grapeToRemove = null)}
-  ondone={() => (grapeToRemove = null)}
+  action={() => removeVariety(varietyToRemove.variety_id)}
+  oncancel={() => (varietyToRemove = null)}
+  ondone={() => (varietyToRemove = null)}
 />
 
 <ConfirmDialog
   open={!!deleteTarget}
   title="Supprimer {kind.thisBatch} ?"
-  message={deleteTarget ? `${kind.batch} ${vintageYearLabel(deleteTarget, kind.key)} : suppression avec ${kind.ingredients.toLowerCase()} et notes, si aucune vente ni aucun mouvement de stock ne l’utilise.` : ""}
-  action={() => deleteVintage(deleteTarget!)}
+  message={deleteTarget ? `${kind.batch} ${lotYearLabel(deleteTarget, kind.key)} : suppression avec ${kind.ingredients.toLowerCase()} et notes, si aucune vente ni aucun mouvement de stock ne l’utilise.` : ""}
+  action={() => deleteLot(deleteTarget!)}
   oncancel={() => (deleteTarget = null)}
   ondone={() => (deleteTarget = null)}
 />
@@ -685,13 +685,13 @@
     margin: 0 0 12px;
   }
 
-  .grapes {
+  .varieties {
     margin: 0 0 16px;
     padding: 0;
     list-style: none;
   }
 
-  .grapes li {
+  .varieties li {
     display: flex;
     align-items: center;
     justify-content: space-between;
@@ -699,7 +699,7 @@
     border-bottom: 1px solid var(--border-soft);
   }
 
-  .grapes li:last-child {
+  .varieties li:last-child {
     border-bottom: none;
   }
 

@@ -12,7 +12,7 @@ import { fetchStockMap } from "./manageData";
 export const REVENUE_STATUSES = ["paid", "delivered", "closed"];
 
 /** Hypothèse : une bouteille ouverte par vin servi en dégustation. */
-export const BOTTLES_PER_TASTED_WINE = 1;
+export const BOTTLES_PER_TASTED_LOT = 1;
 
 export type SaleRow = {
   id: string;
@@ -27,7 +27,7 @@ export type SaleRow = {
 export type SaleItemRow = {
   id: string;
   sale_id: string;
-  wine_vintage_id: string | null;
+  lot_id: string | null;
   quantity: number;
   price: number;
   discount: number | null;
@@ -35,22 +35,22 @@ export type SaleItemRow = {
   note: string | null;
 };
 
-export type VintageRow = {
+export type LotRow = {
   id: string;
-  wine_id: string;
+  product_id: string;
   year: number | null;
   production_year: number;
   price: number | null;
   purchase_price: number;
   image_url: string | null;
   discontinued_at?: string | null;
-  wine: any;
+  product: any;
 };
 
 export type Dataset = {
   sales: SaleRow[];
   items: SaleItemRow[];
-  vintages: VintageRow[];
+  lots: LotRow[];
   stock: Map<string, number>;
 };
 
@@ -68,29 +68,29 @@ function groupBy<T>(items: T[], key: (item: T) => string | null): Map<string, T[
 }
 
 export async function loadDataset(): Promise<Dataset> {
-  const [sales, items, vintages, stock] = await Promise.all([
+  const [sales, items, lots, stock] = await Promise.all([
     fetchAllRows<SaleRow>((a, b) =>
       supabase.from("sale").select("id, date, status, total_price, customer_id, tasting_id").order("id").range(a, b),
     ),
     fetchAllRows<SaleItemRow>((a, b) =>
       supabase
         .from("sale_item")
-        .select("id, sale_id, wine_vintage_id, quantity, price, discount, discount_type, note")
+        .select("id, sale_id, lot_id, quantity, price, discount, discount_type, note")
         .order("id")
         .range(a, b),
     ),
-    fetchAllRows<VintageRow>((a, b) =>
+    fetchAllRows<LotRow>((a, b) =>
       supabase
-        .from("wine_vintage")
+        .from("lot")
         .select(
-          "*, wine ( id, name, winery ( id, name ), appelation ( name, label ( name ) ), wine_type ( name, category, kind ) )",
+          "*, product ( id, name, producer ( id, name ), appellation ( name, label ( name ) ), product_type ( name, category, kind ) )",
         )
         .order("id")
         .range(a, b),
     ),
     fetchStockMap(),
   ]);
-  return { sales, items, vintages, stock };
+  return { sales, items, lots, stock };
 }
 
 /** Total d'une ligne après remise (même règle que /manage/sales), jamais négatif. */
@@ -110,7 +110,7 @@ export type RevenueLine = {
   date: string;
   customerId: string;
   tastingId: string | null;
-  vintageId: string | null;
+  lotId: string | null;
   isTastingFee: boolean;
   quantity: number;
   /** CA de la ligne après remise de ligne ET ristourne globale (proratisée). */
@@ -121,7 +121,7 @@ export type RevenueLine = {
 
 export function revenueLines(ds: Dataset, statuses = REVENUE_STATUSES): RevenueLine[] {
   const salesById = new Map(ds.sales.map((s) => [s.id, s]));
-  const vintages = new Map(ds.vintages.map((v) => [v.id, v]));
+  const lots = new Map(ds.lots.map((v) => [v.id, v]));
   const itemsBySale = groupBy(ds.items, (it) => it.sale_id);
 
   const out: RevenueLine[] = [];
@@ -131,14 +131,14 @@ export function revenueLines(ds: Dataset, statuses = REVENUE_STATUSES): RevenueL
     const gross = items.reduce((s, it) => s + lineTotal(it), 0);
     const factor = gross > 0 ? toNumber(sale.total_price) / gross : 1;
     for (const it of items) {
-      const v = it.wine_vintage_id ? vintages.get(it.wine_vintage_id) : null;
+      const v = it.lot_id ? lots.get(it.lot_id) : null;
       out.push({
         saleId,
         date: sale.date,
         customerId: sale.customer_id,
         tastingId: sale.tasting_id ?? null,
-        vintageId: it.wine_vintage_id,
-        isTastingFee: !it.wine_vintage_id,
+        lotId: it.lot_id,
+        isTastingFee: !it.lot_id,
         quantity: Number(it.quantity) || 0,
         revenue: lineTotal(it) * factor,
         cost: v ? toNumber(v.purchase_price) * (Number(it.quantity) || 0) : 0,
@@ -148,8 +148,8 @@ export function revenueLines(ds: Dataset, statuses = REVENUE_STATUSES): RevenueL
   return out;
 }
 
-export type VintageStats = {
-  vintage: VintageRow;
+export type LotStats = {
+  lot: LotRow;
   stock: number;
   sold: number;
   revenue: number;
@@ -163,11 +163,11 @@ export type VintageStats = {
   idleDays: number | null;
 };
 
-export function vintageStats(ds: Dataset, lines = revenueLines(ds)): VintageStats[] {
+export function lotStats(ds: Dataset, lines = revenueLines(ds)): LotStats[] {
   const today = parseIsoDate(todayIso()).getTime();
-  const linesByVintage = groupBy(lines, (l) => l.vintageId);
-  return ds.vintages.map((v) => {
-    const own = linesByVintage.get(v.id) ?? [];
+  const linesByLot = groupBy(lines, (l) => l.lotId);
+  return ds.lots.map((v) => {
+    const own = linesByLot.get(v.id) ?? [];
     const revenue = own.reduce((s, l) => s + l.revenue, 0);
     const cost = own.reduce((s, l) => s + l.cost, 0);
     const lastSale = own.reduce<string | null>((m, l) => (!m || l.date > m ? l.date : m), null);
@@ -175,7 +175,7 @@ export function vintageStats(ds: Dataset, lines = revenueLines(ds)): VintageStat
     const buy = toNumber(v.purchase_price);
     const unitMargin = price != null && buy > 0 ? price - buy : null;
     return {
-      vintage: v,
+      lot: v,
       stock: ds.stock.get(v.id) ?? 0,
       sold: own.reduce((s, l) => s + l.quantity, 0),
       revenue,
@@ -214,7 +214,7 @@ export function monthlyRevenue(ds: Dataset, months = 12): { key: string; label: 
 export type TastingRoi = {
   tasting: { id: string; name: string | null; date: string; location: string | null };
   participants: number;
-  winesPoured: number;
+  lotsPoured: number;
   /** Coût d'achat des bouteilles ouvertes. */
   pouredCost: number;
   /** Lignes « Dégustation » (entrées) des ventes de la soirée. */
@@ -234,24 +234,24 @@ export type TastingRoi = {
 export async function tastingRoi(ds: Dataset, lines = revenueLines(ds), windowDays = 30): Promise<TastingRoi[]> {
   const { data, error } = await supabase
     .from("tasting")
-    .select("id, name, date, location, tasting_customer ( customer_id ), tasting_wine_vintage ( wine_vintage_id )")
+    .select("id, name, date, location, tasting_customer ( customer_id ), tasting_lot ( lot_id )")
     .order("date", { ascending: false });
   if (error) throw new Error(error.message);
 
-  const vintages = new Map(ds.vintages.map((v) => [v.id, v]));
+  const lots = new Map(ds.lots.map((v) => [v.id, v]));
   const linesByTasting = groupBy(lines, (l) => l.tastingId);
   return ((data || []) as any[]).map((t) => {
     const customers = new Set<string>((t.tasting_customer || []).map((r: any) => r.customer_id));
-    const wines = (t.tasting_wine_vintage || []) as { wine_vintage_id: string }[];
-    const pouredCost = wines.reduce(
-      (s, w) => s + toNumber(vintages.get(w.wine_vintage_id)?.purchase_price) * BOTTLES_PER_TASTED_WINE,
+    const tastingLots = (t.tasting_lot || []) as { lot_id: string }[];
+    const pouredCost = tastingLots.reduce(
+      (s, w) => s + toNumber(lots.get(w.lot_id)?.purchase_price) * BOTTLES_PER_TASTED_LOT,
       0,
     );
     const evening = linesByTasting.get(t.id) ?? [];
     const fees = evening.filter((l) => l.isTastingFee).reduce((s, l) => s + l.revenue, 0);
-    const wineLines = evening.filter((l) => !l.isTastingFee);
-    const eveningRevenue = wineLines.reduce((s, l) => s + l.revenue, 0);
-    const eveningMargin = wineLines.reduce((s, l) => s + (l.revenue - l.cost), 0);
+    const productLines = evening.filter((l) => !l.isTastingFee);
+    const eveningRevenue = productLines.reduce((s, l) => s + l.revenue, 0);
+    const eveningMargin = productLines.reduce((s, l) => s + (l.revenue - l.cost), 0);
     const end = addDaysIso(t.date, windowDays);
     const later = lines.filter(
       (l) => !l.isTastingFee && !l.tastingId && customers.has(l.customerId) && l.date > t.date && l.date <= end,
@@ -259,13 +259,13 @@ export async function tastingRoi(ds: Dataset, lines = revenueLines(ds), windowDa
     return {
       tasting: { id: t.id, name: t.name, date: t.date, location: t.location },
       participants: customers.size,
-      winesPoured: wines.length,
+      lotsPoured: tastingLots.length,
       pouredCost,
       fees,
       eveningRevenue,
       eveningMargin,
-      eveningBottles: wineLines.reduce((s, l) => s + l.quantity, 0),
-      buyers: new Set(wineLines.map((l) => l.customerId)).size,
+      eveningBottles: productLines.reduce((s, l) => s + l.quantity, 0),
+      buyers: new Set(productLines.map((l) => l.customerId)).size,
       laterRevenue: later.reduce((s, l) => s + l.revenue, 0),
       result: fees + eveningMargin - pouredCost,
     };

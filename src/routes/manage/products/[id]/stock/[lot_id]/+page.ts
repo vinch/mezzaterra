@@ -1,40 +1,40 @@
 import { supabase } from "$lib/supabase";
-import { vintageStock } from "$lib/manageData";
+import { lotStock } from "$lib/manageData";
 import type { PageLoad } from "./$types";
 
 export const load: PageLoad = async ({ params }) => {
   // Millésime (avec son vin), historique des mouvements et stock actuel (vue inventory), en parallèle
   const [
-    { data: vintage, error: vintageError },
+    { data: lot, error: lotError },
     { data: stockMoves, error: stockMovesError },
     currentStock,
   ] = await Promise.all([
     supabase
-      .from("wine_vintage")
+      .from("lot")
       .select(
         `
       *,
-      wine (
+      product (
         *,
-        winery (*),
-        appelation ( *, label (*) ),
-        wine_type (*)
+        producer (*),
+        appellation ( *, label (*) ),
+        product_type (*)
       )
     `
       )
-      .eq("id", params.vintage_id)
+      .eq("id", params.lot_id)
       .single(),
     supabase
       .from("stock_move")
       .select("*")
-      .eq("wine_vintage_id", params.vintage_id)
+      .eq("lot_id", params.lot_id)
       .order("date", { ascending: false }),
-    vintageStock(params.vintage_id),
+    lotStock(params.lot_id),
   ]);
 
-  if (vintageError) {
+  if (lotError) {
     throw new Error(
-      `Erreur lors du chargement du lot : ${vintageError.message}`
+      `Erreur lors du chargement du lot : ${lotError.message}`
     );
   }
 
@@ -45,7 +45,7 @@ export const load: PageLoad = async ({ params }) => {
   }
 
   return {
-    vintage,
+    lot,
     stockMoves: stockMoves || [],
     currentStock,
   };

@@ -7,15 +7,15 @@
   import { IconBox } from "$lib/ui/icons";
   import Spinner from "$lib/ui/Spinner.svelte";
   import {
-    fetchStockDocVintages,
+    fetchStockDocLots,
     sortedStockForDocuments,
-    stockVintageLabel,
-    type StockDocVintage,
+    stockLotLabel,
+    type StockDocLot,
   } from "$lib/stockDocuments";
 
   let loading = $state(true);
   let error = $state("");
-  let stockInHandList = $state<StockDocVintage[]>([]);
+  let stockInHandList = $state<StockDocLot[]>([]);
 
   onMount(() => loadStockInHand());
 
@@ -27,7 +27,7 @@
   async function loadStockInHand() {
     loading = true;
     error = "";
-    const res = await fetchStockDocVintages();
+    const res = await fetchStockDocLots();
     error = res.error ?? "";
     stockInHandList = sortedStockForDocuments(res.data);
     loading = false;
@@ -63,12 +63,12 @@
       <tbody>
         {#each stockInHandList as row (row.id)}
           <tr>
-            <td>{row.wineryName}</td>
-            <td><strong>{row.wineName}</strong></td>
-            <td>{stockVintageLabel(row)}</td>
+            <td>{row.producerName}</td>
+            <td><strong>{row.productName}</strong></td>
+            <td>{stockLotLabel(row)}</td>
             <td class="num">{bottleLabel(row.quantity_on_hand)}</td>
             <td class="col-actions">
-              <Button size="sm" href="/manage/products/{row.wine_id}/stock/{row.id}">Détail</Button>
+              <Button size="sm" href="/manage/products/{row.product_id}/stock/{row.id}">Détail</Button>
             </td>
           </tr>
         {/each}
