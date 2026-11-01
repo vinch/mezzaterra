@@ -46,13 +46,15 @@
   let returnFocus: HTMLElement | null = null;
   const token = Symbol();
   const isTop = () => openStack[openStack.length - 1] === token;
+  /** Rang dans la pile à l'ouverture : la plus récente est peinte au-dessus, où qu'elle soit dans le DOM. */
+  let depth = $state(0);
 
   const FOCUSABLE =
     'a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])';
 
   async function onOpen() {
     returnFocus = document.activeElement as HTMLElement | null;
-    openStack.push(token);
+    depth = openStack.push(token);
     document.body.style.overflow = "hidden";
     await tick();
     const first = dialog?.querySelector<HTMLElement>("[autofocus]") ?? dialog?.querySelector<HTMLElement>(".modal-body " + FOCUSABLE.split(",").join(", .modal-body "));
@@ -116,6 +118,7 @@
 {#if open}
   <div
     class="backdrop"
+    style:z-index={2000 + depth}
     transition:fade={{ duration: 120 }}
     onclick={self(() => closeOnBackdrop && close())}
     role="presentation"
