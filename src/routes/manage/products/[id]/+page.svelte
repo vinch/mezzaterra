@@ -336,6 +336,9 @@
     await loadVintageGrapes();
   }
 
+  /** Année la plus tardive saisissable : un lot de l'an prochain peut déjà être annoncé. */
+  const MAX_YEAR = new Date().getFullYear() + 1;
+
   /** Élément de la composition à retirer, en attente de confirmation. */
   let grapeToRemove = $state<any>(null);
 
@@ -485,11 +488,11 @@
     <Field id="production_year" label="Année de mise en bouteille" required>
       <!-- Focus à l'ouverture ici, pas sur la liste du millésime repris (la saisie de l'année y changerait le choix). -->
       <!-- svelte-ignore a11y_autofocus -->
-      <input id="production_year" class="ui-control" type="number" autofocus bind:value={vintageFormData.production_year} min="1900" max="2030" required />
+      <input id="production_year" class="ui-control" type="number" autofocus bind:value={vintageFormData.production_year} min="1900" max={MAX_YEAR} required />
     </Field>
 
     <Field id="year" label={kind.yearLabel}>
-      <input id="year" class="ui-control" type="number" bind:value={vintageFormData.year} min="1900" max="2030" placeholder={kind.yearPlaceholder} />
+      <input id="year" class="ui-control" type="number" bind:value={vintageFormData.year} min="1900" max={MAX_YEAR} placeholder={kind.yearPlaceholder} />
     </Field>
 
     <!-- Un lot par contenant : 50 cl et 5 L d'une même huile ont chacun leur prix et leur stock. -->
