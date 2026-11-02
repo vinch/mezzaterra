@@ -49,10 +49,16 @@ BEGIN
   INSERT INTO tasting_customer (tasting_id, customer_id)
   SELECT DISTINCT v_id, c FROM unnest(p_added_customer_ids) AS c
   ON CONFLICT DO NOTHING;
-  -- Places hors bornes : refusées par le CHECK de tasting_customer.seats (0 à 10).
-  UPDATE tasting_customer SET seats = (p_seats ->> customer_id::text)::integer
-  WHERE tasting_id = v_id AND p_seats ? customer_id::text
-    AND seats IS DISTINCT FROM (p_seats ->> customer_id::text)::integer;
+  -- Au-delà de 10 places : refusé par le CHECK de tasting_customer.seats. 0 reste réservé au « J'en
+  -- veux », et un inscrit en ligne garde les places de sa réservation (participant_seats les ignorerait).
+  UPDATE tasting_customer tc SET seats = (p_seats ->> tc.customer_id::text)::integer
+  WHERE tc.tasting_id = v_id AND p_seats ? tc.customer_id::text
+    AND (p_seats ->> tc.customer_id::text)::integer >= 1
+    AND tc.seats IS DISTINCT FROM (p_seats ->> tc.customer_id::text)::integer
+    AND NOT EXISTS (
+      SELECT 1 FROM tasting_registration r
+      WHERE r.tasting_id = v_id AND r.customer_id = tc.customer_id AND r.status = 'confirmed'
+    );
 
   RETURN v_id;
 END;
