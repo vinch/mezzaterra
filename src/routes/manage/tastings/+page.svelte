@@ -85,6 +85,9 @@
   let modalCustomers = $state<ModalCustomerEntry[]>([]);
   /** Participants à l'ouverture du formulaire : seuls les ajouts et retraits sont enregistrés. */
   let initialCustomerIds: string[] = [];
+  /** Leurs entrées telles que chargées : un participant retiré puis rajouté les retrouve, et seules
+      les places modifiées sont enregistrées. */
+  let initialEntries = new Map<string, ModalCustomerEntry>();
   let selectedLotId = $state("");
   let selectedCustomerId = $state("");
   let saving = $state(false);
@@ -261,6 +264,7 @@
     modalLots = [];
     modalCustomers = [];
     initialCustomerIds = [];
+    initialEntries = new Map();
     selectedLotId = "";
     selectedCustomerId = "";
   }
@@ -286,6 +290,7 @@
     modalLots = tastingLots;
     modalCustomers = registered.entries;
     initialCustomerIds = registered.ids;
+    initialEntries = new Map(registered.entries.map((e) => [e.customer_id, { ...e }]));
     editingTasting = tasting;
     formData = {
       name: tasting.name || "",
@@ -335,7 +340,8 @@
     }
     const customer = customers.find((c) => c.id === selectedCustomerId);
     if (!customer) return;
-    modalCustomers = [...modalCustomers, { customer_id: customer.id, customer, seats: 1 }].sort(byCustomerLabel);
+    const entry = initialEntries.get(customer.id) ?? { customer_id: customer.id, customer, seats: 1 };
+    modalCustomers = [...modalCustomers, { ...entry }].sort(byCustomerLabel);
     selectedCustomerId = "";
     error = "";
   }
@@ -395,7 +401,11 @@
         p_added_customer_ids: modalCustomers.map((e) => e.customer_id).filter((id) => !initialCustomerIds.includes(id)),
         p_removed_customer_ids: initialCustomerIds.filter((id) => !modalCustomers.some((e) => e.customer_id === id)),
         /* Places des participants ajoutés à la main ; celles d'une réservation en ligne viennent du site. */
-        p_seats: Object.fromEntries(modalCustomers.filter((e) => !e.onlineSeats).map((e) => [e.customer_id, e.seats])),
+        p_seats: Object.fromEntries(
+          modalCustomers
+            .filter((e) => !e.onlineSeats && e.seats !== initialEntries.get(e.customer_id)?.seats)
+            .map((e) => [e.customer_id, e.seats]),
+        ),
       });
       if (saveError) throw new Error(saveError.message);
 
