@@ -37,7 +37,11 @@
     inputmode="numeric"
     aria-label={label}
     value={value}
-    onchange={(e) => set(parseInt(e.currentTarget.value, 10) || 0)}
+    onchange={(e) => {
+      set(parseInt(e.currentTarget.value, 10) || 0);
+      /* Saisie bornée sur la valeur actuelle : rien ne change, le champ doit quand même la réafficher. */
+      e.currentTarget.value = String(value);
+    }}
   />
   <button type="button" aria-label="Augmenter : {label}" disabled={value >= max} onclick={() => set(value + 1)}>
     <IconPlus size={16} strokeWidth={2} />

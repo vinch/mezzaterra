@@ -20,6 +20,7 @@
   import LotAutocomplete from "$lib/components/manage/LotAutocomplete.svelte";
   import CustomerAutocomplete from "$lib/components/manage/CustomerAutocomplete.svelte";
   import Spinner from "$lib/ui/Spinner.svelte";
+  import Stepper from "$lib/ui/Stepper.svelte";
   import EmptyState from "$lib/ui/EmptyState.svelte";
   import {
     IconDownload,
@@ -84,6 +85,9 @@
   let modalCustomers = $state<ModalCustomerEntry[]>([]);
   /** Participants à l'ouverture du formulaire : seuls les ajouts et retraits sont enregistrés. */
   let initialCustomerIds: string[] = [];
+  /** Leurs entrées telles que chargées : un participant retiré puis rajouté les retrouve, et seules
+      les places modifiées sont enregistrées. */
+  let initialEntries = new Map<string, ModalCustomerEntry>();
   let selectedLotId = $state("");
   let selectedCustomerId = $state("");
   let saving = $state(false);
@@ -260,6 +264,7 @@
     modalLots = [];
     modalCustomers = [];
     initialCustomerIds = [];
+    initialEntries = new Map();
     selectedLotId = "";
     selectedCustomerId = "";
   }
@@ -285,6 +290,7 @@
     modalLots = tastingLots;
     modalCustomers = registered.entries;
     initialCustomerIds = registered.ids;
+    initialEntries = new Map(registered.entries.map((e) => [e.customer_id, { ...e }]));
     editingTasting = tasting;
     formData = {
       name: tasting.name || "",
@@ -334,7 +340,8 @@
     }
     const customer = customers.find((c) => c.id === selectedCustomerId);
     if (!customer) return;
-    modalCustomers = [...modalCustomers, { customer_id: customer.id, customer, seats: 1 }].sort(byCustomerLabel);
+    const entry = initialEntries.get(customer.id) ?? { customer_id: customer.id, customer, seats: 1 };
+    modalCustomers = [...modalCustomers, { ...entry }].sort(byCustomerLabel);
     selectedCustomerId = "";
     error = "";
   }
@@ -393,6 +400,12 @@
         p_lot_ids: modalLots.map((e) => e.lot_id),
         p_added_customer_ids: modalCustomers.map((e) => e.customer_id).filter((id) => !initialCustomerIds.includes(id)),
         p_removed_customer_ids: initialCustomerIds.filter((id) => !modalCustomers.some((e) => e.customer_id === id)),
+        /* Places des participants ajoutés à la main ; celles d'une réservation en ligne viennent du site. */
+        p_seats: Object.fromEntries(
+          modalCustomers
+            .filter((e) => !e.onlineSeats && e.seats !== initialEntries.get(e.customer_id)?.seats)
+            .map((e) => [e.customer_id, e.seats]),
+        ),
       });
       if (saveError) throw new Error(saveError.message);
 
@@ -624,6 +637,10 @@
                 {label}
                 <span class="t-caption origin">{participantOrigin(entry.onlineSeats, entry.seats)}</span>
               </span>
+              <!-- Ajouté à la main : il peut venir accompagné (0 place = « J’en veux », pas modifiable ici). -->
+              {#if !entry.onlineSeats && entry.seats > 0}
+                <Stepper bind:value={entry.seats} min={1} max={10} label="Places de {label}" />
+              {/if}
               <IconButton label={entry.onlineSeats ? `Retirer ${label} et annuler sa réservation en ligne` : `Retirer ${label}`} onclick={() => removeCustomerFromList(i)}>
                 <IconX size={18} strokeWidth={1.75} />
               </IconButton>

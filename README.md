@@ -138,6 +138,12 @@ d'enregistrer des lignes sans lot. Le script inverse retire les deux versions de
 rebasculer ensuite, appliquer 20261101120000 seule (`supabase migration up`), puis 20261101130000 une fois
 les onglets rechargés.
 
+`20261102120000_tasting_customer_seats_edit.sql` ajoute à `save_tasting` le paramètre `p_seats`
+(places par participant) : dans le formulaire d'une dégustation, un participant ajouté à la main peut
+venir accompagné (1 à 10 places). Les places d'une réservation en ligne restent celles de la
+réservation. À appliquer avant de déployer le code, qui envoie `p_seats` (l'ancien code marche sur le
+nouveau schéma).
+
 ```sh
 supabase link --project-ref wmerreifcpttrhxwmkmn
 supabase db push
