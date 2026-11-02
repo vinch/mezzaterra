@@ -20,6 +20,7 @@
   import LotAutocomplete from "$lib/components/manage/LotAutocomplete.svelte";
   import CustomerAutocomplete from "$lib/components/manage/CustomerAutocomplete.svelte";
   import Spinner from "$lib/ui/Spinner.svelte";
+  import Stepper from "$lib/ui/Stepper.svelte";
   import EmptyState from "$lib/ui/EmptyState.svelte";
   import {
     IconDownload,
@@ -393,6 +394,8 @@
         p_lot_ids: modalLots.map((e) => e.lot_id),
         p_added_customer_ids: modalCustomers.map((e) => e.customer_id).filter((id) => !initialCustomerIds.includes(id)),
         p_removed_customer_ids: initialCustomerIds.filter((id) => !modalCustomers.some((e) => e.customer_id === id)),
+        /* Places des participants ajoutés à la main ; celles d'une réservation en ligne viennent du site. */
+        p_seats: Object.fromEntries(modalCustomers.filter((e) => !e.onlineSeats).map((e) => [e.customer_id, e.seats])),
       });
       if (saveError) throw new Error(saveError.message);
 
@@ -624,6 +627,10 @@
                 {label}
                 <span class="t-caption origin">{participantOrigin(entry.onlineSeats, entry.seats)}</span>
               </span>
+              <!-- Ajouté à la main : il peut venir accompagné (0 place = « J’en veux », pas modifiable ici). -->
+              {#if !entry.onlineSeats && entry.seats > 0}
+                <Stepper bind:value={entry.seats} min={1} max={10} label="Places de {label}" />
+              {/if}
               <IconButton label={entry.onlineSeats ? `Retirer ${label} et annuler sa réservation en ligne` : `Retirer ${label}`} onclick={() => removeCustomerFromList(i)}>
                 <IconX size={18} strokeWidth={1.75} />
               </IconButton>

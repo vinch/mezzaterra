@@ -1519,6 +1519,7 @@ export type Database = {
           p_added_customer_ids: string[]
           p_lot_ids: string[]
           p_removed_customer_ids: string[]
+          p_seats?: Json
           p_tasting: Json
           p_tasting_id: string
         }
