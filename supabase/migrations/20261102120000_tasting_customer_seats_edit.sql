@@ -3,6 +3,17 @@
 -- vient accompagné). Sans entrée, un ajout garde 1 place et un inscrit ses places. Les places d'une
 -- réservation en ligne ne passent pas par là : elles restent celles de la réservation.
 
+-- save_tasting tourne avec les droits de l'appelant : il faut une policy UPDATE, que la table n'avait pas.
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_policies
+    WHERE schemaname = 'public' AND tablename = 'tasting_customer' AND policyname = 'admins can update'
+  ) THEN
+    CREATE POLICY "admins can update" ON public.tasting_customer FOR UPDATE USING (is_admin()) WITH CHECK (is_admin());
+  END IF;
+END $$;
+
 -- Nouveau paramètre (avec valeur par défaut) : la fonction est recréée, avec ses droits d'origine.
 DROP FUNCTION public."save_tasting"("p_tasting_id" "uuid", "p_tasting" "jsonb", "p_lot_ids" "uuid"[], "p_added_customer_ids" "uuid"[], "p_removed_customer_ids" "uuid"[]);
 CREATE FUNCTION "public"."save_tasting"("p_tasting_id" "uuid", "p_tasting" "jsonb", "p_lot_ids" "uuid"[], "p_added_customer_ids" "uuid"[], "p_removed_customer_ids" "uuid"[], "p_seats" "jsonb" DEFAULT '{}'::"jsonb") RETURNS "uuid"
