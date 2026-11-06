@@ -454,8 +454,8 @@
     <!-- Toujours là : c'est dans le récap qu'on choisit les quantités et qu'on commande. -->
     <button type="button" class="recap-bar" onclick={openRecap}>
       {#if cartCount > 0}
-        <span>Ma commande ({cartCount} bt.)</span>
-        <strong>{formatEUR(cartTotal)} →</strong>
+        <span>À confirmer ({cartCount} bt. · {formatEUR(cartTotal)})</span>
+        <strong>Confirmer →</strong>
       {:else if recapGroups.favorite.length}
         <span>Mes favoris ({recapGroups.favorite.length})</span>
         <strong>Commander →</strong>
