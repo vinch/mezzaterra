@@ -116,7 +116,9 @@ obligatoires) via la fonction `save_live_preorder`, et l'animateur la voit dans 
 l'ajuste depuis son récap puis la confirme (prénom et email ou téléphone) : elle devient une demande
 `wish_request` comme avant, que l'admin transforme en vente. À appliquer avant de déployer le code :
 la page live appelle `save_live_preorder`. L'insertion publique directe dans `wish_request` (ancien
-code) reste permise jusqu'à une migration de suivi, après le déploiement.
+code) reste permise jusqu'à une migration de suivi, après le déploiement. Depuis, sur chaque produit
+l'invité ne met plus qu'un favori (gardé sur son téléphone) : la pré-commande, et donc ce que
+l'animateur voit dans Piloter, naît quand il choisit des quantités dans le récap.
 
 `20261101120000_rename_products.sql` renomme une fois pour toutes le modèle « vin » en modèle
 « produit » : `wine` → `product`, `wine_vintage` → `lot`, `grape` → `variety`, `winery` →
@@ -156,7 +158,7 @@ pnpm update-types
 |---|---|
 | `/` | Accueil : le concept Mezzaterra, vin du moment, inscription (sans annonce de dégustation) |
 | `/tastings`, `/tastings/[id]` | Dégustations à venir / passées, réservation, ajout à l'agenda |
-| `/tastings/[id]/live` | Mode live (thème sombre) : vin servi en direct, notes, « J'en veux » |
+| `/tastings/[id]/live` | Mode live (thème sombre) : vin servi en direct, notes, favoris ; quantités et commande dans le récap |
 | `/vins`, `/vins/[id]` | Catalogue et fiches vin partageables (Open Graph) |
 | `/huiles`, `/huiles/[id]` | Idem pour les huiles d'olive ; lien « Nos huiles » dès qu'une huile existe |
 | `/domaines/[id]` | Page d'un domaine : présentation, carte, cépages, tous ses vins |

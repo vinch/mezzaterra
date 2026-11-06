@@ -9,6 +9,7 @@
   import StarRating from "$lib/components/site/StarRating.svelte";
   import CaveSheet from "$lib/components/site/CaveSheet.svelte";
   import QtyStepper from "$lib/components/site/QtyStepper.svelte";
+  import FavoriteToggle from "$lib/components/site/FavoriteToggle.svelte";
   import { tastingTitle } from "$lib/publicData";
   import { daysUntil, formatDateLong, productsRevealed } from "$lib/dates";
   import {
@@ -32,6 +33,8 @@
     guestName,
     joinLiveChannel,
     localCart,
+    localFavorites,
+    localOrdered,
     localRatings,
     localServed,
     pushFeedback,
@@ -63,15 +66,18 @@
   let profile = $state<GuestProfile>({ firstName: "", lastName: "", email: "", phone: "" });
   let ratings = $state<Record<string, LocalRating>>({});
   let cart = $state<Record<string, number>>({});
+  let favorites = $state<Record<string, true>>({});
+  let ordered = $state(0);
+  /** Favoris figés à l'ouverture du récap : un cœur touché dans la feuille ne déplace pas sa ligne. */
+  let recapFavorites = $state<Record<string, true>>({});
   let showWelcome = $state(false);
-  let showCart = $state(false);
   let showNotes = $state(false);
   let showRecap = $state(false);
   /* Un délai par produit : commenter le produit suivant n'annule pas l'envoi du précédent. */
   const commentTimers = new Map<string, ReturnType<typeof setTimeout>>();
   let savedFlash = $state(false);
 
-  /* ——— Pré-commande (le panier, enregistré en base à chaque changement) ——— */
+  /* ——— Pré-commande (le panier du récap, enregistré en base à chaque changement) ——— */
   let preorder: ReturnType<typeof createPreorderSync> | null = null;
   let editingContact = $state(false);
   let sending = $state(false);
@@ -96,6 +102,8 @@
     profile = getProfile();
     ratings = localRatings.get(tasting.id);
     cart = localCart.get(tasting.id);
+    favorites = localFavorites.get(tasting.id);
+    ordered = localOrdered.get(tasting.id);
     getGuestId();
     showWelcome = !profile.firstName;
     void loadPhotos(tasting.id).then((blobs) => {
@@ -175,6 +183,7 @@
   let current = $derived(lots[index]);
   let style = $derived(productStyle(current?.product?.product_type));
   let currentRating = $derived(current ? ratings[current.id] : undefined);
+  let isFavorite = $derived(!!current && !!favorites[current.id]);
   let kind = $derived(kindInfo(current?.product));
   let notes = $derived(lotNotes(current?.note, kind.key));
   let pairings = $derived(productPairings(current?.product));
@@ -182,6 +191,14 @@
   let cartCount = $derived(cartLines.reduce((s, l) => s + l.qty, 0));
   let cartTotal = $derived(cartLines.reduce((s, l) => s + l.qty * Number(l.lot.price ?? 0), 0));
   let ratedCount = $derived(lots.filter((w) => ratings[w.id]?.rating).length);
+  let favoriteCount = $derived(lots.filter((w) => favorites[w.id]).length);
+  /* Récap : les favoris d'abord, puis le reste de la soirée, chacun dans l'ordre du déroulé. */
+  let recapGroups = $derived.by(() => {
+    const favorite: { lot: any; i: number }[] = [];
+    const other: { lot: any; i: number }[] = [];
+    lots.forEach((lot, i) => (i <= unlocked && recapFavorites[lot.id] ? favorite : other).push({ lot, i }));
+    return { favorite, other };
+  });
 
   function persistRating(lot: any, patch: Partial<LocalRating>) {
     const prev = ratings[lot.id] ?? { rating: null, comment: "", updatedAt: "" };
@@ -232,6 +249,15 @@
     );
   }
 
+  function setFavorite(lotId: string, on: boolean) {
+    const next = { ...favorites };
+    if (on) next[lotId] = true;
+    else delete next[lotId];
+    favorites = next;
+    localFavorites.save(tasting.id, favorites);
+    if (on && navigator.vibrate) navigator.vibrate(12);
+  }
+
   function setQty(lotId: string, qty: number) {
     const q = Math.max(0, Math.min(60, qty));
     const next = { ...cart };
@@ -248,11 +274,12 @@
     return !!p.firstName.trim() && (email ? isValidEmail(email) : !!p.phone.trim());
   }
 
-  function openCart() {
+  function openRecap() {
     editingContact = !hasContact(profile);
     sendError = "";
     sendResult = null;
-    showCart = true;
+    recapFavorites = favorites;
+    showRecap = true;
   }
 
   function saveWelcome() {
@@ -281,6 +308,8 @@
       return;
     }
     sendResult = "ok";
+    ordered += cartCount;
+    localOrdered.save(tasting.id, ordered);
     cart = {};
     localCart.save(tasting.id, cart);
   }
@@ -367,7 +396,7 @@
   <meta name="theme-color" content="#0e1819" />
 </svelte:head>
 
-<div class="cave" class:has-cart={cartCount > 0} style="--robe: {style.color}; --robe-light: {style.light};">
+<div class="cave" style="--robe: {style.color}; --robe-light: {style.light};">
   {#if tasting && upcoming}
     <div class="empty">
       <img src="/flyer/logo-text.svg" alt="Mezzaterra" class="logo" />
@@ -487,14 +516,16 @@
 
           <div class="panel want">
             <div>
-              <span class="want-title">J’en veux !</span>
-              {#if cart[current.id]}
-                <span class="want-price">Dans votre pré-commande</span>
-              {:else if current.price}
-                <span class="want-price">{formatEUR(current.price)} la bouteille</span>
-              {/if}
+              <span class="want-title">{isFavorite ? "Dans vos favoris" : "Un coup de cœur ?"}</span>
+              <span class="want-price">
+                {#if cart[current.id]}{cart[current.id]} bt. dans votre récap, à confirmer{:else if isFavorite}Quantités à choisir dans le récap{:else if current.price}{formatEUR(current.price)} la bouteille{/if}
+              </span>
             </div>
-            <QtyStepper value={cart[current.id] ?? 0} onchange={(q) => setQty(current.id, q)} />
+            <FavoriteToggle
+              active={isFavorite}
+              onchange={(on) => setFavorite(current.id, on)}
+              label={withVolume(lotName(current), current)}
+            />
           </div>
         </section>
       {/key}
@@ -525,19 +556,22 @@
         </div>
         <span class="dot-count" aria-hidden="true">{index + 1}<span class="muted"> / {total}</span></span>
       </div>
-      {#if index === total - 1}
-        <button type="button" class="nav-arrow recap-btn" onclick={() => (showRecap = true)}>Récap</button>
-      {:else}
-        <button type="button" class="nav-arrow" onclick={() => goTo(index + 1)} disabled={index >= unlocked} aria-label={index >= unlocked ? "La suite n’est pas encore servie" : "Suivant"}>›</button>
-      {/if}
+      <button type="button" class="nav-arrow" onclick={() => goTo(index + 1)} disabled={index >= unlocked} aria-label={index >= unlocked ? (index === total - 1 ? "Dernier produit" : "La suite n’est pas encore servie") : "Suivant"}>›</button>
     </nav>
 
-    {#if cartCount > 0}
-      <button type="button" class="cart-bar" onclick={openCart} transition:fly={{ y: 40, duration: 250 }}>
-        <span>Ma pré-commande ({cartCount})</span>
-        <strong>{formatEUR(cartTotal)} →</strong>
-      </button>
-    {/if}
+    <!-- Toujours là : c'est dans le récap qu'on choisit les quantités et qu'on commande. -->
+    <button type="button" class="recap-bar" onclick={openRecap}>
+      {#if cartCount > 0}
+        <span>À confirmer ({cartCount} bt. · {formatEUR(cartTotal)})</span>
+        <strong>Confirmer →</strong>
+      {:else if favoriteCount}
+        <span>Mes favoris ({favoriteCount})</span>
+        <strong>{ordered ? "Récap →" : "Commander →"}</strong>
+      {:else}
+        <span>Récap de la soirée</span>
+        <strong>→</strong>
+      {/if}
+    </button>
   {/if}
 </div>
 
@@ -554,61 +588,97 @@
   </form>
 </CaveSheet>
 
+{#snippet recapRow(lot: any, i: number)}
+  {@const r = ratings[lot.id]}
+  <li>
+    {#if i <= unlocked}
+      <div class="recap-row">
+        <button type="button" class="recap-open" onclick={() => { showRecap = false; goTo(i); }} disabled={sending}>
+          <span class="recap-num" style="--c: {productStyle(lot.product?.product_type).color}">{i + 1}</span>
+          <span>
+            <span class="recap-name">{withVolume(lotName(lot), lot)}</span>
+            <span class="recap-meta">
+              {#if lot.price}{formatEUR(lot.price)}{/if}
+              {#if r?.rating}<StarRating value={r.rating} readonly size="0.85rem" />{/if}
+            </span>
+          </span>
+          {#if photos[lot.id]}<img class="recap-photo" src={photos[lot.id].url} alt="" />{/if}
+        </button>
+        <FavoriteToggle active={!!favorites[lot.id]} onchange={(on) => setFavorite(lot.id, on)} label={withVolume(lotName(lot), lot)} size="sm" />
+        <QtyStepper value={cart[lot.id] ?? 0} onchange={(q) => setQty(lot.id, q)} size="sm" disabled={sending} />
+      </div>
+      {#if r?.comment}<p class="recap-comment">« {r.comment} »</p>{/if}
+    {:else}
+      <span class="recap-locked"><span class="recap-num" style="--c: var(--mz-cave-faint)">{i + 1}</span> À venir…</span>
+    {/if}
+  </li>
+{/snippet}
+
 <!-- Pas de fermeture pendant la confirmation : un ajout fait entre-temps serait effacé avec le panier. -->
 <CaveSheet
-  open={showCart}
-  title={sendResult === "ok" ? `Merci ${profile.firstName} !` : "Ma pré-commande"}
-  onclose={() => (showCart = false)}
+  open={showRecap}
+  title={sendResult === "ok" ? `Merci ${profile.firstName} !` : "Votre soirée"}
+  onclose={() => (showRecap = false)}
   locked={sending}
 >
   {#if sendResult === "ok"}
     <p class="sheet-lead">Votre commande est confirmée. On prépare vos bouteilles et on revient vers vous très vite.</p>
-    <button type="button" class="solid-btn" onclick={() => { showCart = false; sendResult = null; }}>Continuer la dégustation</button>
+    <button type="button" class="solid-btn" onclick={() => { showRecap = false; sendResult = null; }}>Continuer la dégustation</button>
   {:else}
     <p class="sheet-lead">
-      Rien n’est commandé tant que vous n’avez pas confirmé : ajustez les quantités à votre guise.
+      Vous avez noté {ratedCount} sur {total}. Choisissez vos quantités : rien n’est commandé tant que vous n’avez pas confirmé.
     </p>
-    <ul class="cart-lines">
-      {#each cartLines as l (l.lot.id)}
-        <li>
-          <span class="mz-dot" style="background: {productStyle(l.lot.product?.product_type).color}"></span>
-          <span class="cart-name">{withVolume(lotName(l.lot), l.lot)}</span>
-          <QtyStepper value={l.qty} onchange={(q) => setQty(l.lot.id, q)} size="sm" disabled={sending} />
-          <span class="cart-price">{formatEUR(l.qty * Number(l.lot.price ?? 0))}</span>
-        </li>
-      {/each}
-    </ul>
-    <p class="cart-total">Total indicatif <strong>{formatEUR(cartTotal)}</strong></p>
-
-    {#if sendResult === "offline"}
-      <p class="offline">
-        Impossible de confirmer pour l’instant : votre sélection reste enregistrée sur ce téléphone.
-        Montrez cet écran à l’équipe Mezzaterra, on s’en occupe !
-      </p>
+    {#if ordered}
+      <p class="ordered">✓ Déjà commandé ce soir : {ordered} bt. Vous pouvez encore en ajouter, ce sera une nouvelle commande.</p>
+    {/if}
+    {#if recapGroups.favorite.length}
+      <h3 class="recap-title">Vos favoris</h3>
+      <ol class="recap">
+        {#each recapGroups.favorite as { lot, i } (lot.id)}{@render recapRow(lot, i)}{/each}
+      </ol>
+    {/if}
+    {#if recapGroups.other.length}
+      {#if recapGroups.favorite.length}<h3 class="recap-title">Le reste de la soirée</h3>{/if}
+      <ol class="recap">
+        {#each recapGroups.other as { lot, i } (lot.id)}{@render recapRow(lot, i)}{/each}
+      </ol>
     {/if}
 
-    <form onsubmit={preventDefault(confirmOrder)} class="sheet-form">
-      {#if editingContact}
-        <div class="row">
-          <label>Prénom *<input bind:value={profile.firstName} autocomplete="given-name" required /></label>
-          <label>Nom<input bind:value={profile.lastName} autocomplete="family-name" /></label>
-        </div>
-        <div class="row">
-          <label>Email<input type="email" bind:value={profile.email} autocomplete="email" /></label>
-          <label>Téléphone<input type="tel" bind:value={profile.phone} autocomplete="tel" /></label>
-        </div>
-      {:else}
-        <p class="contact">
-          <span>Au nom de <strong>{guestName(profile)}</strong> · {profile.email || profile.phone}</span>
-          <button type="button" class="link-btn" onclick={() => (editingContact = true)}>Modifier</button>
+    {#if cartCount > 0}
+      <p class="cart-total">{cartCount} bt. · total indicatif <strong>{formatEUR(cartTotal)}</strong></p>
+
+      {#if sendResult === "offline"}
+        <p class="offline">
+          Impossible de confirmer pour l’instant : votre sélection reste enregistrée sur ce téléphone.
+          Montrez cet écran à l’équipe Mezzaterra, on s’en occupe !
         </p>
       {/if}
-      {#if sendError}<p class="error" role="alert">{sendError}</p>{/if}
-      <button type="submit" class="solid-btn" disabled={sending || cartCount === 0}>
-        {sending ? "Confirmation…" : "Confirmer ma commande"}
-      </button>
-      <p class="fine">Aucun paiement maintenant : nous vous recontactons pour la livraison.</p>
-    </form>
+
+      <form onsubmit={preventDefault(confirmOrder)} class="sheet-form">
+        {#if editingContact}
+          <div class="row">
+            <label>Prénom *<input bind:value={profile.firstName} autocomplete="given-name" required /></label>
+            <label>Nom<input bind:value={profile.lastName} autocomplete="family-name" /></label>
+          </div>
+          <div class="row">
+            <label>Email<input type="email" bind:value={profile.email} autocomplete="email" /></label>
+            <label>Téléphone<input type="tel" bind:value={profile.phone} autocomplete="tel" /></label>
+          </div>
+        {:else}
+          <p class="contact">
+            <span>Au nom de <strong>{guestName(profile)}</strong> · {profile.email || profile.phone}</span>
+            <button type="button" class="link-btn" onclick={() => (editingContact = true)}>Modifier</button>
+          </p>
+        {/if}
+        {#if sendError}<p class="error" role="alert">{sendError}</p>{/if}
+        <button type="submit" class="solid-btn" disabled={sending}>
+          {sending ? "Confirmation…" : "Confirmer ma commande"}
+        </button>
+        <p class="fine">Aucun paiement maintenant : nous vous recontactons pour la livraison.</p>
+      </form>
+    {:else}
+      <p class="fine">Ajoutez des bouteilles avec + pour passer commande.</p>
+    {/if}
   {/if}
 </CaveSheet>
 
@@ -640,38 +710,6 @@
   {/if}
 </CaveSheet>
 
-<CaveSheet open={showRecap} title="Votre soirée" onclose={() => (showRecap = false)}>
-  <p class="sheet-lead">Vous avez noté {ratedCount} sur {total}.</p>
-  <ol class="recap">
-    {#each lots as w, i}
-      {@const r = ratings[w.id]}
-      <li>
-        {#if i <= unlocked}
-          <button type="button" onclick={() => { showRecap = false; goTo(i); }}>
-            <span class="recap-num" style="--c: {productStyle(w.product?.product_type).color}">{i + 1}</span>
-            <span class="recap-name">
-              {productTitle(w.product)}
-              {#if cart[w.id]}<span class="recap-qty">× {cart[w.id]} en pré-commande</span>{/if}
-            </span>
-            <span class="recap-end">
-              {#if photos[w.id]}<img class="recap-photo" src={photos[w.id].url} alt="" />{/if}
-              <StarRating value={r?.rating ?? null} readonly size="0.95rem" />
-            </span>
-          </button>
-        {:else}
-          <span class="recap-locked"><span class="recap-num" style="--c: var(--mz-cave-faint)">{i + 1}</span> À venir…</span>
-        {/if}
-        {#if r?.comment}<p class="recap-comment">« {r.comment} »</p>{/if}
-      </li>
-    {/each}
-  </ol>
-  {#if cartCount > 0}
-    <div class="recap-actions">
-      <button type="button" class="solid-btn" onclick={() => { showRecap = false; openCart(); }}>Voir et confirmer ma pré-commande</button>
-    </div>
-  {/if}
-</CaveSheet>
-
 <style>
   .cave {
     min-height: 100dvh;
@@ -683,10 +721,6 @@
     color: var(--mz-cave-text);
     font-family: var(--mz-font-body);
     transition: background 0.8s ease;
-    padding-bottom: calc(5.5rem + env(safe-area-inset-bottom));
-  }
-
-  .cave.has-cart {
     padding-bottom: calc(10rem + env(safe-area-inset-bottom));
   }
 
@@ -908,14 +942,18 @@
     padding: 1rem 1.1rem;
   }
 
-  .panel-head {
-    display: flex;
-    justify-content: space-between;
+  .panel-head,
+  .recap-title {
     font-size: 0.75rem;
     font-weight: 600;
     letter-spacing: 0.1em;
     text-transform: uppercase;
     color: var(--mz-cave-muted);
+  }
+
+  .panel-head {
+    display: flex;
+    justify-content: space-between;
     margin-bottom: 0.5rem;
   }
 
@@ -1148,14 +1186,6 @@
     opacity: 0.3;
   }
 
-  .recap-btn {
-    font-size: 0.9rem;
-    font-weight: 600;
-    padding: 0 1rem;
-    background: var(--mz-cave-text);
-    color: var(--mz-cave-bg);
-  }
-
   .dot-col {
     display: flex;
     flex-direction: column;
@@ -1226,7 +1256,7 @@
     }
   }
 
-  .cart-bar {
+  .recap-bar {
     position: fixed;
     left: 50%;
     bottom: calc(4.6rem + env(safe-area-inset-bottom));
@@ -1243,7 +1273,7 @@
     color: var(--mz-cave-bg);
     font: inherit;
     cursor: pointer;
-    box-shadow: 0 12px 30px rgba(0, 0, 0, 0.45);
+    box-shadow: var(--mz-shadow-lg);
   }
 
   /* ——— Feuilles (CaveSheet) ——— */
@@ -1308,31 +1338,6 @@
     color: var(--mz-cave-text);
   }
 
-  .cart-lines {
-    list-style: none;
-    margin: 0 0 0.75rem;
-    padding: 0;
-  }
-
-  .cart-lines li {
-    display: grid;
-    grid-template-columns: auto 1fr auto auto;
-    align-items: center;
-    gap: 0.6rem;
-    padding: 0.55rem 0;
-    border-bottom: 1px solid var(--mz-cave-line);
-  }
-
-  .cart-name {
-    font-weight: 600;
-  }
-
-  .cart-price {
-    min-width: 4.5rem;
-    text-align: right;
-    font-variant-numeric: tabular-nums;
-  }
-
   .cart-total {
     display: flex;
     justify-content: space-between;
@@ -1350,6 +1355,15 @@
     border-radius: 10px;
     background: color-mix(in srgb, var(--mz-cave-warning) 15%, transparent);
     color: var(--mz-cave-warning);
+    line-height: 1.45;
+  }
+
+  .ordered {
+    margin: 0 0 1.1rem;
+    padding: 0.7rem 0.9rem;
+    border-radius: 10px;
+    background: color-mix(in srgb, var(--mz-cave-success) 12%, transparent);
+    color: var(--mz-cave-success);
     line-height: 1.45;
   }
 
@@ -1388,23 +1402,12 @@
     color: var(--mz-cave-danger);
   }
 
-  .recap-end {
-    display: inline-flex;
-    align-items: center;
-    gap: 0.6rem;
-  }
-
   .recap-photo {
+    flex-shrink: 0;
     width: 2rem;
     height: 2rem;
+    margin-left: auto;
     border-radius: var(--mz-radius-sm);
-  }
-
-  .recap-qty {
-    display: block;
-    font-family: var(--mz-font-body);
-    font-size: 0.8rem;
-    color: var(--mz-cave-muted);
   }
 
   .fine {
@@ -1420,15 +1423,25 @@
     padding: 0;
   }
 
+  .recap-title {
+    margin: 0 0 0.25rem;
+  }
+
   .recap li {
     border-bottom: 1px solid var(--mz-cave-line);
     padding: 0.5rem 0;
   }
 
-  .recap button {
-    width: 100%;
-    display: grid;
-    grid-template-columns: auto 1fr auto;
+  .recap-row {
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+  }
+
+  .recap-open {
+    flex: 1;
+    min-width: 0;
+    display: flex;
     align-items: center;
     gap: 0.75rem;
     background: none;
@@ -1440,21 +1453,33 @@
     cursor: pointer;
   }
 
+  .recap-meta {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    font-size: 0.82rem;
+    color: var(--mz-cave-muted);
+    font-variant-numeric: tabular-nums;
+  }
+
   .recap-num {
+    flex-shrink: 0;
     width: 1.7rem;
     height: 1.7rem;
     border-radius: 50%;
     display: grid;
     place-items: center;
     background: var(--c);
-    color: #fff;
+    color: var(--mz-on-brand);
     font-size: 0.85rem;
     font-weight: 700;
   }
 
   .recap-name {
+    display: block;
     font-family: var(--mz-font-display);
     font-size: 1.1rem;
+    line-height: 1.2;
   }
 
   .recap-comment {
@@ -1462,11 +1487,5 @@
     font-style: italic;
     color: var(--mz-cave-muted);
     font-size: 0.9rem;
-  }
-
-  .recap-actions {
-    display: flex;
-    flex-direction: column;
-    gap: 0.6rem;
   }
 </style>
