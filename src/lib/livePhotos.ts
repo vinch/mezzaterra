@@ -66,7 +66,8 @@ export async function loadPhotos(tastingId: string): Promise<Record<string, Blob
 
 let persistAsked = false;
 
-export async function savePhoto(tastingId: string, lotId: string, blob: Blob): Promise<void> {
+/** Faux si le navigateur n'a pas pu la ranger (pas d'IndexedDB, plus de place…). */
+export async function savePhoto(tastingId: string, lotId: string, blob: Blob): Promise<boolean> {
   try {
     await run("readwrite", (s) => s.put({ lotId, blob } satisfies PhotoRecord, key(tastingId, lotId)));
     /* Demande (une fois) au navigateur de ne pas effacer ces données quand le téléphone manque de place. */
@@ -74,8 +75,9 @@ export async function savePhoto(tastingId: string, lotId: string, blob: Blob): P
       persistAsked = true;
       void navigator.storage?.persist?.().catch(() => {});
     }
+    return true;
   } catch {
-    /* Pas d'IndexedDB : la photo reste affichée jusqu'à la fin de la visite. */
+    return false;
   }
 }
 

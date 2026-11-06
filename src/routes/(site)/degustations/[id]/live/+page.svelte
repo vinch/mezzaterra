@@ -79,7 +79,8 @@
   let sendError = $state("");
 
   /* ——— Photos de l'invité (une par produit, gardées sur le téléphone) ——— */
-  let photos = $state.raw<Record<string, { blob: Blob; url: string }>>({});
+  /** `saved` faux : le navigateur n'a pas pu la ranger, elle disparaîtra en quittant la page. */
+  let photos = $state.raw<Record<string, { blob: Blob; url: string; saved: boolean }>>({});
   let photoInput = $state<HTMLInputElement>();
   /** Produit de la photo en cours : fixé à l'ouverture de l'appareil, la page a pu bouger depuis. */
   let photoLot: string | null = null;
@@ -302,17 +303,18 @@
       if (!destroyed) photoError = lotId;
       return;
     }
-    /* Page quittée pendant la réduction : gardée quand même, mais plus affichée (l'URL ne serait jamais libérée). */
-    if (!destroyed) setPhoto(lotId, blob);
-    void savePhoto(tasting.id, lotId, blob);
+    /* Rangée avant d'être affichée, pour savoir si elle survivra. Page quittée entre-temps : rangée
+       quand même, mais plus affichée (l'URL ne serait jamais libérée). */
+    const saved = await savePhoto(tasting.id, lotId, blob);
+    if (!destroyed) setPhoto(lotId, blob, saved);
   }
 
-  const photoEntry = (blob: Blob) => ({ blob, url: URL.createObjectURL(blob) });
+  const photoEntry = (blob: Blob, saved = true) => ({ blob, url: URL.createObjectURL(blob), saved });
 
-  function setPhoto(lotId: string, blob: Blob | null) {
+  function setPhoto(lotId: string, blob: Blob | null, saved = true) {
     const next = { ...photos };
     if (next[lotId]) URL.revokeObjectURL(next[lotId].url);
-    if (blob) next[lotId] = photoEntry(blob);
+    if (blob) next[lotId] = photoEntry(blob, saved);
     else delete next[lotId];
     photos = next;
   }
@@ -445,7 +447,7 @@
                 <button type="button" class="photo-thumb" onclick={() => openPhoto(current)} aria-label="Voir votre photo">
                   <img src={photos[current.id].url} alt="" />
                 </button>
-                <span class="photo-caption">Votre photo</span>
+                <span class="photo-caption">{photos[current.id].saved ? "Votre photo" : "Votre photo, à enregistrer"}</span>
                 <button type="button" class="link-btn" onclick={() => takePhoto(current.id)}>Reprendre</button>
               </div>
             {:else}
@@ -612,7 +614,11 @@
   {#if viewedLot && photos[viewedLot.id]}
     {@const photo = photos[viewedLot.id]}
     <img class="photo-full" src={photo.url} alt="Votre photo : {lotName(viewedLot)}" />
-    <p class="sheet-lead">Elle reste dans ce navigateur, sur ce téléphone : enregistrez-la pour la garder.</p>
+    {#if photo.saved}
+      <p class="sheet-lead">Elle reste dans ce navigateur, sur ce téléphone : enregistrez-la pour la garder.</p>
+    {:else}
+      <p class="offline">Ce navigateur n’a pas pu la garder : enregistrez-la maintenant, elle disparaîtra en quittant la page.</p>
+    {/if}
     <div class="photo-actions">
       <button type="button" class="solid-btn" onclick={() => exportPhoto(photo.blob, lotName(viewedLot))}>
         <IconShare size={18} aria-hidden="true" /> Enregistrer
