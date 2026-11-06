@@ -55,6 +55,7 @@
   --mz-cave-warning: #f0d08a;
   --mz-cave-danger: #f19a9a;
   --mz-live: #e4566b; /* pastille « en direct » */
+  --mz-cave-favorite: #ee7385; /* cœur des favoris du mode live */
 
   /* Carte des Abruzzes (AbruzzoMap) ; terres et frontières reprennent les surfaces. */
   --mz-map-sea: #dfe7e4;

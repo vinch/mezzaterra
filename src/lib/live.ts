@@ -9,8 +9,9 @@ import { escapeLike, fetchAllRows, supabase } from "./supabase";
  *   et persistée dans `tasting.live_position` pour les retardataires.
  * - Les notes et le panier des invités vivent d'abord dans le localStorage (ça marche hors-ligne),
  *   puis sont envoyés en base quand c’est possible.
- * - Le panier est une pré-commande (live_preorder) : « J'en veux » l'enregistre sans rien demander,
- *   l'invité la confirme depuis son récap et elle devient une demande « J'en veux » (wish_request).
+ * - Sur chaque produit, l'invité met seulement de côté ses favoris (localStorage). Les quantités se
+ *   choisissent dans le récap : ce panier est une pré-commande (live_preorder), enregistrée sans rien
+ *   demander ; confirmée depuis le récap, elle devient une demande « J'en veux » (wish_request).
  */
 
 export type GuestProfile = { firstName: string; lastName: string; email: string; phone: string };
@@ -112,6 +113,8 @@ export const localRatings = perTasting<Record<string, LocalRating>>("mz-ratings"
 /** Dernier produit servi vu sur ce téléphone : un rechargement ne perd pas la progression. */
 export const localServed = perTasting<number>("mz-served", (v) => Number(v) || 0);
 export const localCart = perTasting<Record<string, number>>("mz-cart", (v) => v ?? {});
+/** Identifiants des lots mis en favori sur ce téléphone. */
+export const localFavorites = perTasting<string[]>("mz-favorites", (v) => (Array.isArray(v) ? v : []));
 /** Panier changé mais pas encore en base (hors ligne, page quittée) : renvoyé à la prochaine occasion. */
 const preorderDirty = perTasting<boolean>("mz-preorder-dirty", (v) => v === true);
 /**
