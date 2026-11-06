@@ -422,7 +422,7 @@
             <div>
               <span class="want-title">{isFavorite ? "Dans vos favoris" : "Un coup de cœur ?"}</span>
               <span class="want-price">
-                {#if isFavorite}Quantités à choisir dans le récap{:else if current.price}{formatEUR(current.price)} la bouteille{/if}
+                {#if cart[current.id]}{cart[current.id]} bt. dans votre récap, à confirmer{:else if isFavorite}Quantités à choisir dans le récap{:else if current.price}{formatEUR(current.price)} la bouteille{/if}
               </span>
             </div>
             <FavoriteToggle
