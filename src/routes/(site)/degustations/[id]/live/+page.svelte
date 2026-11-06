@@ -406,25 +406,28 @@
 
     <nav class="dots" aria-label="Déroulé de la soirée">
       <button type="button" class="nav-arrow" onclick={() => goTo(index - 1)} disabled={index === 0} aria-label="Précédent">‹</button>
-      <div class="dot-row">
-        {#each lots as w, i}
-          {@const s = productStyle(w.product?.product_type)}
-          {#if i <= unlocked}
-            <button
-              type="button"
-              class="lot-dot"
-              class:active={i === index}
-              class:served={hostPosition != null && i === hostPosition}
-              class:rated={!!ratings[w.id]?.rating}
-              style="--c: {s.color}"
-              onclick={() => goTo(i)}
-              aria-label="{kindInfo(w.product).label} {i + 1} : {productTitle(w.product)}"
-              aria-current={i === index}
-            ></button>
-          {:else}
-            <span class="lot-dot locked" aria-label="{i + 1} : à venir" role="img"></span>
-          {/if}
-        {/each}
+      <div class="dot-col">
+        <div class="dot-row">
+          {#each lots as w, i}
+            {@const s = productStyle(w.product?.product_type)}
+            {#if i <= unlocked}
+              <button
+                type="button"
+                class="lot-dot"
+                class:active={i === index}
+                class:served={hostPosition != null && i === hostPosition}
+                class:rated={!!ratings[w.id]?.rating}
+                style="--c: {s.color}"
+                onclick={() => goTo(i)}
+                aria-label="{kindInfo(w.product).label} {i + 1} : {productTitle(w.product)}"
+                aria-current={i === index}
+              ></button>
+            {:else}
+              <span class="lot-dot locked" aria-label="{i + 1} : à venir" role="img"></span>
+            {/if}
+          {/each}
+        </div>
+        <span class="dot-count" aria-hidden="true">{index + 1}<span class="muted"> / {total}</span></span>
       </div>
       {#if index === total - 1}
         <button type="button" class="nav-arrow recap-btn" onclick={() => (showRecap = true)}>Récap</button>
@@ -949,6 +952,21 @@
     padding: 0 1rem;
     background: var(--mz-cave-text);
     color: var(--mz-cave-bg);
+  }
+
+  .dot-col {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.6rem;
+    min-width: 0;
+  }
+
+  .dot-count {
+    font-size: 0.75rem;
+    line-height: 1;
+    font-variant-numeric: tabular-nums;
+    color: var(--mz-cave-text);
   }
 
   .dot-row {
