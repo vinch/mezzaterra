@@ -40,6 +40,8 @@
     type GuestProfile,
     type LocalRating,
   } from "$lib/live";
+  import { deletePhoto, exportPhoto, loadPhotos, savePhoto, shrinkPhoto } from "$lib/livePhotos";
+  import { IconCamera, IconShare } from "$lib/ui/icons";
 
   let { data } = $props();
 
@@ -76,6 +78,16 @@
   let sendResult = $state<"ok" | "offline" | null>(null);
   let sendError = $state("");
 
+  /* ——— Photos de l'invité (une par produit, gardées sur le téléphone) ——— */
+  let photos = $state.raw<Record<string, { blob: Blob; url: string }>>({});
+  let photoInput = $state<HTMLInputElement>();
+  /** Produit de la photo en cours : fixé à l'ouverture de l'appareil, la page a pu bouger depuis. */
+  let photoLot: string | null = null;
+  let viewedLot = $state<any>(null);
+  let showPhoto = $state(false);
+  let confirmDelete = $state(false);
+  let destroyed = false;
+
   onMount(() => {
     if (!tasting) return;
     profile = getProfile();
@@ -83,6 +95,9 @@
     cart = localCart.get(tasting.id);
     getGuestId();
     showWelcome = !profile.firstName;
+    void loadPhotos(tasting.id).then((blobs) => {
+      if (!destroyed) photos = Object.fromEntries(Object.entries(blobs).map(([id, blob]) => [id, photoEntry(blob)]));
+    });
     preorder = createPreorderSync(tasting.id, () => ({ cart, profile }));
     preorder.resume();
 
@@ -110,6 +125,8 @@
   });
 
   onDestroy(() => {
+    destroyed = true;
+    for (const p of Object.values(photos)) URL.revokeObjectURL(p.url);
     if (channel) void supabase.removeChannel(channel);
     /* Commentaire tapé il y a moins de 1,2 s : envoyé quand même en quittant la page. */
     for (const [lotId, timer] of commentTimers) {
@@ -261,6 +278,49 @@
     localCart.save(tasting.id, cart);
   }
 
+  function takePhoto(lotId: string) {
+    photoLot = lotId;
+    photoInput?.click();
+  }
+
+  async function onPhotoPicked(e: Event) {
+    const input = e.currentTarget as HTMLInputElement;
+    const file = input.files?.[0];
+    input.value = "";
+    const lotId = photoLot;
+    if (!file || !lotId) return;
+    const blob = await shrinkPhoto(file);
+    setPhoto(lotId, blob);
+    void savePhoto(tasting.id, lotId, blob);
+  }
+
+  const photoEntry = (blob: Blob) => ({ blob, url: URL.createObjectURL(blob) });
+
+  function setPhoto(lotId: string, blob: Blob | null) {
+    const next = { ...photos };
+    if (next[lotId]) URL.revokeObjectURL(next[lotId].url);
+    if (blob) next[lotId] = photoEntry(blob);
+    else delete next[lotId];
+    photos = next;
+  }
+
+  function openPhoto(lot: any) {
+    viewedLot = lot;
+    confirmDelete = false;
+    showPhoto = true;
+  }
+
+  function removePhoto(lotId: string) {
+    showPhoto = false;
+    setPhoto(lotId, null);
+    void deletePhoto(tasting.id, lotId);
+  }
+
+  /** « Rosso 2021 » : nom du produit et millésime, pour le texte alternatif et le nom du fichier. */
+  function lotName(lot: any): string {
+    return `${productTitle(lot.product)}${lot.year ? ` ${lot.year}` : ""}`;
+  }
+
   /* ——— Swipe ——— */
   let touchX: number | null = null;
   let touchY: number | null = null;
@@ -367,6 +427,19 @@
               oninput={onComment}
               maxlength="1000"
             ></textarea>
+            {#if photos[current.id]}
+              <div class="photo-row">
+                <button type="button" class="photo-thumb" onclick={() => openPhoto(current)} aria-label="Voir votre photo">
+                  <img src={photos[current.id].url} alt="" />
+                </button>
+                <span class="photo-caption">Votre photo</span>
+                <button type="button" class="link-btn" onclick={() => takePhoto(current.id)}>Reprendre</button>
+              </div>
+            {:else}
+              <button type="button" class="ghost-btn photo-btn" onclick={() => takePhoto(current.id)}>
+                <IconCamera size={18} aria-hidden="true" /> Prendre une photo
+              </button>
+            {/if}
           </div>
 
           {#if notes.length || pairings.length}
@@ -476,7 +549,7 @@
       {#each cartLines as l (l.lot.id)}
         <li>
           <span class="mz-dot" style="background: {productStyle(l.lot.product?.product_type).color}"></span>
-          <span class="cart-name">{withVolume(`${productTitle(l.lot.product)}${l.lot.year ? ` ${l.lot.year}` : ""}`, l.lot)}</span>
+          <span class="cart-name">{withVolume(lotName(l.lot), l.lot)}</span>
           <QtyStepper value={l.qty} onchange={(q) => setQty(l.lot.id, q)} size="sm" disabled={sending} />
           <span class="cart-price">{formatEUR(l.qty * Number(l.lot.price ?? 0))}</span>
         </li>
@@ -516,6 +589,30 @@
   {/if}
 </CaveSheet>
 
+<!-- Un seul champ pour toute la page : il ouvre directement l'appareil photo du téléphone. -->
+<input bind:this={photoInput} type="file" accept="image/*" capture="environment" hidden onchange={onPhotoPicked} />
+
+<CaveSheet open={showPhoto} title="Votre photo" onclose={() => (showPhoto = false)}>
+  {#if viewedLot && photos[viewedLot.id]}
+    {@const photo = photos[viewedLot.id]}
+    <img class="photo-full" src={photo.url} alt="Votre photo : {lotName(viewedLot)}" />
+    <p class="sheet-lead">Elle reste dans ce navigateur, sur ce téléphone : enregistrez-la pour la garder.</p>
+    <div class="photo-actions">
+      <button type="button" class="solid-btn" onclick={() => exportPhoto(photo.blob, lotName(viewedLot))}>
+        <IconShare size={18} aria-hidden="true" /> Enregistrer
+      </button>
+      <button type="button" class="ghost-btn" onclick={() => takePhoto(viewedLot.id)}>
+        <IconCamera size={18} aria-hidden="true" /> Reprendre
+      </button>
+      {#if confirmDelete}
+        <button type="button" class="link-btn danger" onclick={() => removePhoto(viewedLot.id)}>Oui, supprimer la photo</button>
+      {:else}
+        <button type="button" class="link-btn" onclick={() => (confirmDelete = true)}>Supprimer…</button>
+      {/if}
+    </div>
+  {/if}
+</CaveSheet>
+
 <CaveSheet open={showRecap} title="Votre soirée" onclose={() => (showRecap = false)}>
   <p class="sheet-lead">Vous avez noté {ratedCount} sur {total}.</p>
   <ol class="recap">
@@ -529,7 +626,10 @@
               {productTitle(w.product)}
               {#if cart[w.id]}<span class="recap-qty">× {cart[w.id]} en pré-commande</span>{/if}
             </span>
-            <StarRating value={r?.rating ?? null} readonly size="0.95rem" />
+            <span class="recap-end">
+              {#if photos[w.id]}<img class="recap-photo" src={photos[w.id].url} alt="" />{/if}
+              <StarRating value={r?.rating ?? null} readonly size="0.95rem" />
+            </span>
           </button>
         {:else}
           <span class="recap-locked"><span class="recap-num" style="--c: var(--mz-cave-faint)">{i + 1}</span> À venir…</span>
@@ -826,6 +926,66 @@
     margin-top: 0.75rem;
   }
 
+  .ghost-btn.photo-btn {
+    margin-top: 0.75rem;
+    padding-block: 0.6rem;
+  }
+
+  .photo-row {
+    margin-top: 0.75rem;
+    width: 100%;
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+  }
+
+  .photo-thumb {
+    flex-shrink: 0;
+    width: 3.5rem;
+    height: 3.5rem;
+    padding: 0;
+    border: 1px solid var(--mz-cave-line);
+    border-radius: var(--mz-radius-sm);
+    overflow: hidden;
+    background: var(--mz-cave-sunk);
+    cursor: pointer;
+  }
+
+  .photo-thumb img,
+  .recap-photo {
+    display: block;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+  }
+
+  .photo-caption {
+    flex: 1;
+    font-size: 0.9rem;
+    color: var(--mz-cave-muted);
+  }
+
+  .photo-full {
+    display: block;
+    width: 100%;
+    max-height: 60vh;
+    object-fit: contain;
+    border-radius: var(--mz-radius);
+    background: var(--mz-cave-sunk);
+    margin-bottom: 1rem;
+  }
+
+  .photo-actions {
+    display: flex;
+    flex-direction: column;
+    gap: 0.6rem;
+  }
+
+  .photo-actions .link-btn {
+    align-self: center;
+    margin-top: 0.2rem;
+  }
+
   textarea:focus,
   .sheet-form input:focus {
     outline: none;
@@ -1081,6 +1241,7 @@
     display: inline-flex;
     justify-content: center;
     align-items: center;
+    gap: 0.45rem;
     padding: 0.85rem 1.2rem;
     border-radius: var(--mz-radius-pill);
     font: inherit;
@@ -1179,6 +1340,22 @@
     font-size: 0.9rem;
     text-decoration: underline;
     cursor: pointer;
+  }
+
+  .link-btn.danger {
+    color: var(--mz-cave-danger);
+  }
+
+  .recap-end {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.6rem;
+  }
+
+  .recap-photo {
+    width: 2rem;
+    height: 2rem;
+    border-radius: var(--mz-radius-sm);
   }
 
   .recap-qty {
