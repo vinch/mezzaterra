@@ -280,6 +280,8 @@
 
   function takePhoto(lotId: string) {
     photoLot = lotId;
+    /* « Supprimer… » armé sur l'ancienne photo ne doit pas viser la nouvelle. */
+    confirmDelete = false;
     photoInput?.click();
   }
 
