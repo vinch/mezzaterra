@@ -21,7 +21,11 @@ function openDb(): Promise<IDBDatabase> {
   dbPromise ??= new Promise<IDBDatabase>((resolve, reject) => {
     const req = indexedDB.open(DB_NAME, 1);
     req.onupgradeneeded = () => req.result.createObjectStore(STORE);
-    req.onsuccess = () => resolve(req.result);
+    req.onsuccess = () => {
+      /* Connexion coupée par le navigateur (téléphone en veille sur iOS…) : rouverte au prochain accès. */
+      req.result.onclose = () => (dbPromise = null);
+      resolve(req.result);
+    };
     req.onerror = () => reject(req.error);
   }).catch((e) => {
     dbPromise = null;
@@ -32,7 +36,14 @@ function openDb(): Promise<IDBDatabase> {
 
 /** Une requête dans sa transaction ; résolue une fois la transaction terminée (écriture durable). */
 async function run<T>(mode: IDBTransactionMode, fn: (store: IDBObjectStore) => IDBRequest<T>): Promise<T> {
-  const tx = (await openDb()).transaction(STORE, mode);
+  let tx: IDBTransaction;
+  try {
+    tx = (await openDb()).transaction(STORE, mode);
+  } catch {
+    /* Connexion perdue sans « close » (WebKit) : une seule nouvelle tentative, sur une connexion neuve. */
+    dbPromise = null;
+    tx = (await openDb()).transaction(STORE, mode);
+  }
   const req = fn(tx.objectStore(STORE));
   return new Promise((resolve, reject) => {
     tx.oncomplete = () => resolve(req.result);
