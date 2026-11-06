@@ -43,6 +43,8 @@
     type GuestProfile,
     type LocalRating,
   } from "$lib/live";
+  import { deletePhoto, exportPhoto, loadPhotos, savePhoto, shrinkPhoto } from "$lib/livePhotos";
+  import { IconCamera, IconShare } from "$lib/ui/icons";
 
   let { data } = $props();
 
@@ -82,6 +84,19 @@
   let sendResult = $state<"ok" | "offline" | null>(null);
   let sendError = $state("");
 
+  /* ——— Photos de l'invité (une par produit, gardées sur le téléphone) ——— */
+  /** `saved` faux : le navigateur n'a pas pu la ranger, elle disparaîtra en quittant la page. */
+  let photos = $state.raw<Record<string, { blob: Blob; url: string; saved: boolean }>>({});
+  let photoInput = $state<HTMLInputElement>();
+  /** Produit de la photo en cours : fixé à l'ouverture de l'appareil, la page a pu bouger depuis. */
+  let photoLot: string | null = null;
+  let viewedLot = $state<any>(null);
+  let showPhoto = $state(false);
+  let confirmDelete = $state(false);
+  /** Produit dont la dernière photo n'a pas pu être lue. */
+  let photoError = $state<string | null>(null);
+  let destroyed = false;
+
   onMount(() => {
     if (!tasting) return;
     profile = getProfile();
@@ -91,6 +106,12 @@
     ordered = localOrdered.get(tasting.id);
     getGuestId();
     showWelcome = !profile.firstName;
+    void loadPhotos(tasting.id).then((blobs) => {
+      if (destroyed) return;
+      /* Une photo prise pendant la lecture est plus récente que celle rangée : elle reste. */
+      const stored = Object.entries(blobs).filter(([id]) => !photos[id]);
+      photos = { ...Object.fromEntries(stored.map(([id, blob]) => [id, photoEntry(blob)])), ...photos };
+    });
     preorder = createPreorderSync(tasting.id, () => ({ cart, profile }));
     preorder.resume();
 
@@ -118,6 +139,8 @@
   });
 
   onDestroy(() => {
+    destroyed = true;
+    for (const p of Object.values(photos)) URL.revokeObjectURL(p.url);
     if (channel) void supabase.removeChannel(channel);
     /* Commentaire tapé il y a moins de 1,2 s : envoyé quand même en quittant la page. */
     for (const [lotId, timer] of commentTimers) {
@@ -201,7 +224,8 @@
     }
   }
 
-  function rate(n: number) {
+  /** null : l'invité retire sa note (la ligne envoyée sans étoiles fait foi). */
+  function rate(n: number | null) {
     if (!current) return;
     persistRating(current, { rating: n });
     /* Cet envoi porte aussi le commentaire en attente. */
@@ -223,11 +247,6 @@
         void sync(lotId);
       }, 1200),
     );
-  }
-
-  /** Nom du lot tel qu'affiché dans le récap : produit, année, contenance. */
-  function lotName(lot: any): string {
-    return withVolume(`${productTitle(lot.product)}${lot.year ? ` ${lot.year}` : ""}`, lot);
   }
 
   function setFavorite(lotId: string, on: boolean) {
@@ -293,6 +312,58 @@
     localOrdered.save(tasting.id, ordered);
     cart = {};
     localCart.save(tasting.id, cart);
+  }
+
+  function takePhoto(lotId: string) {
+    photoLot = lotId;
+    /* « Supprimer… » armé sur l'ancienne photo ne doit pas viser la nouvelle. */
+    confirmDelete = false;
+    photoError = null;
+    photoInput?.click();
+  }
+
+  async function onPhotoPicked(e: Event) {
+    const input = e.currentTarget as HTMLInputElement;
+    const file = input.files?.[0];
+    input.value = "";
+    const lotId = photoLot;
+    if (!file || !lotId) return;
+    const blob = await shrinkPhoto(file);
+    if (!blob) {
+      if (!destroyed) photoError = lotId;
+      return;
+    }
+    /* Rangée avant d'être affichée, pour savoir si elle survivra. Page quittée entre-temps : rangée
+       quand même, mais plus affichée (l'URL ne serait jamais libérée). */
+    const saved = await savePhoto(tasting.id, lotId, blob);
+    if (!destroyed) setPhoto(lotId, blob, saved);
+  }
+
+  const photoEntry = (blob: Blob, saved = true) => ({ blob, url: URL.createObjectURL(blob), saved });
+
+  function setPhoto(lotId: string, blob: Blob | null, saved = true) {
+    const next = { ...photos };
+    if (next[lotId]) URL.revokeObjectURL(next[lotId].url);
+    if (blob) next[lotId] = photoEntry(blob, saved);
+    else delete next[lotId];
+    photos = next;
+  }
+
+  function openPhoto(lot: any) {
+    viewedLot = lot;
+    confirmDelete = false;
+    showPhoto = true;
+  }
+
+  function removePhoto(lotId: string) {
+    showPhoto = false;
+    setPhoto(lotId, null);
+    void deletePhoto(tasting.id, lotId);
+  }
+
+  /** « Rosso 2021 » : nom du produit et millésime, pour le texte alternatif et le nom du fichier. */
+  function lotName(lot: any): string {
+    return `${productTitle(lot.product)}${lot.year ? ` ${lot.year}` : ""}`;
   }
 
   /* ——— Swipe ——— */
@@ -391,7 +462,11 @@
           <div class="panel rating">
             <div class="panel-head">
               <span>Votre note</span>
-              {#if savedFlash}<span class="saved" transition:fade={{ duration: 150 }}>✓ enregistrée</span>{/if}
+              {#if savedFlash}
+                <span class="saved" transition:fade={{ duration: 150 }}>✓ enregistrée</span>
+              {:else if currentRating?.rating}
+                <button type="button" class="link-btn unrate" onclick={() => rate(null)}>Retirer</button>
+              {/if}
             </div>
             <StarRating value={currentRating?.rating ?? null} size="2.2rem" label="Notez {kind.thisLabel}" onchange={rate} />
             <textarea
@@ -401,6 +476,22 @@
               oninput={onComment}
               maxlength="1000"
             ></textarea>
+            {#if photos[current.id]}
+              <div class="photo-row">
+                <button type="button" class="photo-thumb" onclick={() => openPhoto(current)} aria-label="Voir votre photo">
+                  <img src={photos[current.id].url} alt="" />
+                </button>
+                <span class="photo-caption">{photos[current.id].saved ? "Votre photo" : "Votre photo, à enregistrer"}</span>
+                <button type="button" class="link-btn" onclick={() => takePhoto(current.id)}>Reprendre</button>
+              </div>
+            {:else}
+              <button type="button" class="ghost-btn photo-btn" onclick={() => takePhoto(current.id)}>
+                <IconCamera size={18} aria-hidden="true" /> Prendre une photo
+              </button>
+            {/if}
+            {#if photoError === current.id}
+              <p class="error photo-error" role="alert">Cette photo n’a pas pu être lue par le navigateur.</p>
+            {/if}
           </div>
 
           {#if notes.length || pairings.length}
@@ -433,7 +524,7 @@
             <FavoriteToggle
               active={isFavorite}
               onchange={(on) => setFavorite(current.id, on)}
-              label={lotName(current)}
+              label={withVolume(lotName(current), current)}
             />
           </div>
         </section>
@@ -442,25 +533,28 @@
 
     <nav class="dots" aria-label="Déroulé de la soirée">
       <button type="button" class="nav-arrow" onclick={() => goTo(index - 1)} disabled={index === 0} aria-label="Précédent">‹</button>
-      <div class="dot-row">
-        {#each lots as w, i}
-          {@const s = productStyle(w.product?.product_type)}
-          {#if i <= unlocked}
-            <button
-              type="button"
-              class="lot-dot"
-              class:active={i === index}
-              class:served={hostPosition != null && i === hostPosition}
-              class:rated={!!ratings[w.id]?.rating}
-              style="--c: {s.color}"
-              onclick={() => goTo(i)}
-              aria-label="{kindInfo(w.product).label} {i + 1} : {productTitle(w.product)}"
-              aria-current={i === index}
-            ></button>
-          {:else}
-            <span class="lot-dot locked" aria-label="{i + 1} : à venir" role="img"></span>
-          {/if}
-        {/each}
+      <div class="dot-col">
+        <div class="dot-row">
+          {#each lots as w, i}
+            {@const s = productStyle(w.product?.product_type)}
+            {#if i <= unlocked}
+              <button
+                type="button"
+                class="lot-dot"
+                class:active={i === index}
+                class:served={hostPosition != null && i === hostPosition}
+                class:rated={!!ratings[w.id]?.rating}
+                style="--c: {s.color}"
+                onclick={() => goTo(i)}
+                aria-label="{kindInfo(w.product).label} {i + 1} : {productTitle(w.product)}"
+                aria-current={i === index}
+              ></button>
+            {:else}
+              <span class="lot-dot locked" aria-label="{i + 1} : à venir" role="img"></span>
+            {/if}
+          {/each}
+        </div>
+        <span class="dot-count" aria-hidden="true">{index + 1}<span class="muted"> / {total}</span></span>
       </div>
       <button type="button" class="nav-arrow" onclick={() => goTo(index + 1)} disabled={index >= unlocked} aria-label={index >= unlocked ? (index === total - 1 ? "Dernier produit" : "La suite n’est pas encore servie") : "Suivant"}>›</button>
     </nav>
@@ -502,14 +596,15 @@
         <button type="button" class="recap-open" onclick={() => { showRecap = false; goTo(i); }} disabled={sending}>
           <span class="recap-num" style="--c: {productStyle(lot.product?.product_type).color}">{i + 1}</span>
           <span>
-            <span class="recap-name">{lotName(lot)}</span>
+            <span class="recap-name">{withVolume(lotName(lot), lot)}</span>
             <span class="recap-meta">
               {#if lot.price}{formatEUR(lot.price)}{/if}
               {#if r?.rating}<StarRating value={r.rating} readonly size="0.85rem" />{/if}
             </span>
           </span>
+          {#if photos[lot.id]}<img class="recap-photo" src={photos[lot.id].url} alt="" />{/if}
         </button>
-        <FavoriteToggle active={!!favorites[lot.id]} onchange={(on) => setFavorite(lot.id, on)} label={lotName(lot)} size="sm" />
+        <FavoriteToggle active={!!favorites[lot.id]} onchange={(on) => setFavorite(lot.id, on)} label={withVolume(lotName(lot), lot)} size="sm" />
         <QtyStepper value={cart[lot.id] ?? 0} onchange={(q) => setQty(lot.id, q)} size="sm" disabled={sending} />
       </div>
       {#if r?.comment}<p class="recap-comment">« {r.comment} »</p>{/if}
@@ -584,6 +679,34 @@
     {:else}
       <p class="fine">Ajoutez des bouteilles avec + pour passer commande.</p>
     {/if}
+  {/if}
+</CaveSheet>
+
+<!-- Un seul champ pour toute la page : il ouvre directement l'appareil photo du téléphone. -->
+<input bind:this={photoInput} type="file" accept="image/*" capture="environment" hidden onchange={onPhotoPicked} />
+
+<CaveSheet open={showPhoto} title="Votre photo" onclose={() => (showPhoto = false)}>
+  {#if viewedLot && photos[viewedLot.id]}
+    {@const photo = photos[viewedLot.id]}
+    <img class="photo-full" src={photo.url} alt="Votre photo : {lotName(viewedLot)}" />
+    {#if photo.saved}
+      <p class="sheet-lead">Elle reste dans ce navigateur, sur ce téléphone : enregistrez-la pour la garder.</p>
+    {:else}
+      <p class="offline">Ce navigateur n’a pas pu la garder : enregistrez-la maintenant, elle disparaîtra en quittant la page.</p>
+    {/if}
+    <div class="photo-actions">
+      <button type="button" class="solid-btn" onclick={() => exportPhoto(photo.blob, lotName(viewedLot))}>
+        <IconShare size={18} aria-hidden="true" /> Enregistrer
+      </button>
+      <button type="button" class="ghost-btn" onclick={() => takePhoto(viewedLot.id)}>
+        <IconCamera size={18} aria-hidden="true" /> Reprendre
+      </button>
+      {#if confirmDelete}
+        <button type="button" class="link-btn danger" onclick={() => removePhoto(viewedLot.id)}>Oui, supprimer la photo</button>
+      {:else}
+        <button type="button" class="link-btn" onclick={() => (confirmDelete = true)}>Supprimer…</button>
+      {/if}
+    </div>
   {/if}
 </CaveSheet>
 
@@ -851,6 +974,16 @@
     width: 100%;
   }
 
+  /* Dans l'en-tête sans le faire grandir ; la zone de tap atteint 44 px. */
+  .rating .unrate {
+    margin: -0.95rem -0.75rem;
+    padding: 0.95rem 0.75rem;
+    font-size: inherit;
+    letter-spacing: 0;
+    text-transform: none;
+    color: var(--mz-cave-muted);
+  }
+
   textarea,
   .sheet-form input {
     width: 100%;
@@ -866,6 +999,71 @@
 
   .rating textarea {
     margin-top: 0.75rem;
+  }
+
+  .ghost-btn.photo-btn {
+    margin-top: 0.75rem;
+    padding-block: 0.6rem;
+  }
+
+  .error.photo-error {
+    margin-top: 0.5rem;
+    font-size: 0.9rem;
+  }
+
+  .photo-row {
+    margin-top: 0.75rem;
+    width: 100%;
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+  }
+
+  .photo-thumb {
+    flex-shrink: 0;
+    width: 3.5rem;
+    height: 3.5rem;
+    padding: 0;
+    border: 1px solid var(--mz-cave-line);
+    border-radius: var(--mz-radius-sm);
+    overflow: hidden;
+    background: var(--mz-cave-sunk);
+    cursor: pointer;
+  }
+
+  .photo-thumb img,
+  .recap-photo {
+    display: block;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+  }
+
+  .photo-caption {
+    flex: 1;
+    font-size: 0.9rem;
+    color: var(--mz-cave-muted);
+  }
+
+  .photo-full {
+    display: block;
+    width: 100%;
+    max-height: 60vh;
+    object-fit: contain;
+    border-radius: var(--mz-radius);
+    background: var(--mz-cave-sunk);
+    margin-bottom: 1rem;
+  }
+
+  .photo-actions {
+    display: flex;
+    flex-direction: column;
+    gap: 0.6rem;
+  }
+
+  .photo-actions .link-btn {
+    align-self: center;
+    margin-top: 0.2rem;
   }
 
   textarea:focus,
@@ -988,6 +1186,21 @@
     opacity: 0.3;
   }
 
+  .dot-col {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.6rem;
+    min-width: 0;
+  }
+
+  .dot-count {
+    font-size: 0.75rem;
+    line-height: 1;
+    font-variant-numeric: tabular-nums;
+    color: var(--mz-cave-text);
+  }
+
   .dot-row {
     display: flex;
     justify-content: center;
@@ -1100,6 +1313,7 @@
     display: inline-flex;
     justify-content: center;
     align-items: center;
+    gap: 0.45rem;
     padding: 0.85rem 1.2rem;
     border-radius: var(--mz-radius-pill);
     font: inherit;
@@ -1182,6 +1396,18 @@
     font-size: 0.9rem;
     text-decoration: underline;
     cursor: pointer;
+  }
+
+  .link-btn.danger {
+    color: var(--mz-cave-danger);
+  }
+
+  .recap-photo {
+    flex-shrink: 0;
+    width: 2rem;
+    height: 2rem;
+    margin-left: auto;
+    border-radius: var(--mz-radius-sm);
   }
 
   .fine {
