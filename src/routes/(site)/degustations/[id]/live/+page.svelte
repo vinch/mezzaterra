@@ -86,6 +86,8 @@
   let viewedLot = $state<any>(null);
   let showPhoto = $state(false);
   let confirmDelete = $state(false);
+  /** Produit dont la dernière photo n'a pas pu être lue. */
+  let photoError = $state<string | null>(null);
   let destroyed = false;
 
   onMount(() => {
@@ -285,6 +287,7 @@
     photoLot = lotId;
     /* « Supprimer… » armé sur l'ancienne photo ne doit pas viser la nouvelle. */
     confirmDelete = false;
+    photoError = null;
     photoInput?.click();
   }
 
@@ -295,6 +298,10 @@
     const lotId = photoLot;
     if (!file || !lotId) return;
     const blob = await shrinkPhoto(file);
+    if (!blob) {
+      if (!destroyed) photoError = lotId;
+      return;
+    }
     /* Page quittée pendant la réduction : gardée quand même, mais plus affichée (l'URL ne serait jamais libérée). */
     if (!destroyed) setPhoto(lotId, blob);
     void savePhoto(tasting.id, lotId, blob);
@@ -445,6 +452,9 @@
               <button type="button" class="ghost-btn photo-btn" onclick={() => takePhoto(current.id)}>
                 <IconCamera size={18} aria-hidden="true" /> Prendre une photo
               </button>
+            {/if}
+            {#if photoError === current.id}
+              <p class="error photo-error" role="alert">Cette photo n’a pas pu être lue par le navigateur.</p>
             {/if}
           </div>
 
@@ -935,6 +945,11 @@
   .ghost-btn.photo-btn {
     margin-top: 0.75rem;
     padding-block: 0.6rem;
+  }
+
+  .error.photo-error {
+    margin-top: 0.5rem;
+    font-size: 0.9rem;
   }
 
   .photo-row {

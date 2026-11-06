@@ -87,8 +87,8 @@ export async function deletePhoto(tastingId: string, lotId: string): Promise<voi
   }
 }
 
-/** Photo de l'appareil réduite (JPEG, MAX_SIDE px au plus) ; illisible par le navigateur : gardée telle quelle. */
-export async function shrinkPhoto(file: Blob): Promise<Blob> {
+/** Photo de l'appareil réduite (JPEG, MAX_SIDE px au plus) ; null si le navigateur ne sait pas la lire (HEIC…). */
+export async function shrinkPhoto(file: Blob): Promise<Blob | null> {
   const url = URL.createObjectURL(file);
   const canvas = document.createElement("canvas");
   try {
@@ -104,7 +104,7 @@ export async function shrinkPhoto(file: Blob): Promise<Blob> {
     const blob = await new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, "image/jpeg", 0.85));
     return blob ?? file;
   } catch {
-    return file;
+    return null;
   } finally {
     URL.revokeObjectURL(url);
     /* Libère la mémoire du canevas tout de suite (Safari plafonne le total). */
