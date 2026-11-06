@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { downloadBlob } from "$lib/download";
   import { errorMessage } from "$lib/async";
   import { onMount } from "svelte";
   import ManagePageShell from "$lib/components/manage/ManagePageShell.svelte";
@@ -79,12 +80,7 @@
   async function handleDownload() {
     error = "";
     try {
-      const url = URL.createObjectURL(await canvasBlob());
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = fileName;
-      a.click();
-      URL.revokeObjectURL(url);
+      downloadBlob(fileName, await canvasBlob());
     } catch (e) {
       error = errorMessage(e);
     }
