@@ -96,7 +96,10 @@
     getGuestId();
     showWelcome = !profile.firstName;
     void loadPhotos(tasting.id).then((blobs) => {
-      if (!destroyed) photos = Object.fromEntries(Object.entries(blobs).map(([id, blob]) => [id, photoEntry(blob)]));
+      if (destroyed) return;
+      /* Une photo prise pendant la lecture est plus récente que celle rangée : elle reste. */
+      const stored = Object.entries(blobs).filter(([id]) => !photos[id]);
+      photos = { ...Object.fromEntries(stored.map(([id, blob]) => [id, photoEntry(blob)])), ...photos };
     });
     preorder = createPreorderSync(tasting.id, () => ({ cart, profile }));
     preorder.resume();
