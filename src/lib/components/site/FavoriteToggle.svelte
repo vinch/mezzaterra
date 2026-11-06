@@ -5,7 +5,7 @@
   interface Props {
     active: boolean;
     onchange: (active: boolean) => void;
-    /** Nom du produit, pour l'étiquette lue par les lecteurs d'écran. */
+    /** Nom du lot (avec année et contenance s'il le faut), lu par les lecteurs d'écran ; l'état passe par aria-pressed. */
     label: string;
     size?: "md" | "sm";
   }
@@ -19,7 +19,7 @@
   class:on={active}
   class:small={size === "sm"}
   aria-pressed={active}
-  aria-label={active ? `Retirer ${label} des favoris` : `Ajouter ${label} aux favoris`}
+  aria-label="Favori : {label}"
   onclick={() => onchange(!active)}
 >
   <IconHeart size={size === "sm" ? 16 : 22} strokeWidth={1.75} aria-hidden="true" />

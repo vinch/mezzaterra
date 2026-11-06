@@ -225,6 +225,11 @@
     );
   }
 
+  /** Nom du lot tel qu'affiché dans le récap : produit, année, contenance. */
+  function lotName(lot: any): string {
+    return withVolume(`${productTitle(lot.product)}${lot.year ? ` ${lot.year}` : ""}`, lot);
+  }
+
   function setFavorite(lotId: string, on: boolean) {
     const next = { ...favorites };
     if (on) next[lotId] = true;
@@ -428,7 +433,7 @@
             <FavoriteToggle
               active={isFavorite}
               onchange={(on) => setFavorite(current.id, on)}
-              label={productTitle(current.product)}
+              label={lotName(current)}
             />
           </div>
         </section>
@@ -497,14 +502,14 @@
         <button type="button" class="recap-open" onclick={() => { showRecap = false; goTo(i); }} disabled={sending}>
           <span class="recap-num" style="--c: {productStyle(lot.product?.product_type).color}">{i + 1}</span>
           <span>
-            <span class="recap-name">{withVolume(`${productTitle(lot.product)}${lot.year ? ` ${lot.year}` : ""}`, lot)}</span>
+            <span class="recap-name">{lotName(lot)}</span>
             <span class="recap-meta">
               {#if lot.price}{formatEUR(lot.price)}{/if}
               {#if r?.rating}<StarRating value={r.rating} readonly size="0.85rem" />{/if}
             </span>
           </span>
         </button>
-        <FavoriteToggle active={!!favorites[lot.id]} onchange={(on) => setFavorite(lot.id, on)} label={productTitle(lot.product)} size="sm" />
+        <FavoriteToggle active={!!favorites[lot.id]} onchange={(on) => setFavorite(lot.id, on)} label={lotName(lot)} size="sm" />
         <QtyStepper value={cart[lot.id] ?? 0} onchange={(q) => setQty(lot.id, q)} size="sm" disabled={sending} />
       </div>
       {#if r?.comment}<p class="recap-comment">« {r.comment} »</p>{/if}
