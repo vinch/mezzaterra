@@ -322,13 +322,15 @@
       <button type="button" class="avatar" onclick={() => (showWelcome = true)} aria-label="Mon profil">
         {(profile.firstName || "?").charAt(0).toUpperCase()}
       </button>
-    </header>
 
-    {#if !follow && hostPosition != null && hostPosition !== index}
-      <button type="button" class="rejoin" onclick={backToHost} transition:fly={{ y: -10, duration: 200 }}>
-        En ce moment : {kindInfo(lots[hostPosition]?.product).label.toLowerCase()} n° {hostPosition + 1} — y retourner →
-      </button>
-    {/if}
+      {#if !follow && hostPosition != null && hostPosition !== index}
+        <button type="button" class="rejoin" onclick={backToHost} transition:fly={{ y: -8, duration: 200 }}>
+          <span class="dot" style="--c: {productStyle(lots[hostPosition]?.product?.product_type).color}" aria-hidden="true"></span>
+          <span>{kindInfo(lots[hostPosition]?.product).label} {hostPosition + 1} en cours</span>
+          <strong>Rejoindre →</strong>
+        </button>
+      {/if}
+    </header>
 
     <main class="stage" ontouchstart={onTouchStart} ontouchend={onTouchEnd}>
       {#key index}
@@ -652,22 +654,37 @@
     cursor: pointer;
   }
 
+  /* Accrochée sous la barre (hors du flux) : n'enfonce pas la page quand elle apparaît. */
   .rejoin {
-    position: sticky;
-    top: 4.2rem;
-    z-index: 9;
-    align-self: center;
-    margin: 0.5rem auto 0;
-    padding: 0.55rem 1rem;
+    position: absolute;
+    top: calc(100% + 0.6rem);
+    left: 50%;
+    translate: -50% 0;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    white-space: nowrap;
+    padding: 0.45rem 0.9rem 0.45rem 0.75rem;
     border-radius: var(--mz-radius-pill);
-    border: none;
-    background: var(--mz-cave-text);
-    color: var(--mz-cave-bg);
+    border: 1px solid var(--mz-cave-line);
+    background: var(--mz-cave-surface-2);
+    color: var(--mz-cave-muted);
     font: inherit;
-    font-size: 0.88rem;
-    font-weight: 600;
+    font-size: 0.8rem;
     cursor: pointer;
-    box-shadow: 0 8px 20px rgba(0, 0, 0, 0.35);
+    box-shadow: var(--mz-shadow);
+  }
+
+  .rejoin strong {
+    color: var(--mz-cave-text);
+    font-weight: 600;
+  }
+
+  .rejoin .dot {
+    width: 0.5rem;
+    height: 0.5rem;
+    border-radius: 50%;
+    background: var(--c);
   }
 
   .stage {
