@@ -113,8 +113,8 @@ export const localRatings = perTasting<Record<string, LocalRating>>("mz-ratings"
 /** Dernier produit servi vu sur ce téléphone : un rechargement ne perd pas la progression. */
 export const localServed = perTasting<number>("mz-served", (v) => Number(v) || 0);
 export const localCart = perTasting<Record<string, number>>("mz-cart", (v) => v ?? {});
-/** Identifiants des lots mis en favori sur ce téléphone. */
-export const localFavorites = perTasting<string[]>("mz-favorites", (v) => (Array.isArray(v) ? v : []));
+/** Lots mis en favori sur ce téléphone (clé : identifiant du lot). */
+export const localFavorites = perTasting<Record<string, true>>("mz-favorites", (v) => v ?? {});
 /** Panier changé mais pas encore en base (hors ligne, page quittée) : renvoyé à la prochaine occasion. */
 const preorderDirty = perTasting<boolean>("mz-preorder-dirty", (v) => v === true);
 /**

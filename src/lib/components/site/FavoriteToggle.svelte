@@ -1,4 +1,6 @@
 <script lang="ts">
+  import { IconHeart } from "$lib/ui/icons";
+
   /** Cœur « favori » du mode live (thème cave) : un appui ajoute ou retire le produit des favoris. */
   interface Props {
     active: boolean;
@@ -20,9 +22,7 @@
   aria-label={active ? `Retirer ${label} des favoris` : `Ajouter ${label} aux favoris`}
   onclick={() => onchange(!active)}
 >
-  <svg viewBox="0 0 24 24" aria-hidden="true">
-    <path d="M12 20.5s-7.5-4.6-7.5-10.2A4.3 4.3 0 0 1 12 7.6a4.3 4.3 0 0 1 7.5 2.7c0 5.6-7.5 10.2-7.5 10.2Z" />
-  </svg>
+  <IconHeart size={size === "sm" ? 16 : 22} strokeWidth={1.75} aria-hidden="true" />
 </button>
 
 <style>
@@ -42,13 +42,7 @@
     transition: color 0.15s ease, border-color 0.15s ease;
   }
 
-  svg {
-    width: 55%;
-    height: 55%;
-    fill: none;
-    stroke: currentColor;
-    stroke-width: 1.8;
-    stroke-linejoin: round;
+  .fav :global(svg) {
     transition: transform 0.25s var(--mz-ease);
   }
 
@@ -57,7 +51,7 @@
     border-color: color-mix(in srgb, var(--mz-cave-favorite) 45%, transparent);
   }
 
-  .on svg {
+  .on :global(svg) {
     fill: currentColor;
     transform: scale(1.08);
   }
@@ -79,7 +73,7 @@
   }
 
   @media (prefers-reduced-motion: reduce) {
-    svg {
+    .fav :global(svg) {
       transition: none;
     }
   }

@@ -24,6 +24,7 @@ export { default as IconFile } from "@lucide/svelte/icons/file-text";
 export { default as IconGlasses } from "@lucide/svelte/icons/utensils";
 export { default as IconGlobe } from "@lucide/svelte/icons/globe";
 export { default as IconGrape } from "@lucide/svelte/icons/grape";
+export { default as IconHeart } from "@lucide/svelte/icons/heart";
 export { default as IconHome } from "@lucide/svelte/icons/house";
 export { default as IconHourglass } from "@lucide/svelte/icons/hourglass";
 export { default as IconImage } from "@lucide/svelte/icons/image";

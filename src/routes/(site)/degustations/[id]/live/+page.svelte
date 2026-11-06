@@ -63,7 +63,7 @@
   let profile = $state<GuestProfile>({ firstName: "", lastName: "", email: "", phone: "" });
   let ratings = $state<Record<string, LocalRating>>({});
   let cart = $state<Record<string, number>>({});
-  let favorites = $state<string[]>([]);
+  let favorites = $state<Record<string, true>>({});
   let showWelcome = $state(false);
   let showNotes = $state(false);
   let showRecap = $state(false);
@@ -155,6 +155,7 @@
   let current = $derived(lots[index]);
   let style = $derived(productStyle(current?.product?.product_type));
   let currentRating = $derived(current ? ratings[current.id] : undefined);
+  let isFavorite = $derived(!!current && !!favorites[current.id]);
   let kind = $derived(kindInfo(current?.product));
   let notes = $derived(lotNotes(current?.note, kind.key));
   let pairings = $derived(productPairings(current?.product));
@@ -163,9 +164,12 @@
   let cartTotal = $derived(cartLines.reduce((s, l) => s + l.qty * Number(l.lot.price ?? 0), 0));
   let ratedCount = $derived(lots.filter((w) => ratings[w.id]?.rating).length);
   /* Récap : les favoris d'abord, puis le reste de la soirée, chacun dans l'ordre du déroulé. */
-  let recapLots = $derived(lots.map((lot, i) => ({ lot, i })));
-  let favoriteLots = $derived(recapLots.filter((r) => r.i <= unlocked && favorites.includes(r.lot.id)));
-  let otherLots = $derived(recapLots.filter((r) => !(r.i <= unlocked && favorites.includes(r.lot.id))));
+  let recapGroups = $derived.by(() => {
+    const favorite: { lot: any; i: number }[] = [];
+    const other: { lot: any; i: number }[] = [];
+    lots.forEach((lot, i) => (i <= unlocked && favorites[lot.id] ? favorite : other).push({ lot, i }));
+    return { favorite, other };
+  });
 
   function persistRating(lot: any, patch: Partial<LocalRating>) {
     const prev = ratings[lot.id] ?? { rating: null, comment: "", updatedAt: "" };
@@ -216,7 +220,10 @@
   }
 
   function setFavorite(lotId: string, on: boolean) {
-    favorites = on ? [...favorites, lotId] : favorites.filter((id) => id !== lotId);
+    const next = { ...favorites };
+    if (on) next[lotId] = true;
+    else delete next[lotId];
+    favorites = next;
     localFavorites.save(tasting.id, favorites);
     if (on && navigator.vibrate) navigator.vibrate(12);
   }
@@ -404,13 +411,13 @@
 
           <div class="panel want">
             <div>
-              <span class="want-title">{favorites.includes(current.id) ? "Dans vos favoris" : "Un coup de cœur ?"}</span>
+              <span class="want-title">{isFavorite ? "Dans vos favoris" : "Un coup de cœur ?"}</span>
               <span class="want-price">
-                {#if favorites.includes(current.id)}Quantités à choisir dans le récap{:else if current.price}{formatEUR(current.price)} la bouteille{/if}
+                {#if isFavorite}Quantités à choisir dans le récap{:else if current.price}{formatEUR(current.price)} la bouteille{/if}
               </span>
             </div>
             <FavoriteToggle
-              active={favorites.includes(current.id)}
+              active={isFavorite}
               onchange={(on) => setFavorite(current.id, on)}
               label={productTitle(current.product)}
             />
@@ -449,9 +456,12 @@
       {#if cartCount > 0}
         <span>Ma commande ({cartCount} bt.)</span>
         <strong>{formatEUR(cartTotal)} →</strong>
+      {:else if recapGroups.favorite.length}
+        <span>Mes favoris ({recapGroups.favorite.length})</span>
+        <strong>Commander →</strong>
       {:else}
-        <span>{favorites.length ? `Mes favoris (${favorites.length})` : "Récap de la soirée"}</span>
-        <strong>{favorites.length ? "Commander →" : "→"}</strong>
+        <span>Récap de la soirée</span>
+        <strong>→</strong>
       {/if}
     </button>
   {/if}
@@ -485,7 +495,7 @@
             </span>
           </span>
         </button>
-        <FavoriteToggle active={favorites.includes(lot.id)} onchange={(on) => setFavorite(lot.id, on)} label={productTitle(lot.product)} size="sm" />
+        <FavoriteToggle active={!!favorites[lot.id]} onchange={(on) => setFavorite(lot.id, on)} label={productTitle(lot.product)} size="sm" />
         <QtyStepper value={cart[lot.id] ?? 0} onchange={(q) => setQty(lot.id, q)} size="sm" disabled={sending} />
       </div>
       {#if r?.comment}<p class="recap-comment">« {r.comment} »</p>{/if}
@@ -509,16 +519,16 @@
     <p class="sheet-lead">
       Vous avez noté {ratedCount} sur {total}. Choisissez vos quantités : rien n’est commandé tant que vous n’avez pas confirmé.
     </p>
-    {#if favoriteLots.length}
+    {#if recapGroups.favorite.length}
       <h3 class="recap-title">Vos favoris</h3>
       <ol class="recap">
-        {#each favoriteLots as { lot, i } (lot.id)}{@render recapRow(lot, i)}{/each}
+        {#each recapGroups.favorite as { lot, i } (lot.id)}{@render recapRow(lot, i)}{/each}
       </ol>
     {/if}
-    {#if otherLots.length}
-      {#if favoriteLots.length}<h3 class="recap-title">Le reste de la soirée</h3>{/if}
+    {#if recapGroups.other.length}
+      {#if recapGroups.favorite.length}<h3 class="recap-title">Le reste de la soirée</h3>{/if}
       <ol class="recap">
-        {#each otherLots as { lot, i } (lot.id)}{@render recapRow(lot, i)}{/each}
+        {#each recapGroups.other as { lot, i } (lot.id)}{@render recapRow(lot, i)}{/each}
       </ol>
     {/if}
 
@@ -792,14 +802,18 @@
     padding: 1rem 1.1rem;
   }
 
-  .panel-head {
-    display: flex;
-    justify-content: space-between;
+  .panel-head,
+  .recap-title {
     font-size: 0.75rem;
     font-weight: 600;
     letter-spacing: 0.1em;
     text-transform: uppercase;
     color: var(--mz-cave-muted);
+  }
+
+  .panel-head {
+    display: flex;
+    justify-content: space-between;
     margin-bottom: 0.5rem;
   }
 
@@ -1159,11 +1173,6 @@
 
   .recap-title {
     margin: 0 0 0.25rem;
-    font-size: 0.75rem;
-    font-weight: 600;
-    letter-spacing: 0.1em;
-    text-transform: uppercase;
-    color: var(--mz-cave-muted);
   }
 
   .recap li {
