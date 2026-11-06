@@ -1138,6 +1138,7 @@
   .proj-producer {
     margin: 0.3rem 0;
     font-size: clamp(1.3rem, 2vw, 2rem);
+    line-height: 1.3;
     color: var(--mz-cave-muted);
   }
 
