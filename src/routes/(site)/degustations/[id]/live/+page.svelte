@@ -34,6 +34,7 @@
     joinLiveChannel,
     localCart,
     localFavorites,
+    localOrdered,
     localRatings,
     localServed,
     pushFeedback,
@@ -64,6 +65,7 @@
   let ratings = $state<Record<string, LocalRating>>({});
   let cart = $state<Record<string, number>>({});
   let favorites = $state<Record<string, true>>({});
+  let ordered = $state(0);
   let showWelcome = $state(false);
   let showNotes = $state(false);
   let showRecap = $state(false);
@@ -84,6 +86,7 @@
     ratings = localRatings.get(tasting.id);
     cart = localCart.get(tasting.id);
     favorites = localFavorites.get(tasting.id);
+    ordered = localOrdered.get(tasting.id);
     getGuestId();
     showWelcome = !profile.firstName;
     preorder = createPreorderSync(tasting.id, () => ({ cart, profile }));
@@ -277,6 +280,8 @@
       return;
     }
     sendResult = "ok";
+    ordered += cartCount;
+    localOrdered.save(tasting.id, ordered);
     cart = {};
     localCart.save(tasting.id, cart);
   }
@@ -458,7 +463,7 @@
         <strong>Confirmer →</strong>
       {:else if recapGroups.favorite.length}
         <span>Mes favoris ({recapGroups.favorite.length})</span>
-        <strong>Commander →</strong>
+        <strong>{ordered ? "Récap →" : "Commander →"}</strong>
       {:else}
         <span>Récap de la soirée</span>
         <strong>→</strong>
@@ -519,6 +524,9 @@
     <p class="sheet-lead">
       Vous avez noté {ratedCount} sur {total}. Choisissez vos quantités : rien n’est commandé tant que vous n’avez pas confirmé.
     </p>
+    {#if ordered}
+      <p class="ordered">✓ Déjà commandé ce soir : {ordered} bt. Vous pouvez encore en ajouter, ce sera une nouvelle commande.</p>
+    {/if}
     {#if recapGroups.favorite.length}
       <h3 class="recap-title">Vos favoris</h3>
       <ol class="recap">
@@ -1124,6 +1132,15 @@
     border-radius: 10px;
     background: color-mix(in srgb, var(--mz-cave-warning) 15%, transparent);
     color: var(--mz-cave-warning);
+    line-height: 1.45;
+  }
+
+  .ordered {
+    margin: 0 0 1.1rem;
+    padding: 0.7rem 0.9rem;
+    border-radius: 10px;
+    background: color-mix(in srgb, var(--mz-cave-success) 12%, transparent);
+    color: var(--mz-cave-success);
     line-height: 1.45;
   }
 
