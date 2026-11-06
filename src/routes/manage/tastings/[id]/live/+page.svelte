@@ -490,7 +490,7 @@
                                 {#if !finished}<span class="t-caption">Flèches ← → ou espace pour avancer</span>{/if}
                               {/snippet}
             {#if wishes.length === 0 && preorders.length === 0}
-              <EmptyState icon={IconInbox} title="Aucune commande pour l’instant" text="Les invités commandent depuis leur téléphone (« J’en veux »)." compact />
+              <EmptyState icon={IconInbox} title="Aucune commande pour l’instant" text="Les invités commandent depuis le récap de leur téléphone." compact />
             {:else}
               <div class="orders">
                 <DataTable>
