@@ -943,7 +943,6 @@
   }
 
   .lot-dot {
-    position: relative;
     width: 0.85rem;
     height: 0.85rem;
     padding: 0;
@@ -977,16 +976,17 @@
     box-shadow: 0 0 0 3px var(--mz-cave-faint);
   }
 
-  .lot-dot.served::after {
-    content: "";
-    position: absolute;
-    left: 50%;
-    top: -0.55rem;
-    width: 0.3rem;
-    height: 0.3rem;
-    border-radius: 50%;
-    background: var(--mz-live);
-    transform: translateX(-50%);
+  /* Le produit servi pulse comme la pastille « En direct », seulement quand on regarde ailleurs. */
+  .lot-dot.served:not(.active) {
+    --mz-pulse: var(--mz-live);
+    animation: mz-pulse 1.8s ease-out infinite;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .lot-dot.served:not(.active) {
+      animation: none;
+      box-shadow: 0 0 0 2px var(--mz-live);
+    }
   }
 
   .cart-bar {
