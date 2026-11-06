@@ -66,6 +66,8 @@
   let cart = $state<Record<string, number>>({});
   let favorites = $state<Record<string, true>>({});
   let ordered = $state(0);
+  /** Favoris figés à l'ouverture du récap : un cœur touché dans la feuille ne déplace pas sa ligne. */
+  let recapFavorites = $state<Record<string, true>>({});
   let showWelcome = $state(false);
   let showNotes = $state(false);
   let showRecap = $state(false);
@@ -166,11 +168,12 @@
   let cartCount = $derived(cartLines.reduce((s, l) => s + l.qty, 0));
   let cartTotal = $derived(cartLines.reduce((s, l) => s + l.qty * Number(l.lot.price ?? 0), 0));
   let ratedCount = $derived(lots.filter((w) => ratings[w.id]?.rating).length);
+  let favoriteCount = $derived(lots.filter((w) => favorites[w.id]).length);
   /* Récap : les favoris d'abord, puis le reste de la soirée, chacun dans l'ordre du déroulé. */
   let recapGroups = $derived.by(() => {
     const favorite: { lot: any; i: number }[] = [];
     const other: { lot: any; i: number }[] = [];
-    lots.forEach((lot, i) => (i <= unlocked && favorites[lot.id] ? favorite : other).push({ lot, i }));
+    lots.forEach((lot, i) => (i <= unlocked && recapFavorites[lot.id] ? favorite : other).push({ lot, i }));
     return { favorite, other };
   });
 
@@ -251,6 +254,7 @@
     editingContact = !hasContact(profile);
     sendError = "";
     sendResult = null;
+    recapFavorites = favorites;
     showRecap = true;
   }
 
@@ -461,8 +465,8 @@
       {#if cartCount > 0}
         <span>À confirmer ({cartCount} bt. · {formatEUR(cartTotal)})</span>
         <strong>Confirmer →</strong>
-      {:else if recapGroups.favorite.length}
-        <span>Mes favoris ({recapGroups.favorite.length})</span>
+      {:else if favoriteCount}
+        <span>Mes favoris ({favoriteCount})</span>
         <strong>{ordered ? "Récap →" : "Commander →"}</strong>
       {:else}
         <span>Récap de la soirée</span>
