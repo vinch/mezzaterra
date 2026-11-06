@@ -292,7 +292,8 @@
     const lotId = photoLot;
     if (!file || !lotId) return;
     const blob = await shrinkPhoto(file);
-    setPhoto(lotId, blob);
+    /* Page quittée pendant la réduction : gardée quand même, mais plus affichée (l'URL ne serait jamais libérée). */
+    if (!destroyed) setPhoto(lotId, blob);
     void savePhoto(tasting.id, lotId, blob);
   }
 
