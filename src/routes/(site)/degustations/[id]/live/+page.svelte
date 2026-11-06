@@ -485,7 +485,7 @@
   <li>
     {#if i <= unlocked}
       <div class="recap-row">
-        <button type="button" class="recap-open" onclick={() => { showRecap = false; goTo(i); }}>
+        <button type="button" class="recap-open" onclick={() => { showRecap = false; goTo(i); }} disabled={sending}>
           <span class="recap-num" style="--c: {productStyle(lot.product?.product_type).color}">{i + 1}</span>
           <span>
             <span class="recap-name">{withVolume(`${productTitle(lot.product)}${lot.year ? ` ${lot.year}` : ""}`, lot)}</span>
