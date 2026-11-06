@@ -184,7 +184,8 @@
     }
   }
 
-  function rate(n: number) {
+  /** null : l'invité retire sa note (la ligne envoyée sans étoiles fait foi). */
+  function rate(n: number | null) {
     if (!current) return;
     persistRating(current, { rating: n });
     /* Cet envoi porte aussi le commentaire en attente. */
@@ -357,7 +358,11 @@
           <div class="panel rating">
             <div class="panel-head">
               <span>Votre note</span>
-              {#if savedFlash}<span class="saved" transition:fade={{ duration: 150 }}>✓ enregistrée</span>{/if}
+              {#if savedFlash}
+                <span class="saved" transition:fade={{ duration: 150 }}>✓ enregistrée</span>
+              {:else if currentRating?.rating}
+                <button type="button" class="link-btn unrate" onclick={() => rate(null)}>Retirer</button>
+              {/if}
             </div>
             <StarRating value={currentRating?.rating ?? null} size="2.2rem" label="Notez {kind.thisLabel}" onchange={rate} />
             <textarea
@@ -807,6 +812,16 @@
 
   .rating .panel-head {
     width: 100%;
+  }
+
+  /* Dans l'en-tête sans le faire grandir ; la zone de tap atteint 44 px. */
+  .rating .unrate {
+    margin: -0.95rem -0.75rem;
+    padding: 0.95rem 0.75rem;
+    font-size: inherit;
+    letter-spacing: 0;
+    text-transform: none;
+    color: var(--mz-cave-muted);
   }
 
   textarea,
