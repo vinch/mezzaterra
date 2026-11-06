@@ -1060,7 +1060,7 @@
     color: var(--mz-cave-bg);
     font: inherit;
     cursor: pointer;
-    box-shadow: 0 12px 30px rgba(0, 0, 0, 0.45);
+    box-shadow: var(--mz-shadow-lg);
   }
 
   /* ——— Feuilles (CaveSheet) ——— */
@@ -1244,7 +1244,7 @@
     display: grid;
     place-items: center;
     background: var(--c);
-    color: #fff;
+    color: var(--mz-on-brand);
     font-size: 0.85rem;
     font-weight: 700;
   }
