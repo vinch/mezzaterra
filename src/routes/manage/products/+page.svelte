@@ -9,6 +9,7 @@
   import ManagePageShell from "$lib/components/manage/ManagePageShell.svelte";
   import Modal from "$lib/ui/Modal.svelte";
   import Button from "$lib/ui/Button.svelte";
+  import Select from "$lib/ui/Select.svelte";
   import IconButton from "$lib/ui/IconButton.svelte";
   import RowMenu from "$lib/ui/RowMenu.svelte";
   import type { MenuItem } from "$lib/ui/Menu.svelte";
@@ -554,18 +555,18 @@
           {/each}
         </div>
       {/if}
-      <select class="ui-control filter-select" bind:value={filterProducerId} aria-label="Domaine">
+      <Select class="filter-select" bind:value={filterProducerId} ariaLabel="Domaine">
         <option value="">Tous les domaines</option>
         {#each producers as producer}
           <option value={producer.id}>{producer.name}</option>
         {/each}
-      </select>
-      <select class="ui-control filter-select" bind:value={filterAppellationId} aria-label="Appellation">
+      </Select>
+      <Select class="filter-select" bind:value={filterAppellationId} ariaLabel="Appellation">
         <option value="">Toutes les appellations</option>
         {#each tabAppellations as appellation}
           <option value={appellation.id}>{appellation.name}{appellation.label?.name ? ` ${appellation.label.name}` : ""}</option>
         {/each}
-      </select>
+      </Select>
       <label class="check">
         <input type="checkbox" bind:checked={inStockOnly} disabled={!stock} />
         En stock seulement
@@ -689,9 +690,8 @@
   <form id="product-form" class="product-form" onsubmit={preventDefault(handleSubmit)}>
     <!-- Choisi à la création seulement : la base refuse de changer le type d'un produit qui a des millésimes ou des lots. -->
     <Field id="product-kind" label="Type de produit" required help={editingProduct ? "Ne change plus une fois le produit créé." : ""}>
-      <select
+      <Select
         id="product-kind"
-        class="ui-control"
         value={formData.kind}
         onchange={(e) => setFormKind(e.currentTarget.value as ProductKind)}
         disabled={!!editingProduct}
@@ -699,36 +699,36 @@
         {#each PRODUCT_KIND_OPTIONS as o (o.value)}
           <option value={o.value}>{o.label}</option>
         {/each}
-      </select>
+      </Select>
     </Field>
     <Field id="product-name" label="Nom" help="Laisser vide pour utiliser le nom de l’appellation.">
       <input id="product-name" class="ui-control" type="text" bind:value={formData.name} />
     </Field>
     <div class="ui-grid-2">
       <Field id="product-producer" label="Domaine" required>
-        <select id="product-producer" class="ui-control" bind:value={formData.producer_id} required>
+        <Select id="product-producer" bind:value={formData.producer_id} required>
           <option value="">Sélectionner un domaine</option>
           {#each producers as producer}
             <option value={producer.id}>{producer.name}</option>
           {/each}
-        </select>
+        </Select>
       </Field>
       <Field id="product-type" label={formKind.typeLabel} required>
-        <select id="product-type" class="ui-control" bind:value={formData.product_type_id} required>
+        <Select id="product-type" bind:value={formData.product_type_id} required>
           <option value="">Sélectionner…</option>
           {#each formTypes as productType}
             <option value={productType.id}>{productTypeLabel(productType)}</option>
           {/each}
-        </select>
+        </Select>
       </Field>
     </div>
     <Field id="product-appellation" label="Appellation" optional>
-      <select id="product-appellation" class="ui-control" bind:value={formData.appellation_id}>
+      <Select id="product-appellation" bind:value={formData.appellation_id}>
         <option value="">Aucune</option>
         {#each formAppellations as appellation}
           <option value={appellation.id}>{appellation.name}{appellation.label?.name ? ` ${appellation.label.name}` : ""}</option>
         {/each}
-      </select>
+      </Select>
     </Field>
     <Field id="product-description" label="Description" optional>
       <textarea id="product-description" class="ui-control" rows="3" bind:value={formData.description}></textarea>
@@ -805,7 +805,7 @@
     flex-wrap: wrap;
   }
 
-  .filter-select {
+  .filters-bar :global(.filter-select) {
     width: auto;
     min-width: 180px;
   }
@@ -969,7 +969,7 @@
     }
 
     .search,
-    .filter-select {
+    .filters-bar :global(.filter-select) {
       flex: 1 1 100%;
     }
 

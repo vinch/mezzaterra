@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { untrack } from "svelte";
   import { preventDefault } from "$lib/ui/events";
   import { supabase } from "$lib/supabase";
   import { lotStock } from "$lib/manageData";
@@ -27,9 +28,11 @@
 
   let { data }: Props = $props();
 
-  let lot = data.lot;
-  let stockMoves = $state(data.stockMoves);
-  let currentStock = $state(data.currentStock);
+  /* Valeurs initiales de +page.ts ; loadStockMoves relit ensuite les mouvements. */
+  const initial = untrack(() => data);
+  const lot = initial.lot;
+  let stockMoves = $state(initial.stockMoves);
+  let currentStock = $state(initial.currentStock);
   let loading = $state(false);
   let error = $state("");
   /** Modale unique création / édition (`editingMove` les distingue). */

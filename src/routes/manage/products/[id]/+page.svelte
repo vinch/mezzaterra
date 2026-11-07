@@ -2,7 +2,7 @@
   import { preventDefault } from "$lib/ui/events";
 
   import { supabase } from "$lib/supabase";
-  import { onMount } from "svelte";
+  import { onMount, untrack } from "svelte";
   import type { PageData } from "./$types";
   import type { Lot } from "$lib/types";
   import ManagePageShell from "$lib/components/manage/ManagePageShell.svelte";
@@ -49,7 +49,7 @@
 
   let { data }: Props = $props();
 
-  let product = data.product;
+  const product = untrack(() => data.product);
   /** Vocabulaire du produit : millésime ou lot, cépages ou variétés… */
   const kind = kindInfo(product);
   const kindIcons = KIND_ICONS[kind.key];
@@ -558,14 +558,14 @@
     </ul>
   {/if}
   <div class="add-variety">
-    <select class="ui-control" bind:value={selectedVarietyId} aria-label="{kind.varieties} : ajouter">
+    <Select bind:value={selectedVarietyId} ariaLabel="{kind.varieties} : ajouter">
       <option value="">{kind.chooseVariety}</option>
       {#each allVarieties as variety (variety.id)}
         <option value={variety.id} disabled={linkedVarietyIds.has(variety.id)}>
           {variety.name}{linkedVarietyIds.has(variety.id) ? " (déjà ajouté)" : ""}
         </option>
       {/each}
-    </select>
+    </Select>
     <input
       class="ui-control percent"
       type="number"
@@ -710,7 +710,7 @@
     gap: 8px;
   }
 
-  .add-variety select {
+  .add-variety :global(select) {
     flex: 1;
   }
 

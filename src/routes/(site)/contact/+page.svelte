@@ -199,6 +199,7 @@
         <div class="mz-field full">
           <label for="contact-reason">Raison de votre message *</label>
           <select id="contact-reason" bind:value={reason} required>
+            <button type="button"><selectedcontent></selectedcontent></button>
             <option value="" disabled>Choisissez…</option>
             {#each CONTACT_REASONS as r (r.id)}
               <option value={r.id}>{r.label}</option>

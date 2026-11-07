@@ -48,7 +48,7 @@
     onchange
   }: Props = $props();
 
-  const listId = `${id}-list`;
+  const listId = $derived(`${id}-list`);
 
   let query = $state("");
   let open = $state(false);
