@@ -196,15 +196,14 @@ select:disabled {
 
   select:not([multiple]):not([size]) {
     align-items: center; /* centre le texte quand le champ a une hauteur minimale */
-    /* base-select laisse le libellé passer à la ligne : on le garde sur une ligne,
-       coupé avant le chevron (bord du contenu, padding-right compris). */
+    /* base-select laisse le libellé passer à la ligne. Filet pour un select sans
+       <button><selectedcontent> : une ligne, coupée avant le chevron (bord du contenu). */
     white-space: nowrap;
     overflow: clip;
     overflow-clip-margin: content-box;
   }
 
-  /* Points de suspension : le select doit contenir
-     <button><selectedcontent></selectedcontent></button> (comme Select.svelte). */
+  /* Points de suspension : le select contient <button><selectedcontent> (Select.svelte). */
   select selectedcontent {
     white-space: nowrap; /* le <button> remet white-space: normal */
     overflow: hidden;

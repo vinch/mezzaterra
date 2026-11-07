@@ -30,7 +30,7 @@
 
   /* Valeurs initiales de +page.ts ; loadStockMoves relit ensuite les mouvements. */
   const initial = untrack(() => data);
-  let lot = initial.lot;
+  const lot = initial.lot;
   let stockMoves = $state(initial.stockMoves);
   let currentStock = $state(initial.currentStock);
   let loading = $state(false);

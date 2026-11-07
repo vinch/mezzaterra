@@ -10,6 +10,8 @@
     invalid?: boolean;
     describedby?: string | undefined;
     ariaLabel?: string | undefined;
+    /** Classe ajoutée à ui-control, pour la mise en page locale (largeur, flex). */
+    class?: string;
     children?: Snippet;
   }
 
@@ -21,6 +23,7 @@
     invalid = false,
     describedby = undefined,
     ariaLabel = undefined,
+    class: className = "",
     children,
     onchange
   }: Props = $props();
@@ -30,7 +33,7 @@
   {id}
   {required}
   {disabled}
-  class="ui-control"
+  class={["ui-control", className]}
   bind:value
   aria-invalid={invalid ? "true" : undefined}
   aria-describedby={describedby}
