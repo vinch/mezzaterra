@@ -505,8 +505,10 @@
       </Select>
     </Field>
 
-    <Field id="purchase_price" label="Prix d’achat (€)" help="0 pour un produit reçu gratuitement ; vide si inconnu (le lot reste hors marge).">
-      <input id="purchase_price" class="ui-control" type="number" step="0.01" min="0" bind:value={lotFormData.purchase_price} placeholder="Prix unitaire payé au fournisseur" />
+    <Field id="purchase_price" label="Prix d’achat (€)" help="0 pour un produit reçu gratuitement ; vide si inconnu ({kind.lot.toLowerCase()} hors marge).">
+      {#snippet children({ describedby })}
+        <input id="purchase_price" class="ui-control" type="number" step="0.01" min="0" bind:value={lotFormData.purchase_price} placeholder="Prix unitaire payé au fournisseur" aria-describedby={describedby} />
+      {/snippet}
     </Field>
 
     <Field id="price" label="Prix de vente (€)">
