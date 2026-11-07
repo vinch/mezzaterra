@@ -6,6 +6,7 @@ import { env } from "$env/dynamic/private";
 import type { RequestHandler } from "./$types";
 import type { Database } from "$lib/database.types";
 import { EMAIL_COLORS as C, emailLayout, escapeHtml, isValidEmail, resendPost } from "$lib/server/email";
+import { SITE_URL } from "$lib/contact";
 
 /**
  * Envoi de campagnes email via Resend (https://resend.com).
@@ -80,16 +81,24 @@ export const POST: RequestHandler = async ({ request, url }) => {
     subject?: string;
     text?: string;
     emails?: string[];
+    /** Ancien format (page chargée avant le déploiement) : `[{ email }]`. */
+    recipients?: { email?: string }[];
     attachment?: Attachment | null;
   } | null;
 
   const subject = body?.subject?.trim();
   const text = body?.text?.trim();
   const emails = [
-    ...new Set((body?.emails || []).map((e) => String(e ?? "").trim().toLowerCase()).filter(isValidEmail)),
+    ...new Set(
+      (body?.emails ?? body?.recipients?.map((r) => r?.email) ?? [])
+        .map((e) => String(e ?? "").trim().toLowerCase())
+        .filter(isValidEmail),
+    ),
   ];
   if (!subject || !text) throw error(400, "Objet et message obligatoires");
   if (!emails.length) throw error(400, "Aucun destinataire valide");
+  /* Avant l'appel qui crée une ligne par adresse : un envoi refusé n'écrit rien. */
+  if (emails.length > MAX_RECIPIENTS) throw error(400, `Maximum ${MAX_RECIPIENTS} destinataires par envoi`);
 
   /* Jeton de désinscription de chaque adresse ; les désinscrits ne reviennent pas, quelle que soit l'audience. */
   const { data, error: recipientsError } = await client.rpc("campaign_recipients", { p_emails: emails });
@@ -97,7 +106,6 @@ export const POST: RequestHandler = async ({ request, url }) => {
   const recipients = data || [];
   const skipped = emails.length - recipients.length;
   if (!recipients.length) throw error(400, "Tous les destinataires sont désinscrits");
-  if (recipients.length > MAX_RECIPIENTS) throw error(400, `Maximum ${MAX_RECIPIENTS} destinataires par envoi`);
 
   const attachment = body?.attachment?.content
     ? [{ filename: body.attachment.filename || "visuel.png", content: body.attachment.content }]
@@ -111,7 +119,7 @@ export const POST: RequestHandler = async ({ request, url }) => {
   for (let i = 0; i < recipients.length; i += BATCH_SIZE) {
     const chunk = recipients.slice(i, i + BATCH_SIZE);
     const payload = chunk.map((r) => {
-      const unsubscribeUrl = `${url.origin}/desinscription?t=${r.token}`;
+      const unsubscribeUrl = `${SITE_URL}/desinscription?t=${r.token}`;
       return {
         from: env.CAMPAIGN_FROM,
         to: [r.recipient_email],
