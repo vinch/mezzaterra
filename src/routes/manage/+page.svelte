@@ -31,10 +31,10 @@
     loadDataset,
     monthlyRevenue,
     revenueLines,
-    overallMargin,
-    purchaseValue,
+    marginOf,
+    costValue,
     uncostedLabel,
-    transportLabel,
+    freightLabel,
     unpricedTransportLabel,
     lotStats,
     type LotStats,
@@ -65,7 +65,8 @@
     revenueAll: 0,
     revenueMonth: 0,
     pendingSales: 0,
-    margin: overallMargin([], []),
+    margin: marginOf([]),
+    unpricedTransports: 0,
     bottles: 0,
     stockValue: 0,
     lowCount: 0,
@@ -135,9 +136,10 @@
         revenueAll: revenueSales.reduce((sum, r) => sum + Number(r.total_price ?? 0), 0),
         revenueMonth: revenueSales.filter((r) => r.date >= monthStart).reduce((sum, r) => sum + Number(r.total_price ?? 0), 0),
         pendingSales: ds.sales.filter((s) => s.status === "pending").length,
-        margin: overallMargin(lines, ds.transports),
+        margin: marginOf(lines),
+        unpricedTransports: ds.unpricedTransports,
         bottles: inStock.reduce((s, q) => s + q, 0),
-        stockValue: ds.lots.reduce((s, v) => s + Math.max(0, ds.stock.get(v.id) ?? 0) * Number(v.purchase_price || 0), 0),
+        stockValue: ds.lots.reduce((s, v) => s + (costValue(v, Math.max(0, ds.stock.get(v.id) ?? 0)) ?? 0), 0),
         lowCount: inStock.filter((q) => q <= LOW_STOCK).length,
         products: productsRes.count ?? 0,
         lots: ds.lots.length,
@@ -154,7 +156,7 @@
       lowStock = reorderable.filter((s) => s.stock > 0 && s.stock <= LOW_STOCK).sort((a, b) => a.stock - b.stock || b.sold - a.sold);
       dormant = stats
         .filter((s) => s.stock > 0 && (s.idleDays == null || s.idleDays >= DORMANT_DAYS))
-        .sort((a, b) => (purchaseValue(b.lot, b.stock) ?? 0) - (purchaseValue(a.lot, a.stock) ?? 0));
+        .sort((a, b) => (costValue(b.lot, b.stock) ?? 0) - (costValue(a.lot, a.stock) ?? 0));
 
       nextTasting = (nextRes.data || [])[0] ?? null;
       lastTasting = (lastRes.data || [])[0] ?? null;
@@ -311,12 +313,12 @@
         </KpiCard>
         <KpiCard label="Marge brute" value={formatEUR(kpi.margin.margin)} icon={IconChart} href="/manage/insights">
           {#if kpi.margin.pct != null}<div>Taux de marge : {formatPercent(Math.round(kpi.margin.pct))}</div>{:else if !kpi.margin.uncostedLots}<div>Aucune vente encaissée</div>{/if}
-          {#if kpi.margin.transportCost}<div>{transportLabel(kpi.margin.transportCost)}</div>{/if}
-          {#if kpi.margin.unpricedTransports}<div class="t-warn">{unpricedTransportLabel(kpi.margin.unpricedTransports)}</div>{/if}
+          {#if kpi.margin.freight}<div>{freightLabel(kpi.margin.freight)}</div>{/if}
+          {#if kpi.unpricedTransports}<div class="t-warn">{unpricedTransportLabel(kpi.unpricedTransports)}</div>{/if}
           {#if kpi.margin.uncostedLots}<div class="t-warn">{uncostedLabel(kpi.margin.uncostedLots)}</div>{/if}
         </KpiCard>
         <KpiCard label="Bouteilles en stock" value={String(kpi.bottles)} icon={IconBox} href="/manage/stock">
-          {formatEUR(kpi.stockValue)} au prix d’achat
+          {formatEUR(kpi.stockValue)} au coût de revient (achat + transport)
           {#if kpi.lowCount}<br /><span class="t-warn">{kpi.lowCount} lot{kpi.lowCount > 1 ? "s" : ""} ≤ {LOW_STOCK} bt.</span>{/if}
         </KpiCard>
         <KpiCard label="Produits au catalogue" value={String(kpi.products)} icon={IconProduct} href="/manage/products">
@@ -446,7 +448,7 @@
                       {s.stock} bt. · {#if s.lastSale}dernière vente il y a <strong class="t-warn">{s.idleDays} j</strong>{:else}<strong class="t-warn">jamais vendu</strong>{/if}
                     </span>
                   </span>
-                  <span class="value">{formatEUR(purchaseValue(s.lot, s.stock))}</span>
+                  <span class="value" title="Valeur au coût de revient (achat + transport)">{formatEUR(costValue(s.lot, s.stock))}</span>
                 </li>
               {/each}
             </ul>
