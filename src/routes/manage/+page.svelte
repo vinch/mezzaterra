@@ -198,6 +198,8 @@
       email,
       options: {
         emailRedirectTo: `${window.location.origin}/manage`,
+        /* Comptes existants uniquement : un inconnu ne s'ouvre pas de compte depuis cet écran. */
+        shouldCreateUser: false,
       },
     });
 

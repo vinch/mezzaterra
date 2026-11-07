@@ -150,6 +150,9 @@ nouveau schéma).
 ne lit plus que les colonnes publiques de `lot` (`LOT_PUBLIC_COLUMNS`, `src/lib/products.ts`), et un
 `select("*")` du site sur `lot` échoue. Une nouvelle colonne publique s'ajoute aux deux endroits. **À
 appliquer après avoir déployé le code**, qui liste ses colonnes : l'ancien code (`*`) casserait le site.
+Le rôle `authenticated` (la gestion) lit tout : les inscriptions doivent rester fermées (Supabase >
+Authentication > « Allow new users to sign up » désactivé), sinon n'importe qui s'ouvre un compte et lit
+les prix d'achat. L'écran de connexion de `/manage` n'en crée pas (`shouldCreateUser: false`).
 
 ```sh
 supabase link --project-ref wmerreifcpttrhxwmkmn
