@@ -21,7 +21,8 @@ const decimal = new Intl.NumberFormat("fr-BE", { maximumFractionDigits: 2 });
 
 /** « 12,5 % » : pourcentage à la virgule décimale, comme les montants. */
 export function formatPercent(n: number): string {
-  return `${decimal.format(n)} %`;
+  /* n || 0 : jamais « -0 % » pour un arrondi de -0,4. */
+  return `${decimal.format(n || 0)} %`;
 }
 
 const dateTime = new Intl.DateTimeFormat("fr-FR", { dateStyle: "short", timeStyle: "short" });
