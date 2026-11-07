@@ -162,6 +162,9 @@ qui s'ouvre un compte et lit les prix d'achat. L'écran de connexion de `/manage
 puis ajouter son identifiant à la table `administrator`. La gestion n'est rendue que dans le navigateur
 (`ssr = false`) : côté serveur, sans session, elle lirait la base en `anon`.
 
+`20261107140000_email_subscriber_admin_select.sql` donne aux admins la lecture de `email_subscriber` :
+la table n'avait qu'une policy INSERT, et la page Abonnés comme les campagnes lisaient une liste vide.
+
 ```sh
 supabase link --project-ref wmerreifcpttrhxwmkmn
 supabase db push
