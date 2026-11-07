@@ -1,6 +1,7 @@
 <script lang="ts">
   import { supabase } from "$lib/supabase";
   import { errorMessage } from "$lib/async";
+  import { salesLabel } from "$lib/sales";
   import { getContext, onMount } from "svelte";
   import ManagePageShell from "$lib/components/manage/ManagePageShell.svelte";
   import ColumnChart from "$lib/components/manage/ColumnChart.svelte";
@@ -265,7 +266,7 @@
         <nav class="todo" aria-label="À traiter">
           <span class="todo-title"><IconInbox size={16} strokeWidth={1.75} aria-hidden="true" /> À traiter</span>
           {#if kpi.pendingSales}
-            <a href="/manage/sales?statut=pending">{kpi.pendingSales} vente{kpi.pendingSales > 1 ? "s" : ""} en attente de paiement</a>
+            <a href="/manage/sales?statut=pending">{salesLabel(kpi.pendingSales)} en attente de paiement</a>
           {/if}
           {#if newRequests.messages}
             <a href="/manage/requests">{newRequests.messages} message{newRequests.messages > 1 ? "s" : ""} du site</a>
@@ -287,7 +288,7 @@
 
       <div class="kpis">
         <KpiCard label="Chiffre d’affaires" value={formatEUR(kpi.revenueAll)} icon={IconEuro} href="/manage/sales">
-          {formatEUR(kpi.revenueMonth)} ce mois-ci · {kpi.pendingSales} vente{kpi.pendingSales > 1 ? "s" : ""} en attente
+          {formatEUR(kpi.revenueMonth)} ce mois-ci · {salesLabel(kpi.pendingSales)} en attente
         </KpiCard>
         <KpiCard label="Marge brute sur les produits" value={formatEUR(kpi.productMargin)} icon={IconChart} href="/manage/insights">
           {kpi.marginPct != null ? `${kpi.marginPct} % du CA produits` : "Aucune vente encaissée"}
