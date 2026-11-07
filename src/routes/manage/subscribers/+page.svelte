@@ -183,7 +183,7 @@
 <ConfirmDialog
   bind:open={confirmOpen}
   title="Supprimer cet abonné ?"
-  message={deleteTarget ? `${deleteTarget.email} ne recevra plus les campagnes envoyées aux abonnés.` : ""}
+  message={deleteTarget ? `${deleteTarget.email} sera retiré de la liste des abonnés (une nouvelle inscription à une dégustation l’y remettra).` : ""}
   action={() => remove(deleteTarget!)}
 />
 
