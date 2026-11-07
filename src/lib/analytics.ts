@@ -1,6 +1,6 @@
 import { fetchAllRows, supabase } from "./supabase";
 import { addDaysIso, formatShortMonth, parseIsoDate, todayIso } from "./dates";
-import { toNumber } from "./format";
+import { toNumber, toNumberOrNull } from "./format";
 import { fetchStockMap } from "./manageData";
 
 /**
@@ -132,7 +132,7 @@ export function revenueLines(ds: Dataset, statuses = REVENUE_STATUSES): RevenueL
     const factor = gross > 0 ? toNumber(sale.total_price) / gross : 1;
     for (const it of items) {
       const v = it.lot_id ? lots.get(it.lot_id) : null;
-      const buy = v ? toNumber(v.purchase_price) : 0;
+      const buy = v ? toNumberOrNull(v.purchase_price) : null;
       out.push({
         saleId,
         date: sale.date,
@@ -142,7 +142,7 @@ export function revenueLines(ds: Dataset, statuses = REVENUE_STATUSES): RevenueL
         isTastingFee: !it.lot_id,
         quantity: Number(it.quantity) || 0,
         revenue: lineTotal(it) * factor,
-        cost: !it.lot_id ? 0 : buy > 0 ? buy * (Number(it.quantity) || 0) : null,
+        cost: !it.lot_id ? 0 : buy != null ? buy * (Number(it.quantity) || 0) : null,
       });
     }
   }
@@ -204,8 +204,8 @@ export function lotStats(ds: Dataset, lines = revenueLines(ds)): LotStats[] {
     const revenue = own.reduce((s, l) => s + l.revenue, 0);
     const lastSale = own.reduce<string | null>((m, l) => (!m || l.date > m ? l.date : m), null);
     const price = v.price != null ? toNumber(v.price) : null;
-    const buy = toNumber(v.purchase_price);
-    const unitMargin = price != null && buy > 0 ? price - buy : null;
+    const buy = toNumberOrNull(v.purchase_price);
+    const unitMargin = price != null && buy != null ? price - buy : null;
     const realized = marginOf(own);
     return {
       lot: v,

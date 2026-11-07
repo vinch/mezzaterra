@@ -207,8 +207,8 @@
       production_year: Number(lotFormData.production_year),
       year: num(lotFormData.year),
       abv: kind.hasAbv ? num(lotFormData.abv) : null,
-      /* Prix d'achat obligatoire en base : vide, on garde l'actuel (ou le défaut à la création). */
-      purchase_price: num(lotFormData.purchase_price) ?? undefined,
+      /* Vide = prix inconnu (hors marge) ; 0 = reçu gratuitement. */
+      purchase_price: num(lotFormData.purchase_price),
       price: num(lotFormData.price),
       image_url: lotFormData.image_url || null,
       organic: lotFormData.organic,
@@ -505,7 +505,7 @@
       </Select>
     </Field>
 
-    <Field id="purchase_price" label="Prix d’achat (€)">
+    <Field id="purchase_price" label="Prix d’achat (€)" help="0 pour un produit reçu gratuitement ; vide si inconnu (le lot reste hors marge).">
       <input id="purchase_price" class="ui-control" type="number" step="0.01" min="0" bind:value={lotFormData.purchase_price} placeholder="Prix unitaire payé au fournisseur" />
     </Field>
 
