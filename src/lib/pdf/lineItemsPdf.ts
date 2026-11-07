@@ -24,7 +24,7 @@ export type LineItemsPdf = {
   /** Lignes alignées à droite avant le trait final (sous-total, ristourne). */
   summary?: string[];
   /** Totaux après le trait, en 12 pt gras. */
-  totals: { text: string }[];
+  totals: string[];
   /** Blocs de mentions à gauche (mode de paiement, transport, note), chacun après un écart en mm. */
   blocks?: { gap: number; lines: PdfLine[] }[];
   fileName: string;
@@ -120,9 +120,9 @@ export function downloadLineItemsPdf(d: LineItemsPdf): void {
   doc.line(margin, yPos, right, yPos);
   yPos += 10;
 
+  font(12, "bold");
   d.totals.forEach((t, i) => {
-    font(12, "bold");
-    doc.text(t.text, right, yPos, { align: "right" });
+    doc.text(t, right, yPos, { align: "right" });
     if (i < d.totals.length - 1) yPos += 7;
   });
 

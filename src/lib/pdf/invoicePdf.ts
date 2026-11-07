@@ -56,7 +56,7 @@ export async function downloadInvoicePdf(saleId: string): Promise<void> {
     );
   }
 
-  const totals: LineItemsPdf["totals"] = [{ text: `TOTAL: ${pdfEur(total)}` }];
+  const totals = [`TOTAL: ${pdfEur(total)}`];
 
   /* Mention légale du régime de franchise (Code TVA belge, art. 56bis). */
   const blocks: LineItemsPdf["blocks"] = [
