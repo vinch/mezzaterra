@@ -623,7 +623,7 @@
           <input id="ds-modal-name" class="ui-control" type="text" value="Montepulciano d’Abruzzo" required aria-describedby={describedby} aria-invalid={invalid || undefined} />
         {/snippet}
       </Field>
-      <Field id="ds-modal-price" label="Prix de vente" help="TVA comprise.">
+      <Field id="ds-modal-price" label="Prix de vente" help="Prix unitaire payé par le client.">
         {#snippet children({ describedby })}
           <input id="ds-modal-price" class="ui-control" type="text" inputmode="decimal" value="14,50" aria-describedby={describedby} />
         {/snippet}
