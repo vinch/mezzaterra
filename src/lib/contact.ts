@@ -10,6 +10,12 @@ export function isValidEmail(email: string): boolean {
   return EMAIL_RE.test(email);
 }
 
+/** Lien `mailto:` ; adresse encodée : un « ? » ou un « & » saisi dans l'email ne doit pas ajouter de destinataire. */
+export function mailtoHref(email: string, subject?: string): string {
+  const to = encodeURIComponent(email).replace("%40", "@");
+  return subject ? `mailto:${to}?subject=${encodeURIComponent(subject)}` : `mailto:${to}`;
+}
+
 export type ContactReasonId = "prive" | "commande" | "degustation" | "pro" | "autre";
 
 export type ContactReason = {

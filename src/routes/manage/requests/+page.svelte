@@ -11,7 +11,7 @@
   import { IconInbox } from "$lib/ui/icons";
   import { LOT_LABEL_SELECT, lotLabel } from "$lib/products";
   import { formatDate, formatDateTime, formatEUR } from "$lib/format";
-  import { contactReason } from "$lib/contact";
+  import { contactReason, mailtoHref } from "$lib/contact";
   import {
     createSaleFromWish,
     setContactStatus,
@@ -107,8 +107,7 @@
 
   function replyHref(m: ContactMessage): string {
     const label = contactReason(m.reason)?.label ?? "Votre message";
-    /* Adresse encodée : un « ? » ou un « & » saisi dans l'email ne doit pas ajouter de destinataire. */
-    return `mailto:${encodeURIComponent(m.email).replace("%40", "@")}?subject=${encodeURIComponent(`Re: ${label}${m.subject ? ` — ${m.subject}` : ""}`)}`;
+    return mailtoHref(m.email, `Re: ${label}${m.subject ? ` — ${m.subject}` : ""}`);
   }
 
   /** Change le statut sur place, sans recharger toutes les demandes. */

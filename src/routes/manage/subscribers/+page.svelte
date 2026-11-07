@@ -1,9 +1,10 @@
 <script lang="ts">
   import { onMount } from "svelte";
-  import { SvelteSet } from "svelte/reactivity";
-  import { errorMessage, rowAction } from "$lib/async";
+  import { errorMessage } from "$lib/async";
   import { fetchAllRows, supabase } from "$lib/supabase";
-  import { downloadTextFile } from "$lib/dates";
+  import { mailtoHref } from "$lib/contact";
+  import { todayIso } from "$lib/dates";
+  import { downloadTextFile } from "$lib/download";
   import { fold, formatDate } from "$lib/format";
   import { sortedBy, type SortState } from "$lib/sort";
   import ManagePageShell from "$lib/components/manage/ManagePageShell.svelte";
@@ -12,6 +13,7 @@
   import ConfirmDialog from "$lib/ui/ConfirmDialog.svelte";
   import DataTable from "$lib/ui/DataTable.svelte";
   import EmptyState from "$lib/ui/EmptyState.svelte";
+  import type { MenuItem } from "$lib/ui/Menu.svelte";
   import RowMenu from "$lib/ui/RowMenu.svelte";
   import SortHeader from "$lib/ui/SortHeader.svelte";
   import Spinner from "$lib/ui/Spinner.svelte";
@@ -39,8 +41,6 @@
   /** Source affichée ; vide = toutes. */
   let source = $state("");
   let sort = $state<SortState<SortKey>>({ key: "created_at", dir: "desc" });
-  const busy = new SvelteSet<string>();
-  const run = rowAction({ busy, error: (m) => (error = m) });
 
   onMount(async () => {
     try {
@@ -59,13 +59,12 @@
     }
   });
 
-  /* Les sources connues d'abord, puis celles qui existeraient en base sans libellé. */
-  let sourceFilters = $derived(
-    [...new Set([...Object.keys(SOURCES), ...subscribers.map((s) => s.source)])].map((key) => ({
-      key,
-      count: subscribers.filter((s) => s.source === key).length,
-    })),
-  );
+  /* « Tous », les sources connues, puis celles qui existeraient en base sans libellé. */
+  let sourceFilters = $derived.by(() => {
+    const counts = new Map<string, number>([["", subscribers.length], ...Object.keys(SOURCES).map((k): [string, number] => [k, 0])]);
+    for (const s of subscribers) counts.set(s.source, (counts.get(s.source) ?? 0) + 1);
+    return [...counts].map(([key, count]) => ({ key, label: key ? sourceLabel(key) : "Tous", count }));
+  });
   let shown = $derived.by(() => {
     const q = fold(search.trim());
     const rows = subscribers.filter((s) => (!source || s.source === source) && (!q || fold(s.email).includes(q)));
@@ -81,21 +80,36 @@
     const cell = (v: string) => `"${v.replaceAll('"', '""')}"`;
     const lines = [
       ["Email", "Source", "Inscrit le"],
-      ...shown.map((s) => [s.email, sourceLabel(s.source), s.created_at.slice(0, 10)]),
+      ...shown.map((s) => [s.email, sourceLabel(s.source), formatDate(s.created_at)]),
     ].map((row) => row.map(cell).join(";"));
-    downloadTextFile(`abonnes-${new Date().toISOString().slice(0, 10)}.csv`, `﻿${lines.join("\r\n")}`, "text/csv;charset=utf-8");
+    downloadTextFile(`abonnes-${todayIso()}.csv`, `\uFEFF${lines.join("\r\n")}`, "text/csv;charset=utf-8");
   }
 
   let deleteTarget = $state<Subscriber | null>(null);
   let confirmOpen = $state(false);
 
+  function rowItems(s: Subscriber): MenuItem[] {
+    return [
+      { label: "Écrire", icon: IconMail, href: mailtoHref(s.email) },
+      {
+        label: "Supprimer…",
+        icon: IconTrash,
+        danger: true,
+        separator: true,
+        onSelect: () => {
+          deleteTarget = s;
+          confirmOpen = true;
+        },
+      },
+    ];
+  }
+
   /* Même désinscription que le lien des campagnes. */
-  function remove(s: Subscriber) {
-    return run(s.id, async () => {
-      const { error: e } = await supabase.rpc("unsubscribe_email", { p_id: s.id });
-      if (e) throw new Error(e.message);
-      subscribers = subscribers.filter((x) => x.id !== s.id);
-    });
+  async function remove(s: Subscriber) {
+    error = "";
+    const { error: e } = await supabase.rpc("unsubscribe_email", { p_id: s.id });
+    if (e) error = e.message;
+    else subscribers = subscribers.filter((x) => x.id !== s.id);
   }
 </script>
 
@@ -122,12 +136,9 @@
         <input class="ui-control" type="search" placeholder="Rechercher un email…" bind:value={search} />
       </label>
       <div class="chips" role="group" aria-label="Filtrer par source">
-        <button type="button" class="ui-chip" aria-pressed={!source} onclick={() => (source = "")}>
-          Tous<span class="count">{subscribers.length}</span>
-        </button>
         {#each sourceFilters as f (f.key)}
           <button type="button" class="ui-chip" aria-pressed={source === f.key} onclick={() => (source = source === f.key ? "" : f.key)}>
-            {sourceLabel(f.key)}<span class="count">{f.count}</span>
+            {f.label}<span class="count">{f.count}</span>
           </button>
         {/each}
       </div>
@@ -158,23 +169,7 @@
               <td>{sourceLabel(s.source)}</td>
               <td>{formatDate(s.created_at)}</td>
               <td class="col-actions">
-                <RowMenu
-                  label="Actions pour {s.email}"
-                  items={[
-                    { label: "Écrire", icon: IconMail, href: `mailto:${encodeURIComponent(s.email).replace("%40", "@")}` },
-                    {
-                      label: "Supprimer…",
-                      icon: IconTrash,
-                      danger: true,
-                      separator: true,
-                      disabled: busy.has(s.id),
-                      onSelect: () => {
-                        deleteTarget = s;
-                        confirmOpen = true;
-                      },
-                    },
-                  ]}
-                />
+                <RowMenu label="Actions pour {s.email}" items={rowItems(s)} />
               </td>
             </tr>
           {/each}

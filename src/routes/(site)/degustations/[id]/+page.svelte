@@ -5,7 +5,8 @@
   import ProductCard from "$lib/components/site/ProductCard.svelte";
   import RegistrationForm from "$lib/components/site/RegistrationForm.svelte";
   import { fetchAvailability, isPrivateTasting, TASTING_ADDRESS, tastingTitle, type AvailabilityOf } from "$lib/publicData";
-  import { buildIcs, daysAwayLabel, daysUntil, downloadTextFile, formatDateLong, formatTime, isLiveNow } from "$lib/dates";
+  import { buildIcs, daysAwayLabel, daysUntil, formatDateLong, formatTime, isLiveNow } from "$lib/dates";
+  import { downloadTextFile } from "$lib/download";
   import { productStyle, productTitle } from "$lib/products";
   import { formatEUR } from "$lib/format";
   import type { Lot } from "$lib/types";

@@ -1,5 +1,3 @@
-import { downloadBlob } from "./download";
-
 /**
  * Dates « calendrier » (colonnes `date` Postgres, sans fuseau) : on les parse en local
  * pour éviter qu'un `new Date("2026-10-16")` (UTC) ne recule d'un jour selon le fuseau.
@@ -123,10 +121,6 @@ export function buildIcs(opts: {
   if (opts.url) lines.push(`URL:${opts.url}`);
   lines.push("END:VEVENT", "END:VCALENDAR");
   return lines.join("\r\n");
-}
-
-export function downloadTextFile(filename: string, content: string, mime: string) {
-  downloadBlob(filename, new Blob([content], { type: mime }));
 }
 
 /** Heure (locale) jusqu'à laquelle une soirée de la veille est encore considérée « en direct ». */
