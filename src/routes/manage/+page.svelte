@@ -216,9 +216,9 @@
   }
 
   let stockAlerts = $derived([...outOfStock, ...lowStock]);
-  /* Par marge : sans prix d'achat (marginPct null), la marge vaudrait tout le CA ; ces lots sont écartés. */
+  /* Par marge : écarte les lots vendus à perte et ceux sans prix d'achat (marginPct null), dont la marge vaudrait tout le CA. */
   let topLots = $derived(
-    [...(topBy === "margin" ? soldLots.filter((s) => s.marginPct != null) : soldLots)]
+    [...(topBy === "margin" ? soldLots.filter((s) => s.marginPct != null && s.margin > 0) : soldLots)]
       .sort((a, b) => b[topBy] - a[topBy])
       .slice(0, 5),
   );
