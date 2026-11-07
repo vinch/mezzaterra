@@ -166,10 +166,10 @@ export function uncostedLabel(n: number): string {
 export function marginOf(lines: RevenueLine[]): MarginSummary {
   let revenue = 0;
   let cost = 0;
-  const uncosted = new Set<string>();
+  const uncosted = new Set<string | null>();
   for (const l of lines) {
     if (l.isTastingFee) continue;
-    if (l.cost == null) uncosted.add(l.lotId!);
+    if (l.cost == null) uncosted.add(l.lotId);
     else {
       revenue += l.revenue;
       cost += l.cost;
@@ -206,14 +206,14 @@ export function lotStats(ds: Dataset, lines = revenueLines(ds)): LotStats[] {
     const price = v.price != null ? toNumber(v.price) : null;
     const buy = toNumber(v.purchase_price);
     const unitMargin = price != null && buy > 0 ? price - buy : null;
-    const realized = buy > 0 ? marginOf(own) : null;
+    const realized = marginOf(own);
     return {
       lot: v,
       stock: ds.stock.get(v.id) ?? 0,
       sold: own.reduce((s, l) => s + l.quantity, 0),
       revenue,
-      margin: realized?.margin ?? null,
-      marginPct: realized?.pct ?? null,
+      margin: realized.uncostedLots ? null : realized.margin,
+      marginPct: realized.uncostedLots ? null : realized.pct,
       unitMargin,
       unitMarginPct: unitMargin != null && price ? (unitMargin / price) * 100 : null,
       lastSale,
