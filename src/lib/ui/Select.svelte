@@ -2,7 +2,7 @@
   import type { Snippet } from "svelte";
   /** Liste déroulante du design system. Options passées en contenu (<option>). */
   interface Props {
-    onchange?: (e: Event) => void;
+    onchange?: (e: Event & { currentTarget: HTMLSelectElement }) => void;
     value?: string | null;
     id?: string | undefined;
     required?: boolean;

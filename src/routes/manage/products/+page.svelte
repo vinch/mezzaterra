@@ -693,7 +693,7 @@
       <Select
         id="product-kind"
         value={formData.kind}
-        onchange={(e) => setFormKind((e.currentTarget as HTMLSelectElement).value as ProductKind)}
+        onchange={(e) => setFormKind(e.currentTarget.value as ProductKind)}
         disabled={!!editingProduct}
       >
         {#each PRODUCT_KIND_OPTIONS as o (o.value)}
