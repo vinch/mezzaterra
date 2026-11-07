@@ -145,7 +145,7 @@
       </div>
     </div>
 
-    {#if shown.length === 0}
+    {#if shown.length === 0 && !error}
       <Card>
         <EmptyState
           icon={IconMailCheck}
@@ -153,7 +153,7 @@
           text="Les emails laissés sur l’accueil du site et ceux des inscrits aux dégustations arrivent ici."
         />
       </Card>
-    {:else}
+    {:else if shown.length}
       <DataTable caption="Abonnés">
         <thead>
           <tr>
