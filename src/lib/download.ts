@@ -9,3 +9,8 @@ export function downloadBlob(filename: string, blob: Blob) {
   a.remove();
   setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
+
+/** Télécharge un texte (ICS, CSV…) sous le nom `filename`. */
+export function downloadTextFile(filename: string, content: string, mime: string) {
+  downloadBlob(filename, new Blob([content], { type: mime }));
+}

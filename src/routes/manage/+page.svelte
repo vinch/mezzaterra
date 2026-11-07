@@ -31,6 +31,9 @@
     loadDataset,
     monthlyRevenue,
     revenueLines,
+    marginOf,
+    purchaseValue,
+    uncostedLabel,
     lotStats,
     type LotStats,
   } from "$lib/analytics";
@@ -60,8 +63,7 @@
     revenueAll: 0,
     revenueMonth: 0,
     pendingSales: 0,
-    productMargin: 0,
-    marginPct: null as number | null,
+    margin: marginOf([]),
     bottles: 0,
     stockValue: 0,
     lowCount: 0,
@@ -79,6 +81,7 @@
     { key: "margin", label: "Marge" },
   ];
   let topBy = $state<TopBy>("revenue");
+  const rankValue = (s: LotStats) => (topBy === "margin" ? (s.margin ?? 0) : s.revenue);
   let outOfStock = $state<LotStats[]>([]);
   let lowStock = $state<LotStats[]>([]);
   let dormant = $state<LotStats[]>([]);
@@ -125,16 +128,12 @@
       const inStock = [...ds.stock.values()].filter((q) => q > 0);
       const revenueSales = ds.sales.filter((s) => REVENUE_STATUSES.includes(s.status ?? ""));
       const lines = revenueLines(ds);
-      const productLines = lines.filter((l) => !l.isTastingFee);
-      const productRevenue = productLines.reduce((s, l) => s + l.revenue, 0);
-      const productMargin = productLines.reduce((s, l) => s + l.revenue - l.cost, 0);
 
       kpi = {
         revenueAll: revenueSales.reduce((sum, r) => sum + Number(r.total_price ?? 0), 0),
         revenueMonth: revenueSales.filter((r) => r.date >= monthStart).reduce((sum, r) => sum + Number(r.total_price ?? 0), 0),
         pendingSales: ds.sales.filter((s) => s.status === "pending").length,
-        productMargin,
-        marginPct: productRevenue > 0 ? Math.round((productMargin / productRevenue) * 100) : null,
+        margin: marginOf(lines),
         bottles: inStock.reduce((s, q) => s + q, 0),
         stockValue: ds.lots.reduce((s, v) => s + Math.max(0, ds.stock.get(v.id) ?? 0) * Number(v.purchase_price || 0), 0),
         lowCount: inStock.filter((q) => q <= LOW_STOCK).length,
@@ -153,7 +152,7 @@
       lowStock = reorderable.filter((s) => s.stock > 0 && s.stock <= LOW_STOCK).sort((a, b) => a.stock - b.stock || b.sold - a.sold);
       dormant = stats
         .filter((s) => s.stock > 0 && (s.idleDays == null || s.idleDays >= DORMANT_DAYS))
-        .sort((a, b) => b.stock * Number(b.lot.purchase_price || 0) - a.stock * Number(a.lot.purchase_price || 0));
+        .sort((a, b) => (purchaseValue(b.lot, b.stock) ?? 0) - (purchaseValue(a.lot, a.stock) ?? 0));
 
       nextTasting = (nextRes.data || [])[0] ?? null;
       lastTasting = (lastRes.data || [])[0] ?? null;
@@ -220,13 +219,13 @@
   }
 
   let stockAlerts = $derived([...outOfStock, ...lowStock]);
-  /* Par marge : écarte les lots vendus à perte et ceux sans prix d'achat (marginPct null), dont la marge vaudrait tout le CA. */
+  /* Par marge : écarte les lots vendus à perte et ceux sans prix d'achat (margin null). */
   let topLots = $derived(
-    [...(topBy === "margin" ? soldLots.filter((s) => s.marginPct != null && s.margin > 0) : soldLots)]
-      .sort((a, b) => b[topBy] - a[topBy])
+    [...(topBy === "margin" ? soldLots.filter((s) => (s.margin ?? 0) > 0) : soldLots)]
+      .sort((a, b) => rankValue(b) - rankValue(a))
       .slice(0, 5),
   );
-  let topMax = $derived(topLots[0]?.[topBy] ?? 0);
+  let topMax = $derived(topLots[0] ? rankValue(topLots[0]) : 0);
   let chartLabel = $derived(`Chiffre d'affaires encaissé par mois sur les 12 derniers mois. ${months
     .map((m) => `${m.label} : ${formatEUR(m.value)}`)
     .join(", ")}.`);
@@ -308,8 +307,9 @@
         <KpiCard label="Chiffre d’affaires" value={formatEUR(kpi.revenueAll)} icon={IconEuro} href="/manage/sales">
           {formatEUR(kpi.revenueMonth)} ce mois-ci · {salesLabel(kpi.pendingSales)} en attente
         </KpiCard>
-        <KpiCard label="Marge brute sur les produits" value={formatEUR(kpi.productMargin)} icon={IconChart} href="/manage/insights">
-          {kpi.marginPct != null ? `${kpi.marginPct} % du CA produits` : "Aucune vente encaissée"}
+        <KpiCard label="Marge brute sur les produits" value={formatEUR(kpi.margin.margin)} icon={IconChart} href="/manage/insights">
+          {#if kpi.margin.pct != null}Taux de marge : {formatPercent(Math.round(kpi.margin.pct))}{:else if !kpi.margin.uncostedLots && !kpi.margin.margin}Aucune vente encaissée{/if}
+          {#if kpi.margin.uncostedLots}{#if kpi.margin.pct != null}<br />{/if}<span class="t-warn">{uncostedLabel(kpi.margin.uncostedLots)}</span>{/if}
         </KpiCard>
         <KpiCard label="Bouteilles en stock" value={String(kpi.bottles)} icon={IconBox} href="/manage/stock">
           {formatEUR(kpi.stockValue)} au prix d’achat
@@ -385,10 +385,10 @@
                     <span><strong>{lotShortLabel(w.lot)}</strong><span class="t-muted">&nbsp;· {w.lot.product?.producer?.name ?? ""}</span></span>
                   </span>
                   <span class="rank-value">
-                    <strong>{formatEUR(w[topBy])}</strong>
+                    <strong>{formatEUR(rankValue(w))}</strong>
                     <span class="t-muted">{topBy === "revenue" ? `${w.sold} bt.` : formatPercent(Math.round(w.marginPct ?? 0))}</span>
                   </span>
-                  <span class="rank-bar" aria-hidden="true"><span style="width: {topMax > 0 ? Math.max(0, w[topBy] / topMax) * 100 : 0}%"></span></span>
+                  <span class="rank-bar" aria-hidden="true"><span style="width: {topMax > 0 ? Math.max(0, rankValue(w) / topMax) * 100 : 0}%"></span></span>
                 </li>
               {/each}
             </ol>
@@ -442,7 +442,7 @@
                       {s.stock} bt. · {#if s.lastSale}dernière vente il y a <strong class="t-warn">{s.idleDays} j</strong>{:else}<strong class="t-warn">jamais vendu</strong>{/if}
                     </span>
                   </span>
-                  <span class="value">{formatEUR(s.stock * Number(s.lot.purchase_price || 0))}</span>
+                  <span class="value">{formatEUR(purchaseValue(s.lot, s.stock))}</span>
                 </li>
               {/each}
             </ul>

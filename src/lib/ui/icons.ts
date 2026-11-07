@@ -36,6 +36,7 @@ export { default as IconLightbulb } from "@lucide/svelte/icons/lightbulb";
 export { default as IconLock } from "@lucide/svelte/icons/lock";
 export { default as IconLogout } from "@lucide/svelte/icons/log-out";
 export { default as IconMail } from "@lucide/svelte/icons/mail";
+export { default as IconMailCheck } from "@lucide/svelte/icons/mail-check";
 export { default as IconMap } from "@lucide/svelte/icons/map";
 export { default as IconMapPin } from "@lucide/svelte/icons/map-pin";
 export { default as IconMenu } from "@lucide/svelte/icons/menu";

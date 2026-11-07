@@ -1,5 +1,3 @@
-import { downloadBlob } from "./download";
-
 /**
  * Dates « calendrier » (colonnes `date` Postgres, sans fuseau) : on les parse en local
  * pour éviter qu'un `new Date("2026-10-16")` (UTC) ne recule d'un jour selon le fuseau.
@@ -20,6 +18,11 @@ const pad2 = (n: number) => String(n).padStart(2, "0");
 /** « 2026-10-16 » : jour local de `d` (pas `toISOString`, qui passe en UTC). */
 function toIsoDate(d: Date): string {
   return `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())}`;
+}
+
+/** « 2026-10-16 » : jour local d'un horodatage (`timestamptz`), pas le jour UTC de la chaîne. */
+export function localIsoDate(timestamp: string): string {
+  return toIsoDate(new Date(timestamp));
 }
 
 export function todayIso(): string {
@@ -123,10 +126,6 @@ export function buildIcs(opts: {
   if (opts.url) lines.push(`URL:${opts.url}`);
   lines.push("END:VEVENT", "END:VCALENDAR");
   return lines.join("\r\n");
-}
-
-export function downloadTextFile(filename: string, content: string, mime: string) {
-  downloadBlob(filename, new Blob([content], { type: mime }));
 }
 
 /** Heure (locale) jusqu'à laquelle une soirée de la veille est encore considérée « en direct ». */

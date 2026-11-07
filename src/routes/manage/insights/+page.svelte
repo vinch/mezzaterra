@@ -6,7 +6,11 @@
     BOTTLES_PER_TASTED_LOT,
     loadDataset,
     revenueLines,
+    marginOf,
+    purchaseValue,
+    uncostedLabel,
     tastingRoi,
+    type MarginSummary,
     lotStats,
     type TastingRoi,
     type LotStats,
@@ -21,11 +25,13 @@
   import KpiCard from "$lib/ui/KpiCard.svelte";
   import Tabs from "$lib/ui/Tabs.svelte";
   import { IconBox, IconChart, IconEuro, IconSignal } from "$lib/ui/icons";
-  import { formatDate, formatEUR, toNumberOrNull } from "$lib/format";
+  import { formatDate, formatEUR, formatPercent, toNumberOrNull } from "$lib/format";
 
   let loading = $state(true);
   let error = $state("");
   let stats = $state.raw<LotStats[]>([]);
+  /** Marge de toutes les ventes de produits : prix d'achat connu uniquement (marginOf). */
+  let margin = $state.raw<MarginSummary>(marginOf([]));
   let roi = $state<TastingRoi[]>([]);
   type Tab = "margins" | "rotation" | "tastings";
   const TABS: { key: Tab; label: string }[] = [
@@ -44,7 +50,7 @@
     margin: (s: LotStats) => s.margin,
     stock: (s: LotStats) => s.stock,
   };
-  type RotationRow = LotStats & { value: number; monthsLeft: number | null };
+  type RotationRow = LotStats & { value: number | null; monthsLeft: number | null };
   const ROTATION_SORT = {
     product: (r: RotationRow) => lotLabel(r.lot),
     stock: (r: RotationRow) => r.stock,
@@ -73,6 +79,7 @@
       const ds = await loadDataset();
       const lines = revenueLines(ds);
       stats = lotStats(ds, lines);
+      margin = marginOf(lines);
       roi = await tastingRoi(ds, lines);
     } catch (e) {
       error = errorMessage(e);
@@ -83,21 +90,21 @@
 
   let sorted = $derived(sortedBy(stats, marginSort, MARGIN_SORT));
   let totals = $derived(stats.reduce(
-    (t, s) => ({ revenue: t.revenue + s.revenue, cost: t.cost + s.cost, sold: t.sold + s.sold }),
-    { revenue: 0, cost: 0, sold: 0 },
+    (t, s) => ({ revenue: t.revenue + s.revenue, sold: t.sold + s.sold }),
+    { revenue: 0, sold: 0 },
   ));
   let rotation = $derived(sortedBy(stats
     .filter((s) => s.stock > 0)
     .map((s): RotationRow => ({
       ...s,
-      value: s.stock * Number(s.lot.purchase_price || 0),
+      value: purchaseValue(s.lot, s.stock),
       /* Ventes mensuelles moyennes sur la période observée → mois de stock restants. */
       monthsLeft: s.sold > 0 && s.lastSale ? s.stock / Math.max(0.25, s.sold / 12) : null,
     })), rotationSort, ROTATION_SORT));
   let sortedRoi = $derived(sortedBy(roi, roiSort, ROI_SORT));
 
   function pct(n: number | null): string {
-    return n == null ? "—" : `${Math.round(n)} %`;
+    return n == null ? "—" : formatPercent(Math.round(n));
   }
 
   function marginClass(p: number | null): string {
@@ -126,15 +133,19 @@
   {:else}
     <div class="kpis">
       <KpiCard label="CA produits encaissé" value={formatEUR(totals.revenue, true)} icon={IconEuro} />
-      <KpiCard label="Marge brute" value={formatEUR(totals.revenue - totals.cost, true)} icon={IconChart} />
-      <KpiCard label="Taux de marge" value={pct(totals.revenue ? ((totals.revenue - totals.cost) / totals.revenue) * 100 : null)} icon={IconSignal} />
+      <KpiCard label="Marge brute" value={formatEUR(margin.margin, true)} icon={IconChart}>
+        {#if margin.uncostedLots}<span class="t-warn">{uncostedLabel(margin.uncostedLots)}</span>{/if}
+      </KpiCard>
+      <KpiCard label="Taux de marge" value={pct(margin.pct)} icon={IconSignal}>
+        {#if margin.uncostedLots}Sur le CA des produits au prix d’achat connu{/if}
+      </KpiCard>
       <KpiCard label="Bouteilles vendues" value={String(totals.sold)} icon={IconBox} />
     </div>
 
     {#if tab === "margins"}
       <p class="explain">
         Marge = CA encaissé (remises et ristournes incluses) − prix d’achat × bouteilles vendues.
-        La marge unitaire est calculée au prix catalogue.
+        Un produit sans prix d’achat reste hors marge. La marge unitaire est calculée au prix catalogue.
       </p>
       <DataTable caption="Marges par produit">
           <thead>
@@ -165,7 +176,7 @@
                 </td>
                 <td class="num">{s.sold || "—"}</td>
                 <td class="num">{s.revenue ? formatEUR(s.revenue, true) : "—"}</td>
-                <td class="num"><strong>{s.revenue ? formatEUR(s.margin, true) : "—"}</strong></td>
+                <td class="num"><strong>{s.revenue && s.margin != null ? formatEUR(s.margin, true) : "—"}</strong></td>
                 <td class="num">{s.stock}</td>
               </tr>
             {/each}
@@ -212,7 +223,8 @@
       <p class="explain">
         Pour chaque soirée : entrées + marge sur les ventes rattachées à la dégustation − coût des
         bouteilles ouvertes ({BOTTLES_PER_TASTED_LOT} par produit servi). Les « relances » sont les achats des
-        participants dans les 30 jours suivants, hors soirée.
+        participants dans les 30 jours suivants, hors soirée. Un produit sans prix d’achat ne compte ni dans
+        la marge ni dans le coût des bouteilles ouvertes.
       </p>
       <DataTable caption="Rentabilité des dégustations">
           <thead>

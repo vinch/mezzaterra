@@ -11,6 +11,7 @@
   import type { Customer } from "$lib/types";
   import { REVENUE_STATUSES, lineTotal, type SaleItemRow } from "$lib/analytics";
   import { daysUntil } from "$lib/dates";
+  import { mailtoHref } from "$lib/contact";
   import { fetchLatestFeedback } from "$lib/live";
   import { MAIN_ROBES, robePreference, lotLabel, lotLabelSelect, lotShortLabel, wineRobe } from "$lib/products";
   import { styleByKey, type ProductStyleKey } from "$lib/productStyles";
@@ -210,7 +211,7 @@
     if (!customer?.email) return "";
     const lines = selectedSuggestions.map((s) => `- ${lotLabel(s.lot)}${s.lot.price ? ` (${formatEUR(s.lot.price)})` : ""}`);
     const body = `Bonjour ${customer.first_name},\n\nJ’ai pensé à vous :\n${lines.join("\n")}\n\nÀ bientôt,\nMezzaterra`;
-    return `mailto:${customer.email}?subject=${encodeURIComponent("Quelques idées pour vous")}&body=${encodeURIComponent(body)}`;
+    return mailtoHref(customer.email, { subject: "Quelques idées pour vous", body });
   }
 
   let lastSaleDays = $derived(lastSale ? -daysUntil(lastSale.date) : null);
@@ -339,7 +340,7 @@
     <div class="top">
       <Card title="Coordonnées" id="coords">
         <dl class="coords">
-          {#if customer.email}<dt>Email</dt><dd><a href="mailto:{customer.email}">{customer.email}</a></dd>{/if}
+          {#if customer.email}<dt>Email</dt><dd><a href={mailtoHref(customer.email)}>{customer.email}</a></dd>{/if}
           {#if customer.phone_number}<dt>Téléphone</dt><dd><a href="tel:{customer.phone_number.replace(/\s/g, '')}">{customer.phone_number}</a></dd>{/if}
           {#if customer.company_name}<dt>Société</dt><dd>{customer.company_name}{customer.vat ? ` · TVA ${customer.vat}` : ""}</dd>{/if}
           {#if customer.city || customer.address_line_1}
