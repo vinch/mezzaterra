@@ -20,6 +20,11 @@ function toIsoDate(d: Date): string {
   return `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())}`;
 }
 
+/** « 2026-10-16 » : jour local d'un horodatage (`timestamptz`), pas le jour UTC de la chaîne. */
+export function localIsoDate(timestamp: string): string {
+  return toIsoDate(new Date(timestamp));
+}
+
 export function todayIso(): string {
   return toIsoDate(new Date());
 }

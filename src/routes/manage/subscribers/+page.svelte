@@ -3,7 +3,7 @@
   import { errorMessage } from "$lib/async";
   import { fetchAllRows, supabase } from "$lib/supabase";
   import { mailtoHref } from "$lib/contact";
-  import { todayIso } from "$lib/dates";
+  import { localIsoDate, todayIso } from "$lib/dates";
   import { downloadTextFile } from "$lib/download";
   import { fold, formatDate } from "$lib/format";
   import { sortedBy, type SortState } from "$lib/sort";
@@ -81,7 +81,7 @@
     const cell = (v: string) => `"${v.replace(/^[=+\-@\t\r]/, "'$&").replaceAll('"', '""')}"`;
     const lines = [
       ["Email", "Source", "Inscrit le"],
-      ...shown.map((s) => [s.email, sourceLabel(s.source), formatDate(s.created_at)]),
+      ...shown.map((s) => [s.email, sourceLabel(s.source), formatDate(localIsoDate(s.created_at))]),
     ].map((row) => row.map(cell).join(";"));
     downloadTextFile(`abonnes-${todayIso()}.csv`, `\uFEFF${lines.join("\r\n")}`, "text/csv;charset=utf-8");
   }
@@ -168,7 +168,7 @@
             <tr>
               <td><strong>{s.email}</strong></td>
               <td>{sourceLabel(s.source)}</td>
-              <td>{formatDate(s.created_at)}</td>
+              <td>{formatDate(localIsoDate(s.created_at))}</td>
               <td class="col-actions">
                 <RowMenu label="Actions pour {s.email}" items={rowItems(s)} />
               </td>
