@@ -2,7 +2,6 @@ import { fetchAllRows, supabase } from "./supabase";
 import { addDaysIso, formatShortMonth, parseIsoDate, todayIso } from "./dates";
 import { formatEUR, toNumber, toNumberOrNull } from "./format";
 import { fetchStockMap } from "./manageData";
-import { quantitiesByLot } from "./sales";
 
 /**
  * Calculs de pilotage (marges, rotation du stock, rentabilité des dégustations).
@@ -48,17 +47,17 @@ export type LotRow = {
   price: number | null;
   /** null : prix inconnu, hors marge ; 0 : produit reçu gratuitement. */
   purchase_price: number | null;
-  /** Transport par bouteille (freightByLot), ajouté par loadDataset ; 0 sans transport enregistré. */
+  /** Transport par contenant (freightByLot), ajouté par loadDataset ; 0 sans transport enregistré. */
   freight: number;
   image_url: string | null;
   discontinued_at?: string | null;
   product: any;
 };
 
-/** Transport avec les bouteilles qu'il a amenées (lignes de ses commandes fournisseur). */
+/** Transport avec les contenants qu'il a amenés (lignes de ses commandes fournisseur). */
 export type TransportRow = {
   price: number | null;
-  order: { order_item: { lot_id: string; quantity: number }[] }[];
+  order: { order_item: { lot_id: string; quantity: number; lot: { volume_ml: number } | null }[] }[];
 };
 
 /** Transports dont le prix entre dans le coût de revient : la marchandise est partie. */
@@ -111,44 +110,51 @@ export async function loadDataset(): Promise<Dataset> {
     fetchAllRows<TransportRow>((a, b) =>
       supabase
         .from("transport")
-        .select("price, order ( order_item ( lot_id, quantity ) )")
+        .select("price, order ( order_item ( lot_id, quantity, lot ( volume_ml ) ) )")
         .in("status", FREIGHT_STATUSES)
         .order("id")
         .range(a, b),
     ),
   ]);
-  const freight = freightByLot(transports);
+  const { freight, unpriced } = freightByLot(transports);
   return {
     sales,
     items,
     lots: lots.map((l) => ({ ...l, freight: freight.get(l.id) ?? 0 })),
     stock,
-    unpricedTransports: transports.filter((t) => t.price == null).length,
+    unpricedTransports: unpriced,
   };
 }
 
 /**
- * Transport par bouteille de chaque lot : le prix d'un transport est réparti à parts égales entre les
- * bouteilles de ses commandes, puis moyenné par lot s'il est venu en plusieurs fois. Un transport sans
- * prix est ignoré : ses bouteilles prennent la moyenne des autres transports du lot, ou 0.
+ * Transport par contenant de chaque lot : le prix d'un transport est réparti entre ses contenants au
+ * prorata du volume (un bidon de 5 L porte autant qu'environ 6,7 bouteilles de 75 cl), puis moyenné
+ * par lot s'il est venu en plusieurs fois. Un transport sans prix est ignoré et compté dans `unpriced` :
+ * ses contenants prennent la moyenne des autres transports du lot, ou 0.
  */
-function freightByLot(transports: TransportRow[]): Map<string, number> {
-  const totals = new Map<string, { cost: number; bottles: number }>();
+function freightByLot(transports: TransportRow[]): { freight: Map<string, number>; unpriced: number } {
+  const totals = new Map<string, { cost: number; count: number }>();
+  let unpriced = 0;
   for (const t of transports) {
+    const items = t.order
+      .flatMap((o) => o.order_item)
+      .map((it) => ({ lotId: it.lot_id, qty: Number(it.quantity) || 0, ml: it.lot?.volume_ml ?? 750 }))
+      .filter((it) => it.qty > 0);
+    const totalMl = items.reduce((s, it) => s + it.qty * it.ml, 0);
+    if (totalMl <= 0) continue;
     const price = toNumberOrNull(t.price);
-    if (price == null) continue;
-    const perLot = quantitiesByLot(t.order.flatMap((o) => o.order_item));
-    const bottles = [...perLot.values()].reduce((s, q) => s + q, 0);
-    if (bottles <= 0) continue;
-    for (const [lotId, qty] of perLot) {
-      if (qty <= 0) continue;
-      const lot = totals.get(lotId) ?? { cost: 0, bottles: 0 };
-      lot.cost += (price / bottles) * qty;
-      lot.bottles += qty;
-      totals.set(lotId, lot);
+    if (price == null) {
+      unpriced++;
+      continue;
+    }
+    for (const it of items) {
+      const lot = totals.get(it.lotId) ?? { cost: 0, count: 0 };
+      lot.cost += (price * it.qty * it.ml) / totalMl;
+      lot.count += it.qty;
+      totals.set(it.lotId, lot);
     }
   }
-  return new Map([...totals].map(([id, t]) => [id, t.cost / t.bottles]));
+  return { freight: new Map([...totals].map(([id, t]) => [id, t.cost / t.count])), unpriced };
 }
 
 /** Coût de revient d'une bouteille : prix d'achat + transport ; null si le prix d'achat est inconnu (hors marge). */

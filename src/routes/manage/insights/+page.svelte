@@ -151,9 +151,10 @@
 
     {#if tab === "margins"}
       <p class="explain">
-        Coût de revient d’une bouteille = prix d’achat + transport. Le transport par bouteille est le prix
-        de chaque transport en transit ou livré, divisé par le nombre de bouteilles de ses commandes, en
-        moyenne si le produit est venu en plusieurs fois ; sans transport enregistré, il vaut 0.
+        Coût de revient d’un contenant = prix d’achat + transport. Le prix de chaque transport en transit ou
+        livré est réparti entre les contenants de ses commandes au prorata du volume (un bidon de 5 L compte
+        comme 6,7 bouteilles de 75 cl), en moyenne si le produit est venu en plusieurs fois ; sans transport
+        enregistré, il vaut 0.
         Marge = CA encaissé (remises et ristournes incluses) − coût de revient × bouteilles vendues.
         Un produit sans prix d’achat reste hors marge. La marge unitaire est calculée au prix catalogue.
       </p>
