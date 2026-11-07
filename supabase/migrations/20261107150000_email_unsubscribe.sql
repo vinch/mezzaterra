@@ -20,31 +20,46 @@ DROP POLICY IF EXISTS "admins can read" ON public.email_recipient;
 CREATE POLICY "admins can read" ON public.email_recipient
   FOR SELECT TO authenticated USING ((SELECT is_admin()));
 
--- Destinataires d'une campagne (admin) : crée la ligne d'une adresse jamais emailée et renvoie,
--- pour chaque adresse, son jeton et si elle s'est désinscrite.
+-- Destinataires d'une campagne (admin) : crée la ligne d'une adresse jamais emailée et renvoie le
+-- jeton des seules adresses non désinscrites.
 CREATE OR REPLACE FUNCTION public.campaign_recipients(p_emails text[])
-RETURNS TABLE (recipient_email text, token uuid, unsubscribed boolean)
+RETURNS TABLE (recipient_email text, token uuid)
 LANGUAGE plpgsql
 SECURITY DEFINER
 SET search_path = public
 AS $$
+DECLARE
+  v_emails text[] := ARRAY(
+    SELECT DISTINCT lower(btrim(e)) FROM unnest(p_emails) AS e WHERE btrim(coalesce(e, '')) <> ''
+  );
 BEGIN
   PERFORM assert_admin();
-  INSERT INTO email_recipient (email)
-  SELECT DISTINCT lower(btrim(e)) FROM unnest(p_emails) AS e WHERE btrim(coalesce(e, '')) <> ''
-  ON CONFLICT (email) DO NOTHING;
+  INSERT INTO email_recipient (email) SELECT unnest(v_emails) ON CONFLICT (email) DO NOTHING;
   RETURN QUERY
-    SELECT r.email, r.unsubscribe_token, r.unsubscribed_at IS NOT NULL
-    FROM email_recipient r
-    WHERE r.email IN (SELECT lower(btrim(e)) FROM unnest(p_emails) AS e);
+    SELECT r.email, r.unsubscribe_token FROM email_recipient r
+    WHERE r.email = ANY (v_emails) AND r.unsubscribed_at IS NULL;
 END;
 $$;
 
 REVOKE ALL ON FUNCTION public.campaign_recipients(text[]) FROM PUBLIC;
 GRANT EXECUTE ON FUNCTION public.campaign_recipients(text[]) TO authenticated;
 
--- Lien de désinscription d'un email (/desinscription?t=…) : marque l'adresse désinscrite et la
--- retire des abonnés. Renvoie false pour un jeton inconnu.
+-- Désinscription d'une adresse : marquée désinscrite et retirée des abonnés. Interne, appelée par
+-- les deux fonctions publiques ci-dessous.
+CREATE OR REPLACE FUNCTION public.unsubscribe_address(p_email text)
+RETURNS void
+LANGUAGE sql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+  INSERT INTO email_recipient (email, unsubscribed_at) VALUES (p_email, now())
+  ON CONFLICT (email) DO UPDATE SET unsubscribed_at = coalesce(email_recipient.unsubscribed_at, now());
+  DELETE FROM email_subscriber WHERE lower(email) = p_email;
+$$;
+
+REVOKE ALL ON FUNCTION public.unsubscribe_address(text) FROM PUBLIC, anon, authenticated;
+
+-- Lien de désinscription d'un email (/desinscription?t=…). false pour un jeton inconnu.
 CREATE OR REPLACE FUNCTION public.unsubscribe_token(p_token uuid)
 RETURNS boolean
 LANGUAGE plpgsql
@@ -52,15 +67,12 @@ SECURITY DEFINER
 SET search_path = public
 AS $$
 DECLARE
-  v_email text;
+  v_email text := (SELECT email FROM email_recipient WHERE unsubscribe_token = p_token);
 BEGIN
-  UPDATE email_recipient SET unsubscribed_at = coalesce(unsubscribed_at, now())
-  WHERE unsubscribe_token = p_token
-  RETURNING email INTO v_email;
   IF v_email IS NULL THEN
     RETURN false;
   END IF;
-  DELETE FROM email_subscriber WHERE lower(btrim(email)) = v_email;
+  PERFORM unsubscribe_address(v_email);
   RETURN true;
 END;
 $$;
@@ -68,7 +80,7 @@ $$;
 REVOKE ALL ON FUNCTION public.unsubscribe_token(uuid) FROM PUBLIC;
 GRANT EXECUTE ON FUNCTION public.unsubscribe_token(uuid) TO anon, authenticated;
 
--- Anciens liens (/desinscription?id=<abonné>) et « Supprimer » de la page Abonnés : l'adresse est
+-- Anciens liens (/desinscription?id=<abonné>) et « Désinscrire » de la page Abonnés : l'adresse est
 -- désormais aussi marquée désinscrite, donc exclue des campagnes même comme cliente.
 CREATE OR REPLACE FUNCTION public.unsubscribe_email(p_id uuid)
 RETURNS boolean
@@ -77,35 +89,33 @@ SECURITY DEFINER
 SET search_path = public
 AS $$
 DECLARE
-  v_email text;
+  v_email text := (SELECT lower(btrim(email)) FROM email_subscriber WHERE id = p_id);
 BEGIN
-  DELETE FROM email_subscriber WHERE id = p_id RETURNING lower(btrim(email)) INTO v_email;
   IF v_email IS NULL THEN
     RETURN false;
   END IF;
-  INSERT INTO email_recipient (email, unsubscribed_at) VALUES (v_email, now())
-  ON CONFLICT (email) DO UPDATE SET unsubscribed_at = coalesce(email_recipient.unsubscribed_at, now());
+  PERFORM unsubscribe_address(v_email);
   RETURN true;
 END;
 $$;
 
--- Réinscription : laisser son email sur l'accueil (source « homepage ») annule la désinscription ;
--- une inscription à une dégustation ne réabonne pas une adresse désinscrite.
+-- L'abonnement vit à deux endroits (ligne email_subscriber, email_recipient.unsubscribed_at) : ce
+-- trigger les garde d'accord. Laisser son email sur l'accueil (source « homepage ») annule la
+-- désinscription ; une inscription à une dégustation ne réabonne pas une adresse désinscrite.
+-- Limite connue : l'insert de l'accueil est anonyme, donc n'importe qui peut réabonner une adresse
+-- (comme il pouvait déjà en abonner une).
 CREATE OR REPLACE FUNCTION public.email_subscriber_respect_unsubscribe()
 RETURNS trigger
 LANGUAGE plpgsql
 SECURITY DEFINER
 SET search_path = public
 AS $$
+DECLARE
+  v_email text := lower(btrim(NEW.email));
 BEGIN
   IF NEW.source = 'homepage' THEN
-    UPDATE email_recipient SET unsubscribed_at = NULL WHERE email = lower(btrim(NEW.email));
-    RETURN NEW;
-  END IF;
-  IF EXISTS (
-    SELECT 1 FROM email_recipient
-    WHERE email = lower(btrim(NEW.email)) AND unsubscribed_at IS NOT NULL
-  ) THEN
+    UPDATE email_recipient SET unsubscribed_at = NULL WHERE email = v_email AND unsubscribed_at IS NOT NULL;
+  ELSIF EXISTS (SELECT 1 FROM email_recipient WHERE email = v_email AND unsubscribed_at IS NOT NULL) THEN
     RETURN NULL;
   END IF;
   RETURN NEW;

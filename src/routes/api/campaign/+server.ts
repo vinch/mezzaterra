@@ -14,7 +14,6 @@ import { EMAIL_COLORS as C, emailLayout, escapeHtml, isValidEmail, resendPost } 
  * Sans ces variables, l'admin retombe sur « copier les adresses / ouvrir ma messagerie ».
  */
 
-type Recipient = { email: string };
 type Attachment = { filename: string; content: string };
 
 const MAX_RECIPIENTS = 500;
@@ -80,23 +79,24 @@ export const POST: RequestHandler = async ({ request, url }) => {
   const body = (await request.json().catch(() => null)) as {
     subject?: string;
     text?: string;
-    recipients?: Recipient[];
+    emails?: string[];
     attachment?: Attachment | null;
   } | null;
 
   const subject = body?.subject?.trim();
   const text = body?.text?.trim();
   const emails = [
-    ...new Set((body?.recipients || []).map((r) => (r?.email || "").trim().toLowerCase()).filter(isValidEmail)),
+    ...new Set((body?.emails || []).map((e) => String(e ?? "").trim().toLowerCase()).filter(isValidEmail)),
   ];
   if (!subject || !text) throw error(400, "Objet et message obligatoires");
+  if (!emails.length) throw error(400, "Aucun destinataire valide");
 
-  /* Jeton de désinscription de chaque adresse ; les désinscrits sont exclus, quelle que soit l'audience. */
-  const { data: rows, error: recipientsError } = await client.rpc("campaign_recipients", { p_emails: emails });
+  /* Jeton de désinscription de chaque adresse ; les désinscrits ne reviennent pas, quelle que soit l'audience. */
+  const { data, error: recipientsError } = await client.rpc("campaign_recipients", { p_emails: emails });
   if (recipientsError) throw error(500, `Destinataires illisibles : ${recipientsError.message}`);
-  const recipients = (rows || []).filter((r) => !r.unsubscribed);
+  const recipients = data || [];
   const skipped = emails.length - recipients.length;
-  if (!recipients.length) throw error(400, "Aucun destinataire valide (ou tous désinscrits)");
+  if (!recipients.length) throw error(400, "Tous les destinataires sont désinscrits");
   if (recipients.length > MAX_RECIPIENTS) throw error(400, `Maximum ${MAX_RECIPIENTS} destinataires par envoi`);
 
   const attachment = body?.attachment?.content

@@ -86,7 +86,7 @@
     downloadTextFile(`abonnes-${todayIso()}.csv`, `\uFEFF${lines.join("\r\n")}`, "text/csv;charset=utf-8");
   }
 
-  let deleteTarget = $state<Subscriber | null>(null);
+  let unsubscribeTarget = $state<Subscriber | null>(null);
   let confirmOpen = $state(false);
 
   function rowItems(s: Subscriber): MenuItem[] {
@@ -98,7 +98,7 @@
         danger: true,
         separator: true,
         onSelect: () => {
-          deleteTarget = s;
+          unsubscribeTarget = s;
           confirmOpen = true;
         },
       },
@@ -106,7 +106,7 @@
   }
 
   /* Même désinscription que le lien des campagnes. */
-  async function remove(s: Subscriber) {
+  async function unsubscribe(s: Subscriber) {
     error = "";
     const { error: e } = await supabase.rpc("unsubscribe_email", { p_id: s.id });
     if (e) error = e.message;
@@ -184,8 +184,8 @@
   bind:open={confirmOpen}
   title="Désinscrire cet abonné ?"
   confirmLabel="Oui, désinscrire"
-  message={deleteTarget ? `${deleteTarget.email} sera désinscrit : il ne recevra plus aucune campagne, même comme client, sauf s’il se réinscrit sur l’accueil du site.` : ""}
-  action={() => remove(deleteTarget!)}
+  message={unsubscribeTarget ? `${unsubscribeTarget.email} sera désinscrit : il ne recevra plus aucune campagne, même comme client, sauf s’il se réinscrit sur l’accueil du site.` : ""}
+  action={() => unsubscribe(unsubscribeTarget!)}
 />
 
 <style>

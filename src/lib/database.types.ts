@@ -1414,10 +1414,6 @@ export type Database = {
       }
     }
     Functions: {
-      campaign_recipients: {
-        Args: { p_emails: string[] }
-        Returns: { recipient_email: string; token: string; unsubscribed: boolean }[]
-      }
       add_to_supplier_order: {
         Args: {
           p_lot_id: string
@@ -1446,6 +1442,10 @@ export type Database = {
         Returns: undefined
       }
       brussels_today: { Args: never; Returns: string }
+      campaign_recipients: {
+        Args: { p_emails: string[] }
+        Returns: { recipient_email: string; token: string }[]
+      }
       confirm_tasting_registration: {
         Args: { p_registration_id: string }
         Returns: string

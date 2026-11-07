@@ -12,10 +12,10 @@
     const { data, error } = token
       ? await supabase.rpc("unsubscribe_token", { p_token: token })
       : await supabase.rpc("unsubscribe_email", { p_id: id });
-    /* Ancien lien déjà utilisé : l'abonné n'existe plus, mais il est bien désinscrit. */
-    /* 22P02 : jeton qui n'est pas un uuid (lien tronqué). */
+    /* Jeton inconnu ou tronqué (22P02 : pas un uuid) : lien périmé. Un ancien lien `id` déjà utilisé
+       renvoie false, mais l'abonné est bien désinscrit : « fait ». */
     if (error) status = error.code === "22P02" ? "unknown" : "error";
-    else status = data || id ? "done" : "unknown";
+    else status = token && !data ? "unknown" : "done";
   }
 </script>
 

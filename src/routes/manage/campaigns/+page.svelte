@@ -11,6 +11,7 @@
   import Select from "$lib/ui/Select.svelte";
   import { formatDateLong, formatTime, todayIso } from "$lib/dates";
   import { formatEUR } from "$lib/format";
+  import { isValidEmail } from "$lib/contact";
   import { isPrivateTasting, tastingTitle } from "$lib/publicData";
   import { FLYER_HEIGHT, FLYER_WIDTH, drawTastingFlyer, loadFlyerAssets } from "$lib/tastingFlyer";
 
@@ -157,7 +158,7 @@
         body: JSON.stringify({
           subject,
           text: message,
-          recipients: recipients.map((r) => ({ email: r.email })),
+          emails: recipients.map((r) => r.email),
           attachment: content ? { filename: "degustation-mezzaterra.png", content } : null,
         }),
       });
@@ -181,12 +182,12 @@
     if (useRegistrants && registrantTastingId) untrack(() => void loadRegistrations(registrantTastingId));
   });
   /** Destinataires dédoublonnés, désinscrits exclus ; `excluded` compte ceux qu'on a retirés. */
-  let audience = $derived((() => {
+  let audience = $derived.by(() => {
     const map = new Map<string, Recipient>();
     const excluded = new Set<string>();
     const add = (email: string | null | undefined, source: string) => {
       const e = (email || "").trim().toLowerCase();
-      if (!e || !e.includes("@")) return;
+      if (!isValidEmail(e)) return;
       if (unsubscribed.has(e)) excluded.add(e);
       else if (!map.has(e)) map.set(e, { email: e, source });
     };
@@ -194,7 +195,7 @@
     if (useCustomers) for (const c of customers) add(c.email, "Client");
     if (useRegistrants) for (const r of registrations) add(r.email, "Inscrit");
     return { recipients: [...map.values()], excluded: excluded.size };
-  })());
+  });
   let recipients = $derived(audience.recipients);
   let recipientsLabel = $derived(`${recipients.length} destinataire${recipients.length > 1 ? "s" : ""}`);
   let canSend = $derived(!!subject.trim() && !!message.trim() && recipients.length > 0);
