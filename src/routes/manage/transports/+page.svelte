@@ -88,7 +88,7 @@
       departure_date: isoDateOnly(transport.departure_date),
       arrival_date: isoDateOnly(transport.arrival_date),
       pallets_number: transport.pallets_number ? String(transport.pallets_number) : "",
-      price: transport.price ? String(transport.price) : "",
+      price: transport.price != null ? String(transport.price) : "",
       note: transport.note || "",
     };
     formOpen = true;
@@ -122,7 +122,8 @@
       departure_date: formData.departure_date || null,
       arrival_date: formData.arrival_date || null,
       pallets_number: formData.pallets_number ? parseInt(formData.pallets_number) : null,
-      price: formData.price ? parseFloat(formData.price) : null,
+      /* 0 € reste 0 € (transport gratuit) ; vide = prix inconnu. */
+      price: toNumberOrNull(formData.price),
       note: formData.note || null,
     };
 
