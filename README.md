@@ -72,9 +72,9 @@ produit et d'une même année sur une carte (« dès … ») et propose de passe
 fiche. Un seul lot par produit, année (ou mise en bouteille sans année) et contenant (index uniques).
 Les triggers de cohérence sont SECURITY DEFINER et verrouillent en partage les lignes qu'ils lisent
 (sûrs en concurrence). Enfin, `sale_item.vat_rate` fige la TVA de chaque ligne à son enregistrement
-(`product_kind_vat_rate` : huile 6 %, vin et dégustation 21 %, existant à 21 %) ; la facture d'un
-professionnel la détaille par taux. À appliquer avant de déployer le code, qui lit `kind`,
-`volume_ml` et `vat_rate`.
+(`product_kind_vat_rate` : huile 6 %, vin et dégustation 21 %, existant à 21 %). Mezzaterra étant en
+franchise de TVA, ce taux n'est plus lu ni affiché (voir AGENTS.md, « TVA »). À appliquer avant de
+déployer le code, qui lit `kind` et `volume_ml`.
 
 `20261030130000_sale_item_discount_check.sql` refuse une remise de ligne négative, au-delà de 100 % ou
 supérieure au montant de la ligne (`NOT VALID` : nouvelles lignes seulement). La page Ventes le vérifie

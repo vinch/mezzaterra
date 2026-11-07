@@ -810,7 +810,7 @@
             <SortHeader column="date" label="Date" firstDir="desc" bind:sort />
             <SortHeader column="customer" label="Client" bind:sort />
             <SortHeader column="status" label="Statut" bind:sort />
-            <SortHeader column="total" label="Montant TTC" num bind:sort />
+            <SortHeader column="total" label="Montant" num bind:sort />
             <th scope="col" class="col-actions"><span class="sr-only">Actions</span></th>
           </tr>
         </thead>
@@ -1072,7 +1072,7 @@
             {describedby}
             bind:amount={formData.global_discount}
             bind:type={formData.global_discount_type}
-            amountLabel="Montant TTC (€)"
+            amountLabel="Montant (€)"
             percentLabel="Pourcentage (%)"
           />
                       {/snippet}
@@ -1099,7 +1099,7 @@
       <div class="totals" aria-live="polite">
         <span>Sous-total <strong>{formatEUR(grossTotal)}</strong></span>
         <span>Remises <strong>{formatEUR(discountsTotal)}</strong></span>
-        <span class="grand">Total TTC <strong>{formatEUR(total)}</strong></span>
+        <span class="grand">Total <strong>{formatEUR(total)}</strong></span>
       </div>
       <Button variant="ghost" onclick={closeForm}>Annuler</Button>
       <Button variant="primary" type="submit" disabled={saving} onclick={submitForm}>Enregistrer la vente</Button>
@@ -1159,13 +1159,13 @@
       </DataTable>
       <div class="detail-totals">
         {#if toNumber(detailsSale.global_discount) > 0}
-          <p><span>Sous-total articles (TTC)</span><span>{formatEUR(itemsSubtotal(detailsSaleItems))}</span></p>
+          <p><span>Sous-total articles</span><span>{formatEUR(itemsSubtotal(detailsSaleItems))}</span></p>
           <p>
             <span>Ristourne globale {detailsSale.global_discount_type === "percent" ? `(${formatPercent(toNumber(detailsSale.global_discount))})` : "(montant)"}</span>
             <span>−{formatEUR(globalDiscountAmount(detailsSaleItems, detailsSale.total_price))}</span>
           </p>
         {/if}
-        <p class="grand"><span>Total TTC</span><span>{formatEUR(detailsSale.total_price)}</span></p>
+        <p class="grand"><span>Total</span><span>{formatEUR(detailsSale.total_price)}</span></p>
       </div>
     {/if}
   {/if}

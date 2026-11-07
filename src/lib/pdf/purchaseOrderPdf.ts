@@ -113,7 +113,7 @@ export async function downloadOrderPdf(orderId: string, lang: OrderPdfLanguage):
       description: lotProductLabel(item.lot!),
       values: [String(item.quantity), pdfEur(item.price), pdfEur(item.price * item.quantity)],
     })),
-    totals: [{ text: `${t.totalLabel}: ${pdfEur(order.total_price)}` }],
+    totals: [`${t.totalLabel}: ${pdfEur(order.total_price)}`],
     blocks,
     fileName: `${title}_${pdfFileSlug(order.supplier.name)}_${order.date.slice(0, 10)}.pdf`,
   });

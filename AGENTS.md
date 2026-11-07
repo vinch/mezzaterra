@@ -46,6 +46,16 @@ menus de ligne, chiffres, accessibilité, textes).
   Gestion : dans `src/lib/ui/`. Site public : dans `src/lib/components/site/`,
   cité sur `/design-system` avec les primitives `mz-`.
 
+## TVA
+
+Mezzaterra est en régime de franchise de TVA des petites entreprises : elle ne
+facture pas de TVA et ne récupère pas celle qu’elle paie à l’achat. Aucun prix
+de vente, total ni document client n’affiche de TVA (HTVA, TTC, taux) ; la facture porte
+la mention « Régime particulier de franchise des petites entreprises ». La
+marge se calcule sur le prix de vente encaissé moins le prix d’achat, saisi TVA
+comprise. `sale_item.vat_rate` reste en base pour un éventuel changement de
+régime, sans être affiché.
+
 ## URLs
 
 - **Gestion (`/manage`)** : chemins et paramètres en anglais
