@@ -32,6 +32,7 @@
     monthlyRevenue,
     revenueLines,
     marginOf,
+    purchaseValue,
     uncostedLabel,
     lotStats,
     type LotStats,
@@ -151,7 +152,7 @@
       lowStock = reorderable.filter((s) => s.stock > 0 && s.stock <= LOW_STOCK).sort((a, b) => a.stock - b.stock || b.sold - a.sold);
       dormant = stats
         .filter((s) => s.stock > 0 && (s.idleDays == null || s.idleDays >= DORMANT_DAYS))
-        .sort((a, b) => b.stock * Number(b.lot.purchase_price || 0) - a.stock * Number(a.lot.purchase_price || 0));
+        .sort((a, b) => (purchaseValue(b.lot, b.stock) ?? 0) - (purchaseValue(a.lot, a.stock) ?? 0));
 
       nextTasting = (nextRes.data || [])[0] ?? null;
       lastTasting = (lastRes.data || [])[0] ?? null;
@@ -304,7 +305,7 @@
           {formatEUR(kpi.revenueMonth)} ce mois-ci · {salesLabel(kpi.pendingSales)} en attente
         </KpiCard>
         <KpiCard label="Marge brute sur les produits" value={formatEUR(kpi.margin.margin)} icon={IconChart} href="/manage/insights">
-          {#if kpi.margin.pct != null}Taux de marge : {formatPercent(Math.round(kpi.margin.pct))}{:else if !kpi.margin.uncostedLots}Aucune vente encaissée{/if}
+          {#if kpi.margin.pct != null}Taux de marge : {formatPercent(Math.round(kpi.margin.pct))}{:else if !kpi.margin.uncostedLots && !kpi.margin.margin}Aucune vente encaissée{/if}
           {#if kpi.margin.uncostedLots}{#if kpi.margin.pct != null}<br />{/if}<span class="t-warn">{uncostedLabel(kpi.margin.uncostedLots)}</span>{/if}
         </KpiCard>
         <KpiCard label="Bouteilles en stock" value={String(kpi.bottles)} icon={IconBox} href="/manage/stock">
@@ -438,7 +439,7 @@
                       {s.stock} bt. · {#if s.lastSale}dernière vente il y a <strong class="t-warn">{s.idleDays} j</strong>{:else}<strong class="t-warn">jamais vendu</strong>{/if}
                     </span>
                   </span>
-                  <span class="value">{formatEUR(s.stock * Number(s.lot.purchase_price || 0))}</span>
+                  <span class="value">{formatEUR(purchaseValue(s.lot, s.stock))}</span>
                 </li>
               {/each}
             </ul>

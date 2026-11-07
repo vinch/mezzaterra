@@ -7,6 +7,7 @@
     loadDataset,
     revenueLines,
     marginOf,
+    purchaseValue,
     uncostedLabel,
     tastingRoi,
     type MarginSummary,
@@ -49,7 +50,7 @@
     margin: (s: LotStats) => s.margin,
     stock: (s: LotStats) => s.stock,
   };
-  type RotationRow = LotStats & { value: number; monthsLeft: number | null };
+  type RotationRow = LotStats & { value: number | null; monthsLeft: number | null };
   const ROTATION_SORT = {
     product: (r: RotationRow) => lotLabel(r.lot),
     stock: (r: RotationRow) => r.stock,
@@ -96,7 +97,7 @@
     .filter((s) => s.stock > 0)
     .map((s): RotationRow => ({
       ...s,
-      value: s.stock * Number(s.lot.purchase_price || 0),
+      value: purchaseValue(s.lot, s.stock),
       /* Ventes mensuelles moyennes sur la période observée → mois de stock restants. */
       monthsLeft: s.sold > 0 && s.lastSale ? s.stock / Math.max(0.25, s.sold / 12) : null,
     })), rotationSort, ROTATION_SORT));
@@ -222,8 +223,8 @@
       <p class="explain">
         Pour chaque soirée : entrées + marge sur les ventes rattachées à la dégustation − coût des
         bouteilles ouvertes ({BOTTLES_PER_TASTED_LOT} par produit servi). Les « relances » sont les achats des
-        participants dans les 30 jours suivants, hors soirée. Les ventes d’un produit sans prix d’achat ne
-        comptent pas dans la marge.
+        participants dans les 30 jours suivants, hors soirée. Un produit sans prix d’achat ne compte ni dans
+        la marge ni dans le coût des bouteilles ouvertes.
       </p>
       <DataTable caption="Rentabilité des dégustations">
           <thead>

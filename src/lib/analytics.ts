@@ -41,7 +41,8 @@ export type LotRow = {
   year: number | null;
   production_year: number;
   price: number | null;
-  purchase_price: number;
+  /** null : prix inconnu, hors marge ; 0 : produit reçu gratuitement. */
+  purchase_price: number | null;
   image_url: string | null;
   discontinued_at?: string | null;
   product: any;
@@ -212,14 +213,20 @@ export function lotStats(ds: Dataset, lines = revenueLines(ds)): LotStats[] {
       stock: ds.stock.get(v.id) ?? 0,
       sold: own.reduce((s, l) => s + l.quantity, 0),
       revenue,
-      margin: realized.uncostedLots ? null : realized.margin,
-      marginPct: realized.uncostedLots ? null : realized.pct,
+      margin: buy == null ? null : realized.margin,
+      marginPct: buy == null ? null : realized.pct,
       unitMargin,
       unitMarginPct: unitMargin != null && price ? (unitMargin / price) * 100 : null,
       lastSale,
       idleDays: lastSale ? Math.round((today - parseIsoDate(lastSale).getTime()) / 86_400_000) : null,
     };
   });
+}
+
+/** Valeur au prix d'achat de `qty` bouteilles d'un lot ; null si le prix est inconnu. */
+export function purchaseValue(lot: Pick<LotRow, "purchase_price">, qty: number): number | null {
+  const buy = toNumberOrNull(lot.purchase_price);
+  return buy == null ? null : buy * qty;
 }
 
 /** CA mensuel (12 derniers mois glissants, mois courant inclus). */
