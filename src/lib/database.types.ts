@@ -191,6 +191,27 @@ export type Database = {
           },
         ]
       }
+      email_recipient: {
+        Row: {
+          created_at: string
+          email: string
+          unsubscribe_token: string
+          unsubscribed_at: string | null
+        }
+        Insert: {
+          created_at?: string
+          email: string
+          unsubscribe_token?: string
+          unsubscribed_at?: string | null
+        }
+        Update: {
+          created_at?: string
+          email?: string
+          unsubscribe_token?: string
+          unsubscribed_at?: string | null
+        }
+        Relationships: []
+      }
       email_subscriber: {
         Row: {
           created_at: string
@@ -1393,6 +1414,10 @@ export type Database = {
       }
     }
     Functions: {
+      campaign_recipients: {
+        Args: { p_emails: string[] }
+        Returns: { recipient_email: string; token: string; unsubscribed: boolean }[]
+      }
       add_to_supplier_order: {
         Args: {
           p_lot_id: string
@@ -1543,6 +1568,7 @@ export type Database = {
       }
       tasting_seats_taken: { Args: { p_tasting_id: string }; Returns: number }
       unsubscribe_email: { Args: { p_id: string }; Returns: boolean }
+      unsubscribe_token: { Args: { p_token: string }; Returns: boolean }
     }
     Enums: {
       [_ in never]: never

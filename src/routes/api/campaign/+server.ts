@@ -14,7 +14,7 @@ import { EMAIL_COLORS as C, emailLayout, escapeHtml, isValidEmail, resendPost } 
  * Sans ces variables, l'admin retombe sur « copier les adresses / ouvrir ma messagerie ».
  */
 
-type Recipient = { email: string; unsubscribeId?: string | null };
+type Recipient = { email: string };
 type Attachment = { filename: string; content: string };
 
 const MAX_RECIPIENTS = 500;
@@ -25,7 +25,7 @@ function enabled(): boolean {
 }
 
 /** Texte brut → HTML sobre aux couleurs Mezzaterra (liens cliquables, paragraphes). */
-function renderHtml(text: string, origin: string, unsubscribeUrl: string | null, hasImage: boolean): string {
+function renderHtml(text: string, origin: string, unsubscribeUrl: string, hasImage: boolean): string {
   const paragraphs = escapeHtml(text)
     .split(/\n{2,}/)
     .map((p) =>
@@ -42,9 +42,7 @@ ${paragraphs}
 ${hasImage ? `<p style="margin:0 0 16px;color:${C.muted};font-size:14px">Le visuel de la soirée est en pièce jointe.</p>` : ""}`,
     {
       padding: "32px 28px",
-      footer: `<p style="font-size:12px;color:${C.muted};margin:16px 0 0">Mezzaterra — vins des Abruzzes${
-        unsubscribeUrl ? ` · <a href="${unsubscribeUrl}" style="color:${C.muted}">Se désinscrire</a>` : ""
-      }</p>`,
+      footer: `<p style="font-size:12px;color:${C.muted};margin:16px 0 0">Mezzaterra — vins des Abruzzes · <a href="${unsubscribeUrl}" style="color:${C.muted}">Se désinscrire</a></p>`,
     },
   );
 }
@@ -57,7 +55,8 @@ function idempotencyKey(payload: unknown): string {
   return `campaign-${createHash("sha256").update(JSON.stringify(payload)).digest("hex")}`;
 }
 
-async function assertAdmin(request: Request) {
+/** Client Supabase de l'admin qui appelle (son jeton) ; lève 401/403 s'il n'est pas admin. */
+async function adminClient(request: Request) {
   const auth = request.headers.get("authorization") || "";
   if (!auth.toLowerCase().startsWith("bearer ")) throw error(401, "Non authentifié");
   const url = publicEnv.PUBLIC_SUPABASE_URL;
@@ -69,13 +68,14 @@ async function assertAdmin(request: Request) {
   });
   const { data, error: rpcError } = await client.rpc("is_admin");
   if (rpcError || data !== true) throw error(403, "Accès réservé aux administrateurs");
+  return client;
 }
 
 export const GET: RequestHandler = async () => json({ enabled: enabled() });
 
 export const POST: RequestHandler = async ({ request, url }) => {
   if (!enabled()) throw error(503, "Envoi d'emails non configuré (RESEND_API_KEY / CAMPAIGN_FROM)");
-  await assertAdmin(request);
+  const client = await adminClient(request);
 
   const body = (await request.json().catch(() => null)) as {
     subject?: string;
@@ -86,9 +86,17 @@ export const POST: RequestHandler = async ({ request, url }) => {
 
   const subject = body?.subject?.trim();
   const text = body?.text?.trim();
-  const recipients = (body?.recipients || []).filter((r) => isValidEmail(r?.email || ""));
+  const emails = [
+    ...new Set((body?.recipients || []).map((r) => (r?.email || "").trim().toLowerCase()).filter(isValidEmail)),
+  ];
   if (!subject || !text) throw error(400, "Objet et message obligatoires");
-  if (!recipients.length) throw error(400, "Aucun destinataire valide");
+
+  /* Jeton de désinscription de chaque adresse ; les désinscrits sont exclus, quelle que soit l'audience. */
+  const { data: rows, error: recipientsError } = await client.rpc("campaign_recipients", { p_emails: emails });
+  if (recipientsError) throw error(500, `Destinataires illisibles : ${recipientsError.message}`);
+  const recipients = (rows || []).filter((r) => !r.unsubscribed);
+  const skipped = emails.length - recipients.length;
+  if (!recipients.length) throw error(400, "Aucun destinataire valide (ou tous désinscrits)");
   if (recipients.length > MAX_RECIPIENTS) throw error(400, `Maximum ${MAX_RECIPIENTS} destinataires par envoi`);
 
   const attachment = body?.attachment?.content
@@ -103,14 +111,14 @@ export const POST: RequestHandler = async ({ request, url }) => {
   for (let i = 0; i < recipients.length; i += BATCH_SIZE) {
     const chunk = recipients.slice(i, i + BATCH_SIZE);
     const payload = chunk.map((r) => {
-      const unsubscribeUrl = r.unsubscribeId ? `${url.origin}/desinscription?id=${r.unsubscribeId}` : null;
+      const unsubscribeUrl = `${url.origin}/desinscription?t=${r.token}`;
       return {
         from: env.CAMPAIGN_FROM,
-        to: [r.email],
+        to: [r.recipient_email],
         subject,
-        text: unsubscribeUrl ? `${text}\n\n—\nSe désinscrire : ${unsubscribeUrl}` : text,
+        text: `${text}\n\n—\nSe désinscrire : ${unsubscribeUrl}`,
         html: renderHtml(text, url.origin, unsubscribeUrl, Boolean(attachment)),
-        ...(unsubscribeUrl ? { headers: { "List-Unsubscribe": `<${unsubscribeUrl}>` } } : {}),
+        headers: { "List-Unsubscribe": `<${unsubscribeUrl}>` },
         ...(attachment ? { attachments: attachment } : {}),
       };
     });
@@ -137,5 +145,5 @@ export const POST: RequestHandler = async ({ request, url }) => {
     }
   }
 
-  return json({ sent, failed, failures });
+  return json({ sent, failed, failures, skipped });
 };

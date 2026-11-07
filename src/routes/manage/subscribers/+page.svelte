@@ -93,7 +93,7 @@
     return [
       { label: "Écrire", icon: IconMail, href: mailtoHref(s.email) },
       {
-        label: "Supprimer…",
+        label: "Désinscrire…",
         icon: IconTrash,
         danger: true,
         separator: true,
@@ -182,8 +182,9 @@
 
 <ConfirmDialog
   bind:open={confirmOpen}
-  title="Supprimer cet abonné ?"
-  message={deleteTarget ? `${deleteTarget.email} sera retiré de la liste des abonnés (une nouvelle inscription à une dégustation l’y remettra).` : ""}
+  title="Désinscrire cet abonné ?"
+  confirmLabel="Oui, désinscrire"
+  message={deleteTarget ? `${deleteTarget.email} sera désinscrit : il ne recevra plus aucune campagne, même comme client, sauf s’il se réinscrit sur l’accueil du site.` : ""}
   action={() => remove(deleteTarget!)}
 />
 
