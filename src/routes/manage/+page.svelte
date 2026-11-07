@@ -304,8 +304,8 @@
           {formatEUR(kpi.revenueMonth)} ce mois-ci · {salesLabel(kpi.pendingSales)} en attente
         </KpiCard>
         <KpiCard label="Marge brute sur les produits" value={formatEUR(kpi.margin.margin)} icon={IconChart} href="/manage/insights">
-          {kpi.margin.pct != null ? `${formatPercent(Math.round(kpi.margin.pct))} du CA produits` : "Aucune vente encaissée"}
-          {#if kpi.margin.uncostedLots}<br /><span class="t-warn">{uncostedLabel(kpi.margin.uncostedLots)}</span>{/if}
+          {#if kpi.margin.pct != null}Taux de marge : {formatPercent(Math.round(kpi.margin.pct))}{:else if !kpi.margin.uncostedLots}Aucune vente encaissée{/if}
+          {#if kpi.margin.uncostedLots}{#if kpi.margin.pct != null}<br />{/if}<span class="t-warn">{uncostedLabel(kpi.margin.uncostedLots)}</span>{/if}
         </KpiCard>
         <KpiCard label="Bouteilles en stock" value={String(kpi.bottles)} icon={IconBox} href="/manage/stock">
           {formatEUR(kpi.stockValue)} au prix d’achat
