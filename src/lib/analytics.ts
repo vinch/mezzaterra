@@ -1,11 +1,15 @@
 import { fetchAllRows, supabase } from "./supabase";
 import { addDaysIso, formatShortMonth, parseIsoDate, todayIso } from "./dates";
-import { toNumber, toNumberOrNull } from "./format";
+import { formatEUR, toNumber, toNumberOrNull } from "./format";
 import { fetchStockMap } from "./manageData";
 
 /**
  * Calculs de pilotage (marges, rotation du stock, rentabilité des dégustations).
  * Tout est calculé côté client : les volumes sont modestes et ça évite toute migration.
+ *
+ * Coût d'une bouteille = coût de revient (unitCost) : prix d'achat + part du transport qui l'a amenée
+ * (lot.freight, voir freightByLot). Marges, valeur du stock et bouteilles ouvertes en dégustation
+ * l'utilisent tous.
  */
 
 /** Statuts qui comptent dans le CA (aligné sur le tableau de bord et l'app ventes). */
@@ -43,16 +47,29 @@ export type LotRow = {
   price: number | null;
   /** null : prix inconnu, hors marge ; 0 : produit reçu gratuitement. */
   purchase_price: number | null;
+  /** Transport par contenant (freightByLot), ajouté par loadDataset ; 0 sans transport enregistré. */
+  freight: number;
   image_url: string | null;
   discontinued_at?: string | null;
   product: any;
 };
+
+/** Transport avec les contenants qu'il a amenés (lignes de ses commandes fournisseur). */
+export type TransportRow = {
+  price: number | null;
+  order: { order_item: { lot_id: string; quantity: number; lot: { volume_ml: number } | null }[] }[];
+};
+
+/** Transports dont le prix entre dans le coût de revient : la marchandise est partie. */
+const FREIGHT_STATUSES = ["in_transit", "delivered"];
 
 export type Dataset = {
   sales: SaleRow[];
   items: SaleItemRow[];
   lots: LotRow[];
   stock: Map<string, number>;
+  /** Transports en transit ou livrés sans prix : leur part n'est pas comptée (voir freightByLot). */
+  unpricedTransports: number;
 };
 
 /** Regroupe une liste par clé (les éléments sans clé sont ignorés), en un seul passage. */
@@ -69,7 +86,7 @@ function groupBy<T>(items: T[], key: (item: T) => string | null): Map<string, T[
 }
 
 export async function loadDataset(): Promise<Dataset> {
-  const [sales, items, lots, stock] = await Promise.all([
+  const [sales, items, lots, stock, transports] = await Promise.all([
     fetchAllRows<SaleRow>((a, b) =>
       supabase.from("sale").select("id, date, status, total_price, customer_id, tasting_id").order("id").range(a, b),
     ),
@@ -80,7 +97,7 @@ export async function loadDataset(): Promise<Dataset> {
         .order("id")
         .range(a, b),
     ),
-    fetchAllRows<LotRow>((a, b) =>
+    fetchAllRows<Omit<LotRow, "freight">>((a, b) =>
       supabase
         .from("lot")
         .select(
@@ -90,8 +107,60 @@ export async function loadDataset(): Promise<Dataset> {
         .range(a, b),
     ),
     fetchStockMap(),
+    fetchAllRows<TransportRow>((a, b) =>
+      supabase
+        .from("transport")
+        .select("price, order ( order_item ( lot_id, quantity, lot ( volume_ml ) ) )")
+        .in("status", FREIGHT_STATUSES)
+        .order("id")
+        .range(a, b),
+    ),
   ]);
-  return { sales, items, lots, stock };
+  const { freight, unpriced } = freightByLot(transports);
+  return {
+    sales,
+    items,
+    lots: lots.map((l) => ({ ...l, freight: freight.get(l.id) ?? 0 })),
+    stock,
+    unpricedTransports: unpriced,
+  };
+}
+
+/**
+ * Transport par contenant de chaque lot : le prix d'un transport est réparti entre ses contenants au
+ * prorata du volume (un bidon de 5 L porte autant qu'environ 6,7 bouteilles de 75 cl), puis moyenné
+ * par lot s'il est venu en plusieurs fois. Un transport sans prix est ignoré et compté dans `unpriced` :
+ * ses contenants prennent la moyenne des autres transports du lot, ou 0.
+ */
+function freightByLot(transports: TransportRow[]): { freight: Map<string, number>; unpriced: number } {
+  const totals = new Map<string, { cost: number; count: number }>();
+  let unpriced = 0;
+  for (const t of transports) {
+    const items = t.order
+      .flatMap((o) => o.order_item)
+      .map((it) => ({ lotId: it.lot_id, qty: Number(it.quantity) || 0, ml: it.lot?.volume_ml ?? 750 }))
+      .filter((it) => it.qty > 0);
+    const totalMl = items.reduce((s, it) => s + it.qty * it.ml, 0);
+    if (totalMl <= 0) continue;
+    const price = toNumberOrNull(t.price);
+    if (price == null) {
+      unpriced++;
+      continue;
+    }
+    for (const it of items) {
+      const lot = totals.get(it.lotId) ?? { cost: 0, count: 0 };
+      lot.cost += (price * it.qty * it.ml) / totalMl;
+      lot.count += it.qty;
+      totals.set(it.lotId, lot);
+    }
+  }
+  return { freight: new Map([...totals].map(([id, t]) => [id, t.cost / t.count])), unpriced };
+}
+
+/** Coût de revient d'une bouteille : prix d'achat + transport ; null si le prix d'achat est inconnu (hors marge). */
+function unitCost(lot: Pick<LotRow, "purchase_price" | "freight">): number | null {
+  const buy = toNumberOrNull(lot.purchase_price);
+  return buy == null ? null : buy + lot.freight;
 }
 
 /** Total d'une ligne après remise (même règle que /manage/sales), jamais négatif. */
@@ -116,8 +185,10 @@ export type RevenueLine = {
   quantity: number;
   /** CA de la ligne après remise de ligne ET ristourne globale (proratisée). */
   revenue: number;
-  /** Coût d'achat (0 pour les lignes dégustation) ; null si le lot n'a pas de prix d'achat : la ligne reste hors marge. */
+  /** Coût de revient (0 pour les lignes dégustation) ; null si le lot n'a pas de prix d'achat : la ligne reste hors marge. */
   cost: number | null;
+  /** Part du transport dans `cost`. */
+  freight: number;
 };
 
 export function revenueLines(ds: Dataset, statuses = REVENUE_STATUSES): RevenueLine[] {
@@ -133,7 +204,8 @@ export function revenueLines(ds: Dataset, statuses = REVENUE_STATUSES): RevenueL
     const factor = gross > 0 ? toNumber(sale.total_price) / gross : 1;
     for (const it of items) {
       const v = it.lot_id ? lots.get(it.lot_id) : null;
-      const buy = v ? toNumberOrNull(v.purchase_price) : null;
+      const cost = v ? unitCost(v) : null;
+      const quantity = Number(it.quantity) || 0;
       out.push({
         saleId,
         date: sale.date,
@@ -141,9 +213,10 @@ export function revenueLines(ds: Dataset, statuses = REVENUE_STATUSES): RevenueL
         tastingId: sale.tasting_id ?? null,
         lotId: it.lot_id,
         isTastingFee: !it.lot_id,
-        quantity: Number(it.quantity) || 0,
+        quantity,
         revenue: lineTotal(it) * factor,
-        cost: !it.lot_id ? 0 : buy != null ? buy * (Number(it.quantity) || 0) : null,
+        cost: !it.lot_id ? 0 : cost != null ? cost * quantity : null,
+        freight: v && cost != null ? v.freight * quantity : 0,
       });
     }
   }
@@ -152,6 +225,8 @@ export function revenueLines(ds: Dataset, statuses = REVENUE_STATUSES): RevenueL
 
 export type MarginSummary = {
   margin: number;
+  /** Transport des bouteilles vendues, compris dans le coût de revient déduit. */
+  freight: number;
   /** Taux de marge en %, sur le CA des seules lignes dont le prix d'achat est connu ; null sans CA. */
   pct: number | null;
   /** Lots vendus sans prix d'achat, laissés hors marge (leur marge vaudrait tout leur CA). */
@@ -163,10 +238,21 @@ export function uncostedLabel(n: number): string {
   return `${n} lot${n > 1 ? "s" : ""} sans prix d’achat, hors marge`;
 }
 
-/** Marge des ventes de produits (entrées de dégustation ignorées) : seules comptent les lignes dont le prix d'achat est connu. */
+/** « Coût de revient déduit, dont 120 € de transport » : mention sous un indicateur de marge. */
+export function freightLabel(amount: number): string {
+  return `Coût de revient déduit, dont ${formatEUR(amount)} de transport`;
+}
+
+/** « 2 transports sans prix, non comptés » : mention sous un indicateur de marge ou de stock. */
+export function unpricedTransportLabel(n: number): string {
+  return `${n} transport${n > 1 ? "s" : ""} sans prix, non compté${n > 1 ? "s" : ""}`;
+}
+
+/** Marge des ventes de produits (entrées de dégustation ignorées) : CA − coût de revient, lignes au prix d'achat connu seulement. */
 export function marginOf(lines: RevenueLine[]): MarginSummary {
   let revenue = 0;
   let cost = 0;
+  let freight = 0;
   const uncosted = new Set<string | null>();
   for (const l of lines) {
     if (l.isTastingFee) continue;
@@ -174,10 +260,11 @@ export function marginOf(lines: RevenueLine[]): MarginSummary {
     else {
       revenue += l.revenue;
       cost += l.cost;
+      freight += l.freight;
     }
   }
   const margin = revenue - cost;
-  return { margin, pct: revenue > 0 ? (margin / revenue) * 100 : null, uncostedLots: uncosted.size };
+  return { margin, freight, pct: revenue > 0 ? (margin / revenue) * 100 : null, uncostedLots: uncosted.size };
 }
 
 export type LotStats = {
@@ -189,7 +276,7 @@ export type LotStats = {
   margin: number | null;
   /** Taux de marge réalisé (marge / CA, en %) ; null sans prix d'achat ou sans CA. */
   marginPct: number | null;
-  /** Marge unitaire théorique au prix catalogue. */
+  /** Marge unitaire théorique : prix catalogue − coût de revient. */
   unitMargin: number | null;
   unitMarginPct: number | null;
   lastSale: string | null;
@@ -205,16 +292,16 @@ export function lotStats(ds: Dataset, lines = revenueLines(ds)): LotStats[] {
     const revenue = own.reduce((s, l) => s + l.revenue, 0);
     const lastSale = own.reduce<string | null>((m, l) => (!m || l.date > m ? l.date : m), null);
     const price = v.price != null ? toNumber(v.price) : null;
-    const buy = toNumberOrNull(v.purchase_price);
-    const unitMargin = price != null && buy != null ? price - buy : null;
+    const cost = unitCost(v);
+    const unitMargin = price != null && cost != null ? price - cost : null;
     const realized = marginOf(own);
     return {
       lot: v,
       stock: ds.stock.get(v.id) ?? 0,
       sold: own.reduce((s, l) => s + l.quantity, 0),
       revenue,
-      margin: buy == null ? null : realized.margin,
-      marginPct: buy == null ? null : realized.pct,
+      margin: cost == null ? null : realized.margin,
+      marginPct: cost == null ? null : realized.pct,
       unitMargin,
       unitMarginPct: unitMargin != null && price ? (unitMargin / price) * 100 : null,
       lastSale,
@@ -223,10 +310,10 @@ export function lotStats(ds: Dataset, lines = revenueLines(ds)): LotStats[] {
   });
 }
 
-/** Valeur au prix d'achat de `qty` bouteilles d'un lot ; null si le prix est inconnu. */
-export function purchaseValue(lot: Pick<LotRow, "purchase_price">, qty: number): number | null {
-  const buy = toNumberOrNull(lot.purchase_price);
-  return buy == null ? null : buy * qty;
+/** Valeur au coût de revient de `qty` bouteilles d'un lot ; null si le prix d'achat est inconnu. */
+export function costValue(lot: Pick<LotRow, "purchase_price" | "freight">, qty: number): number | null {
+  const cost = unitCost(lot);
+  return cost == null ? null : cost * qty;
 }
 
 /** CA mensuel (12 derniers mois glissants, mois courant inclus). */
@@ -255,7 +342,7 @@ export type TastingRoi = {
   tasting: { id: string; name: string | null; date: string; location: string | null };
   participants: number;
   lotsPoured: number;
-  /** Coût d'achat des bouteilles ouvertes. */
+  /** Coût de revient des bouteilles ouvertes. */
   pouredCost: number;
   /** Lignes « Dégustation » (entrées) des ventes de la soirée. */
   fees: number;
@@ -284,7 +371,10 @@ export async function tastingRoi(ds: Dataset, lines = revenueLines(ds), windowDa
     const customers = new Set<string>((t.tasting_customer || []).map((r: any) => r.customer_id));
     const tastingLots = (t.tasting_lot || []) as { lot_id: string }[];
     const pouredCost = tastingLots.reduce(
-      (s, w) => s + toNumber(lots.get(w.lot_id)?.purchase_price) * BOTTLES_PER_TASTED_LOT,
+      (s, w) => {
+        const lot = lots.get(w.lot_id);
+        return s + ((lot && costValue(lot, BOTTLES_PER_TASTED_LOT)) ?? 0);
+      },
       0,
     );
     const evening = linesByTasting.get(t.id) ?? [];

@@ -7,8 +7,10 @@
     loadDataset,
     revenueLines,
     marginOf,
-    purchaseValue,
+    costValue,
     uncostedLabel,
+    freightLabel,
+    unpricedTransportLabel,
     tastingRoi,
     type MarginSummary,
     lotStats,
@@ -30,8 +32,9 @@
   let loading = $state(true);
   let error = $state("");
   let stats = $state.raw<LotStats[]>([]);
-  /** Marge de toutes les ventes de produits : prix d'achat connu uniquement (marginOf). */
+  /** Marge de toutes les ventes de produits, au coût de revient : prix d'achat connu uniquement (marginOf). */
   let margin = $state.raw<MarginSummary>(marginOf([]));
+  let unpricedTransports = $state(0);
   let roi = $state<TastingRoi[]>([]);
   type Tab = "margins" | "rotation" | "tastings";
   const TABS: { key: Tab; label: string }[] = [
@@ -43,6 +46,7 @@
   const MARGIN_SORT = {
     product: (s: LotStats) => lotLabel(s.lot),
     purchase: (s: LotStats) => toNumberOrNull(s.lot.purchase_price),
+    freight: (s: LotStats) => s.lot.freight,
     price: (s: LotStats) => toNumberOrNull(s.lot.price),
     unitMarginPct: (s: LotStats) => s.unitMarginPct,
     sold: (s: LotStats) => s.sold,
@@ -80,6 +84,7 @@
       const lines = revenueLines(ds);
       stats = lotStats(ds, lines);
       margin = marginOf(lines);
+      unpricedTransports = ds.unpricedTransports;
       roi = await tastingRoi(ds, lines);
     } catch (e) {
       error = errorMessage(e);
@@ -97,7 +102,7 @@
     .filter((s) => s.stock > 0)
     .map((s): RotationRow => ({
       ...s,
-      value: purchaseValue(s.lot, s.stock),
+      value: costValue(s.lot, s.stock),
       /* Ventes mensuelles moyennes sur la période observée → mois de stock restants. */
       monthsLeft: s.sold > 0 && s.lastSale ? s.stock / Math.max(0.25, s.sold / 12) : null,
     })), rotationSort, ROTATION_SORT));
@@ -134,7 +139,9 @@
     <div class="kpis">
       <KpiCard label="CA produits encaissé" value={formatEUR(totals.revenue, true)} icon={IconEuro} />
       <KpiCard label="Marge brute" value={formatEUR(margin.margin, true)} icon={IconChart}>
-        {#if margin.uncostedLots}<span class="t-warn">{uncostedLabel(margin.uncostedLots)}</span>{/if}
+        {#if margin.freight}<div>{freightLabel(margin.freight)}</div>{/if}
+        {#if unpricedTransports}<div class="t-warn">{unpricedTransportLabel(unpricedTransports)}</div>{/if}
+        {#if margin.uncostedLots}<div class="t-warn">{uncostedLabel(margin.uncostedLots)}</div>{/if}
       </KpiCard>
       <KpiCard label="Taux de marge" value={pct(margin.pct)} icon={IconSignal}>
         {#if margin.uncostedLots}Sur le CA des produits au prix d’achat connu{/if}
@@ -144,7 +151,11 @@
 
     {#if tab === "margins"}
       <p class="explain">
-        Marge = CA encaissé (remises et ristournes incluses) − prix d’achat × bouteilles vendues.
+        Coût de revient d’un contenant = prix d’achat + transport. Le prix de chaque transport en transit ou
+        livré est réparti entre les contenants de ses commandes au prorata du volume (un bidon de 5 L compte
+        comme 6,7 bouteilles de 75 cl), en moyenne si le produit est venu en plusieurs fois ; sans transport
+        enregistré, il vaut 0.
+        Marge = CA encaissé (remises et ristournes incluses) − coût de revient × bouteilles vendues.
         Un produit sans prix d’achat reste hors marge. La marge unitaire est calculée au prix catalogue.
       </p>
       <DataTable caption="Marges par produit">
@@ -152,6 +163,7 @@
             <tr>
               <SortHeader column="product" label="Produit" bind:sort={marginSort} />
               <SortHeader column="purchase" label="Achat" num firstDir="asc" bind:sort={marginSort} />
+              <SortHeader column="freight" label="Transport" num firstDir="asc" bind:sort={marginSort} />
               <SortHeader column="price" label="Vente" num firstDir="asc" bind:sort={marginSort} />
               <SortHeader column="unitMarginPct" label="Marge unit." num bind:sort={marginSort} />
               <SortHeader column="sold" label="Vendues" num bind:sort={marginSort} />
@@ -168,6 +180,7 @@
                   <a class="row-link" href="/manage/products/{s.lot.product_id}/stock/{s.lot.id}">{lotLabel(s.lot)}</a></span>
                 </td>
                 <td class="num">{formatEUR(s.lot.purchase_price)}</td>
+                <td class="num">{s.lot.freight ? formatEUR(s.lot.freight) : "—"}</td>
                 <td class="num">{formatEUR(s.lot.price)}</td>
                 <td class="num">
                   {#if s.unitMargin != null}
@@ -184,15 +197,15 @@
       </DataTable>
     {:else if tab === "rotation"}
       <p class="explain">
-        Produits en stock, du plus « endormi » au plus actif. Les mois de stock sont estimés à partir du rythme
-        de vente observé.
+        Produits en stock, du plus « endormi » au plus actif. La valeur est calculée au coût de revient
+        (achat + transport). Les mois de stock sont estimés à partir du rythme de vente observé.
       </p>
       <DataTable caption="Rotation du stock">
           <thead>
             <tr>
               <SortHeader column="product" label="Produit" bind:sort={rotationSort} />
               <SortHeader column="stock" label="Stock" num bind:sort={rotationSort} />
-              <SortHeader column="value" label="Valeur (achat)" num bind:sort={rotationSort} />
+              <SortHeader column="value" label="Valeur" num bind:sort={rotationSort} />
               <SortHeader column="lastSale" label="Dernière vente" bind:sort={rotationSort} />
               <SortHeader column="monthsLeft" label="Mois de stock" num bind:sort={rotationSort} />
               <th scope="col">Statut</th>
@@ -221,8 +234,8 @@
       </DataTable>
     {:else}
       <p class="explain">
-        Pour chaque soirée : entrées + marge sur les ventes rattachées à la dégustation − coût des
-        bouteilles ouvertes ({BOTTLES_PER_TASTED_LOT} par produit servi). Les « relances » sont les achats des
+        Pour chaque soirée : entrées + marge sur les ventes rattachées à la dégustation − coût de revient
+        (achat + transport) des bouteilles ouvertes ({BOTTLES_PER_TASTED_LOT} par produit servi). Les « relances » sont les achats des
         participants dans les 30 jours suivants, hors soirée. Un produit sans prix d’achat ne compte ni dans
         la marge ni dans le coût des bouteilles ouvertes.
       </p>
