@@ -7,7 +7,7 @@
   import type { RealtimeChannel } from "@supabase/supabase-js";
   import { supabase } from "$lib/supabase";
   import { fetchStockMap } from "$lib/manageData";
-  import { quantitiesByLot, totalQuantity } from "$lib/sales";
+  import { countedEveningSales, quantitiesByLot, salesLabel, sumSaleTotals, totalQuantity } from "$lib/sales";
   import ManagePageShell from "$lib/components/manage/ManagePageShell.svelte";
   import Button from "$lib/ui/Button.svelte";
   import IconButton from "$lib/ui/IconButton.svelte";
@@ -146,7 +146,7 @@
           .from("sale")
           .select("id, status, total_price, customer_id, sale_item ( lot_id, quantity )")
           .eq("tasting_id", tastingId);
-        eveningSales = ((data || []) as any[]).filter((x) => x.status !== "cancelled");
+        eveningSales = countedEveningSales((data || []) as any[]);
       })(),
       (async () => {
         seats = await fetchSeats(tastingId);
@@ -260,7 +260,7 @@
   /* ——— Interface (refonte) ——— */
   let soldLines = $derived(eveningSales.flatMap((x) => x.sale_item || []));
   let soldBottles = $derived(totalQuantity(soldLines));
-  let soldAmount = $derived(eveningSales.reduce((n, x) => n + Number(x.total_price || 0), 0));
+  let soldAmount = $derived(sumSaleTotals(eveningSales));
   let soldByLot = $derived(quantitiesByLot(soldLines));
   let orderedBottles = $derived(totalQuantity(wishedLines));
   let currentOrdered = $derived(current ? (stats.get(current.id)?.wanted ?? 0) : 0);
@@ -403,7 +403,7 @@
         </div>
         <a class="band-item band-link" href="/manage/sales?degustation={tastingId}">
           <span class="t-caption">Ventes de la soirée</span>
-          <span class="band-v">{formatEUR(soldAmount)}<small> · {eveningSales.length} vente{eveningSales.length > 1 ? "s" : ""}</small></span>
+          <span class="band-v">{formatEUR(soldAmount)}<small> · {salesLabel(eveningSales.length)}</small></span>
         </a>
         <div class="band-item">
           <span class="t-caption">Progression</span>

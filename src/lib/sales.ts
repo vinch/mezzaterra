@@ -28,6 +28,24 @@ export const SALE_SORT_VALUES = {
   total: (s: any) => toNumber(s.total_price),
 };
 
+/**
+ * Ventes d'une dégustation comptées dans « Ventes de la soirée » (Piloter, liste des dégustations) :
+ * toutes sauf les annulées, en attente comprises (le paiement suit souvent la soirée).
+ */
+export function countedEveningSales<T extends { status: string | null }>(sales: T[]): T[] {
+  return sales.filter((s) => s.status !== "cancelled");
+}
+
+/** Somme des totaux TTC enregistrés (sale.total_price). */
+export function sumSaleTotals(sales: { total_price: unknown }[]): number {
+  return sales.reduce((n, s) => n + toNumber(s.total_price), 0);
+}
+
+/** « 1 vente », « 3 ventes ». */
+export function salesLabel(n: number): string {
+  return `${n} vente${n > 1 ? "s" : ""}`;
+}
+
 /** Libellé par défaut d'une ligne « Dégustation » (sans lot). */
 export const TASTING_LINE_NOTE = "Dégustation";
 

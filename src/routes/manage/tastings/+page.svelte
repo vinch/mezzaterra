@@ -39,13 +39,16 @@
   import { errorMessage, latestOnly } from "$lib/async";
   import { fetchTastingWithLots, onlineSeatsByCustomer, participantOrigin, placesLabel, seatsTaken, tastingTitle } from "$lib/publicData";
   import { isoDateOnly, todayIso } from "$lib/dates";
-  import { formatDate } from "$lib/format";
+  import { formatDate, formatEUR } from "$lib/format";
+  import { countedEveningSales, salesLabel, sumSaleTotals } from "$lib/sales";
   import { isDiscontinued, lotLabel } from "$lib/products";
 
   type TastingRow = Tasting & {
     tasting_lot: { order: number; lot_id: string }[];
     tasting_customer: { customer_id: string; seats: number }[];
     tasting_registration: { customer_id: string | null; seats: number; status: string }[];
+    /** Ventes rattachées (sale.tasting_id), annulées exclues au chargement. */
+    sale: { total_price: number | string | null; status: string | null }[];
   };
 
   type ModalLotEntry = {
@@ -69,6 +72,7 @@
     location: (t: TastingRow) => t.location,
     products: (t: TastingRow) => lotCount(t),
     participants: (t: TastingRow) => participantPlaces(t),
+    sales: (t: TastingRow) => sumSaleTotals(t.sale),
   };
   /* Par défaut, la plus récente d'abord (ordre du chargement). */
   let sort = $state<SortState<keyof typeof SORT_VALUES>>({ key: "date", dir: "desc" });
@@ -166,7 +170,8 @@
         *,
         tasting_lot ( order, lot_id ),
         tasting_customer ( customer_id, seats ),
-        tasting_registration ( customer_id, seats, status )
+        tasting_registration ( customer_id, seats, status ),
+        sale ( total_price, status )
       `,
       )
       .eq("tasting_registration.status", "confirmed")
@@ -176,7 +181,7 @@
       error = fetchError.message;
       tastings = [];
     } else {
-      tastings = (data || []) as TastingRow[];
+      tastings = ((data || []) as TastingRow[]).map((t) => ({ ...t, sale: countedEveningSales(t.sale ?? []) }));
     }
   }
 
@@ -498,6 +503,7 @@
           <SortHeader column="location" label="Lieu" bind:sort />
           <SortHeader column="products" label="Produits" num bind:sort />
           <SortHeader column="participants" label="Participants" num bind:sort />
+          <SortHeader column="sales" label="Ventes" num bind:sort />
           <th scope="col" class="col-actions"><span class="sr-only">Actions</span></th>
         </tr>
       </thead>
@@ -517,6 +523,15 @@
                 <Button size="sm" variant="ghost" title="Voir les participants" ariaLabel="Voir les participants ({placesLabel(count)})" onclick={() => showParticipants(tasting)}>{count}</Button>
               {:else}
                 0
+              {/if}
+            </td>
+            <td class="num">
+              {#if tasting.sale?.length}
+                {@const salesText = salesLabel(tasting.sale.length)}
+                {@const total = formatEUR(sumSaleTotals(tasting.sale))}
+                <Button size="sm" variant="ghost" href="/manage/sales?degustation={tasting.id}" title="Voir les ventes ({salesText})" ariaLabel="Voir les ventes : {total}, {salesText}">{total}</Button>
+              {:else}
+                —
               {/if}
             </td>
             <td class="col-actions">
