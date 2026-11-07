@@ -135,7 +135,9 @@
       <KpiCard label="Marge brute" value={formatEUR(margin.margin, true)} icon={IconChart}>
         {#if margin.uncostedLots}<span class="t-warn">{uncostedLabel(margin.uncostedLots)}</span>{/if}
       </KpiCard>
-      <KpiCard label="Taux de marge" value={pct(margin.pct)} icon={IconSignal} />
+      <KpiCard label="Taux de marge" value={pct(margin.pct)} icon={IconSignal}>
+        {#if margin.uncostedLots}Sur le CA des produits au prix d’achat connu{/if}
+      </KpiCard>
       <KpiCard label="Bouteilles vendues" value={String(totals.sold)} icon={IconBox} />
     </div>
 
@@ -220,7 +222,8 @@
       <p class="explain">
         Pour chaque soirée : entrées + marge sur les ventes rattachées à la dégustation − coût des
         bouteilles ouvertes ({BOTTLES_PER_TASTED_LOT} par produit servi). Les « relances » sont les achats des
-        participants dans les 30 jours suivants, hors soirée.
+        participants dans les 30 jours suivants, hors soirée. Les ventes d’un produit sans prix d’achat ne
+        comptent pas dans la marge.
       </p>
       <DataTable caption="Rentabilité des dégustations">
           <thead>
