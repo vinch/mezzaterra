@@ -203,7 +203,8 @@
       },
     });
 
-    if (signInError) {
+    /* Adresse sans compte (otp_disabled) : même réponse qu'un envoi, pour ne pas dire qui a un accès. */
+    if (signInError && signInError.code !== "otp_disabled") {
       error = signInError.message;
     } else {
       magicLinkSent = true;
@@ -259,7 +260,7 @@
           <p class="t-danger login-error" role="alert">{error}</p>
         {/if}
       {:else}
-        <p role="status">Un lien de connexion a été envoyé à <strong>{email}</strong>.</p>
+        <p role="status">Si <strong>{email}</strong> a accès à la gestion, un lien de connexion vient d’y être envoyé.</p>
         <p class="t-muted">Vérifiez votre boîte mail et cliquez sur le lien pour vous connecter.</p>
         <Button onclick={() => (magicLinkSent = false)}>Envoyer un nouveau lien</Button>
       {/if}
