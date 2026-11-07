@@ -107,7 +107,7 @@
 
   function replyHref(m: ContactMessage): string {
     const label = contactReason(m.reason)?.label ?? "Votre message";
-    return mailtoHref(m.email, `Re: ${label}${m.subject ? ` — ${m.subject}` : ""}`);
+    return mailtoHref(m.email, { subject: `Re: ${label}${m.subject ? ` — ${m.subject}` : ""}` });
   }
 
   /** Change le statut sur place, sans recharger toutes les demandes. */
