@@ -296,7 +296,7 @@ export type Database = {
           price: number | null
           product_id: string
           production_year: number
-          purchase_price: number
+          purchase_price: number | null
           volume_ml: number
           year: number | null
         }
@@ -310,7 +310,7 @@ export type Database = {
           price?: number | null
           product_id: string
           production_year: number
-          purchase_price?: number
+          purchase_price?: number | null
           volume_ml?: number
           year?: number | null
         }
@@ -324,7 +324,7 @@ export type Database = {
           price?: number | null
           product_id?: string
           production_year?: number
-          purchase_price?: number
+          purchase_price?: number | null
           volume_ml?: number
           year?: number | null
         }

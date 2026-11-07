@@ -146,6 +146,11 @@ venir accompagné (1 à 10 places). Les places d'une réservation en ligne reste
 réservation. À appliquer avant de déployer le code, qui envoie `p_seats` (l'ancien code marche sur le
 nouveau schéma).
 
+`20261107120000_lot_purchase_price_optional.sql` rend `lot.purchase_price` facultatif : vide = prix
+inconnu, le lot reste hors marge ; 0 = produit reçu gratuitement. Les prix à 0 (défaut de l'ancienne
+colonne) passent à vide. À appliquer avant de déployer le code, qui enregistre un prix vide (l'ancien
+code marche sur le nouveau schéma).
+
 ```sh
 supabase link --project-ref wmerreifcpttrhxwmkmn
 supabase db push
