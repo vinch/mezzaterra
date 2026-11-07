@@ -62,9 +62,7 @@
     revenueAll: 0,
     revenueMonth: 0,
     pendingSales: 0,
-    productMargin: 0,
-    marginPct: null as number | null,
-    uncostedLots: 0,
+    margin: marginOf([]),
     bottles: 0,
     stockValue: 0,
     lowCount: 0,
@@ -129,15 +127,12 @@
       const inStock = [...ds.stock.values()].filter((q) => q > 0);
       const revenueSales = ds.sales.filter((s) => REVENUE_STATUSES.includes(s.status ?? ""));
       const lines = revenueLines(ds);
-      const productMargin = marginOf(lines.filter((l) => !l.isTastingFee));
 
       kpi = {
         revenueAll: revenueSales.reduce((sum, r) => sum + Number(r.total_price ?? 0), 0),
         revenueMonth: revenueSales.filter((r) => r.date >= monthStart).reduce((sum, r) => sum + Number(r.total_price ?? 0), 0),
         pendingSales: ds.sales.filter((s) => s.status === "pending").length,
-        productMargin: productMargin.margin,
-        marginPct: productMargin.pct,
-        uncostedLots: productMargin.uncostedLots,
+        margin: marginOf(lines),
         bottles: inStock.reduce((s, q) => s + q, 0),
         stockValue: ds.lots.reduce((s, v) => s + Math.max(0, ds.stock.get(v.id) ?? 0) * Number(v.purchase_price || 0), 0),
         lowCount: inStock.filter((q) => q <= LOW_STOCK).length,
@@ -308,9 +303,9 @@
         <KpiCard label="Chiffre d’affaires" value={formatEUR(kpi.revenueAll)} icon={IconEuro} href="/manage/sales">
           {formatEUR(kpi.revenueMonth)} ce mois-ci · {salesLabel(kpi.pendingSales)} en attente
         </KpiCard>
-        <KpiCard label="Marge brute sur les produits" value={formatEUR(kpi.productMargin)} icon={IconChart} href="/manage/insights">
-          {kpi.marginPct != null ? `${formatPercent(Math.round(kpi.marginPct))} du CA produits` : "Aucune vente encaissée"}
-          {#if kpi.uncostedLots}<br /><span class="t-warn">{uncostedLabel(kpi.uncostedLots)}</span>{/if}
+        <KpiCard label="Marge brute sur les produits" value={formatEUR(kpi.margin.margin)} icon={IconChart} href="/manage/insights">
+          {kpi.margin.pct != null ? `${formatPercent(Math.round(kpi.margin.pct))} du CA produits` : "Aucune vente encaissée"}
+          {#if kpi.margin.uncostedLots}<br /><span class="t-warn">{uncostedLabel(kpi.margin.uncostedLots)}</span>{/if}
         </KpiCard>
         <KpiCard label="Bouteilles en stock" value={String(kpi.bottles)} icon={IconBox} href="/manage/stock">
           {formatEUR(kpi.stockValue)} au prix d’achat

@@ -24,13 +24,13 @@
   import KpiCard from "$lib/ui/KpiCard.svelte";
   import Tabs from "$lib/ui/Tabs.svelte";
   import { IconBox, IconChart, IconEuro, IconSignal } from "$lib/ui/icons";
-  import { formatDate, formatEUR, toNumberOrNull } from "$lib/format";
+  import { formatDate, formatEUR, formatPercent, toNumberOrNull } from "$lib/format";
 
   let loading = $state(true);
   let error = $state("");
   let stats = $state.raw<LotStats[]>([]);
   /** Marge de toutes les ventes de produits : prix d'achat connu uniquement (marginOf). */
-  let margin = $state.raw<MarginSummary | null>(null);
+  let margin = $state.raw<MarginSummary>(marginOf([]));
   let roi = $state<TastingRoi[]>([]);
   type Tab = "margins" | "rotation" | "tastings";
   const TABS: { key: Tab; label: string }[] = [
@@ -78,7 +78,7 @@
       const ds = await loadDataset();
       const lines = revenueLines(ds);
       stats = lotStats(ds, lines);
-      margin = marginOf(lines.filter((l) => !l.isTastingFee));
+      margin = marginOf(lines);
       roi = await tastingRoi(ds, lines);
     } catch (e) {
       error = errorMessage(e);
@@ -103,7 +103,7 @@
   let sortedRoi = $derived(sortedBy(roi, roiSort, ROI_SORT));
 
   function pct(n: number | null): string {
-    return n == null ? "—" : `${Math.round(n)} %`;
+    return n == null ? "—" : formatPercent(Math.round(n));
   }
 
   function marginClass(p: number | null): string {
@@ -132,10 +132,10 @@
   {:else}
     <div class="kpis">
       <KpiCard label="CA produits encaissé" value={formatEUR(totals.revenue, true)} icon={IconEuro} />
-      <KpiCard label="Marge brute" value={formatEUR(margin?.margin ?? 0, true)} icon={IconChart}>
-        {#if margin?.uncostedLots}<span class="t-warn">{uncostedLabel(margin.uncostedLots)}</span>{/if}
+      <KpiCard label="Marge brute" value={formatEUR(margin.margin, true)} icon={IconChart}>
+        {#if margin.uncostedLots}<span class="t-warn">{uncostedLabel(margin.uncostedLots)}</span>{/if}
       </KpiCard>
-      <KpiCard label="Taux de marge" value={pct(margin?.pct ?? null)} icon={IconSignal} />
+      <KpiCard label="Taux de marge" value={pct(margin.pct)} icon={IconSignal} />
       <KpiCard label="Bouteilles vendues" value={String(totals.sold)} icon={IconBox} />
     </div>
 
