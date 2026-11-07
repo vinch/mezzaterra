@@ -2,7 +2,7 @@ import { error, redirect } from "@sveltejs/kit";
 import { isUuid } from "$lib/publicData";
 import { kindBySlug, kindOf, lotHref } from "$lib/productKinds";
 import { supabase } from "$lib/supabase";
-import { compareLotsByStyle, groupFormats, LOT_PUBLIC_SELECT, LOT_PUBLIC_SELECT_BY_PRODUCT } from "$lib/products";
+import { compareLotsByStyle, groupFormats, LOT_PUBLIC_COLUMNS, LOT_PUBLIC_SELECT, LOT_PUBLIC_SELECT_BY_PRODUCT } from "$lib/products";
 import type { PageLoad } from "./$types";
 
 export const load: PageLoad = async ({ params, url }) => {
@@ -26,7 +26,7 @@ export const load: PageLoad = async ({ params, url }) => {
   const [siblingsRes, producerRes] = await Promise.all([
     supabase
       .from("lot")
-      .select("*")
+      .select(LOT_PUBLIC_COLUMNS)
       .eq("product_id", v.product_id)
       .neq("id", v.id)
       .is("discontinued_at", null)

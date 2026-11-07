@@ -151,6 +151,17 @@ inconnu, le lot reste hors marge ; 0 = produit reçu gratuitement. Les prix à 0
 colonne) passent à vide. À appliquer avant de déployer le code, qui enregistre un prix vide (l'ancien
 code marche sur le nouveau schéma).
 
+`20261107130000_lot_purchase_price_private.sql` cache les prix d'achat aux visiteurs : le rôle `anon`
+ne lit plus que les colonnes publiques de `lot` (`LOT_PUBLIC_COLUMNS`, `src/lib/products.ts`), et un
+`select("*")` du site sur `lot` échoue. Une nouvelle colonne publique s'ajoute aux deux endroits. **À
+appliquer après avoir déployé le code**, qui liste ses colonnes : l'ancien code (`*`) casserait le site.
+Le rôle `authenticated` lit tout, pour tout compte connecté, admin ou non : les inscriptions doivent
+rester fermées (Supabase > Authentication > « Allow new users to sign up » désactivé), sinon n'importe
+qui s'ouvre un compte et lit les prix d'achat. L'écran de connexion de `/manage` n'en crée pas
+(`shouldCreateUser: false`). Nouvel admin : l'inviter depuis Supabase (Authentication > Users > Invite),
+puis ajouter son identifiant à la table `administrator`. La gestion n'est rendue que dans le navigateur
+(`ssr = false`) : côté serveur, sans session, elle lirait la base en `anon`.
+
 ```sh
 supabase link --project-ref wmerreifcpttrhxwmkmn
 supabase db push
