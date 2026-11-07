@@ -72,5 +72,8 @@ export function contactHref(raison?: ContactReasonId, sujet?: string): string {
 /** Destinataire par défaut (surchargé côté serveur par CONTACT_TO). */
 export const CONTACT_EMAIL = "gianni@mezzaterra.be";
 
+/** Adresse publique du site : liens durables envoyés par email (désinscription), même depuis un preview. */
+export const SITE_URL = "https://mezzaterra.be";
+
 /** Délai minimal entre l'affichage du formulaire et l'envoi : en dessous, c'est un robot. */
 export const CONTACT_MIN_FILL_MS = 3000;

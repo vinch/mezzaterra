@@ -11,16 +11,19 @@
   import Select from "$lib/ui/Select.svelte";
   import { formatDateLong, formatTime, todayIso } from "$lib/dates";
   import { formatEUR } from "$lib/format";
+  import { isValidEmail } from "$lib/contact";
   import { isPrivateTasting, tastingTitle } from "$lib/publicData";
   import { FLYER_HEIGHT, FLYER_WIDTH, drawTastingFlyer, loadFlyerAssets } from "$lib/tastingFlyer";
 
-  type Recipient = { email: string; unsubscribeId?: string | null; source: string };
+  type Recipient = { email: string; source: string };
 
   let loading = $state(true);
   let error = $state("");
   let sendEnabled = $state(false);
 
-  let subscribers = $state<{ id: string; email: string }[]>([]);
+  let subscribers = $state<{ email: string }[]>([]);
+  /** Adresses désinscrites : exclues de toutes les audiences (le serveur le vérifie aussi à l'envoi). */
+  let unsubscribed = $state.raw<Set<string>>(new Set());
   let customers = $state<{ email: string; first_name: string }[]>([]);
   let tastings = $state<any[]>([]);
   let registrations = $state<{ email: string; status: string }[]>([]);
@@ -43,10 +46,13 @@
 
   onMount(async () => {
     try {
-      const [subs, cust, tast, status] = await Promise.all([
+      const [subs, unsub, cust, tast, status] = await Promise.all([
         /* Paginé : au-delà de 1000 abonnés, PostgREST tronquerait la liste sans le dire. */
-        fetchAllRows<{ id: string; email: string }>((a, b) =>
-          supabase.from("email_subscriber").select("id, email").order("created_at", { ascending: false }).order("id").range(a, b),
+        fetchAllRows<{ email: string }>((a, b) =>
+          supabase.from("email_subscriber").select("email").order("created_at", { ascending: false }).order("id").range(a, b),
+        ),
+        fetchAllRows<{ email: string }>((a, b) =>
+          supabase.from("email_recipient").select("email").not("unsubscribed_at", "is", null).order("email").range(a, b),
         ),
         fetchAllRows<{ email: string | null; first_name: string | null }>((a, b) =>
           supabase.from("customer").select("email, first_name").not("email", "is", null).order("id").range(a, b),
@@ -57,6 +63,7 @@
           .catch(() => ({ enabled: false })),
       ]);
       subscribers = subs;
+      unsubscribed = new Set(unsub.map((r) => r.email));
       customers = cust.filter((c) => c.email) as any[];
       tastings = tast.data || [];
       sendEnabled = Boolean(status?.enabled);
@@ -151,13 +158,13 @@
         body: JSON.stringify({
           subject,
           text: message,
-          recipients: recipients.map((r) => ({ email: r.email, unsubscribeId: r.unsubscribeId })),
+          emails: recipients.map((r) => r.email),
           attachment: content ? { filename: "degustation-mezzaterra.png", content } : null,
         }),
       });
       const out = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(out?.message || `Erreur ${res.status}`);
-      result = `${out.sent} email${out.sent > 1 ? "s" : ""} envoyé${out.sent > 1 ? "s" : ""}${out.failed ? ` — ${out.failed} échec(s)` : ""}.`;
+      result = `${out.sent} email${out.sent > 1 ? "s" : ""} envoyé${out.sent > 1 ? "s" : ""}${out.failed ? ` — ${out.failed} échec(s)` : ""}${out.skipped ? ` — ${out.skipped} désinscrit${out.skipped > 1 ? "s" : ""} exclu${out.skipped > 1 ? "s" : ""}` : ""}.`;
     } catch (e) {
       error = errorMessage(e);
     } finally {
@@ -174,24 +181,22 @@
   $effect.pre(() => {
     if (useRegistrants && registrantTastingId) untrack(() => void loadRegistrations(registrantTastingId));
   });
-  let recipients = $derived((() => {
+  /** Destinataires dédoublonnés, désinscrits exclus ; `excluded` compte ceux qu'on a retirés. */
+  let audience = $derived.by(() => {
     const map = new Map<string, Recipient>();
-    const add = (email: string | null | undefined, source: string, unsubscribeId?: string) => {
+    const excluded = new Set<string>();
+    const add = (email: string | null | undefined, source: string) => {
       const e = (email || "").trim().toLowerCase();
-      if (!e || !e.includes("@")) return;
-      const prev = map.get(e);
-      map.set(e, { email: e, source: prev ? prev.source : source, unsubscribeId: unsubscribeId ?? prev?.unsubscribeId ?? null });
+      if (!isValidEmail(e)) return;
+      if (unsubscribed.has(e)) excluded.add(e);
+      else if (!map.has(e)) map.set(e, { email: e, source });
     };
-    if (useSubscribers) for (const s of subscribers) add(s.email, "Newsletter", s.id);
+    if (useSubscribers) for (const s of subscribers) add(s.email, "Newsletter");
     if (useCustomers) for (const c of customers) add(c.email, "Client");
     if (useRegistrants) for (const r of registrations) add(r.email, "Inscrit");
-    /* Les clients aussi abonnés gardent leur lien de désinscription. */
-    for (const s of subscribers) {
-      const r = map.get(s.email.toLowerCase());
-      if (r && !r.unsubscribeId) r.unsubscribeId = s.id;
-    }
-    return [...map.values()];
-  })());
+    return { recipients: [...map.values()], excluded: excluded.size };
+  });
+  let recipients = $derived(audience.recipients);
   let recipientsLabel = $derived(`${recipients.length} destinataire${recipients.length > 1 ? "s" : ""}`);
   let canSend = $derived(!!subject.trim() && !!message.trim() && recipients.length > 0);
   let mailtoHref = $derived(`mailto:?bcc=${encodeURIComponent(recipients.map((r) => r.email).join(","))}&subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(message)}`);
@@ -232,7 +237,7 @@
           <Field id="camp-subject" label="Objet">
             <input id="camp-subject" class="ui-control" bind:value={subject} />
           </Field>
-          <Field id="camp-message" label="Message" help="Texte simple : les liens deviennent cliquables, un lien de désinscription est ajouté pour les abonnés.">
+          <Field id="camp-message" label="Message" help="Texte simple : les liens deviennent cliquables. L’envoi direct ajoute un lien de désinscription à chaque email.">
             {#snippet children({ describedby })}
               <textarea id="camp-message" class="ui-control" rows="14" bind:value={message} aria-describedby={describedby}></textarea>
             {/snippet}
@@ -257,7 +262,10 @@
               </Select>
             </div>
           {/if}
-          <p class="t-caption flush">Doublons fusionnés automatiquement.</p>
+          <p class="t-caption flush">
+            Doublons fusionnés automatiquement.{#if audience.excluded}
+              {audience.excluded} désinscrit{audience.excluded > 1 ? "s" : ""} exclu{audience.excluded > 1 ? "s" : ""}.{/if}
+          </p>
 
           <details>
             <summary>Voir la liste</summary>

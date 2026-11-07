@@ -165,6 +165,14 @@ puis ajouter son identifiant à la table `administrator`. La gestion n'est rendu
 `20261107140000_email_subscriber_admin_select.sql` donne aux admins la lecture de `email_subscriber` :
 la table n'avait qu'une policy INSERT, et la page Abonnés comme les campagnes lisaient une liste vide.
 
+`20261107150000_email_unsubscribe.sql` fait respecter la désinscription dans toutes les campagnes :
+`email_recipient` donne un jeton de désinscription à chaque adresse emailée et garde sa date de
+désinscription (`campaign_recipients`, `unsubscribe_token`). `/api/campaign` exclut les désinscrits de
+toutes les audiences (abonnés, clients, inscrits) et met un lien `/desinscription?t=…` dans chaque
+email ; les anciens liens `?id=` marchent toujours. Laisser son email sur l'accueil annule une
+désinscription, une inscription à une dégustation non. À appliquer avant de déployer le code
+(l'ancien code marche sur le nouveau schéma).
+
 ```sh
 supabase link --project-ref wmerreifcpttrhxwmkmn
 supabase db push
