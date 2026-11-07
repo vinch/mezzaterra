@@ -559,6 +559,7 @@
   {/if}
   <div class="add-variety">
     <select class="ui-control" bind:value={selectedVarietyId} aria-label="{kind.varieties} : ajouter">
+      <button><selectedcontent></selectedcontent></button>
       <option value="">{kind.chooseVariety}</option>
       {#each allVarieties as variety (variety.id)}
         <option value={variety.id} disabled={linkedVarietyIds.has(variety.id)}>

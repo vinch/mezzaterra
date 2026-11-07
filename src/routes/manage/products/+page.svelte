@@ -555,12 +555,14 @@
         </div>
       {/if}
       <select class="ui-control filter-select" bind:value={filterProducerId} aria-label="Domaine">
+        <button><selectedcontent></selectedcontent></button>
         <option value="">Tous les domaines</option>
         {#each producers as producer}
           <option value={producer.id}>{producer.name}</option>
         {/each}
       </select>
       <select class="ui-control filter-select" bind:value={filterAppellationId} aria-label="Appellation">
+        <button><selectedcontent></selectedcontent></button>
         <option value="">Toutes les appellations</option>
         {#each tabAppellations as appellation}
           <option value={appellation.id}>{appellation.name}{appellation.label?.name ? ` ${appellation.label.name}` : ""}</option>
@@ -696,6 +698,7 @@
         onchange={(e) => setFormKind(e.currentTarget.value as ProductKind)}
         disabled={!!editingProduct}
       >
+        <button><selectedcontent></selectedcontent></button>
         {#each PRODUCT_KIND_OPTIONS as o (o.value)}
           <option value={o.value}>{o.label}</option>
         {/each}
@@ -707,6 +710,7 @@
     <div class="ui-grid-2">
       <Field id="product-producer" label="Domaine" required>
         <select id="product-producer" class="ui-control" bind:value={formData.producer_id} required>
+          <button><selectedcontent></selectedcontent></button>
           <option value="">Sélectionner un domaine</option>
           {#each producers as producer}
             <option value={producer.id}>{producer.name}</option>
@@ -715,6 +719,7 @@
       </Field>
       <Field id="product-type" label={formKind.typeLabel} required>
         <select id="product-type" class="ui-control" bind:value={formData.product_type_id} required>
+          <button><selectedcontent></selectedcontent></button>
           <option value="">Sélectionner…</option>
           {#each formTypes as productType}
             <option value={productType.id}>{productTypeLabel(productType)}</option>
@@ -724,6 +729,7 @@
     </div>
     <Field id="product-appellation" label="Appellation" optional>
       <select id="product-appellation" class="ui-control" bind:value={formData.appellation_id}>
+        <button><selectedcontent></selectedcontent></button>
         <option value="">Aucune</option>
         {#each formAppellations as appellation}
           <option value={appellation.id}>{appellation.name}{appellation.label?.name ? ` ${appellation.label.name}` : ""}</option>

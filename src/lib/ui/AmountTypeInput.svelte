@@ -40,6 +40,7 @@
     {oninput}
   />
   <select class="ui-control" bind:value={type} aria-label="Type de remise" {onchange}>
+    <button><selectedcontent></selectedcontent></button>
     <option value="amount">{amountLabel}</option>
     <option value="percent">{percentLabel}</option>
   </select>

@@ -203,6 +203,14 @@ select:disabled {
     overflow-clip-margin: content-box;
   }
 
+  /* Points de suspension : le select doit contenir
+     <button><selectedcontent></selectedcontent></button> (comme Select.svelte). */
+  select selectedcontent {
+    white-space: nowrap; /* le <button> remet white-space: normal */
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
   select::picker-icon {
     display: none;
   }

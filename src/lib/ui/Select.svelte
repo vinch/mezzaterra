@@ -37,5 +37,6 @@
   aria-label={ariaLabel}
   {onchange}
 >
+  <button><selectedcontent></selectedcontent></button>
   {@render children?.()}
 </select>
