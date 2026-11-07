@@ -286,11 +286,18 @@ export function productPairings(
 }
 
 /**
+ * Colonnes d'un lot lisibles par les visiteurs : toutes sauf le prix d'achat. `anon` n'a de droit
+ * que sur elles (migration 20261107130000) : un `select("*")` du site sur `lot` échoue.
+ */
+export const LOT_PUBLIC_COLUMNS =
+  "id, product_id, year, production_year, volume_ml, abv, price, image_url, organic, discontinued_at, created_at" as const;
+
+/**
  * Requête Supabase réutilisable : un lot avec tout ce qu'il faut pour l'afficher.
  * `inner` permet de filtrer sur le produit et son producteur (`.eq("product.kind", …)`, `.eq("product.producer.hidden", false)`).
  */
 const lotPublicSelect = (inner: boolean) => `
-  *,
+  ${LOT_PUBLIC_COLUMNS},
   product${inner ? "!inner" : ""} (
     *,
     product_type ( name, category, kind ),

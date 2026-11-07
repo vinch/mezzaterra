@@ -146,6 +146,11 @@ venir accompagné (1 à 10 places). Les places d'une réservation en ligne reste
 réservation. À appliquer avant de déployer le code, qui envoie `p_seats` (l'ancien code marche sur le
 nouveau schéma).
 
+`20261107130000_lot_purchase_price_private.sql` cache les prix d'achat aux visiteurs : le rôle `anon`
+ne lit plus que les colonnes publiques de `lot` (`LOT_PUBLIC_COLUMNS`, `src/lib/products.ts`), et un
+`select("*")` du site sur `lot` échoue. Une nouvelle colonne publique s'ajoute aux deux endroits. **À
+appliquer après avoir déployé le code**, qui liste ses colonnes : l'ancien code (`*`) casserait le site.
+
 ```sh
 supabase link --project-ref wmerreifcpttrhxwmkmn
 supabase db push
