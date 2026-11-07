@@ -6,11 +6,13 @@
     BOTTLES_PER_TASTED_LOT,
     loadDataset,
     revenueLines,
-    marginOf,
+    overallMargin,
     purchaseValue,
     uncostedLabel,
+    transportLabel,
+    unpricedTransportLabel,
     tastingRoi,
-    type MarginSummary,
+    type OverallMargin,
     lotStats,
     type TastingRoi,
     type LotStats,
@@ -30,8 +32,8 @@
   let loading = $state(true);
   let error = $state("");
   let stats = $state.raw<LotStats[]>([]);
-  /** Marge de toutes les ventes de produits : prix d'achat connu uniquement (marginOf). */
-  let margin = $state.raw<MarginSummary>(marginOf([]));
+  /** Marge de toutes les ventes de produits : prix d'achat connu uniquement, transports déduits (overallMargin). */
+  let margin = $state.raw<OverallMargin>(overallMargin([], []));
   let roi = $state<TastingRoi[]>([]);
   type Tab = "margins" | "rotation" | "tastings";
   const TABS: { key: Tab; label: string }[] = [
@@ -79,7 +81,7 @@
       const ds = await loadDataset();
       const lines = revenueLines(ds);
       stats = lotStats(ds, lines);
-      margin = marginOf(lines);
+      margin = overallMargin(lines, ds.transports);
       roi = await tastingRoi(ds, lines);
     } catch (e) {
       error = errorMessage(e);
@@ -134,7 +136,9 @@
     <div class="kpis">
       <KpiCard label="CA produits encaissé" value={formatEUR(totals.revenue, true)} icon={IconEuro} />
       <KpiCard label="Marge brute" value={formatEUR(margin.margin, true)} icon={IconChart}>
-        {#if margin.uncostedLots}<span class="t-warn">{uncostedLabel(margin.uncostedLots)}</span>{/if}
+        {#if margin.transportCost}<div>{transportLabel(margin.transportCost)}</div>{/if}
+        {#if margin.unpricedTransports}<div class="t-warn">{unpricedTransportLabel(margin.unpricedTransports)}</div>{/if}
+        {#if margin.uncostedLots}<div class="t-warn">{uncostedLabel(margin.uncostedLots)}</div>{/if}
       </KpiCard>
       <KpiCard label="Taux de marge" value={pct(margin.pct)} icon={IconSignal}>
         {#if margin.uncostedLots}Sur le CA des produits au prix d’achat connu{/if}
@@ -146,6 +150,7 @@
       <p class="explain">
         Marge = CA encaissé (remises et ristournes incluses) − prix d’achat × bouteilles vendues.
         Un produit sans prix d’achat reste hors marge. La marge unitaire est calculée au prix catalogue.
+        La marge brute globale déduit en plus le prix des transports (hors transports annulés) ; pas la marge par produit.
       </p>
       <DataTable caption="Marges par produit">
           <thead>

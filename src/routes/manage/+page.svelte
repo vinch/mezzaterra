@@ -31,9 +31,11 @@
     loadDataset,
     monthlyRevenue,
     revenueLines,
-    marginOf,
+    overallMargin,
     purchaseValue,
     uncostedLabel,
+    transportLabel,
+    unpricedTransportLabel,
     lotStats,
     type LotStats,
   } from "$lib/analytics";
@@ -63,7 +65,7 @@
     revenueAll: 0,
     revenueMonth: 0,
     pendingSales: 0,
-    margin: marginOf([]),
+    margin: overallMargin([], []),
     bottles: 0,
     stockValue: 0,
     lowCount: 0,
@@ -133,7 +135,7 @@
         revenueAll: revenueSales.reduce((sum, r) => sum + Number(r.total_price ?? 0), 0),
         revenueMonth: revenueSales.filter((r) => r.date >= monthStart).reduce((sum, r) => sum + Number(r.total_price ?? 0), 0),
         pendingSales: ds.sales.filter((s) => s.status === "pending").length,
-        margin: marginOf(lines),
+        margin: overallMargin(lines, ds.transports),
         bottles: inStock.reduce((s, q) => s + q, 0),
         stockValue: ds.lots.reduce((s, v) => s + Math.max(0, ds.stock.get(v.id) ?? 0) * Number(v.purchase_price || 0), 0),
         lowCount: inStock.filter((q) => q <= LOW_STOCK).length,
@@ -307,9 +309,11 @@
         <KpiCard label="Chiffre d’affaires" value={formatEUR(kpi.revenueAll)} icon={IconEuro} href="/manage/sales">
           {formatEUR(kpi.revenueMonth)} ce mois-ci · {salesLabel(kpi.pendingSales)} en attente
         </KpiCard>
-        <KpiCard label="Marge brute sur les produits" value={formatEUR(kpi.margin.margin)} icon={IconChart} href="/manage/insights">
-          {#if kpi.margin.pct != null}Taux de marge : {formatPercent(Math.round(kpi.margin.pct))}{:else if !kpi.margin.uncostedLots && !kpi.margin.margin}Aucune vente encaissée{/if}
-          {#if kpi.margin.uncostedLots}{#if kpi.margin.pct != null}<br />{/if}<span class="t-warn">{uncostedLabel(kpi.margin.uncostedLots)}</span>{/if}
+        <KpiCard label="Marge brute" value={formatEUR(kpi.margin.margin)} icon={IconChart} href="/manage/insights">
+          {#if kpi.margin.pct != null}<div>Taux de marge : {formatPercent(Math.round(kpi.margin.pct))}</div>{:else if !kpi.margin.uncostedLots}<div>Aucune vente encaissée</div>{/if}
+          {#if kpi.margin.transportCost}<div>{transportLabel(kpi.margin.transportCost)}</div>{/if}
+          {#if kpi.margin.unpricedTransports}<div class="t-warn">{unpricedTransportLabel(kpi.margin.unpricedTransports)}</div>{/if}
+          {#if kpi.margin.uncostedLots}<div class="t-warn">{uncostedLabel(kpi.margin.uncostedLots)}</div>{/if}
         </KpiCard>
         <KpiCard label="Bouteilles en stock" value={String(kpi.bottles)} icon={IconBox} href="/manage/stock">
           {formatEUR(kpi.stockValue)} au prix d’achat

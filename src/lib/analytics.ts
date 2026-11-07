@@ -1,6 +1,6 @@
 import { fetchAllRows, supabase } from "./supabase";
 import { addDaysIso, formatShortMonth, parseIsoDate, todayIso } from "./dates";
-import { toNumber, toNumberOrNull } from "./format";
+import { formatEUR, toNumber, toNumberOrNull } from "./format";
 import { fetchStockMap } from "./manageData";
 
 /**
@@ -48,11 +48,15 @@ export type LotRow = {
   product: any;
 };
 
+export type TransportRow = { price: number | null; status: string | null };
+
 export type Dataset = {
   sales: SaleRow[];
   items: SaleItemRow[];
   lots: LotRow[];
   stock: Map<string, number>;
+  /** Transports (prix, statut), déduits de la marge globale par overallMargin. */
+  transports: TransportRow[];
 };
 
 /** Regroupe une liste par clé (les éléments sans clé sont ignorés), en un seul passage. */
@@ -69,7 +73,7 @@ function groupBy<T>(items: T[], key: (item: T) => string | null): Map<string, T[
 }
 
 export async function loadDataset(): Promise<Dataset> {
-  const [sales, items, lots, stock] = await Promise.all([
+  const [sales, items, lots, stock, transports] = await Promise.all([
     fetchAllRows<SaleRow>((a, b) =>
       supabase.from("sale").select("id, date, status, total_price, customer_id, tasting_id").order("id").range(a, b),
     ),
@@ -90,8 +94,11 @@ export async function loadDataset(): Promise<Dataset> {
         .range(a, b),
     ),
     fetchStockMap(),
+    fetchAllRows<TransportRow>((a, b) =>
+      supabase.from("transport").select("price, status").order("id").range(a, b),
+    ),
   ]);
-  return { sales, items, lots, stock };
+  return { sales, items, lots, stock, transports };
 }
 
 /** Total d'une ligne après remise (même règle que /manage/sales), jamais négatif. */
@@ -152,6 +159,8 @@ export function revenueLines(ds: Dataset, statuses = REVENUE_STATUSES): RevenueL
 
 export type MarginSummary = {
   margin: number;
+  /** CA des seules lignes dont le prix d'achat est connu : base du taux de marge. */
+  costedRevenue: number;
   /** Taux de marge en %, sur le CA des seules lignes dont le prix d'achat est connu ; null sans CA. */
   pct: number | null;
   /** Lots vendus sans prix d'achat, laissés hors marge (leur marge vaudrait tout leur CA). */
@@ -162,6 +171,18 @@ export type MarginSummary = {
 export function uncostedLabel(n: number): string {
   return `${n} lot${n > 1 ? "s" : ""} sans prix d’achat, hors marge`;
 }
+
+/** « Transports déduits : 1 200 € » : mention sous un indicateur de marge globale. */
+export function transportLabel(amount: number): string {
+  return `Transports déduits : ${formatEUR(amount)}`;
+}
+
+/** « 2 transports sans prix, non déduits » : mention sous un indicateur de marge globale. */
+export function unpricedTransportLabel(n: number): string {
+  return `${n} transport${n > 1 ? "s" : ""} sans prix, non déduit${n > 1 ? "s" : ""}`;
+}
+
+const marginPct = (margin: number, revenue: number) => (revenue > 0 ? (margin / revenue) * 100 : null);
 
 /** Marge des ventes de produits (entrées de dégustation ignorées) : seules comptent les lignes dont le prix d'achat est connu. */
 export function marginOf(lines: RevenueLine[]): MarginSummary {
@@ -177,7 +198,32 @@ export function marginOf(lines: RevenueLine[]): MarginSummary {
     }
   }
   const margin = revenue - cost;
-  return { margin, pct: revenue > 0 ? (margin / revenue) * 100 : null, uncostedLots: uncosted.size };
+  return { margin, costedRevenue: revenue, pct: marginPct(margin, revenue), uncostedLots: uncosted.size };
+}
+
+export type OverallMargin = MarginSummary & {
+  /** Prix cumulé des transports non annulés, déduit de la marge. */
+  transportCost: number;
+  /** Transports non annulés sans prix : inconnus, donc non déduits (même règle que le prix d'achat). */
+  unpricedTransports: number;
+};
+
+/**
+ * Marge globale de l'activité : marge des produits moins le prix des transports non annulés,
+ * déduit en bloc car un transport se rattache aux commandes fournisseur, pas aux ventes.
+ */
+export function overallMargin(lines: RevenueLine[], transports: TransportRow[]): OverallMargin {
+  const products = marginOf(lines);
+  let transportCost = 0;
+  let unpricedTransports = 0;
+  for (const t of transports) {
+    if (t.status === "cancelled") continue;
+    const price = toNumberOrNull(t.price);
+    if (price == null) unpricedTransports++;
+    else transportCost += price;
+  }
+  const margin = products.margin - transportCost;
+  return { ...products, margin, transportCost, unpricedTransports, pct: marginPct(margin, products.costedRevenue) };
 }
 
 export type LotStats = {
