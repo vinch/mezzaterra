@@ -371,7 +371,7 @@
           {#if soldLots.length === 0}
             <EmptyState icon={IconReceipt} title="Pas encore de ventes encaissées" compact />
           {:else if topLots.length === 0}
-            <EmptyState icon={IconReceipt} title="Aucun prix d’achat renseigné sur les produits vendus" compact />
+            <EmptyState icon={IconReceipt} title="Aucune marge à afficher" text="Les produits vendus n’ont pas de prix d’achat ou ont été vendus à perte." compact />
           {:else}
             <ol class="rank">
               {#each topLots as w}
