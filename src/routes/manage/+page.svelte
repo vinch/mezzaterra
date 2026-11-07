@@ -12,6 +12,7 @@
   import StockBadge from "$lib/ui/StockBadge.svelte";
   import StyleDot from "$lib/ui/StyleDot.svelte";
   import Spinner from "$lib/ui/Spinner.svelte";
+  import Tabs from "$lib/ui/Tabs.svelte";
   import {
     IconBox,
     IconCalendar,
@@ -38,7 +39,7 @@
   import { fetchSeats, onlineSeats, type SeatInfo } from "$lib/publicData";
   import { isDiscontinued, lotShortLabel } from "$lib/products";
   import { daysAwayLabel, daysUntil, formatDateLong, todayIso } from "$lib/dates";
-  import { formatDate, formatEUR } from "$lib/format";
+  import { formatDate, formatEUR, formatPercent } from "$lib/format";
 
   const { user: userStore } = getContext<any>("auth");
 
@@ -70,7 +71,14 @@
     tastings: 0,
   });
   let months = $state<{ key: string; label: string; value: number }[]>([]);
-  let topLots = $state<LotStats[]>([]);
+  /** Lots vendus, classés au choix par CA ou par marge dans le top 5. */
+  let soldLots = $state.raw<LotStats[]>([]);
+  type TopBy = "revenue" | "margin";
+  const TOP_BY: { key: TopBy; label: string }[] = [
+    { key: "revenue", label: "CA" },
+    { key: "margin", label: "Marge" },
+  ];
+  let topBy = $state<TopBy>("revenue");
   let outOfStock = $state<LotStats[]>([]);
   let lowStock = $state<LotStats[]>([]);
   let dormant = $state<LotStats[]>([]);
@@ -138,7 +146,7 @@
 
       const stats = lotStats(ds, lines);
       months = monthlyRevenue(ds);
-      topLots = stats.filter((s) => s.sold > 0).sort((a, b) => b.revenue - a.revenue).slice(0, 5);
+      soldLots = stats.filter((s) => s.sold > 0);
       /* Réassort : jamais pour un lot « plus jamais disponible ». */
       const reorderable = stats.filter((s) => !isDiscontinued(s.lot));
       outOfStock = reorderable.filter((s) => s.stock <= 0 && s.sold > 0).sort((a, b) => b.sold - a.sold);
@@ -209,6 +217,13 @@
   }
 
   let stockAlerts = $derived([...outOfStock, ...lowStock]);
+  /* Par marge : écarte les lots vendus à perte et ceux sans prix d'achat (marginPct null), dont la marge vaudrait tout le CA. */
+  let topLots = $derived(
+    [...(topBy === "margin" ? soldLots.filter((s) => s.marginPct != null && s.margin > 0) : soldLots)]
+      .sort((a, b) => b[topBy] - a[topBy])
+      .slice(0, 5),
+  );
+  let topMax = $derived(topLots[0]?.[topBy] ?? 0);
   let chartLabel = $derived(`Chiffre d'affaires encaissé par mois sur les 12 derniers mois. ${months
     .map((m) => `${m.label} : ${formatEUR(m.value)}`)
     .join(", ")}.`);
@@ -352,10 +367,12 @@
 
         <Card title="Top 5 des produits" id="top-lots">
           {#snippet actions()}
-                    <span class="t-caption">par chiffre d’affaires</span>
+                    <Tabs items={TOP_BY} bind:value={topBy} label="Classer par" />
                   {/snippet}
-          {#if topLots.length === 0}
+          {#if soldLots.length === 0}
             <EmptyState icon={IconReceipt} title="Pas encore de ventes encaissées" compact />
+          {:else if topLots.length === 0}
+            <EmptyState icon={IconReceipt} title="Aucune marge à afficher" text="Les produits vendus n’ont pas de prix d’achat ou ont été vendus à perte." compact />
           {:else}
             <ol class="rank">
               {#each topLots as w}
@@ -364,8 +381,11 @@
                     <StyleDot type={w.lot.product?.product_type} />
                     <span><strong>{lotShortLabel(w.lot)}</strong><span class="t-muted">&nbsp;· {w.lot.product?.producer?.name ?? ""}</span></span>
                   </span>
-                  <span class="rank-value"><strong>{formatEUR(w.revenue)}</strong><span class="t-muted">{w.sold} bt.</span></span>
-                  <span class="rank-bar" aria-hidden="true"><span style="width: {(w.revenue / topLots[0].revenue) * 100}%"></span></span>
+                  <span class="rank-value">
+                    <strong>{formatEUR(w[topBy])}</strong>
+                    <span class="t-muted">{topBy === "revenue" ? `${w.sold} bt.` : formatPercent(Math.round(w.marginPct ?? 0))}</span>
+                  </span>
+                  <span class="rank-bar" aria-hidden="true"><span style="width: {topMax > 0 ? Math.max(0, w[topBy] / topMax) * 100 : 0}%"></span></span>
                 </li>
               {/each}
             </ol>
