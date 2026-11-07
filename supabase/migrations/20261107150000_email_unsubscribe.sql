@@ -37,7 +37,8 @@ BEGIN
   INSERT INTO email_recipient (email) SELECT unnest(v_emails) ON CONFLICT (email) DO NOTHING;
   RETURN QUERY
     SELECT r.email, r.unsubscribe_token FROM email_recipient r
-    WHERE r.email = ANY (v_emails) AND r.unsubscribed_at IS NULL;
+    WHERE r.email = ANY (v_emails) AND r.unsubscribed_at IS NULL
+    ORDER BY r.email;
 END;
 $$;
 
@@ -54,7 +55,7 @@ SET search_path = public
 AS $$
   INSERT INTO email_recipient (email, unsubscribed_at) VALUES (p_email, now())
   ON CONFLICT (email) DO UPDATE SET unsubscribed_at = coalesce(email_recipient.unsubscribed_at, now());
-  DELETE FROM email_subscriber WHERE lower(email) = p_email;
+  DELETE FROM email_subscriber WHERE lower(btrim(email)) = p_email;
 $$;
 
 REVOKE ALL ON FUNCTION public.unsubscribe_address(text) FROM PUBLIC, anon, authenticated;
