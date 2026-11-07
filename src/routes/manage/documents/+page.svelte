@@ -228,7 +228,7 @@
           <div class="filter-group">
             <label for="doc-producer">Domaine</label>
             <select id="doc-producer" bind:value={filterProducerId}>
-              <button><selectedcontent></selectedcontent></button>
+              <button type="button"><selectedcontent></selectedcontent></button>
               <option value="">Tous</option>
               {#each producers as w}
                 <option value={w.id}>{w.name}</option>
@@ -238,7 +238,7 @@
           <div class="filter-group">
             <label for="doc-type">Type</label>
             <select id="doc-type" bind:value={filterProductTypeId}>
-              <button><selectedcontent></selectedcontent></button>
+              <button type="button"><selectedcontent></selectedcontent></button>
               <option value="">Tous</option>
               {#each productTypes as t}
                 <option value={t.id}>{t.name}</option>
