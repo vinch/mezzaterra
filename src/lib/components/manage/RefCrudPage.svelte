@@ -97,7 +97,7 @@
   let sortedRows = $derived(sortedBy(shownRows, sort, sortValues));
   let tabItems = $derived(kindTabs ? kindTabItems(rows, loading, kindTabs) : []);
 
-  const formId = `ref-form-${table}`;
+  const formId = $derived(`ref-form-${table}`);
   const query = () => supabase.from(table as any) as any;
   const NUMBER = /^-?\d+([.,]\d+)?$/;
 

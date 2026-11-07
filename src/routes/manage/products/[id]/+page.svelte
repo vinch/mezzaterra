@@ -2,7 +2,7 @@
   import { preventDefault } from "$lib/ui/events";
 
   import { supabase } from "$lib/supabase";
-  import { onMount } from "svelte";
+  import { onMount, untrack } from "svelte";
   import type { PageData } from "./$types";
   import type { Lot } from "$lib/types";
   import ManagePageShell from "$lib/components/manage/ManagePageShell.svelte";
@@ -49,7 +49,7 @@
 
   let { data }: Props = $props();
 
-  let product = data.product;
+  let product = untrack(() => data.product);
   /** Vocabulaire du produit : millésime ou lot, cépages ou variétés… */
   const kind = kindInfo(product);
   const kindIcons = KIND_ICONS[kind.key];
