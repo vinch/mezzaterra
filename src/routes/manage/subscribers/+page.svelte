@@ -77,7 +77,8 @@
 
   function exportCsv() {
     /* Point-virgule et BOM : Excel en français ouvre le fichier directement, accents compris. */
-    const cell = (v: string) => `"${v.replaceAll('"', '""')}"`;
+    /* « ' » devant =, +, -, @ : le tableur ne doit pas exécuter une formule glissée dans un email. */
+    const cell = (v: string) => `"${v.replace(/^[=+\-@\t\r]/, "'$&").replaceAll('"', '""')}"`;
     const lines = [
       ["Email", "Source", "Inscrit le"],
       ...shown.map((s) => [s.email, sourceLabel(s.source), formatDate(s.created_at)]),
