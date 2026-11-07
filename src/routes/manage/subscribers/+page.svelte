@@ -121,7 +121,7 @@
 <ManagePageShell title="Abonnés" subtitle="Emails laissés sur l’accueil du site ou lors d’une inscription à une dégustation">
   {#snippet actions()}
     <Button onclick={exportCsv} disabled={loading || shown.length === 0}>
-      <IconDownload size={16} strokeWidth={1.75} /> Exporter en CSV
+      <IconDownload size={16} strokeWidth={1.75} /> {shown.length === subscribers.length ? "Exporter en CSV" : `Exporter la sélection (${shown.length})`}
     </Button>
   {/snippet}
 
