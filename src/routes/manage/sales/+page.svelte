@@ -52,6 +52,7 @@
     paymentMethodLabel,
     saleItemDescription,
     saleTotal,
+    salesLabel,
   } from "$lib/sales";
   import { fetchCustomers, fetchLineItems, fetchPickerLots, fetchStockMap } from "$lib/manageData";
   import { errorMessage, latestOnly } from "$lib/async";
@@ -729,7 +730,7 @@
       return fold(`${c.first_name ?? ""} ${c.last_name ?? ""} ${c.company_name ?? ""} ${s.invoice_number ?? ""}`).includes(q);
     }), sort, SORT_VALUES));
   let pendingCount = $derived(sales.filter((s) => s.status === "pending").length);
-  let subtitle = $derived(`${periodSales.length} vente${periodSales.length > 1 ? "s" : ""}${period === "all" ? "" : ` en ${period}`} · ${pendingCount} en attente de paiement`);
+  let subtitle = $derived(`${salesLabel(periodSales.length)}${period === "all" ? "" : ` en ${period}`} · ${pendingCount} en attente de paiement`);
   let grossTotal = $derived(Math.round(
     saleItems.reduce((sum, it) => sum + toNumber(it.price) * (parseInt(String(it.quantity ?? 0), 10) || 0), 0) * 100,
   ) / 100);
