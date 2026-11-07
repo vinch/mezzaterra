@@ -23,6 +23,7 @@
     IconImage,
     IconInbox,
     IconMail,
+    IconMailCheck,
     IconMap,
     IconMapPin,
     IconMenu,
@@ -84,6 +85,7 @@
         { href: "/manage/customers", label: "Clients", icon: IconUsers },
         { href: "/manage/sales", label: "Ventes", icon: IconReceipt, count: pendingSales },
         { href: "/manage/campaigns", label: "Campagnes", icon: IconMail },
+        { href: "/manage/subscribers", label: "Abonnés", icon: IconMailCheck },
       ],
     },
     {

@@ -1,7 +1,7 @@
 <script lang="ts">
   import { onMount, untrack } from "svelte";
   import { errorMessage } from "$lib/async";
-  import { supabase } from "$lib/supabase";
+  import { fetchAllRows, supabase } from "$lib/supabase";
   import ManagePageShell from "$lib/components/manage/ManagePageShell.svelte";
   import Spinner from "$lib/ui/Spinner.svelte";
   import Button from "$lib/ui/Button.svelte";
@@ -44,15 +44,20 @@
   onMount(async () => {
     try {
       const [subs, cust, tast, status] = await Promise.all([
-        supabase.from("email_subscriber").select("id, email").order("created_at", { ascending: false }),
-        supabase.from("customer").select("email, first_name").not("email", "is", null),
+        /* Paginé : au-delà de 1000 abonnés, PostgREST tronquerait la liste sans le dire. */
+        fetchAllRows<{ id: string; email: string }>((a, b) =>
+          supabase.from("email_subscriber").select("id, email").order("created_at", { ascending: false }).order("id").range(a, b),
+        ),
+        fetchAllRows<{ email: string | null; first_name: string | null }>((a, b) =>
+          supabase.from("customer").select("email, first_name").not("email", "is", null).order("id").range(a, b),
+        ),
         supabase.from("tasting").select("*").order("date", { ascending: false }),
         fetch("/api/campaign")
           .then((r) => (r.ok ? r.json() : { enabled: false }))
           .catch(() => ({ enabled: false })),
       ]);
-      subscribers = subs.data || [];
-      customers = (cust.data || []).filter((c) => c.email) as any[];
+      subscribers = subs;
+      customers = cust.filter((c) => c.email) as any[];
       tastings = tast.data || [];
       sendEnabled = Boolean(status?.enabled);
 
