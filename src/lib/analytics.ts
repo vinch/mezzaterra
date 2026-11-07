@@ -115,8 +115,8 @@ export type RevenueLine = {
   quantity: number;
   /** CA de la ligne après remise de ligne ET ristourne globale (proratisée). */
   revenue: number;
-  /** Coût d'achat (0 pour les lignes dégustation). */
-  cost: number;
+  /** Coût d'achat (0 pour les lignes dégustation) ; null si le lot n'a pas de prix d'achat : la ligne reste hors marge. */
+  cost: number | null;
 };
 
 export function revenueLines(ds: Dataset, statuses = REVENUE_STATUSES): RevenueLine[] {
@@ -132,6 +132,7 @@ export function revenueLines(ds: Dataset, statuses = REVENUE_STATUSES): RevenueL
     const factor = gross > 0 ? toNumber(sale.total_price) / gross : 1;
     for (const it of items) {
       const v = it.lot_id ? lots.get(it.lot_id) : null;
+      const buy = v ? toNumber(v.purchase_price) : 0;
       out.push({
         saleId,
         date: sale.date,
@@ -141,11 +142,42 @@ export function revenueLines(ds: Dataset, statuses = REVENUE_STATUSES): RevenueL
         isTastingFee: !it.lot_id,
         quantity: Number(it.quantity) || 0,
         revenue: lineTotal(it) * factor,
-        cost: v ? toNumber(v.purchase_price) * (Number(it.quantity) || 0) : 0,
+        cost: !it.lot_id ? 0 : buy > 0 ? buy * (Number(it.quantity) || 0) : null,
       });
     }
   }
   return out;
+}
+
+export type MarginSummary = {
+  /** CA des seules lignes dont le prix d'achat est connu : base du taux de marge. */
+  revenue: number;
+  margin: number;
+  /** Taux de marge en % ; null sans CA. */
+  pct: number | null;
+  /** Lots vendus sans prix d'achat, laissés hors marge (leur marge vaudrait tout leur CA). */
+  uncostedLots: number;
+};
+
+/** « 2 lots sans prix d'achat, hors marge » : mention sous un indicateur de marge. */
+export function uncostedLabel(n: number): string {
+  return `${n} lot${n > 1 ? "s" : ""} sans prix d’achat, hors marge`;
+}
+
+/** Marge d'un ensemble de lignes : seules comptent celles dont le prix d'achat est connu. */
+export function marginOf(lines: RevenueLine[]): MarginSummary {
+  let revenue = 0;
+  let cost = 0;
+  const uncosted = new Set<string | null>();
+  for (const l of lines) {
+    if (l.cost == null) uncosted.add(l.lotId);
+    else {
+      revenue += l.revenue;
+      cost += l.cost;
+    }
+  }
+  const margin = revenue - cost;
+  return { revenue, margin, pct: revenue > 0 ? (margin / revenue) * 100 : null, uncostedLots: uncosted.size };
 }
 
 export type LotStats = {
@@ -153,8 +185,8 @@ export type LotStats = {
   stock: number;
   sold: number;
   revenue: number;
-  cost: number;
-  margin: number;
+  /** Marge réalisée ; null sans prix d'achat (voir marginOf). */
+  margin: number | null;
   /** Taux de marge réalisé (marge / CA, en %) ; null sans prix d'achat ou sans CA. */
   marginPct: number | null;
   /** Marge unitaire théorique au prix catalogue. */
@@ -171,19 +203,18 @@ export function lotStats(ds: Dataset, lines = revenueLines(ds)): LotStats[] {
   return ds.lots.map((v) => {
     const own = linesByLot.get(v.id) ?? [];
     const revenue = own.reduce((s, l) => s + l.revenue, 0);
-    const cost = own.reduce((s, l) => s + l.cost, 0);
     const lastSale = own.reduce<string | null>((m, l) => (!m || l.date > m ? l.date : m), null);
     const price = v.price != null ? toNumber(v.price) : null;
     const buy = toNumber(v.purchase_price);
     const unitMargin = price != null && buy > 0 ? price - buy : null;
+    const realized = marginOf(own);
     return {
       lot: v,
       stock: ds.stock.get(v.id) ?? 0,
       sold: own.reduce((s, l) => s + l.quantity, 0),
       revenue,
-      cost,
-      margin: revenue - cost,
-      marginPct: buy > 0 && revenue > 0 ? ((revenue - cost) / revenue) * 100 : null,
+      margin: buy > 0 ? realized.margin : null,
+      marginPct: buy > 0 ? realized.pct : null,
       unitMargin,
       unitMarginPct: unitMargin != null && price ? (unitMargin / price) * 100 : null,
       lastSale,
@@ -254,7 +285,7 @@ export async function tastingRoi(ds: Dataset, lines = revenueLines(ds), windowDa
     const fees = evening.filter((l) => l.isTastingFee).reduce((s, l) => s + l.revenue, 0);
     const productLines = evening.filter((l) => !l.isTastingFee);
     const eveningRevenue = productLines.reduce((s, l) => s + l.revenue, 0);
-    const eveningMargin = productLines.reduce((s, l) => s + (l.revenue - l.cost), 0);
+    const eveningMargin = marginOf(productLines).margin;
     const end = addDaysIso(t.date, windowDays);
     const later = lines.filter(
       (l) => !l.isTastingFee && !l.tastingId && customers.has(l.customerId) && l.date > t.date && l.date <= end,

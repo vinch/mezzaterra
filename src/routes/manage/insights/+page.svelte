@@ -6,7 +6,10 @@
     BOTTLES_PER_TASTED_LOT,
     loadDataset,
     revenueLines,
+    marginOf,
+    uncostedLabel,
     tastingRoi,
+    type MarginSummary,
     lotStats,
     type TastingRoi,
     type LotStats,
@@ -26,6 +29,8 @@
   let loading = $state(true);
   let error = $state("");
   let stats = $state.raw<LotStats[]>([]);
+  /** Marge de toutes les ventes de produits : prix d'achat connu uniquement (marginOf). */
+  let margin = $state.raw<MarginSummary | null>(null);
   let roi = $state<TastingRoi[]>([]);
   type Tab = "margins" | "rotation" | "tastings";
   const TABS: { key: Tab; label: string }[] = [
@@ -73,6 +78,7 @@
       const ds = await loadDataset();
       const lines = revenueLines(ds);
       stats = lotStats(ds, lines);
+      margin = marginOf(lines.filter((l) => !l.isTastingFee));
       roi = await tastingRoi(ds, lines);
     } catch (e) {
       error = errorMessage(e);
@@ -83,8 +89,8 @@
 
   let sorted = $derived(sortedBy(stats, marginSort, MARGIN_SORT));
   let totals = $derived(stats.reduce(
-    (t, s) => ({ revenue: t.revenue + s.revenue, cost: t.cost + s.cost, sold: t.sold + s.sold }),
-    { revenue: 0, cost: 0, sold: 0 },
+    (t, s) => ({ revenue: t.revenue + s.revenue, sold: t.sold + s.sold }),
+    { revenue: 0, sold: 0 },
   ));
   let rotation = $derived(sortedBy(stats
     .filter((s) => s.stock > 0)
@@ -126,15 +132,17 @@
   {:else}
     <div class="kpis">
       <KpiCard label="CA produits encaissé" value={formatEUR(totals.revenue, true)} icon={IconEuro} />
-      <KpiCard label="Marge brute" value={formatEUR(totals.revenue - totals.cost, true)} icon={IconChart} />
-      <KpiCard label="Taux de marge" value={pct(totals.revenue ? ((totals.revenue - totals.cost) / totals.revenue) * 100 : null)} icon={IconSignal} />
+      <KpiCard label="Marge brute" value={formatEUR(margin?.margin ?? 0, true)} icon={IconChart}>
+        {#if margin?.uncostedLots}<span class="t-warn">{uncostedLabel(margin.uncostedLots)}</span>{/if}
+      </KpiCard>
+      <KpiCard label="Taux de marge" value={pct(margin?.pct ?? null)} icon={IconSignal} />
       <KpiCard label="Bouteilles vendues" value={String(totals.sold)} icon={IconBox} />
     </div>
 
     {#if tab === "margins"}
       <p class="explain">
         Marge = CA encaissé (remises et ristournes incluses) − prix d’achat × bouteilles vendues.
-        La marge unitaire est calculée au prix catalogue.
+        Un produit sans prix d’achat reste hors marge. La marge unitaire est calculée au prix catalogue.
       </p>
       <DataTable caption="Marges par produit">
           <thead>
@@ -165,7 +173,7 @@
                 </td>
                 <td class="num">{s.sold || "—"}</td>
                 <td class="num">{s.revenue ? formatEUR(s.revenue, true) : "—"}</td>
-                <td class="num"><strong>{s.revenue ? formatEUR(s.margin, true) : "—"}</strong></td>
+                <td class="num"><strong>{s.revenue && s.margin != null ? formatEUR(s.margin, true) : "—"}</strong></td>
                 <td class="num">{s.stock}</td>
               </tr>
             {/each}
