@@ -580,7 +580,7 @@
             </PageHeader>
           </div>
           <h3 class="ds-h3"><code>Tabs</code> (snippet <code>tabs</code> de <code>ManagePageShell</code>)</h3>
-          <p class="t-muted">Filtrent la liste de la page, avec un compte par onglet ; puces défilantes sur mobile. Un référentiel propre à un type de produit (appellations, cépages) a un onglet par type : <code>kindTabs</code> de <code>RefCrudPage</code>.</p>
+          <p class="t-muted">Filtrent la liste de la page, avec un compte par onglet ; puces défilantes sur mobile. Un référentiel propre à un type de produit (appellations, cépages) a un onglet par type : <code>kindTabs</code> de <code>RefCrudPage</code>. Dans le snippet <code>actions</code> d’une <code>Card</code>, sans compte, ils changent le critère d’un classement (top 5 du tableau de bord : CA ou marge).</p>
           <Tabs
             label="Type de produit"
             items={PRODUCT_KIND_LIST.map((k, i) => ({ key: k.key, label: k.plural, count: 5 - 2 * i }))}

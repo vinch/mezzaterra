@@ -155,6 +155,8 @@ export type LotStats = {
   revenue: number;
   cost: number;
   margin: number;
+  /** Taux de marge réalisé (marge / CA, en %) ; null sans prix d'achat ou sans CA. */
+  marginPct: number | null;
   /** Marge unitaire théorique au prix catalogue. */
   unitMargin: number | null;
   unitMarginPct: number | null;
@@ -181,6 +183,7 @@ export function lotStats(ds: Dataset, lines = revenueLines(ds)): LotStats[] {
       revenue,
       cost,
       margin: revenue - cost,
+      marginPct: buy > 0 && revenue > 0 ? ((revenue - cost) / revenue) * 100 : null,
       unitMargin,
       unitMarginPct: unitMargin != null && price ? (unitMargin / price) * 100 : null,
       lastSale,
