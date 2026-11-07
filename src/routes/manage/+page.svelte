@@ -312,7 +312,7 @@
           {formatEUR(kpi.revenueMonth)} ce mois-ci · {salesLabel(kpi.pendingSales)} en attente
         </KpiCard>
         <KpiCard label="Marge brute" value={formatEUR(kpi.margin.margin)} icon={IconChart} href="/manage/insights">
-          {#if kpi.margin.pct != null}<div>Taux de marge : {formatPercent(Math.round(kpi.margin.pct))}</div>{:else if !kpi.margin.uncostedLots}<div>Aucune vente encaissée</div>{/if}
+          {#if kpi.margin.pct != null}<div>Taux de marge : {formatPercent(Math.round(kpi.margin.pct))}</div>{:else if !kpi.margin.uncostedLots && !kpi.margin.margin}<div>Aucune vente encaissée</div>{/if}
           {#if kpi.margin.freight}<div>{freightLabel(kpi.margin.freight)}</div>{/if}
           {#if kpi.unpricedTransports}<div class="t-warn">{unpricedTransportLabel(kpi.unpricedTransports)}</div>{/if}
           {#if kpi.margin.uncostedLots}<div class="t-warn">{uncostedLabel(kpi.margin.uncostedLots)}</div>{/if}
