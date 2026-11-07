@@ -237,7 +237,7 @@
           <Field id="camp-subject" label="Objet">
             <input id="camp-subject" class="ui-control" bind:value={subject} />
           </Field>
-          <Field id="camp-message" label="Message" help="Texte simple : les liens deviennent cliquables, un lien de désinscription est ajouté pour les abonnés.">
+          <Field id="camp-message" label="Message" help="Texte simple : les liens deviennent cliquables. L’envoi direct ajoute un lien de désinscription à chaque email.">
             {#snippet children({ describedby })}
               <textarea id="camp-message" class="ui-control" rows="14" bind:value={message} aria-describedby={describedby}></textarea>
             {/snippet}
@@ -265,7 +265,6 @@
           <p class="t-caption flush">
             Doublons fusionnés automatiquement.{#if audience.excluded}
               {audience.excluded} désinscrit{audience.excluded > 1 ? "s" : ""} exclu{audience.excluded > 1 ? "s" : ""}.{/if}
-            Chaque email porte un lien de désinscription.
           </p>
 
           <details>
