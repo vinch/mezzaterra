@@ -196,6 +196,11 @@ select:disabled {
 
   select:not([multiple]):not([size]) {
     align-items: center; /* centre le texte quand le champ a une hauteur minimale */
+    /* base-select laisse le libellé passer à la ligne : on le garde sur une ligne,
+       coupé avant le chevron (bord du contenu, padding-right compris). */
+    white-space: nowrap;
+    overflow: clip;
+    overflow-clip-margin: content-box;
   }
 
   select::picker-icon {
