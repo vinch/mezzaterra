@@ -12,10 +12,9 @@
     const { data, error } = token
       ? await supabase.rpc("unsubscribe_token", { p_token: token })
       : await supabase.rpc("unsubscribe_email", { p_id: id });
-    /* Jeton inconnu ou tronqué (22P02 : pas un uuid) : lien périmé. Un ancien lien `id` déjà utilisé
-       renvoie false, mais l'abonné est bien désinscrit : « fait ». */
+    /* false : jeton inconnu ou ancien lien dont l'abonné n'existe plus ; 22P02 : jeton tronqué. */
     if (error) status = error.code === "22P02" ? "unknown" : "error";
-    else status = token && !data ? "unknown" : "done";
+    else status = data ? "done" : "unknown";
   }
 </script>
 
@@ -33,7 +32,7 @@
       <p>C’est fait : vous ne recevrez plus nos emails. À bientôt peut-être autour d’un verre !</p>
       <a class="mz-btn mz-btn--ghost" href="/">Retour à l’accueil</a>
     {:else if status === "unknown"}
-      <p class="mz-muted">Ce lien de désinscription n’est plus valable. Répondez simplement à l’un de nos emails et nous vous retirerons de la liste.</p>
+      <p class="mz-muted">Ce lien de désinscription n’est plus valable. Si vous recevez encore nos emails, utilisez le lien du plus récent ou répondez-y simplement : nous vous retirerons de la liste.</p>
     {:else if status === "error"}
       <p class="mz-feedback mz-feedback--error">Impossible de traiter la demande pour le moment. Répondez à l’un de nos emails et nous nous en chargeons.</p>
     {:else}
